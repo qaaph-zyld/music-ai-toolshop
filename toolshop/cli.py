@@ -73,6 +73,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Root directory of the local Suno library.",
     )
 
+    # suno analyze - batch BPM/key analysis of Suno library
+    suno_analyze_parser = suno_subparsers.add_parser(
+        "analyze", help="Batch-analyze Suno library for BPM/key"
+    )
+    suno_analyze_parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path("suno_library"),
+        help="Root directory of the local Suno library.",
+    )
+    suno_analyze_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Output JSON file for results (default: <root>/bpm_key_analysis.json)",
+    )
+    suno_analyze_parser.add_argument(
+        "--ext",
+        type=str,
+        default="wav,mp3",
+        help="File extensions to analyze, comma-separated (default: wav,mp3)",
+    )
+
     # =========================================================================
     # ANALYZE (BPM/KEY) COMMANDS
     # =========================================================================
@@ -180,6 +203,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Audio format (default: wav)",
     )
 
+    # yt analyze <url> - download + analyze in one step
+    yt_analyze_parser = yt_subparsers.add_parser(
+        "analyze", help="Download YouTube audio and analyze BPM/key in one step"
+    )
+    yt_analyze_parser.add_argument("url", type=str, help="YouTube video URL")
+    yt_analyze_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("yt_downloads"),
+        help="Output directory for downloaded audio",
+    )
+    yt_analyze_parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Run full track analysis (chords, structure) instead of just BPM/key",
+    )
+    yt_analyze_parser.add_argument(
+        "--json", action="store_true", help="Output as JSON"
+    )
+
     # =========================================================================
     # TRACK REVERSE ENGINEERING COMMANDS
     # =========================================================================
@@ -234,6 +277,15 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             )
         elif args.suno_command == "list":
             suno_adapter.list_library(root=args.root)
+        elif args.suno_command == "analyze":
+            extensions = [e.strip() for e in args.ext.split(",")]
+            output_json = args.output or (args.root / "bpm_key_analysis.json")
+            print(f"Analyzing Suno library at {args.root}...")
+            bpm_adapter.analyze_library(
+                root=args.root,
+                extensions=extensions,
+                output_json=output_json,
+            )
         else:
             parser.error("Unknown 'suno' subcommand.")
 
@@ -303,6 +355,28 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 args.url, output_dir=args.output_dir, format=args.format
             )
             print(f"Downloaded: {path}")
+        elif args.yt_command == "analyze":
+            # Download + analyze in one step
+            print(f"Downloading audio from {args.url}...")
+            audio_path = yt_scraper_adapter.download_audio(
+                args.url, output_dir=args.output_dir, format="wav"
+            )
+            print(f"Downloaded: {audio_path}")
+            print("Analyzing...")
+            if args.full:
+                result = reverse_engineering_adapter.analyze_track(path=audio_path)
+            else:
+                result = bpm_adapter.analyze_track(audio_path)
+            if args.json:
+                print(json.dumps(result, indent=2, default=str))
+            else:
+                print(f"\nFile: {result['file']}")
+                print(f"BPM: {result['bpm']}")
+                print(f"Key: {result['key']} {result.get('mode', '')}")
+                if result.get('duration_seconds'):
+                    print(f"Duration: {result['duration_seconds']}s")
+                if result.get('chord_progression'):
+                    print(f"Chords: {len(result['chord_progression'])} detected")
         else:
             parser.error("Unknown 'yt' subcommand.")
 

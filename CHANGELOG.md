@@ -99,3 +99,34 @@
 - Add optional dependencies to `pyproject.toml` (librosa, yt-dlp).
 - Create integration tests for each adapter.
 - Document API usage in README.
+
+### Answer #004 - Optional enhancements and documentation
+**Timestamp:** 2025-12-11 21:45
+**Action Type:** Enhancement
+**Previous State:** Core adapters implemented, basic CLI commands working.
+**Current State:** New convenience commands added, comprehensive README documentation.
+
+#### Changes Made:
+- Added `toolshop suno analyze` for batch BPM/key analysis of Suno library.
+- Added `toolshop yt analyze <url>` for download + analyze in one step.
+- Complete rewrite of README.md with full usage examples and Python API docs.
+- Bumped version to 0.2.0 with optional dependency groups.
+
+#### Files Affected:
+- **MODIFIED:** `toolshop/cli.py` – added `suno analyze` and `yt analyze` commands (+70 lines).
+- **MODIFIED:** `README.md` – complete rewrite with comprehensive documentation (174 lines).
+- **MODIFIED:** `pyproject.toml` – added optional dependency groups [audio], [youtube], [all].
+
+#### New Commands:
+- `toolshop suno analyze --root <dir>` – batch-analyze Suno library for BPM/key
+- `toolshop yt analyze <url>` – download YouTube audio and analyze in one step
+- `toolshop yt analyze <url> --full` – include chord detection
+
+#### Technical Decisions:
+- `suno analyze` outputs to `<root>/bpm_key_analysis.json` by default.
+- `yt analyze` combines download + BPM analysis, with `--full` flag for chord detection.
+- README includes Quick Start, Commands Reference, and Python API sections.
+
+#### Next Actions Required:
+- Create integration tests for each adapter.
+- Add CI/CD pipeline for automated testing.

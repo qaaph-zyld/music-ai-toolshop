@@ -1,56 +1,173 @@
 # music-ai-toolshop
 
-CLI toolshop to orchestrate:
+CLI toolshop to orchestrate music AI tools:
 
-- Suno library sync and inspection
-- BPM / key analysis (planned)
-- YouTube scraping (planned)
-- YouTube summarization (planned)
-- Track reverse engineering (planned)
-
-This repo is a thin orchestration layer over your existing specialist repos
-(`Suno`, `suno_extractor`, `bpm_key_recognize`, `yt_scraper`, `yt_summarize`,
-`track_reverse_engineering`).
+- **Suno** – library sync, listing, and batch analysis
+- **BPM/Key Analysis** – detect tempo and musical key using librosa
+- **YouTube** – search, metadata, download, summarize for Suno prompts
+- **Track Reverse Engineering** – full structure analysis with chords
 
 ## Installation
 
-From the `music-ai-toolshop` folder:
-
 ```bash
 pip install -e .
+pip install librosa numpy yt-dlp  # Optional dependencies
 ```
 
-This installs a `toolshop` CLI entrypoint.
-
-## Usage
-
-### Suno tools
-
-Sync liked clips into a local library (reusing your existing bulk downloader):
+Or install with optional dependency groups:
 
 ```bash
-toolshop suno sync-liked --output-dir path/to/suno_library
+pip install -e ".[all]"      # Everything
+pip install -e ".[audio]"    # librosa + numpy for BPM/key
+pip install -e ".[youtube]"  # yt-dlp for YouTube tools
 ```
 
-List tracks from the local Suno library by scanning metadata JSON files:
+## Quick Start
 
 ```bash
-toolshop suno list --root path/to/suno_library
+# Analyze a local audio file
+toolshop analyze bpm-key song.wav
+
+# Search YouTube and analyze the first result
+toolshop yt analyze "https://youtube.com/watch?v=VIDEO_ID"
+
+# Batch-analyze your Suno library
+toolshop suno analyze --root path/to/suno_library
 ```
 
-By default both commands assume a `suno_library` directory relative to the
-current working directory.
+---
 
-### Repository layout
+## Commands Reference
 
-- `toolshop/cli.py` – CLI entrypoint and argument parsing
-- `toolshop/suno_adapter.py` – thin wrapper around the existing Suno bulk
-  downloader and local library listing
-- `toolshop/bpm_adapter.py` – placeholder adapter for `bpm_key_recognize`
-- `toolshop/yt_scraper_adapter.py` – placeholder adapter for `yt_scraper`
-- `toolshop/yt_summarizer_adapter.py` – placeholder adapter for `yt_summarize`
-- `toolshop/reverse_engineering_adapter.py` – placeholder adapter for
-  `track_reverse_engineering`
+### Suno Tools (`toolshop suno`)
 
-For now, only the `suno` subcommands are wired; the other adapters are
-stubs that will be connected to their respective repos later.
+```bash
+# Sync liked clips from Suno (requires Bearer token)
+toolshop suno sync-liked --output-dir suno_library
+
+# List tracks in local library
+toolshop suno list --root suno_library
+
+# Batch-analyze all tracks for BPM/key (NEW)
+toolshop suno analyze --root suno_library --output analysis.json
+```
+
+### BPM/Key Analysis (`toolshop analyze`)
+
+```bash
+# Single file analysis
+toolshop analyze bpm-key song.wav
+toolshop analyze bpm-key song.wav --json
+
+# Batch analysis of a directory
+toolshop analyze library ./music --ext wav,mp3 --output results.json
+```
+
+**Example output:**
+```
+File: song.wav
+BPM: 152.0
+Key: F major
+Duration: 294.28s
+```
+
+### YouTube Tools (`toolshop yt`)
+
+```bash
+# Search YouTube
+toolshop yt search "lofi beats" --limit 5
+toolshop yt search "hardcore pop" --json
+
+# Get video metadata
+toolshop yt info VIDEO_ID
+toolshop yt info "https://youtube.com/watch?v=..." --json
+
+# Generate Suno-ready prompt from video
+toolshop yt summarize "https://youtube.com/watch?v=..."
+toolshop yt summarize URL --for keywords  # Extract genre/mood hints
+
+# Download audio
+toolshop yt download URL --output-dir ./downloads --format wav
+
+# Download + analyze in one step (NEW)
+toolshop yt analyze URL
+toolshop yt analyze URL --full  # Include chord detection
+```
+
+**Example `yt summarize` output:**
+```
+Best of lofi hip hop 2021 ✨ [beats to relax/study to] | Tags: lofi, chill beats, relaxing
+```
+
+### Track Analysis (`toolshop track`)
+
+```bash
+# Full structure analysis (BPM, key, chords, spectral features)
+toolshop track analyze song.wav
+toolshop track analyze song.wav --summary
+toolshop track analyze song.wav --export-json --output-dir ./results
+```
+
+**Example output:**
+```
+=== Track Analysis Summary ===
+File: song.wav
+Duration: 294.28s
+BPM: 152.0
+Key: F major
+Harmonic Ratio: 0.7862
+Backend: wav_reverse_engineer
+
+Chord Progression:
+  Fm @ 54.22s
+  Fm @ 57.52s
+  F @ 65.43s
+```
+
+---
+
+## Python API
+
+All adapters can be imported directly:
+
+```python
+from toolshop import bpm_adapter, yt_scraper_adapter, reverse_engineering_adapter
+
+# BPM/key analysis
+result = bpm_adapter.analyze_track(Path("song.wav"))
+print(f"{result['bpm']} BPM, {result['key']} {result['mode']}")
+
+# YouTube search
+videos = yt_scraper_adapter.search("lofi beats", limit=5)
+for v in videos:
+    print(v['title'], v['url'])
+
+# Full track analysis
+analysis = reverse_engineering_adapter.analyze_track(Path("song.wav"))
+print(analysis['chord_progression'])
+```
+
+---
+
+## Repository Layout
+
+```
+toolshop/
+├── cli.py                      # CLI entrypoint (400+ lines)
+├── suno_adapter.py             # Suno bulk downloader integration
+├── bpm_adapter.py              # librosa-based BPM/key analysis
+├── yt_scraper_adapter.py       # yt-dlp library integration
+├── yt_summarizer_adapter.py    # Suno prompt generation
+└── reverse_engineering_adapter.py  # wav_reverse_engineer wiring
+```
+
+## Dependencies
+
+- **Required:** Python 3.10+
+- **Audio analysis:** `librosa`, `numpy`
+- **YouTube tools:** `yt-dlp`
+- **Track reverse engineering:** Automatically uses `Track_reverse_engineering` repo if available, falls back to librosa
+
+## License
+
+MIT
