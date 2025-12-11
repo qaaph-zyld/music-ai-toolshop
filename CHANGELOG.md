@@ -130,3 +130,45 @@
 #### Next Actions Required:
 - Create integration tests for each adapter.
 - Add CI/CD pipeline for automated testing.
+
+### Answer #005 - Suno lyrics/description export
+**Timestamp:** 2025-12-11 21:55
+**Action Type:** Enhancement
+**Previous State:** Suno tools supported sync, listing, and BPM/key analysis only.
+**Current State:** New export command aggregates lyrics and descriptions from liked tracks.
+
+#### Changes Made:
+- Added `suno_adapter.export_text` to scan Suno metadata, filter liked tracks, and export lyrics/descriptions.
+- Added `toolshop suno export-text` CLI subcommand with `--json-out` and `--txt-out` options.
+- Updated README Suno section with export-text usage examples.
+
+#### Files Affected:
+- **MODIFIED:** `toolshop/suno_adapter.py` – new `export_text` helper.
+- **MODIFIED:** `toolshop/cli.py` – wired `suno export-text` subcommand.
+- **MODIFIED:** `README.md` – documented lyrics/description export.
+
+#### Usage:
+- `toolshop suno export-text --root suno_library` – writes `lyrics_export.json` and `lyrics_export.txt` under the library root.
+
+#### Next Actions Required:
+- Optionally add filters (by handle/date/tag) to export-text.
+
+### Answer #006 - Decouple from sibling repos
+**Timestamp:** 2025-12-11 22:00
+**Action Type:** Modification
+**Previous State:** `suno_adapter.sync_liked` imported the sibling `Suno/bulk_downloader_app` repo and `reverse_engineering_adapter` tried to import `Track_reverse_engineering`.
+**Current State:** Project is self-contained; no direct imports or path hacks to other local repos.
+
+#### Changes Made:
+- Simplified `reverse_engineering_adapter` to use only librosa-based analysis (removed `Track_reverse_engineering` path hacks).
+- Replaced `suno_adapter.sync_liked` implementation with a stub that instructs users to run their Suno downloader externally.
+- Updated README to reflect pure librosa-based track analysis and optional external Suno sync.
+
+#### Files Affected:
+- **MODIFIED:** `toolshop/reverse_engineering_adapter.py` – pure librosa backend.
+- **MODIFIED:** `toolshop/suno_adapter.py` – sync_liked no longer imports sibling repo.
+- **MODIFIED:** `README.md` – documentation updated to remove hard dependency on other repos.
+
+#### Technical Decisions:
+- Keep `track analyze` fully functional using librosa-only features.
+- Keep the `suno sync-liked` command present but clearly marked as a stub to avoid silent failure and preserve CLI shape.

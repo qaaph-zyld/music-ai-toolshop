@@ -96,6 +96,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="File extensions to analyze, comma-separated (default: wav,mp3)",
     )
 
+    # suno export-text - export lyrics/descriptions from liked tracks
+    suno_export_parser = suno_subparsers.add_parser(
+        "export-text", help="Export lyrics and descriptions from liked Suno tracks",
+    )
+    suno_export_parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path("suno_library"),
+        help="Root directory of the local Suno library.",
+    )
+    suno_export_parser.add_argument(
+        "--json-out",
+        type=Path,
+        default=None,
+        help="Path to JSON export file (default: <root>/lyrics_export.json)",
+    )
+    suno_export_parser.add_argument(
+        "--txt-out",
+        type=Path,
+        default=None,
+        help="Path to plain-text export file (default: <root>/lyrics_export.txt)",
+    )
+
     # =========================================================================
     # ANALYZE (BPM/KEY) COMMANDS
     # =========================================================================
@@ -285,6 +308,15 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 root=args.root,
                 extensions=extensions,
                 output_json=output_json,
+            )
+        elif args.suno_command == "export-text":
+            json_out = args.json_out or (args.root / "lyrics_export.json")
+            txt_out = args.txt_out or (args.root / "lyrics_export.txt")
+            print(f"Exporting lyrics/descriptions from liked tracks under {args.root}...")
+            suno_adapter.export_text(
+                root=args.root,
+                output_json=json_out,
+                output_txt=txt_out,
             )
         else:
             parser.error("Unknown 'suno' subcommand.")

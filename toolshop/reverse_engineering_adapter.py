@@ -1,35 +1,13 @@
 """Track reverse engineering adapter.
 
-Wires to the wav_reverse_engineer module in Track_reverse_engineering repo.
-Falls back to a basic librosa-based analysis if the full repo is unavailable.
+Pure librosa-based analysis (no external repos required).
 """
 
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
-
-# Path to the Track_reverse_engineering repo
-_TRACK_RE_REPO = Path(__file__).resolve().parents[2] / "Track_reverse_engineering" / "CascadeProjects" / "windsurf-project"
-
-
-def _try_import_wav_reverse_engineer():
-    """Attempt to import the wav_reverse_engineer module from the sibling repo."""
-    module_dir = _TRACK_RE_REPO / "wav_reverse_engineer"
-    if not module_dir.is_dir():
-        return None
-
-    if str(_TRACK_RE_REPO) not in sys.path:
-        sys.path.insert(0, str(_TRACK_RE_REPO))
-
-    try:
-        from wav_reverse_engineer.audio_analyzer.audio_processor import AudioProcessor
-        from wav_reverse_engineer.audio_analyzer.feature_extractor import FeatureExtractor
-        return {"AudioProcessor": AudioProcessor, "FeatureExtractor": FeatureExtractor}
-    except ImportError:
-        return None
 
 
 def _basic_analysis(path: Path) -> Dict[str, Any]:
@@ -102,55 +80,8 @@ def analyze_track(
     if not path.exists():
         raise FileNotFoundError(f"Audio file not found: {path}")
 
-    modules = _try_import_wav_reverse_engineer()
-
-    if modules:
-        # Use full wav_reverse_engineer
-        AudioProcessor = modules["AudioProcessor"]
-        FeatureExtractor = modules["FeatureExtractor"]
-
-        processor = AudioProcessor()
-        audio, sr = processor.load_audio(str(path))
-        audio_info = processor.get_audio_info(audio, sr)
-
-        extractor = FeatureExtractor()
-        features = extractor.extract_features(audio, sr)
-
-        # Detect chords
-        chords = extractor.detect_chords(audio, sr)
-        chord_progression = FeatureExtractor.summarize_chord_progression(chords)
-
-        result = {
-            "file": str(path),
-            "duration_seconds": round(audio_info.get("duration_seconds", 0), 2),
-            "sample_rate": audio_info.get("sample_rate"),
-            "bpm": round(features.get("tempo", 0), 2),
-            "key": features.get("key"),
-            "mode": features.get("mode"),
-            "harmonic_ratio": round(features.get("harmonic_ratio", 0), 4),
-            "spectral_centroid": round(features.get("spectral_centroid", 0), 2),
-            "chord_progression": chord_progression[:10],  # Top 10 chords
-            "analysis_backend": "wav_reverse_engineer",
-        }
-
-        # Optional: effects and instruments analysis
-        if effects:
-            try:
-                from wav_reverse_engineer.audio_analyzer.effects_analyzer import analyze_effects
-                result["effects"] = analyze_effects(audio, sr)
-            except Exception:
-                pass
-
-        if instruments:
-            try:
-                from wav_reverse_engineer.audio_analyzer.instrument_recognizer import InstrumentRecognizer
-                recognizer = InstrumentRecognizer()
-                result["instruments"] = recognizer.recognize(audio, sr)
-            except Exception:
-                pass
-    else:
-        # Fallback to basic analysis
-        result = _basic_analysis(path)
+    # Pure librosa-based analysis
+    result = _basic_analysis(path)
 
     # Export JSON if requested
     if export_json:

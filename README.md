@@ -1,11 +1,11 @@
 # music-ai-toolshop
 
-CLI toolshop to orchestrate music AI tools:
+CLI toolshop to orchestrate music AI tools (self-contained):
 
-- **Suno** – library sync, listing, and batch analysis
+- **Suno** – library listing, batch analysis, and text export (external sync optional)
 - **BPM/Key Analysis** – detect tempo and musical key using librosa
 - **YouTube** – search, metadata, download, summarize for Suno prompts
-- **Track Reverse Engineering** – full structure analysis with chords
+- **Track Reverse Engineering** – basic structure analysis (BPM, key, spectral features)
 
 ## Installation
 
@@ -42,14 +42,20 @@ toolshop suno analyze --root path/to/suno_library
 ### Suno Tools (`toolshop suno`)
 
 ```bash
-# Sync liked clips from Suno (requires Bearer token)
-toolshop suno sync-liked --output-dir suno_library
+# (Optional) Sync liked clips from Suno using your own downloader
+# NOTE: `toolshop` no longer imports the sibling Suno repo directly.
+toolshop suno sync-liked --output-dir suno_library   # currently a stub that raises
 
 # List tracks in local library
 toolshop suno list --root suno_library
 
-# Batch-analyze all tracks for BPM/key (NEW)
+# Batch-analyze all tracks for BPM/key
 toolshop suno analyze --root suno_library --output analysis.json
+
+# Export lyrics + descriptions from liked tracks (grouped/sorted)
+toolshop suno export-text --root suno_library \
+  --json-out suno_library/lyrics_export.json \
+  --txt-out  suno_library/lyrics_export.txt
 ```
 
 ### BPM/Key Analysis (`toolshop analyze`)
@@ -102,7 +108,7 @@ Best of lofi hip hop 2021 ✨ [beats to relax/study to] | Tags: lofi, chill beat
 ### Track Analysis (`toolshop track`)
 
 ```bash
-# Full structure analysis (BPM, key, chords, spectral features)
+# Structure analysis (BPM, key, spectral features)
 toolshop track analyze song.wav
 toolshop track analyze song.wav --summary
 toolshop track analyze song.wav --export-json --output-dir ./results
@@ -158,7 +164,7 @@ toolshop/
 ├── bpm_adapter.py              # librosa-based BPM/key analysis
 ├── yt_scraper_adapter.py       # yt-dlp library integration
 ├── yt_summarizer_adapter.py    # Suno prompt generation
-└── reverse_engineering_adapter.py  # wav_reverse_engineer wiring
+└── reverse_engineering_adapter.py  # Pure librosa-based track analysis
 ```
 
 ## Dependencies
@@ -166,7 +172,7 @@ toolshop/
 - **Required:** Python 3.10+
 - **Audio analysis:** `librosa`, `numpy`
 - **YouTube tools:** `yt-dlp`
-- **Track reverse engineering:** Automatically uses `Track_reverse_engineering` repo if available, falls back to librosa
+- **Track reverse engineering:** Pure librosa-based (no external repos required)
 
 ## License
 
