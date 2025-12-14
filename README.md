@@ -122,7 +122,7 @@ Duration: 294.28s
 BPM: 152.0
 Key: F major
 Harmonic Ratio: 0.7862
-Backend: wav_reverse_engineer
+Backend: basic_librosa
 
 Chord Progression:
   Fm @ 54.22s
@@ -160,7 +160,7 @@ print(analysis['chord_progression'])
 ```
 toolshop/
 ├── cli.py                      # CLI entrypoint (400+ lines)
-├── suno_adapter.py             # Suno bulk downloader integration
+├── suno_adapter.py             # Suno tools (list/analyze/export; sync stub)
 ├── bpm_adapter.py              # librosa-based BPM/key analysis
 ├── yt_scraper_adapter.py       # yt-dlp library integration
 ├── yt_summarizer_adapter.py    # Suno prompt generation

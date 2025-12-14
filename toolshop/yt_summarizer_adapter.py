@@ -1,7 +1,6 @@
 """YouTube summarization adapter.
 
 Extracts metadata and description to generate Suno-ready prompts.
-Can be swapped out for the yt_summarize repo once that exists.
 """
 
 from __future__ import annotations

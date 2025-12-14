@@ -64,8 +64,7 @@ def analyze_track(
 ) -> Dict[str, Any]:
     """Analyze a track for structure, key, BPM, and other musical features.
 
-    Uses the full wav_reverse_engineer module if available, otherwise
-    falls back to basic librosa analysis.
+    Uses pure librosa-based analysis (self-contained, no external repos).
 
     Args:
         path: Path to audio file.

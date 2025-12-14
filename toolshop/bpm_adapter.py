@@ -1,7 +1,6 @@
 """BPM and key analysis adapter.
 
-Uses librosa for standalone BPM/key detection. Can be swapped out
-for the bpm_key_recognize repo once that exists.
+Uses librosa for standalone BPM/key detection.
 """
 
 from __future__ import annotations

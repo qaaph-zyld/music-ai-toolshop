@@ -11,11 +11,10 @@ def sync_liked(
 ) -> None:
     """Placeholder for Suno sync after decoupling from external repos.
 
-    This project is now self-contained and no longer imports the
-    `Suno/bulk_downloader_app` repo directly. To refresh your local
-    `suno_library`, run your preferred Suno downloader separately,
-    then use `toolshop suno list/analyze/export-text` on the
-    resulting library.
+    This project is self-contained and does not bundle any downloader.
+    To refresh your local ``suno_library``, run your preferred Suno
+    downloader separately, then use ``toolshop suno list/analyze/export-text``
+    on the resulting library.
     """
     raise RuntimeError(
         "Suno sync has been decoupled from external repos. "

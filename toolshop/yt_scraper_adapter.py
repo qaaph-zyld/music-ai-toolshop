@@ -1,7 +1,6 @@
 """YouTube scraping adapter.
 
 Uses yt-dlp as a Python library for search and metadata extraction.
-Can be swapped out for the yt_scraper repo once that exists.
 """
 
 from __future__ import annotations
