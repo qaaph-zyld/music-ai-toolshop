@@ -14,7 +14,8 @@ MIN_FILE_SIZE = 100_000  # 100KB minimum for valid audio
 def find_all_audio_files(root: Path) -> list[Path]:
     """Find all audio files under root."""
     files = []
-    for dirpath, _, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in {"_quarantine", "playlists"}]
         for fname in filenames:
             if Path(fname).suffix.lower() in AUDIO_EXTENSIONS:
                 files.append(Path(dirpath) / fname)

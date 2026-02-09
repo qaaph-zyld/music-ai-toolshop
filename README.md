@@ -46,6 +46,12 @@ toolshop suno analyze --root path/to/suno_library
 # NOTE: `toolshop` no longer imports the sibling Suno repo directly.
 toolshop suno sync-liked --output-dir suno_library   # currently a stub that raises
 
+# Bulk download *liked* Suno clips (standalone app) as WAV only
+# (run from: projects/Suno/bulk_downloader_app)
+# PowerShell:
+#   $env:SUNO_WAV_ONLY=1
+#   .\.venv\Scripts\python.exe suno_downloader.py
+
 # List tracks in local library
 toolshop suno list --root suno_library
 

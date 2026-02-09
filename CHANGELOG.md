@@ -247,3 +247,45 @@
 #### Next Actions Required:
 - Re-sync library to download complete versions of quarantined files.
 - Commit and push to GitHub repository.
+
+### Answer #010 - Exclude quarantine/playlists from scans
+**Timestamp:** 2025-12-15 02:49
+**Action Type:** Modification
+**Previous State:** `analyze_library.py` and `library_cleanup.py` scanned `_quarantine/` and `playlists/`, risking analysis/cleanup of non-library artifacts.
+**Current State:** Library scans exclude `_quarantine/` and `playlists/` so only active, healthy library content is processed.
+
+#### Changes Made:
+- Updated directory walk logic in analysis and cleanup scripts to skip `_quarantine` and `playlists`.
+- Prepared the repository for a clean re-analysis after the Suno re-download.
+
+#### Files Affected:
+- **MODIFIED:** `analyze_library.py` – skip `_quarantine` and `playlists` directories.
+- **MODIFIED:** `library_cleanup.py` – skip `_quarantine` and `playlists` directories.
+- **MODIFIED:** `CHANGELOG.md` – added Answer #010.
+
+#### Technical Decisions:
+- Keep quarantine non-destructive and excluded from scans to prevent reprocessing known-bad files.
+
+#### Next Actions Required:
+- Run the Suno resync downloader to restore missing audio, then re-run analysis and regenerate playlists.
+
+### Answer #011 - Suno bulk downloader WAV-only mode
+**Timestamp:** 2025-12-18 23:23
+**Action Type:** Modification
+**Previous State:** Standalone bulk downloader always saved optional side files (video, cover image, metadata JSON) alongside audio.
+**Current State:** Added `SUNO_WAV_ONLY` mode to produce a WAV-only library (one liked clip -> one `.wav`), while keeping default behavior unchanged.
+
+#### Changes Made:
+- Added `SUNO_WAV_ONLY` env toggle (skip video/images/metadata in bulk downloader).
+- Updated README with PowerShell example for WAV-only bulk download.
+
+#### Files Affected:
+- **MODIFIED:** `projects/Suno/bulk_downloader_app/suno_downloader.py` – Added WAV-only mode and skip flags.
+- **MODIFIED:** `README.md` – Documented running the bulk downloader in WAV-only mode.
+- **MODIFIED:** `CHANGELOG.md` – Added this entry.
+
+#### Technical Decisions:
+- Use env var toggles to avoid breaking existing workflows.
+
+#### Next Actions Required:
+- Re-download your liked library with `SUNO_WAV_ONLY=1` and confirm the output contains only `*.wav`.

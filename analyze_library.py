@@ -18,7 +18,8 @@ AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".flac", ".ogg"}
 def find_audio_files(root: Path, limit: int = None) -> list[Path]:
     """Find all audio files under root."""
     files = []
-    for dirpath, _, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in {"_quarantine", "playlists"}]
         for fname in filenames:
             if Path(fname).suffix.lower() in AUDIO_EXTENSIONS:
                 files.append(Path(dirpath) / fname)

@@ -9,3 +9,6 @@ build/
 .env
 .venv/
 venv/
+
+# Output data (WAV library, lyrics, etc.) - kept private
+projects/
