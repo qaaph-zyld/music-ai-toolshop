@@ -289,3 +289,36 @@
 
 #### Next Actions Required:
 - Re-download your liked library with `SUNO_WAV_ONLY=1` and confirm the output contains only `*.wav`.
+
+### Answer #012 - Voice Effects Detection Module
+**Timestamp:** 2026-02-12 18:23
+**Action Type:** Implementation
+**Previous State:** Toolshop had BPM/key analysis, track reverse engineering, YouTube tools, and Suno integration. No voice-specific effect detection.
+**Current State:** New `toolshop voice analyze <file>` command detects 12 categories of vocal effects/processing with confidence scores, parameter estimates, and evidence explanations. All open-source, no ML training required.
+
+#### Changes Made:
+- Created `voice_effects_adapter.py` with 12 signal-processing-based effect detectors.
+- Wired `voice` subcommand group into `cli.py` with `analyze` subcommand.
+- Added `voice` and `voice-full` optional dependency groups in `pyproject.toml`.
+- Updated `__init__.py` to export the new adapter.
+- Bumped version to 0.3.0.
+- Updated `README.md` with full voice analysis documentation, examples, and API usage.
+
+#### Files Affected:
+- **NEW:** `toolshop/voice_effects_adapter.py` – 12 voice effect detectors (reverb, pitch shift, formant shift, compression, EQ, distortion, chorus, auto-tune, de-essing, vocoder, noise gate, delay).
+- **MODIFIED:** `toolshop/cli.py` – Added `voice analyze` subcommand and dispatch.
+- **MODIFIED:** `toolshop/__init__.py` – Added `voice_effects_adapter` to `__all__`.
+- **MODIFIED:** `pyproject.toml` – Version bump 0.2.0→0.3.0, added `voice`/`voice-full`/updated `all` dependency groups.
+- **MODIFIED:** `README.md` – Added Voice Effects Detection section, updated installation, API, repo layout, dependencies.
+- **MODIFIED:** `CHANGELOG.md` – This entry.
+
+#### Technical Decisions:
+- Pure signal-processing/heuristic approach — no ML training needed.
+- `parselmouth` (Praat wrapper) for formant analysis; `crepe` optional for neural pitch.
+- Graceful degradation: missing optional deps skip detectors and note in output.
+- Each detector is a standalone function for easy extension.
+
+#### Next Actions Required:
+- Install voice dependencies: `pip install -e ".[voice]"`
+- Test against existing WAV file in workspace.
+- Push to GitHub.

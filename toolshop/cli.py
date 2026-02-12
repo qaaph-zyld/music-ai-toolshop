@@ -17,6 +17,7 @@ from . import bpm_adapter
 from . import yt_scraper_adapter
 from . import yt_summarizer_adapter
 from . import reverse_engineering_adapter
+from . import voice_effects_adapter
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -280,6 +281,35 @@ def build_parser() -> argparse.ArgumentParser:
         "--summary", action="store_true", help="Print human-readable summary"
     )
 
+    # =========================================================================
+    # VOICE EFFECTS ANALYSIS COMMANDS
+    # =========================================================================
+    voice_parser = subparsers.add_parser(
+        "voice", help="Voice effects detection and analysis"
+    )
+    voice_subparsers = voice_parser.add_subparsers(dest="voice_command")
+    voice_subparsers.required = True
+
+    # voice analyze <file>
+    voice_analyze_parser = voice_subparsers.add_parser(
+        "analyze", help="Analyze a voice recording for applied effects and processing"
+    )
+    voice_analyze_parser.add_argument(
+        "file", type=Path, help="Path to audio file (WAV recommended)"
+    )
+    voice_analyze_parser.add_argument(
+        "--json", action="store_true", help="Output as JSON"
+    )
+    voice_analyze_parser.add_argument(
+        "--summary", action="store_true", help="Print human-readable summary (default)"
+    )
+    voice_analyze_parser.add_argument(
+        "--export-json", action="store_true", help="Export results to JSON file"
+    )
+    voice_analyze_parser.add_argument(
+        "--output-dir", type=Path, default=None, help="Output directory for JSON export"
+    )
+
     return parser
 
 
@@ -430,6 +460,23 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 print(json.dumps(result, indent=2, default=str))
         else:
             parser.error("Unknown 'track' subcommand.")
+
+    # =========================================================================
+    # VOICE EFFECTS ANALYSIS
+    # =========================================================================
+    elif args.command == "voice":
+        if args.voice_command == "analyze":
+            result = voice_effects_adapter.analyze_voice(
+                path=args.file,
+                export_json=args.export_json,
+                output_dir=args.output_dir,
+            )
+            if args.json:
+                print(json.dumps(result, indent=2, default=str))
+            else:
+                voice_effects_adapter.print_voice_summary(result)
+        else:
+            parser.error("Unknown 'voice' subcommand.")
 
     else:
         parser.error(f"Unknown command: {args.command}")

@@ -4,16 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "music-ai-toolshop"
-version = "0.2.0"
+version = "0.3.0"
 description = "CLI toolshop to orchestrate Suno, BPM/key analysis, YouTube scraping/summarization, and track reverse engineering."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]
-audio = ["librosa>=0.10", "numpy>=1.20"]
+audio = ["librosa>=0.10", "numpy>=1.20", "scipy>=1.10"]
 youtube = ["yt-dlp>=2023.0"]
-all = ["librosa>=0.10", "numpy>=1.20", "yt-dlp>=2023.0"]
+voice = ["librosa>=0.10", "numpy>=1.20", "scipy>=1.10", "praat-parselmouth>=0.4", "soundfile>=0.12"]
+voice-full = ["librosa>=0.10", "numpy>=1.20", "scipy>=1.10", "praat-parselmouth>=0.4", "soundfile>=0.12", "crepe>=0.0.16", "tensorflow>=2.10"]
+all = ["librosa>=0.10", "numpy>=1.20", "scipy>=1.10", "yt-dlp>=2023.0", "praat-parselmouth>=0.4", "soundfile>=0.12"]
+
+[tool.setuptools.packages.find]
+include = ["toolshop*"]
 
 [project.scripts]
 toolshop = "toolshop.cli:main"
