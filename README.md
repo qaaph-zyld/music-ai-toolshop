@@ -7,6 +7,7 @@ CLI toolshop to orchestrate music AI tools (self-contained):
 - **YouTube** – search, metadata, download, summarize for Suno prompts
 - **Track Reverse Engineering** – basic structure analysis (BPM, key, spectral features)
 - **Voice Effects Detection** – identify vocal processing (reverb, pitch shift, compression, auto-tune, etc.)
+- **Stem Extraction** – separate instrumentals, main vocals, and backing vocals
 
 ## Installation
 
@@ -23,6 +24,7 @@ pip install -e ".[audio]"      # librosa + numpy + scipy for BPM/key
 pip install -e ".[youtube]"    # yt-dlp for YouTube tools
 pip install -e ".[voice]"      # Voice effects detection (parselmouth + librosa)
 pip install -e ".[voice-full]" # Voice + crepe neural pitch (requires tensorflow)
+pip install -e ".[stems]"      # Stem extraction (audio-separator)
 ```
 
 ## Quick Start
@@ -39,6 +41,9 @@ toolshop suno analyze --root path/to/suno_library
 
 # Detect voice effects on an audio file
 toolshop voice analyze recording.wav
+
+# Extract stems from an audio file
+toolshop stem extract song.wav
 ```
 
 ---
@@ -193,6 +198,43 @@ toolshop voice analyze recording.wav --export-json --output-dir ./results
   [72%] ##############       Pitch Shift
         > F0 (185Hz) above expected range (75-190Hz)
         Params: estimated_semitones=+3.0
+```
+
+### Stem Extraction (`toolshop stem`)
+
+```bash
+# Extract instrumentals, main vocals, and backing vocals
+toolshop stem extract song.wav
+toolshop stem extract song.wav --output-dir ./stems
+
+# Use CPU instead of GPU (slower but no VRAM required)
+toolshop stem extract song.wav --cpu
+
+# Use fast mode (MDX-Net models) instead of high quality (Roformer)
+toolshop stem extract song.wav --fast
+
+# JSON output for programmatic use
+toolshop stem extract song.wav --json
+```
+
+**Requirements:**
+- `audio-separator` package (install with: `pip install audio-separator`)
+- Optional: GPU with CUDA support for faster processing
+
+**Extracted stems:**
+- Instrumental (no vocals)
+- Main vocals (lead vocal)
+- Backing vocals (harmonies, ad-libs)
+
+**Example output:**
+```
+✓ Extracted stems from song.wav
+  Output directory: ./separated_tracks
+  Quality mode: high
+  GPU used: True
+  instrumental: song_Instrumental.wav
+  main_vocals: song_Main_Vocals.wav
+  backing_vocals: song_Backing_Vocals.wav
 ```
 
 ---

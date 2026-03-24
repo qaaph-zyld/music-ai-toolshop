@@ -16,7 +16,9 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
         import librosa
         import numpy as np
     except ImportError:
-        raise RuntimeError("librosa is required. Install with: pip install librosa numpy")
+        raise RuntimeError(
+            "librosa is required. Install with: pip install librosa numpy"
+        )
 
     y, sr = librosa.load(str(path), sr=22050, mono=True)
     duration = librosa.get_duration(y=y, sr=sr)
@@ -36,8 +38,8 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
 
     # Harmonic/percussive ratio
     y_harm, y_perc = librosa.effects.hpss(y)
-    harm_energy = float(np.mean(y_harm ** 2))
-    perc_energy = float(np.mean(y_perc ** 2))
+    harm_energy = float(np.mean(y_harm**2))
+    perc_energy = float(np.mean(y_perc**2))
     harmonic_ratio = harm_energy / (harm_energy + perc_energy + 1e-10)
 
     return {

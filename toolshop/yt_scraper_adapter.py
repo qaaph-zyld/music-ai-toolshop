@@ -10,6 +10,7 @@ from typing import Any, Dict, List
 
 try:
     import yt_dlp
+
     _HAS_YTDLP = True
 except ImportError:
     _HAS_YTDLP = False
@@ -47,17 +48,19 @@ def search(query: str, limit: int = 10) -> List[Dict[str, Any]]:
 
     videos: List[Dict[str, Any]] = []
     entries = result.get("entries", []) if result else []
-    
+
     for entry in entries:
         if not entry:
             continue
-        videos.append({
-            "id": entry.get("id"),
-            "title": entry.get("title"),
-            "channel": entry.get("channel") or entry.get("uploader"),
-            "duration": entry.get("duration"),
-            "url": f"https://www.youtube.com/watch?v={entry.get('id')}",
-        })
+        videos.append(
+            {
+                "id": entry.get("id"),
+                "title": entry.get("title"),
+                "channel": entry.get("channel") or entry.get("uploader"),
+                "duration": entry.get("duration"),
+                "url": f"https://www.youtube.com/watch?v={entry.get('id')}",
+            }
+        )
 
     return videos
 
@@ -131,10 +134,12 @@ def download_audio(
         "no_warnings": True,
         "format": "bestaudio/best",
         "outtmpl": output_template,
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": format,
-        }],
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": format,
+            }
+        ],
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:

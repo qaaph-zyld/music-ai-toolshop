@@ -59,6 +59,7 @@ def _require_librosa() -> None:
 # Utility helpers
 # ---------------------------------------------------------------------------
 
+
 def _load_audio(path: Path, sr: int = 22050) -> Tuple[Any, int]:
     """Load audio as mono float32 via librosa."""
     _require_librosa()
@@ -80,6 +81,7 @@ def _db(x: float, ref: float = 1.0) -> float:
 # Individual effect detectors
 # ---------------------------------------------------------------------------
 
+
 def detect_reverb(y: Any, sr: int) -> Dict[str, Any]:
     """Detect reverb by analysing energy decay and spectral smearing.
 
@@ -88,7 +90,12 @@ def detect_reverb(y: Any, sr: int) -> Dict[str, Any]:
       2. Estimate RT60 (time for 60dB decay) from the slope.
       3. Measure spectral temporal smearing via autocorrelation width.
     """
-    result: Dict[str, Any] = {"effect": "reverb", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "reverb",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     # Energy envelope
     rms = _rms_envelope(y, frame_length=2048, hop_length=512)
@@ -179,12 +186,18 @@ def detect_pitch_shift(y: Any, sr: int) -> Dict[str, Any]:
     Pitch-shifted voice: F0 moves but formants either stay (PSOLA) or
     shift together (naive resampling).
     """
-    result: Dict[str, Any] = {"effect": "pitch_shift", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "pitch_shift",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     # Get F0 via crepe (preferred) or librosa
     if _HAS_CREPE:
         try:
             import soundfile as sf
+
             # crepe needs the raw audio at original SR
             y_22k = y
             sr_crepe = sr
@@ -222,12 +235,17 @@ def detect_pitch_shift(y: Any, sr: int) -> Dict[str, Any]:
             # Female: F1~600-900, F2~1200-1800, F0~165-255
             # If F0 is way outside expected range for the formant pattern, likely shifted
             expected_f0_low, expected_f0_high = _estimate_f0_range_from_formants(f1, f2)
-            result["params"]["expected_f0_range"] = [round(expected_f0_low, 1), round(expected_f0_high, 1)]
+            result["params"]["expected_f0_range"] = [
+                round(expected_f0_low, 1),
+                round(expected_f0_high, 1),
+            ]
 
             if f0_median < expected_f0_low * 0.75:
                 shift_semitones = 12 * np.log2(expected_f0_low / f0_median)
                 result["confidence"] = min(0.95, 0.5 + shift_semitones * 0.08)
-                result["params"]["estimated_semitones"] = f"-{round(shift_semitones, 1)}"
+                result["params"][
+                    "estimated_semitones"
+                ] = f"-{round(shift_semitones, 1)}"
                 result["evidence"].append(
                     f"F0 ({f0_median:.0f}Hz) below expected range "
                     f"({expected_f0_low:.0f}-{expected_f0_high:.0f}Hz) for detected formants"
@@ -235,7 +253,9 @@ def detect_pitch_shift(y: Any, sr: int) -> Dict[str, Any]:
             elif f0_median > expected_f0_high * 1.25:
                 shift_semitones = 12 * np.log2(f0_median / expected_f0_high)
                 result["confidence"] = min(0.95, 0.5 + shift_semitones * 0.08)
-                result["params"]["estimated_semitones"] = f"+{round(shift_semitones, 1)}"
+                result["params"][
+                    "estimated_semitones"
+                ] = f"+{round(shift_semitones, 1)}"
                 result["evidence"].append(
                     f"F0 ({f0_median:.0f}Hz) above expected range "
                     f"({expected_f0_low:.0f}-{expected_f0_high:.0f}Hz) for detected formants"
@@ -244,7 +264,9 @@ def detect_pitch_shift(y: Any, sr: int) -> Dict[str, Any]:
                 result["confidence"] = 0.05
                 result["evidence"].append("F0-formant relationship appears natural")
     else:
-        result["evidence"].append("parselmouth not installed — formant comparison skipped")
+        result["evidence"].append(
+            "parselmouth not installed — formant comparison skipped"
+        )
 
     return result
 
@@ -252,9 +274,7 @@ def detect_pitch_shift(y: Any, sr: int) -> Dict[str, Any]:
 def _librosa_f0(y: Any, sr: int) -> Optional[float]:
     """Estimate median F0 using librosa's pyin."""
     try:
-        f0, voiced_flag, _ = librosa.pyin(
-            y, fmin=50, fmax=600, sr=sr
-        )
+        f0, voiced_flag, _ = librosa.pyin(y, fmin=50, fmax=600, sr=sr)
         voiced = f0[voiced_flag]
         if len(voiced) < 5:
             return None
@@ -272,9 +292,30 @@ def _get_formants_parselmouth(y: Any, sr: int) -> Dict[str, float]:
 
         f1_vals, f2_vals, f3_vals = [], [], []
         for i in range(1, int(n_frames) + 1):
-            f1 = praat_call(formant, "Get value at time", 1, praat_call(formant, "Get time from frame number", i), "hertz", "Linear")
-            f2 = praat_call(formant, "Get value at time", 2, praat_call(formant, "Get time from frame number", i), "hertz", "Linear")
-            f3 = praat_call(formant, "Get value at time", 3, praat_call(formant, "Get time from frame number", i), "hertz", "Linear")
+            f1 = praat_call(
+                formant,
+                "Get value at time",
+                1,
+                praat_call(formant, "Get time from frame number", i),
+                "hertz",
+                "Linear",
+            )
+            f2 = praat_call(
+                formant,
+                "Get value at time",
+                2,
+                praat_call(formant, "Get time from frame number", i),
+                "hertz",
+                "Linear",
+            )
+            f3 = praat_call(
+                formant,
+                "Get value at time",
+                3,
+                praat_call(formant, "Get time from frame number", i),
+                "hertz",
+                "Linear",
+            )
             if f1 and not np.isnan(f1) and 200 < f1 < 1200:
                 f1_vals.append(f1)
             if f2 and not np.isnan(f2) and 600 < f2 < 3500:
@@ -318,10 +359,17 @@ def detect_formant_shift(y: Any, sr: int) -> Dict[str, Any]:
     Formant-shifted voice has formant ratios that deviate from natural
     F1/F2/F3 spacing patterns.
     """
-    result: Dict[str, Any] = {"effect": "formant_shift", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "formant_shift",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     if not _HAS_PARSELMOUTH:
-        result["evidence"].append("parselmouth not installed — cannot detect formant shift")
+        result["evidence"].append(
+            "parselmouth not installed — cannot detect formant shift"
+        )
         return result
 
     formants = _get_formants_parselmouth(y, sr)
@@ -339,7 +387,9 @@ def detect_formant_shift(y: Any, sr: int) -> Dict[str, Any]:
     anomaly_score = 0.0
     if ratio_f2_f1 < 1.2 or ratio_f2_f1 > 3.2:
         anomaly_score += 0.4
-        result["evidence"].append(f"Unusual F2/F1 ratio: {ratio_f2_f1:.2f} (normal: 1.5-2.5)")
+        result["evidence"].append(
+            f"Unusual F2/F1 ratio: {ratio_f2_f1:.2f} (normal: 1.5-2.5)"
+        )
 
     if f3:
         ratio_f3_f2 = f3 / f2
@@ -347,7 +397,9 @@ def detect_formant_shift(y: Any, sr: int) -> Dict[str, Any]:
         # Natural F3/F2 ratio typically 1.2-1.8
         if ratio_f3_f2 < 1.0 or ratio_f3_f2 > 2.2:
             anomaly_score += 0.3
-            result["evidence"].append(f"Unusual F3/F2 ratio: {ratio_f3_f2:.2f} (normal: 1.2-1.8)")
+            result["evidence"].append(
+                f"Unusual F3/F2 ratio: {ratio_f3_f2:.2f} (normal: 1.2-1.8)"
+            )
 
     # Check if formants are unnaturally uniform across time
     try:
@@ -381,13 +433,18 @@ def detect_formant_shift(y: Any, sr: int) -> Dict[str, Any]:
 
 def detect_compression(y: Any, sr: int) -> Dict[str, Any]:
     """Detect dynamic range compression via crest factor and RMS analysis."""
-    result: Dict[str, Any] = {"effect": "compression", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "compression",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     rms = _rms_envelope(y, frame_length=2048, hop_length=512)
 
     # Crest factor: peak / RMS (lower = more compressed)
     peak = float(np.max(np.abs(y)))
-    rms_global = float(np.sqrt(np.mean(y ** 2)))
+    rms_global = float(np.sqrt(np.mean(y**2)))
     if rms_global < 1e-10:
         return result
 
@@ -402,7 +459,9 @@ def detect_compression(y: Any, sr: int) -> Dict[str, Any]:
     # Exclude silence
     non_silent = rms_db[rms_db > np.max(rms_db) - 60]
     if len(non_silent) > 10:
-        dynamic_range = float(np.percentile(non_silent, 95) - np.percentile(non_silent, 5))
+        dynamic_range = float(
+            np.percentile(non_silent, 95) - np.percentile(non_silent, 5)
+        )
         result["params"]["dynamic_range_db"] = round(dynamic_range, 2)
 
         # RMS envelope variance (low = heavily compressed)
@@ -416,15 +475,21 @@ def detect_compression(y: Any, sr: int) -> Dict[str, Any]:
     if crest_factor_db < 6:
         confidence += 0.5
         result["params"]["estimated_ratio"] = "8:1+"
-        result["evidence"].append(f"Very low crest factor: {crest_factor_db:.1f}dB (heavy compression)")
+        result["evidence"].append(
+            f"Very low crest factor: {crest_factor_db:.1f}dB (heavy compression)"
+        )
     elif crest_factor_db < 10:
         confidence += 0.3
         result["params"]["estimated_ratio"] = "4:1"
-        result["evidence"].append(f"Low crest factor: {crest_factor_db:.1f}dB (moderate compression)")
+        result["evidence"].append(
+            f"Low crest factor: {crest_factor_db:.1f}dB (moderate compression)"
+        )
     elif crest_factor_db < 14:
         confidence += 0.1
         result["params"]["estimated_ratio"] = "2:1"
-        result["evidence"].append(f"Mild crest factor: {crest_factor_db:.1f}dB (light compression)")
+        result["evidence"].append(
+            f"Mild crest factor: {crest_factor_db:.1f}dB (light compression)"
+        )
 
     if "dynamic_range_db" in result["params"]:
         dr = result["params"]["dynamic_range_db"]
@@ -441,7 +506,12 @@ def detect_compression(y: Any, sr: int) -> Dict[str, Any]:
 
 def detect_eq(y: Any, sr: int) -> Dict[str, Any]:
     """Detect EQ / filtering by comparing spectral shape to natural voice reference."""
-    result: Dict[str, Any] = {"effect": "eq_filtering", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "eq_filtering",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     S = np.abs(librosa.stft(y))
     freqs = librosa.fft_frequencies(sr=sr)
@@ -452,8 +522,12 @@ def detect_eq(y: Any, sr: int) -> Dict[str, Any]:
 
     # Natural voice reference: roughly -3dB/octave rolloff above ~1kHz
     # Check for anomalous peaks or notches
-    spectral_centroid = float(np.sum(freqs * avg_spectrum) / (np.sum(avg_spectrum) + 1e-10))
-    spectral_rolloff = float(librosa.feature.spectral_rolloff(y=y, sr=sr, roll_percent=0.85).mean())
+    spectral_centroid = float(
+        np.sum(freqs * avg_spectrum) / (np.sum(avg_spectrum) + 1e-10)
+    )
+    spectral_rolloff = float(
+        librosa.feature.spectral_rolloff(y=y, sr=sr, roll_percent=0.85).mean()
+    )
 
     result["params"]["spectral_centroid_hz"] = round(spectral_centroid, 1)
     result["params"]["spectral_rolloff_hz"] = round(spectral_rolloff, 1)
@@ -467,7 +541,9 @@ def detect_eq(y: Any, sr: int) -> Dict[str, Any]:
         result["confidence"] += 0.3
         result["params"]["high_pass_detected"] = True
         result["params"]["hp_cutoff_estimate_hz"] = "~150Hz"
-        result["evidence"].append(f"Steep low-frequency rolloff: {hp_diff:.1f}dB below midrange")
+        result["evidence"].append(
+            f"Steep low-frequency rolloff: {hp_diff:.1f}dB below midrange"
+        )
 
     # Check for low-pass filter (missing highs)
     high_band_energy = float(np.mean(avg_spectrum_db[freqs > 8000]))
@@ -476,20 +552,26 @@ def detect_eq(y: Any, sr: int) -> Dict[str, Any]:
     if lp_diff > 35:
         result["confidence"] += 0.2
         result["params"]["low_pass_detected"] = True
-        result["evidence"].append(f"Steep high-frequency rolloff: {lp_diff:.1f}dB below midrange")
+        result["evidence"].append(
+            f"Steep high-frequency rolloff: {lp_diff:.1f}dB below midrange"
+        )
 
     # Check for presence boost (2-5kHz boost common in vocal processing)
     presence_band = avg_spectrum_db[(freqs > 2000) & (freqs < 5000)]
-    surrounding = np.concatenate([
-        avg_spectrum_db[(freqs > 1000) & (freqs < 2000)],
-        avg_spectrum_db[(freqs > 5000) & (freqs < 8000)],
-    ])
+    surrounding = np.concatenate(
+        [
+            avg_spectrum_db[(freqs > 1000) & (freqs < 2000)],
+            avg_spectrum_db[(freqs > 5000) & (freqs < 8000)],
+        ]
+    )
     if len(presence_band) > 0 and len(surrounding) > 0:
         presence_boost = float(np.mean(presence_band) - np.mean(surrounding))
         if presence_boost > 5:
             result["confidence"] += 0.2
             result["params"]["presence_boost_db"] = round(presence_boost, 1)
-            result["evidence"].append(f"Presence boost: +{presence_boost:.1f}dB in 2-5kHz range")
+            result["evidence"].append(
+                f"Presence boost: +{presence_boost:.1f}dB in 2-5kHz range"
+            )
 
     # Spectral flatness — very flat spectrum suggests heavy EQ or processing
     flatness = float(librosa.feature.spectral_flatness(y=y).mean())
@@ -504,7 +586,12 @@ def detect_eq(y: Any, sr: int) -> Dict[str, Any]:
 
 def detect_distortion(y: Any, sr: int) -> Dict[str, Any]:
     """Detect distortion/saturation via harmonic analysis and THD."""
-    result: Dict[str, Any] = {"effect": "distortion", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "distortion",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     # Total Harmonic Distortion estimation
     S = np.abs(librosa.stft(y, n_fft=4096))
@@ -547,21 +634,33 @@ def detect_distortion(y: Any, sr: int) -> Dict[str, Any]:
         result["params"]["thd_percent"] = round(thd_percent, 2)
 
         # Odd vs even harmonic ratio (tube saturation → even harmonics)
-        odd_amps = [harmonic_amps[i] for i in range(0, len(harmonic_amps), 2)]  # 2nd,4th,6th = even
-        even_amps = [harmonic_amps[i] for i in range(1, len(harmonic_amps), 2)]  # 3rd,5th,7th = odd
+        odd_amps = [
+            harmonic_amps[i] for i in range(0, len(harmonic_amps), 2)
+        ]  # 2nd,4th,6th = even
+        even_amps = [
+            harmonic_amps[i] for i in range(1, len(harmonic_amps), 2)
+        ]  # 3rd,5th,7th = odd
         if odd_amps and even_amps:
-            even_odd_ratio = float(np.mean(odd_amps)) / (float(np.mean(even_amps)) + 1e-10)
+            even_odd_ratio = float(np.mean(odd_amps)) / (
+                float(np.mean(even_amps)) + 1e-10
+            )
             result["params"]["even_odd_harmonic_ratio"] = round(even_odd_ratio, 2)
 
         if thd_percent > 15:
             result["confidence"] = min(0.95, 0.5 + (thd_percent - 15) * 0.01)
-            result["evidence"].append(f"High THD: {thd_percent:.1f}% (heavy distortion/saturation)")
+            result["evidence"].append(
+                f"High THD: {thd_percent:.1f}% (heavy distortion/saturation)"
+            )
         elif thd_percent > 5:
             result["confidence"] = 0.3 + (thd_percent - 5) * 0.02
-            result["evidence"].append(f"Moderate THD: {thd_percent:.1f}% (mild saturation)")
+            result["evidence"].append(
+                f"Moderate THD: {thd_percent:.1f}% (mild saturation)"
+            )
         elif thd_percent > 2:
             result["confidence"] = 0.1
-            result["evidence"].append(f"Low THD: {thd_percent:.1f}% (minimal distortion)")
+            result["evidence"].append(
+                f"Low THD: {thd_percent:.1f}% (minimal distortion)"
+            )
 
     # Clipping detection
     clip_threshold = 0.99
@@ -570,7 +669,9 @@ def detect_distortion(y: Any, sr: int) -> Dict[str, Any]:
     if clip_ratio > 0.001:
         result["confidence"] = min(0.95, result["confidence"] + 0.3)
         result["params"]["clipped_sample_ratio"] = round(float(clip_ratio), 6)
-        result["evidence"].append(f"Digital clipping detected: {clip_ratio * 100:.3f}% of samples")
+        result["evidence"].append(
+            f"Digital clipping detected: {clip_ratio * 100:.3f}% of samples"
+        )
 
     if not result["evidence"]:
         result["evidence"].append("No significant distortion detected")
@@ -580,7 +681,12 @@ def detect_distortion(y: Any, sr: int) -> Dict[str, Any]:
 
 def detect_chorus(y: Any, sr: int) -> Dict[str, Any]:
     """Detect chorus/doubling via phase coherence and spectral width modulation."""
-    result: Dict[str, Any] = {"effect": "chorus_doubling", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "chorus_doubling",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     # STFT for phase analysis
     D = librosa.stft(y)
@@ -603,25 +709,35 @@ def detect_chorus(y: Any, sr: int) -> Dict[str, Any]:
     if len(spectral_bw) > 20:
         # Check for periodic modulation in bandwidth
         bw_centered = spectral_bw - np.mean(spectral_bw)
-        autocorr = np.correlate(bw_centered, bw_centered, mode='full')
-        autocorr = autocorr[len(autocorr) // 2:]
+        autocorr = np.correlate(bw_centered, bw_centered, mode="full")
+        autocorr = autocorr[len(autocorr) // 2 :]
         if len(autocorr) > 1:
             autocorr = autocorr / (autocorr[0] + 1e-10)
             # Look for peaks indicating periodic modulation
             peaks = []
             for i in range(2, min(len(autocorr) - 1, 100)):
-                if autocorr[i] > autocorr[i - 1] and autocorr[i] > autocorr[i + 1] and autocorr[i] > 0.3:
+                if (
+                    autocorr[i] > autocorr[i - 1]
+                    and autocorr[i] > autocorr[i + 1]
+                    and autocorr[i] > 0.3
+                ):
                     peaks.append(i)
             if peaks:
                 result["confidence"] += 0.3
-                result["evidence"].append(f"Periodic bandwidth modulation detected ({len(peaks)} peaks)")
+                result["evidence"].append(
+                    f"Periodic bandwidth modulation detected ({len(peaks)} peaks)"
+                )
 
     if phase_coherence < 0.7:
         result["confidence"] += 0.3
-        result["evidence"].append(f"Low phase coherence: {phase_coherence:.3f} (typical of chorus)")
+        result["evidence"].append(
+            f"Low phase coherence: {phase_coherence:.3f} (typical of chorus)"
+        )
     elif phase_coherence < 0.85:
         result["confidence"] += 0.1
-        result["evidence"].append(f"Slightly reduced phase coherence: {phase_coherence:.3f}")
+        result["evidence"].append(
+            f"Slightly reduced phase coherence: {phase_coherence:.3f}"
+        )
 
     result["confidence"] = min(0.95, result["confidence"])
     if not result["evidence"]:
@@ -636,7 +752,12 @@ def detect_autotune(y: Any, sr: int) -> Dict[str, Any]:
     Auto-tuned vocals have unnaturally stable/quantized pitch contours
     with fast transitions between notes.
     """
-    result: Dict[str, Any] = {"effect": "autotune_pitch_correction", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "autotune_pitch_correction",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     # Get F0 contour
     try:
@@ -663,10 +784,14 @@ def detect_autotune(y: Any, sr: int) -> Dict[str, Any]:
     # Auto-tuned: < 10 cents
     if mean_deviation < 8:
         result["confidence"] += 0.5
-        result["evidence"].append(f"Unnaturally precise pitch: {mean_deviation:.1f} cents mean deviation")
+        result["evidence"].append(
+            f"Unnaturally precise pitch: {mean_deviation:.1f} cents mean deviation"
+        )
     elif mean_deviation < 15:
         result["confidence"] += 0.25
-        result["evidence"].append(f"Very stable pitch: {mean_deviation:.1f} cents mean deviation")
+        result["evidence"].append(
+            f"Very stable pitch: {mean_deviation:.1f} cents mean deviation"
+        )
 
     # 2. Pitch transition speed: auto-tune creates fast jumps
     pitch_diff = np.abs(np.diff(cents))
@@ -701,7 +826,9 @@ def detect_autotune(y: Any, sr: int) -> Dict[str, Any]:
 
     if peak_concentration > 0.3:
         result["confidence"] += 0.2
-        result["evidence"].append(f"Pitch concentrated at semitone centers ({peak_concentration:.0%} peak)")
+        result["evidence"].append(
+            f"Pitch concentrated at semitone centers ({peak_concentration:.0%} peak)"
+        )
 
     result["confidence"] = min(0.95, result["confidence"])
     if not result["evidence"]:
@@ -712,7 +839,12 @@ def detect_autotune(y: Any, sr: int) -> Dict[str, Any]:
 
 def detect_deessing(y: Any, sr: int) -> Dict[str, Any]:
     """Detect de-essing by looking for energy dips in sibilant frequency range."""
-    result: Dict[str, Any] = {"effect": "de_essing", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "de_essing",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     S = np.abs(librosa.stft(y))
     freqs = librosa.fft_frequencies(sr=sr)
@@ -736,7 +868,9 @@ def detect_deessing(y: Any, sr: int) -> Dict[str, Any]:
 
     if sib_ratio < 0.3:
         result["confidence"] = 0.5
-        result["evidence"].append(f"Strong dip in sibilant range: ratio {sib_ratio:.2f}")
+        result["evidence"].append(
+            f"Strong dip in sibilant range: ratio {sib_ratio:.2f}"
+        )
     elif sib_ratio < 0.6:
         result["confidence"] = 0.25
         result["evidence"].append(f"Moderate sibilant reduction: ratio {sib_ratio:.2f}")
@@ -748,7 +882,9 @@ def detect_deessing(y: Any, sr: int) -> Dict[str, Any]:
         result["params"]["sibilant_variability_cv"] = round(sib_cv, 4)
         if sib_cv < 0.3:
             result["confidence"] += 0.15
-            result["evidence"].append(f"Unnaturally consistent sibilant level (CV={sib_cv:.3f})")
+            result["evidence"].append(
+                f"Unnaturally consistent sibilant level (CV={sib_cv:.3f})"
+            )
 
     result["confidence"] = min(0.95, result["confidence"])
     if not result["evidence"]:
@@ -759,7 +895,12 @@ def detect_deessing(y: Any, sr: int) -> Dict[str, Any]:
 
 def detect_vocoder(y: Any, sr: int) -> Dict[str, Any]:
     """Detect vocoder processing via spectral envelope regularity."""
-    result: Dict[str, Any] = {"effect": "vocoder", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "vocoder",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     # MFCCs — vocoded voice has very regular/artificial MFCC patterns
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20)
@@ -776,7 +917,9 @@ def detect_vocoder(y: Any, sr: int) -> Dict[str, Any]:
     avg_spectrum = np.mean(S, axis=1)
 
     # Measure harmonic regularity
-    peaks_idx = scipy_signal.find_peaks(avg_spectrum, height=np.max(avg_spectrum) * 0.05, distance=5)[0]
+    peaks_idx = scipy_signal.find_peaks(
+        avg_spectrum, height=np.max(avg_spectrum) * 0.05, distance=5
+    )[0]
     if len(peaks_idx) > 3:
         peak_freqs = freqs[peaks_idx]
         peak_diffs = np.diff(peak_freqs)
@@ -792,12 +935,16 @@ def detect_vocoder(y: Any, sr: int) -> Dict[str, Any]:
                 )
             elif spacing_cv < 0.2:
                 result["confidence"] += 0.15
-                result["evidence"].append(f"Regular harmonic spacing (CV={spacing_cv:.3f})")
+                result["evidence"].append(
+                    f"Regular harmonic spacing (CV={spacing_cv:.3f})"
+                )
 
     # Very low MFCC variance suggests artificial sound
     if mean_mfcc_var < 5:
         result["confidence"] += 0.3
-        result["evidence"].append(f"Low MFCC variance: {mean_mfcc_var:.2f} (artificial texture)")
+        result["evidence"].append(
+            f"Low MFCC variance: {mean_mfcc_var:.2f} (artificial texture)"
+        )
 
     result["confidence"] = min(0.95, result["confidence"])
     if not result["evidence"]:
@@ -808,7 +955,12 @@ def detect_vocoder(y: Any, sr: int) -> Dict[str, Any]:
 
 def detect_noise_gate(y: Any, sr: int) -> Dict[str, Any]:
     """Detect noise gating via abrupt silence transitions."""
-    result: Dict[str, Any] = {"effect": "noise_gate", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "noise_gate",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     rms = _rms_envelope(y, frame_length=1024, hop_length=256)
     rms_db = 20.0 * np.log10(rms + 1e-10)
@@ -820,7 +972,7 @@ def detect_noise_gate(y: Any, sr: int) -> Dict[str, Any]:
     # Measure transition sharpness
     transitions = np.diff(is_silent.astype(int))
     onset_indices = np.where(transitions == -1)[0]  # silence → sound
-    offset_indices = np.where(transitions == 1)[0]   # sound → silence
+    offset_indices = np.where(transitions == 1)[0]  # sound → silence
 
     sharp_onsets = 0
     sharp_offsets = 0
@@ -863,7 +1015,9 @@ def detect_noise_gate(y: Any, sr: int) -> Dict[str, Any]:
         # Very uniform noise floor suggests gating
         if noise_floor_var < 1.0 and np.mean(silent_regions) < -60:
             result["confidence"] += 0.2
-            result["evidence"].append("Very uniform/deep silence floor (digital noise gate)")
+            result["evidence"].append(
+                "Very uniform/deep silence floor (digital noise gate)"
+            )
 
     result["confidence"] = min(0.95, result["confidence"])
     if not result["evidence"]:
@@ -874,7 +1028,12 @@ def detect_noise_gate(y: Any, sr: int) -> Dict[str, Any]:
 
 def detect_delay(y: Any, sr: int) -> Dict[str, Any]:
     """Detect delay/echo via autocorrelation peaks."""
-    result: Dict[str, Any] = {"effect": "delay_echo", "confidence": 0.0, "params": {}, "evidence": []}
+    result: Dict[str, Any] = {
+        "effect": "delay_echo",
+        "confidence": 0.0,
+        "params": {},
+        "evidence": [],
+    }
 
     # Use energy envelope for autocorrelation (more robust than raw signal)
     rms = _rms_envelope(y, frame_length=2048, hop_length=512)
@@ -883,16 +1042,16 @@ def detect_delay(y: Any, sr: int) -> Dict[str, Any]:
     if np.std(rms_centered) < 1e-10:
         return result
 
-    autocorr = np.correlate(rms_centered, rms_centered, mode='full')
-    autocorr = autocorr[len(autocorr) // 2:]
+    autocorr = np.correlate(rms_centered, rms_centered, mode="full")
+    autocorr = autocorr[len(autocorr) // 2 :]
     autocorr = autocorr / (autocorr[0] + 1e-10)
 
     # Look for peaks in delay range (50ms - 1s)
     frames_per_sec = sr / 512
     min_delay_frames = int(0.05 * frames_per_sec)  # 50ms
-    max_delay_frames = int(1.0 * frames_per_sec)   # 1s
+    max_delay_frames = int(1.0 * frames_per_sec)  # 1s
 
-    search_region = autocorr[min_delay_frames:min(max_delay_frames, len(autocorr))]
+    search_region = autocorr[min_delay_frames : min(max_delay_frames, len(autocorr))]
     if len(search_region) < 5:
         return result
 
@@ -922,7 +1081,9 @@ def detect_delay(y: Any, sr: int) -> Dict[str, Any]:
         # Check for multiple echoes (feedback delay)
         if len(peaks_idx) > 1:
             result["params"]["echo_count"] = len(peaks_idx)
-            result["evidence"].append(f"Multiple echo peaks detected ({len(peaks_idx)})")
+            result["evidence"].append(
+                f"Multiple echo peaks detected ({len(peaks_idx)})"
+            )
             result["confidence"] = min(0.95, result["confidence"] + 0.1)
 
     if not result["evidence"]:
@@ -934,6 +1095,7 @@ def detect_delay(y: Any, sr: int) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Main analysis entry point
 # ---------------------------------------------------------------------------
+
 
 def analyze_voice(
     path: Path,
@@ -959,7 +1121,9 @@ def analyze_voice(
     duration = librosa.get_duration(y=y, sr=sr)
 
     print(f"  Duration: {duration:.1f}s | Sample rate: {sr}Hz")
-    print(f"  Dependencies: librosa=YES, parselmouth={'YES' if _HAS_PARSELMOUTH else 'NO'}, crepe={'YES' if _HAS_CREPE else 'NO'}")
+    print(
+        f"  Dependencies: librosa=YES, parselmouth={'YES' if _HAS_PARSELMOUTH else 'NO'}, crepe={'YES' if _HAS_CREPE else 'NO'}"
+    )
 
     # Basic voice detection: check if there's pitched content in voice range
     f0_median = _librosa_f0(y, sr)
@@ -1016,12 +1180,14 @@ def analyze_voice(
             effect_result = detector_fn(y, sr)
             result["effects_detected"].append(effect_result)
         except Exception as e:
-            result["effects_detected"].append({
-                "effect": name.lower().replace("/", "_").replace(" ", "_"),
-                "confidence": 0.0,
-                "params": {},
-                "evidence": [f"Error during analysis: {e}"],
-            })
+            result["effects_detected"].append(
+                {
+                    "effect": name.lower().replace("/", "_").replace(" ", "_"),
+                    "confidence": 0.0,
+                    "params": {},
+                    "evidence": [f"Error during analysis: {e}"],
+                }
+            )
 
     # Sort by confidence descending
     result["effects_detected"].sort(key=lambda x: x.get("confidence", 0), reverse=True)
@@ -1046,7 +1212,9 @@ def print_voice_summary(result: Dict[str, Any]) -> None:
     print("=" * 60)
     print(f"  File:       {result.get('filename', result.get('file'))}")
     print(f"  Duration:   {result.get('duration_seconds')}s")
-    print(f"  Voice:      {'Detected' if result.get('voice_detected') else 'Not detected'}")
+    print(
+        f"  Voice:      {'Detected' if result.get('voice_detected') else 'Not detected'}"
+    )
     if result.get("fundamental_frequency_hz"):
         print(f"  F0:         {result['fundamental_frequency_hz']}Hz")
     print()

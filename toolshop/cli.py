@@ -18,6 +18,7 @@ from . import yt_scraper_adapter
 from . import yt_summarizer_adapter
 from . import reverse_engineering_adapter
 from . import voice_effects_adapter
+from . import stem_extractor_adapter
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -99,7 +100,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # suno export-text - export lyrics/descriptions from liked tracks
     suno_export_parser = suno_subparsers.add_parser(
-        "export-text", help="Export lyrics and descriptions from liked Suno tracks",
+        "export-text",
+        help="Export lyrics and descriptions from liked Suno tracks",
     )
     suno_export_parser.add_argument(
         "--root",
@@ -136,17 +138,13 @@ def build_parser() -> argparse.ArgumentParser:
     bpm_file_parser.add_argument(
         "file", type=Path, help="Path to audio file (WAV recommended)"
     )
-    bpm_file_parser.add_argument(
-        "--json", action="store_true", help="Output as JSON"
-    )
+    bpm_file_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     # analyze library <root>
     bpm_lib_parser = analyze_subparsers.add_parser(
         "library", help="Analyze all audio files in a directory for BPM/key"
     )
-    bpm_lib_parser.add_argument(
-        "root", type=Path, help="Root directory to scan"
-    )
+    bpm_lib_parser.add_argument("root", type=Path, help="Root directory to scan")
     bpm_lib_parser.add_argument(
         "--ext",
         type=str,
@@ -177,20 +175,14 @@ def build_parser() -> argparse.ArgumentParser:
     yt_search_parser.add_argument(
         "--limit", type=int, default=10, help="Max results (default 10)"
     )
-    yt_search_parser.add_argument(
-        "--json", action="store_true", help="Output as JSON"
-    )
+    yt_search_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     # yt info <video_id_or_url>
     yt_info_parser = yt_subparsers.add_parser(
         "info", help="Get metadata for a YouTube video"
     )
-    yt_info_parser.add_argument(
-        "video", type=str, help="YouTube video ID or URL"
-    )
-    yt_info_parser.add_argument(
-        "--json", action="store_true", help="Output as JSON"
-    )
+    yt_info_parser.add_argument("video", type=str, help="YouTube video ID or URL")
+    yt_info_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     # yt summarize <url>
     yt_summarize_parser = yt_subparsers.add_parser(
@@ -243,9 +235,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run full track analysis (chords, structure) instead of just BPM/key",
     )
-    yt_analyze_parser.add_argument(
-        "--json", action="store_true", help="Output as JSON"
-    )
+    yt_analyze_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     # =========================================================================
     # TRACK REVERSE ENGINEERING COMMANDS
@@ -260,9 +250,7 @@ def build_parser() -> argparse.ArgumentParser:
     track_analyze_parser = track_subparsers.add_parser(
         "analyze", help="Analyze a track for structure, key, BPM, chords, etc."
     )
-    track_analyze_parser.add_argument(
-        "file", type=Path, help="Path to audio file"
-    )
+    track_analyze_parser.add_argument("file", type=Path, help="Path to audio file")
     track_analyze_parser.add_argument(
         "--export-json", action="store_true", help="Export results to JSON file"
     )
@@ -310,6 +298,44 @@ def build_parser() -> argparse.ArgumentParser:
         "--output-dir", type=Path, default=None, help="Output directory for JSON export"
     )
 
+    # =========================================================================
+    # STEM EXTRACTOR COMMANDS
+    # =========================================================================
+    stem_parser = subparsers.add_parser("stem", help="Stem extraction tools")
+    stem_subparsers = stem_parser.add_subparsers(dest="stem_command")
+    stem_subparsers.required = True
+
+    # stem extract - extract stems from audio file
+    stem_extract_parser = stem_subparsers.add_parser(
+        "extract", help="Extract instrumentals, main vocals, and backing vocals"
+    )
+    stem_extract_parser.add_argument(
+        "file",
+        type=Path,
+        help="Input audio file to process",
+    )
+    stem_extract_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("separated_tracks"),
+        help="Output directory for extracted stems",
+    )
+    stem_extract_parser.add_argument(
+        "--cpu",
+        action="store_true",
+        help="Use CPU instead of GPU (slower but no VRAM required)",
+    )
+    stem_extract_parser.add_argument(
+        "--fast",
+        action="store_true", 
+        help="Use fast mode (MDX-Net models) instead of high quality (Roformer)",
+    )
+    stem_extract_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results in JSON format",
+    )
+
     return parser
 
 
@@ -342,7 +368,9 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         elif args.suno_command == "export-text":
             json_out = args.json_out or (args.root / "lyrics_export.json")
             txt_out = args.txt_out or (args.root / "lyrics_export.txt")
-            print(f"Exporting lyrics/descriptions from liked tracks under {args.root}...")
+            print(
+                f"Exporting lyrics/descriptions from liked tracks under {args.root}..."
+            )
             suno_adapter.export_text(
                 root=args.root,
                 output_json=json_out,
@@ -435,9 +463,9 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 print(f"\nFile: {result['file']}")
                 print(f"BPM: {result['bpm']}")
                 print(f"Key: {result['key']} {result.get('mode', '')}")
-                if result.get('duration_seconds'):
+                if result.get("duration_seconds"):
                     print(f"Duration: {result['duration_seconds']}s")
-                if result.get('chord_progression'):
+                if result.get("chord_progression"):
                     print(f"Chords: {len(result['chord_progression'])} detected")
         else:
             parser.error("Unknown 'yt' subcommand.")
@@ -477,6 +505,30 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 voice_effects_adapter.print_voice_summary(result)
         else:
             parser.error("Unknown 'voice' subcommand.")
+
+    # =========================================================================
+    # STEM EXTRACTOR
+    # =========================================================================
+    elif args.command == "stem":
+        if args.stem_command == "extract":
+            result = stem_extractor_adapter.extract_stems(
+                input_file=args.file,
+                output_dir=args.output_dir,
+                use_gpu=not args.cpu,
+                high_quality=not args.fast
+            )
+            if args.json:
+                print(json.dumps(result, indent=2, default=str))
+            else:
+                print(f"✓ Extracted stems from {args.file.name}")
+                print(f"  Output directory: {result['output_dir']}")
+                print(f"  Quality mode: {result['quality_mode']}")
+                print(f"  GPU used: {result['gpu_used']}")
+                for stem_type, stem_file in result['stems'].items():
+                    if stem_file:
+                        print(f"  {stem_type}: {Path(stem_file).name}")
+        else:
+            parser.error("Unknown 'stem' subcommand.")
 
     else:
         parser.error(f"Unknown command: {args.command}")

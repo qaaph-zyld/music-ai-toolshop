@@ -85,22 +85,72 @@ def extract_music_keywords(url: str) -> Dict[str, Any]:
 
     # Common genre keywords
     genres = [
-        "pop", "rock", "hip hop", "rap", "electronic", "edm", "house", "techno",
-        "jazz", "blues", "classical", "country", "folk", "metal", "punk", "indie",
-        "r&b", "soul", "reggae", "latin", "ambient", "lo-fi", "lofi", "trap",
-        "dubstep", "drum and bass", "dnb", "hardcore", "hardstyle", "trance"
+        "pop",
+        "rock",
+        "hip hop",
+        "rap",
+        "electronic",
+        "edm",
+        "house",
+        "techno",
+        "jazz",
+        "blues",
+        "classical",
+        "country",
+        "folk",
+        "metal",
+        "punk",
+        "indie",
+        "r&b",
+        "soul",
+        "reggae",
+        "latin",
+        "ambient",
+        "lo-fi",
+        "lofi",
+        "trap",
+        "dubstep",
+        "drum and bass",
+        "dnb",
+        "hardcore",
+        "hardstyle",
+        "trance",
     ]
 
     # Mood keywords
     moods = [
-        "happy", "sad", "energetic", "calm", "dark", "bright", "melancholic",
-        "upbeat", "chill", "aggressive", "peaceful", "epic", "dreamy", "intense"
+        "happy",
+        "sad",
+        "energetic",
+        "calm",
+        "dark",
+        "bright",
+        "melancholic",
+        "upbeat",
+        "chill",
+        "aggressive",
+        "peaceful",
+        "epic",
+        "dreamy",
+        "intense",
     ]
 
     # Instrument keywords
     instruments = [
-        "guitar", "piano", "drums", "bass", "synth", "violin", "saxophone",
-        "trumpet", "flute", "vocal", "vocals", "808", "strings", "orchestra"
+        "guitar",
+        "piano",
+        "drums",
+        "bass",
+        "synth",
+        "violin",
+        "saxophone",
+        "trumpet",
+        "flute",
+        "vocal",
+        "vocals",
+        "808",
+        "strings",
+        "orchestra",
     ]
 
     combined_text = f"{title} {description} {' '.join(tags)}"

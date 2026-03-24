@@ -1,0 +1,177 @@
+{
+  "file": "d:\\Project\\RAF Camora - VENDETTA (prod. by The Royals & The Cratez).mp3",
+  "filename": "RAF Camora - VENDETTA (prod. by The Royals & The Cratez).mp3",
+  "duration_seconds": 155.67,
+  "sample_rate": 22050,
+  "voice_detected": true,
+  "fundamental_frequency_hz": 51.5,
+  "dependencies_available": {
+    "librosa": true,
+    "parselmouth": true,
+    "crepe": true
+  },
+  "effects_detected": [
+    {
+      "effect": "pitch_shift",
+      "confidence": 0.95,
+      "params": {
+        "detected_f0_hz": 51.5,
+        "formants": {
+          "F1": 745.2,
+          "F2": 1987.3,
+          "F3": 3068.1
+        },
+        "expected_f0_range": [
+          200.0,
+          400.0
+        ],
+        "estimated_semitones": "-23.5"
+      },
+      "evidence": [
+        "F0 (51Hz) below expected range (200-400Hz) for detected formants"
+      ]
+    },
+    {
+      "effect": "distortion",
+      "confidence": 0.95,
+      "params": {
+        "fundamental_hz": 80.7,
+        "thd_percent": 96.83,
+        "even_odd_harmonic_ratio": 1.02
+      },
+      "evidence": [
+        "High THD: 96.8% (heavy distortion/saturation)"
+      ]
+    },
+    {
+      "effect": "delay_echo",
+      "confidence": 0.8939661681652069,
+      "params": {
+        "delay_time_seconds": 0.488,
+        "delay_time_ms": 487.6,
+        "correlation_strength": 0.788,
+        "echo_count": 3
+      },
+      "evidence": [
+        "Strong echo at 488ms (correlation: 0.79)",
+        "Multiple echo peaks detected (3)"
+      ]
+    },
+    {
+      "effect": "reverb",
+      "confidence": 0.6367754648328039,
+      "params": {
+        "estimated_rt60_seconds": 2.412,
+        "type": "room"
+      },
+      "evidence": [
+        "Energy decay RT60 ~ 2.41s"
+      ]
+    },
+    {
+      "effect": "chorus_doubling",
+      "confidence": 0.6,
+      "params": {
+        "phase_coherence": 0.6322,
+        "bandwidth_cv": 0.1803
+      },
+      "evidence": [
+        "Periodic bandwidth modulation detected (4 peaks)",
+        "Low phase coherence: 0.632 (typical of chorus)"
+      ]
+    },
+    {
+      "effect": "autotune_pitch_correction",
+      "confidence": 0.2,
+      "params": {
+        "mean_pitch_deviation_cents": 19.42,
+        "pitch_jump_ratio": 0.2016,
+        "clean_jump_ratio": 0.286,
+        "pitch_histogram_peak": 0.428
+      },
+      "evidence": [
+        "Pitch concentrated at semitone centers (43% peak)"
+      ]
+    },
+    {
+      "effect": "compression",
+      "confidence": 0.1,
+      "params": {
+        "crest_factor_db": 11.18,
+        "peak_amplitude": 1.1151,
+        "rms_amplitude": 0.3077,
+        "dynamic_range_db": 21.46,
+        "rms_variance_db2": 50.7,
+        "estimated_ratio": "2:1"
+      },
+      "evidence": [
+        "Mild crest factor: 11.2dB (light compression)"
+      ]
+    },
+    {
+      "effect": "formant_shift",
+      "confidence": 0.0,
+      "params": {
+        "F2_F1_ratio": 2.67,
+        "F3_F2_ratio": 1.54,
+        "F1_variability_cv": 0.3225
+      },
+      "evidence": [
+        "Formant ratios appear within normal range"
+      ]
+    },
+    {
+      "effect": "eq_filtering",
+      "confidence": 0.0,
+      "params": {
+        "spectral_centroid_hz": 2595.1,
+        "spectral_rolloff_hz": 5680.9,
+        "spectral_flatness": 0.0299
+      },
+      "evidence": [
+        "Spectral shape appears within normal range"
+      ]
+    },
+    {
+      "effect": "de_essing",
+      "confidence": 0.0,
+      "params": {
+        "sibilant_ratio": 0.794,
+        "sibilant_variability_cv": 0.7872
+      },
+      "evidence": [
+        "No significant de-essing detected"
+      ]
+    },
+    {
+      "effect": "vocoder",
+      "confidence": 0.0,
+      "params": {
+        "mfcc_temporal_variance": 209.2913,
+        "harmonic_spacing_cv": 0.6239
+      },
+      "evidence": [
+        "No vocoder indicators found"
+      ]
+    },
+    {
+      "effect": "noise_gate",
+      "confidence": 0.0,
+      "params": {
+        "total_transitions": 10,
+        "sharp_transitions": 1,
+        "sharp_ratio": 0.1,
+        "noise_floor_variance_db2": 887.05
+      },
+      "evidence": [
+        "No noise gate indicators found"
+      ]
+    }
+  ],
+  "spectral_profile": {
+    "centroid_hz": 2557.2,
+    "bandwidth_hz": 2727.2,
+    "rolloff_hz": 5680.9,
+    "flatness": 0.0299
+  }
+}

@@ -90,7 +90,9 @@ def analyze_library(
             try:
                 result = analyze_track(audio_path)
                 results.append(result)
-                print(f"✓ {audio_path.name}: {result['bpm']} BPM, {result['key']} {result['mode']}")
+                print(
+                    f"✓ {audio_path.name}: {result['bpm']} BPM, {result['key']} {result['mode']}"
+                )
             except Exception as e:
                 print(f"✗ {audio_path.name}: {e}")
                 results.append({"file": str(audio_path), "error": str(e)})
