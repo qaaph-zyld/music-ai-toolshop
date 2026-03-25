@@ -1,6 +1,48 @@
 # Changelog
 
-### Answer #001 - Initial toolshop scaffolding
+### Answer #XXX - Audio Cleaning Pipeline Implementation
+**Timestamp:** 2026-03-25 17:30
+**Action Type:** Implementation
+**Previous State:** No audio cleaning capabilities existed in the toolshop.
+**Current State:** Multi-stage audio cleaning pipeline implemented with CLI commands and comprehensive documentation.
+
+#### Changes Made:
+- Implemented 6-stage audio cleaning pipeline combining multiple detection methods
+- Added PreprocessingStage: Load audio, detect BPM/key, compute spectral features
+- Added PauseRemovalStage: Remove long silences with crossfades (librosa.effects.split)
+- Added BreathDetectionStage: Frequency + energy-based detection with attenuation (200-2000Hz range)
+- Added EventDetectionStage: Detect coughs, clicks, pops using onset detection and spectral analysis
+- Added BeatAlignmentStage: Detect beats and tempo analysis (librosa.beat.beat_track)
+- Added FinalAssemblyStage: Normalization, metadata embedding, export
+- Implemented pipeline controller with YAML configuration support
+- Added comprehensive CLI commands: `toolshop clean pipeline`, `pause-remove`, `breath-detect`, `event-detect`, `beat-align`, `config-template`
+- Created full test suite for all cleaning stages
+- Updated README.md with complete documentation and usage examples
+- Added `cleaning` dependency group with pyyaml for configuration
+
+#### Files Affected:
+- **NEW:** `toolshop/cleaning_stages.py` – All pipeline stage implementations (PreprocessingStage, PauseRemovalStage, BreathDetectionStage, EventDetectionStage, BeatAlignmentStage, FinalAssemblyStage)
+- **NEW:** `toolshop/cleaning_pipeline_adapter.py` – Pipeline controller and CLI integration
+- **NEW:** `tests/test_cleaning_pipeline.py` – Comprehensive test suite for all stages
+- **MODIFIED:** `toolshop/cli.py` – Added 6 new CLI commands for audio cleaning
+- **MODIFIED:** `toolshop/__init__.py` – Export cleaning adapters
+- **MODIFIED:** `pyproject.toml` – Added cleaning dependency group with pyyaml
+- **MODIFIED:** `README.md` – Full documentation with examples and API usage
+
+#### Technical Decisions:
+- Multi-stage approach: Each stage catches different artifacts (pauses → breaths → events → beats)
+- Combined detection methods: Frequency + energy + spectral analysis for breath detection
+- Configurable via YAML: Users can customize thresholds, methods, and which stages to run
+- Modular design: Run individual stages or full pipeline
+- Crossfade preservation: Smooth transitions when removing segments to avoid artifacts
+- Attenuation over removal: Breath sounds attenuated rather than hard-cut for natural feel
+
+#### Next Actions Required:
+- Optional: Add neural noise reduction stage (RNNoise integration)
+- Optional: Implement beat alignment 'align' mode with time-stretching
+- Optional: Add batch processing for multiple files
+
+---
 **Timestamp:** 2025-12-11 20:02
 **Action Type:** Implementation
 **Previous State:** `music-ai-toolshop` repository contained only an empty Git init.
