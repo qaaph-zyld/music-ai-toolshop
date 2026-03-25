@@ -5,6 +5,7 @@ Subcommands:
     analyze   - BPM/key analysis for audio files
     yt        - YouTube search, info, summarize, download
     track     - Track reverse engineering / structure analysis
+    clean     - Audio cleaning and track preparation tools
 """
 
 import argparse
@@ -19,6 +20,7 @@ from . import yt_summarizer_adapter
 from . import reverse_engineering_adapter
 from . import voice_effects_adapter
 from . import stem_extractor_adapter
+from . import cleaning_pipeline_adapter
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -327,13 +329,142 @@ def build_parser() -> argparse.ArgumentParser:
     )
     stem_extract_parser.add_argument(
         "--fast",
-        action="store_true", 
+        action="store_true",
         help="Use fast mode (MDX-Net models) instead of high quality (Roformer)",
     )
     stem_extract_parser.add_argument(
         "--json",
         action="store_true",
         help="Output results in JSON format",
+    )
+
+    # =========================================================================
+    # CLEANING COMMANDS
+    # =========================================================================
+    clean_parser = subparsers.add_parser(
+        "clean", help="Audio cleaning and track preparation tools"
+    )
+    clean_subparsers = clean_parser.add_subparsers(dest="clean_command")
+    clean_subparsers.required = True
+
+    # clean pipeline <file> - full cleaning pipeline
+    clean_pipeline_parser = clean_subparsers.add_parser(
+        "pipeline", help="Run full cleaning pipeline on audio file"
+    )
+    clean_pipeline_parser.add_argument(
+        "file", type=Path, help="Path to audio file to clean"
+    )
+    clean_pipeline_parser.add_argument(
+        "--config", "-c", type=Path, help="Pipeline configuration YAML file"
+    )
+    clean_pipeline_parser.add_argument(
+        "--output", "-o", type=Path, help="Output file path"
+    )
+    clean_pipeline_parser.add_argument(
+        "--report", "-r", type=Path, help="Save processing report to JSON file"
+    )
+
+    # clean pause-remove <file> - remove pauses
+    clean_pause_parser = clean_subparsers.add_parser(
+        "pause-remove", help="Remove long pauses and silences from audio"
+    )
+    clean_pause_parser.add_argument("file", type=Path, help="Path to audio file")
+    clean_pause_parser.add_argument(
+        "--threshold",
+        "-t",
+        type=float,
+        default=-40,
+        help="Silence threshold in dB (default: -40)",
+    )
+    clean_pause_parser.add_argument(
+        "--min-silence",
+        type=float,
+        default=0.3,
+        help="Minimum silence to remove in seconds (default: 0.3)",
+    )
+    clean_pause_parser.add_argument(
+        "--output", "-o", type=Path, help="Output file path"
+    )
+
+    # clean breath-detect <file> - detect and attenuate breaths
+    clean_breath_parser = clean_subparsers.add_parser(
+        "breath-detect", help="Detect and attenuate breath sounds"
+    )
+    clean_breath_parser.add_argument("file", type=Path, help="Path to audio file")
+    clean_breath_parser.add_argument(
+        "--attenuation",
+        "-a",
+        type=float,
+        default=15,
+        help="Attenuation in dB (default: 15)",
+    )
+    clean_breath_parser.add_argument(
+        "--method",
+        "-m",
+        type=str,
+        default="combined",
+        choices=["frequency", "energy", "combined"],
+        help="Detection method (default: combined)",
+    )
+    clean_breath_parser.add_argument(
+        "--output", "-o", type=Path, help="Output file path"
+    )
+
+    # clean event-detect <file> - detect and remove events
+    clean_event_parser = clean_subparsers.add_parser(
+        "event-detect", help="Detect and remove discrete events (coughs, clicks, pops)"
+    )
+    clean_event_parser.add_argument("file", type=Path, help="Path to audio file")
+    clean_event_parser.add_argument(
+        "--detect",
+        "-d",
+        type=str,
+        nargs="+",
+        choices=["coughs", "clicks", "pops"],
+        default=["coughs", "clicks", "pops"],
+        help="Event types to detect (default: all)",
+    )
+    clean_event_parser.add_argument(
+        "--confidence",
+        "-c",
+        type=float,
+        default=0.7,
+        help="Detection confidence threshold (default: 0.7)",
+    )
+    clean_event_parser.add_argument(
+        "--output", "-o", type=Path, help="Output file path"
+    )
+
+    # clean beat-align <file> - analyze beats
+    clean_beat_parser = clean_subparsers.add_parser(
+        "beat-align", help="Analyze beats and optionally align to tempo grid"
+    )
+    clean_beat_parser.add_argument("file", type=Path, help="Path to audio file")
+    clean_beat_parser.add_argument(
+        "--mode",
+        "-m",
+        type=str,
+        default="analyze",
+        choices=["analyze", "align"],
+        help="Analysis or alignment mode (default: analyze)",
+    )
+    clean_beat_parser.add_argument(
+        "--target-bpm", "-b", type=float, help="Target BPM for alignment"
+    )
+    clean_beat_parser.add_argument(
+        "--report", "-r", type=Path, help="Save beat report to JSON"
+    )
+
+    # clean config-template - generate config template
+    clean_config_parser = clean_subparsers.add_parser(
+        "config-template", help="Generate a default pipeline configuration file"
+    )
+    clean_config_parser.add_argument(
+        "--output",
+        "-o",
+        type=Path,
+        required=True,
+        help="Output file path for config template",
     )
 
     return parser
@@ -515,7 +646,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 input_file=args.file,
                 output_dir=args.output_dir,
                 use_gpu=not args.cpu,
-                high_quality=not args.fast
+                high_quality=not args.fast,
             )
             if args.json:
                 print(json.dumps(result, indent=2, default=str))
@@ -524,11 +655,200 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 print(f"  Output directory: {result['output_dir']}")
                 print(f"  Quality mode: {result['quality_mode']}")
                 print(f"  GPU used: {result['gpu_used']}")
-                for stem_type, stem_file in result['stems'].items():
+                for stem_type, stem_file in result["stems"].items():
                     if stem_file:
                         print(f"  {stem_type}: {Path(stem_file).name}")
         else:
             parser.error("Unknown 'stem' subcommand.")
+
+    # =========================================================================
+    # CLEANING COMMANDS
+    # =========================================================================
+    elif args.command == "clean":
+        if args.clean_command == "pipeline":
+            config = None
+            if args.config:
+                config = cleaning_pipeline_adapter.load_config(args.config)
+            else:
+                config = cleaning_pipeline_adapter.get_default_config()
+
+            pipeline = cleaning_pipeline_adapter.AudioCleaningPipeline(config)
+            summary = pipeline.process(
+                str(args.file), str(args.output) if args.output else None
+            )
+
+            print(f"\n✓ Audio cleaning complete!")
+            print(f"  Output: {summary['output_file']}")
+            print(f"  Duration: {summary['duration']:.2f}s")
+            print(f"  Stages applied: {summary['stages_applied']}")
+            print(f"  BPM: {summary.get('original_bpm', 'N/A')}")
+            print(f"  Key: {summary.get('original_key', 'N/A')}")
+
+            print("\n  Stage results:")
+            for i, stage_report in enumerate(summary["stage_reports"], 1):
+                stage_name = stage_report.get("stage", f"Stage {i}")
+                status = stage_report.get("status", "unknown")
+                print(f"    {i}. {stage_name}: {status}")
+
+                if "breaths_detected" in stage_report:
+                    print(
+                        f"       - Breaths detected: {stage_report['breaths_detected']}"
+                    )
+                if "events_detected" in stage_report:
+                    print(
+                        f"       - Events detected: {stage_report['events_detected']}"
+                    )
+                if "time_removed" in stage_report:
+                    print(f"       - Time removed: {stage_report['time_removed']:.2f}s")
+
+            if args.report:
+                with open(args.report, "w") as f:
+                    json.dump(summary, f, indent=2)
+                print(f"\n  Report saved to: {args.report}")
+
+        elif args.clean_command == "pause-remove":
+            config = cleaning_pipeline_adapter.get_default_config()
+            config["stages"] = {
+                "preprocessing": config["stages"]["preprocessing"],
+                "pause_removal": {
+                    "min_silence": args.min_silence,
+                    "max_keep": 0.5,
+                    "threshold_db": args.threshold,
+                    "crossfade_ms": 10,
+                },
+            }
+
+            pipeline = cleaning_pipeline_adapter.AudioCleaningPipeline(config)
+            summary = pipeline.process(
+                str(args.file), str(args.output) if args.output else None
+            )
+
+            pause_report = (
+                summary["stage_reports"][1] if len(summary["stage_reports"]) > 1 else {}
+            )
+
+            print(f"\n✓ Pause removal complete!")
+            print(f"  Time removed: {pause_report.get('time_removed', 0):.2f}s")
+            print(f"  Segments kept: {pause_report.get('segments_kept', 0)}")
+            print(f"  Output: {summary['output_file']}")
+
+        elif args.clean_command == "breath-detect":
+            config = cleaning_pipeline_adapter.get_default_config()
+            config["stages"] = {
+                "preprocessing": config["stages"]["preprocessing"],
+                "breath_detection": {
+                    "method": args.method,
+                    "attenuation_db": args.attenuation,
+                    "frequency_range": [200, 2000],
+                    "min_breath_duration": 0.1,
+                    "max_breath_duration": 0.8,
+                },
+            }
+
+            pipeline = cleaning_pipeline_adapter.AudioCleaningPipeline(config)
+            summary = pipeline.process(
+                str(args.file), str(args.output) if args.output else None
+            )
+
+            breath_report = (
+                summary["stage_reports"][1] if len(summary["stage_reports"]) > 1 else {}
+            )
+
+            print(f"\n✓ Breath detection complete!")
+            print(f"  Breaths detected: {breath_report.get('breaths_detected', 0)}")
+            print(f"  Method: {breath_report.get('method', args.method)}")
+            print(f"  Attenuation: {args.attenuation}dB")
+            print(f"  Output: {summary['output_file']}")
+
+            if breath_report.get("detections"):
+                print(f"\n  Detection details:")
+                for det in breath_report["detections"][:5]:
+                    print(
+                        f"    - {det['start']:.2f}s to {det['end']:.2f}s "
+                        f"(confidence: {det['confidence']:.2f})"
+                    )
+
+        elif args.clean_command == "event-detect":
+            config = cleaning_pipeline_adapter.get_default_config()
+            config["stages"] = {
+                "preprocessing": config["stages"]["preprocessing"],
+                "event_detection": {
+                    "detect_coughs": "coughs" in args.detect,
+                    "detect_clicks": "clicks" in args.detect,
+                    "detect_pops": "pops" in args.detect,
+                    "confidence_threshold": args.confidence,
+                },
+            }
+
+            pipeline = cleaning_pipeline_adapter.AudioCleaningPipeline(config)
+            summary = pipeline.process(
+                str(args.file), str(args.output) if args.output else None
+            )
+
+            event_report = (
+                summary["stage_reports"][1] if len(summary["stage_reports"]) > 1 else {}
+            )
+
+            print(f"\n✓ Event detection complete!")
+            print(f"  Total events: {event_report.get('events_detected', 0)}")
+            print(f"  Coughs: {event_report.get('coughs', 0)}")
+            print(f"  Clicks: {event_report.get('clicks', 0)}")
+            print(f"  Pops: {event_report.get('pops', 0)}")
+            print(f"  Output: {summary['output_file']}")
+
+        elif args.clean_command == "beat-align":
+            config = cleaning_pipeline_adapter.get_default_config()
+            config["stages"] = {
+                "preprocessing": config["stages"]["preprocessing"],
+                "beat_alignment": {"mode": args.mode, "target_bpm": args.target_bpm},
+            }
+
+            pipeline = cleaning_pipeline_adapter.AudioCleaningPipeline(config)
+            summary = pipeline.process(str(args.file))
+
+            beat_report = (
+                summary["stage_reports"][1] if len(summary["stage_reports"]) > 1 else {}
+            )
+            metadata = (
+                summary.get("stage_reports", [{}])[0]
+                if summary.get("stage_reports")
+                else {}
+            )
+
+            print(f"\n✓ Beat analysis complete!")
+            print(f"  Mode: {beat_report.get('mode', args.mode)}")
+            print(f"  BPM: {beat_report.get('bpm', metadata.get('bpm', 'N/A'))}")
+            print(f"  Beat count: {beat_report.get('beat_count', 'N/A')}")
+
+            if beat_report.get("tempo_stability"):
+                print(
+                    f"  Tempo stability: {beat_report['tempo_stability']:.2f} BPM std"
+                )
+
+            if args.report:
+                beat_data = {
+                    "bpm": beat_report.get("bpm"),
+                    "beat_count": beat_report.get("beat_count"),
+                    "tempo_stability": beat_report.get("tempo_stability"),
+                    "original_key": summary.get("original_key"),
+                }
+                with open(args.report, "w") as f:
+                    json.dump(beat_data, f, indent=2)
+                print(f"\n  Report saved to: {args.report}")
+
+        elif args.clean_command == "config-template":
+            config = cleaning_pipeline_adapter.get_default_config()
+            import yaml
+
+            with open(args.output, "w") as f:
+                yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+            print(f"✓ Configuration template saved to: {args.output}")
+            print(
+                f"\nEdit this file and use with: "
+                f"toolshop clean pipeline audio.wav --config {args.output}"
+            )
+        else:
+            parser.error("Unknown 'clean' subcommand.")
 
     else:
         parser.error(f"Unknown command: {args.command}")

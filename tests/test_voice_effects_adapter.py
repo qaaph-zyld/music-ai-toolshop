@@ -29,18 +29,18 @@ def test_analyze_voice_basic_structure(mock_np, mock_librosa, tmp_path):
     mock_sr = 22050
     mock_librosa.load.return_value = (mock_y, mock_sr)
     mock_librosa.get_duration.return_value = 120.0
-    
+
     # Create test file
     test_file = tmp_path / "test.wav"
     test_file.touch()
-    
+
     result = analyze_voice(test_file)
-    
+
     # Check basic structure exists
     assert "file" in result
     assert "duration_seconds" in result
     assert "dependencies_available" in result
-    
+
     assert result["file"] == str(test_file)
     assert result["duration_seconds"] == 120.0
     assert result["dependencies_available"]["librosa"] is True
@@ -48,15 +48,11 @@ def test_analyze_voice_basic_structure(mock_np, mock_librosa, tmp_path):
 
 def test_print_voice_summary_basic(capsys):
     """Test print_voice_summary basic output"""
-    result = {
-        "file": "test.wav",
-        "duration_seconds": 120.0,
-        "voice_detected": True
-    }
-    
+    result = {"file": "test.wav", "duration_seconds": 120.0, "voice_detected": True}
+
     print_voice_summary(result)
     captured = capsys.readouterr()
-    
+
     assert "VOICE EFFECTS ANALYSIS REPORT" in captured.out
     assert "test.wav" in captured.out
     assert "Voice:" in captured.out
@@ -65,15 +61,11 @@ def test_print_voice_summary_basic(capsys):
 
 def test_print_voice_summary_no_voice(capsys):
     """Test print_voice_summary when no voice detected"""
-    result = {
-        "file": "test.wav",
-        "duration_seconds": 60.0,
-        "voice_detected": False
-    }
-    
+    result = {"file": "test.wav", "duration_seconds": 60.0, "voice_detected": False}
+
     print_voice_summary(result)
     captured = capsys.readouterr()
-    
+
     assert "VOICE EFFECTS ANALYSIS REPORT" in captured.out
     assert "test.wav" in captured.out
     assert "Voice:" in captured.out
