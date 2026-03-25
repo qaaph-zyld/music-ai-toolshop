@@ -8,6 +8,7 @@ CLI toolshop to orchestrate music AI tools (self-contained):
 - **Track Reverse Engineering** – basic structure analysis (BPM, key, spectral features)
 - **Voice Effects Detection** – identify vocal processing (reverb, pitch shift, compression, auto-tune, etc.)
 - **Stem Extraction** – separate instrumentals, main vocals, and backing vocals
+- **Audio Cleaning** – remove pauses, breaths, coughs, clicks, and align to beat grid
 
 ## Installation
 
@@ -239,6 +240,71 @@ toolshop stem extract song.wav --json
 
 ---
 
+### Audio Cleaning (`toolshop clean`)
+
+Multi-stage pipeline to clean audio tracks by removing pauses, breaths, coughs, clicks, and analyzing beat alignment.
+
+**Installation:**
+```bash
+pip install -e ".[cleaning]"  # librosa + pyyaml + soundfile
+```
+
+**Commands:**
+
+```bash
+# Run full cleaning pipeline
+toolshop clean pipeline audio.wav --config clean_config.yaml
+
+# Remove long pauses/silences only
+toolshop clean pause-remove audio.wav --threshold -40
+
+# Detect and attenuate breath sounds
+toolshop clean breath-detect audio.wav --attenuation 15
+
+# Detect and remove discrete events
+toolshop clean event-detect audio.wav --detect coughs,clicks
+
+# Analyze beat alignment
+toolshop clean beat-align audio.wav --mode analyze
+
+# Generate configuration template
+toolshop clean config-template --output clean_config.yaml
+```
+
+**Pipeline Stages:**
+
+1. **Preprocessing** – Load audio, detect BPM/key, extract features
+2. **Pause Removal** – Remove long silences with crossfades
+3. **Breath Detection** – Frequency/energy-based detection with attenuation
+4. **Event Detection** – Detect coughs, clicks, pops using spectral analysis
+5. **Beat Alignment** – Detect beats and tempo analysis
+6. **Final Assembly** – Normalization, metadata, export
+
+**Configuration Example:**
+
+```yaml
+stages:
+  preprocessing:
+    target_sample_rate: 44100
+    normalize_input: true
+  pause_removal:
+    min_silence: 0.3
+    max_keep: 0.5
+    threshold_db: -40
+  breath_detection:
+    method: combined  # frequency, energy, or combined
+    attenuation_db: 15
+  event_detection:
+    detect_coughs: true
+    detect_clicks: true
+    detect_pops: true
+    confidence_threshold: 0.7
+  beat_alignment:
+    mode: analyze  # or 'align'
+```
+
+---
+
 ## Python API
 
 All adapters can be imported directly:
@@ -264,6 +330,17 @@ result = voice_effects_adapter.analyze_voice(Path("recording.wav"))
 for effect in result['effects_detected']:
     if effect['confidence'] > 0.2:
         print(f"{effect['effect']}: {effect['confidence']:.0%}")
+
+# Audio cleaning pipeline
+from toolshop import cleaning_pipeline_adapter
+
+config = cleaning_pipeline_adapter.get_default_config()
+pipeline = cleaning_pipeline_adapter.AudioCleaningPipeline(config)
+summary = pipeline.process("input.wav", "cleaned_output.wav")
+
+print(f"Breaths detected: {summary['stage_reports'][2].get('breaths_detected', 0)}")
+print(f"Events removed: {summary['stage_reports'][3].get('events_detected', 0)}")
+print(f"Time removed: {summary['stage_reports'][1].get('time_removed', 0):.2f}s")
 ```
 
 ---
@@ -278,7 +355,10 @@ toolshop/
 ├── yt_scraper_adapter.py         # yt-dlp library integration
 ├── yt_summarizer_adapter.py      # Suno prompt generation
 ├── reverse_engineering_adapter.py # Pure librosa-based track analysis
-└── voice_effects_adapter.py      # Voice effects detection (12 detectors)
+├── voice_effects_adapter.py      # Voice effects detection (12 detectors)
+├── stem_extractor_adapter.py     # Stem separation (instrumentals/vocals)
+├── cleaning_stages.py          # Audio cleaning pipeline stages
+└── cleaning_pipeline_adapter.py  # Pipeline controller and CLI
 ```
 
 ## Dependencies
