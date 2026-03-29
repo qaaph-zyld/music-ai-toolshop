@@ -35,13 +35,21 @@ OpenDAW is a hybrid Ableton-style DAW built with Rust (audio engine), C++ (UI), 
 │   │   ├── clock.rs         # Transport clock
 │   │   ├── stream.rs        # CPAL integration
 │   │   ├── sample.rs        # Sample loading
-│   │   └── sample_player.rs # Sample playback
+│   │   ├── sample_player.rs # Sample playback
+│   │   ├── session.rs      # Session view
+│   │   ├── midi.rs         # MIDI engine
+│   │   ├── project.rs      # Save/load
+│   │   └── transport.rs    # Transport controls
 │   └── tests/
-│       ├── audio_callback_test.rs
-│       ├── mixer_test.rs
-│       ├── clock_test.rs
-│       ├── cpal_integration_test.rs
-│       └── sample_test.rs
+│       ├── audio_callback_test.rs  # 3 tests
+│       ├── mixer_test.rs           # 3 tests
+│       ├── clock_test.rs           # 4 tests
+│       ├── cpal_integration_test.rs # 1+2 ignored
+│       ├── sample_test.rs          # 1+4 ignored
+│       ├── session_test.rs         # 10 tests
+│       ├── midi_test.rs            # 9 tests
+│       ├── project_test.rs         # 7 tests (1 ignored)
+│       └── transport_test.rs       # 10 tests
 └── ai_modules/               # Python AI integrations
     ├── ace_step_bridge/     # AI music generation
     ├── stem_extractor/      # Audio source separation
@@ -72,7 +80,13 @@ cargo test -- --ignored
 - ✅ Sample playback structure
 - ✅ Python AI bridge modules
 
-**Total Tests: 11 passing**
+**Phase 2 Complete (Core DAW):**
+- ✅ Session View (clip slots, scene launch, playback states)
+- ✅ MIDI support (note on/off, velocity, channels, CC)
+- ✅ Project save/load (JSON serialization)
+- ✅ Transport controls (play/stop/record/pause, loop, punch-in/out)
+
+**Total Tests: 53 (48 passing + 5 hardware-dependent ignored)**
 
 ## Integration Points
 
