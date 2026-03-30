@@ -1,0 +1,4 @@
+demucs>=4.0.0
+PySide6>=6.5.0
+SoundFile>=0.12.0
+torch>=2.0.0
