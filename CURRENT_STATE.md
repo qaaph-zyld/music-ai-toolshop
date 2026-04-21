@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-12
+**Last Updated:** 2026-04-21
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -10,7 +10,7 @@
 | Metric | Value | Verified |
 |--------|-------|----------|
 | `cargo test --lib` | **350 passed, 0 failed, 1 ignored** | 2026-04-21 |
-| `cargo test --tests` (integration) | **425 passed, 1 failed*, 3 ignored** | 2026-04-12 |
+| `cargo test --tests` (integration) | **425 passed, 1 failed*, 3 ignored** | 2026-04-21 |
 | `cargo check --lib` | **0 errors, 0 warnings** | 2026-04-21 |
 | Rust source files (active) | ~40 | 2026-04-12 |
 | Quarantined stubs | 53 (in `src/future/`) | 2026-04-12 |
@@ -181,15 +181,16 @@ cmake -B build && cmake --build build
 - **Established honest test baseline**: 341 real tests (was claimed as "853")
 
 ## Pending
-- Address remaining 51 compiler warnings
-- Set up dedicated git repo for 06-opendaw (currently gitignored by parent)
+- ~~Address remaining 51 compiler warnings~~ ✅ DONE (2026-04-21: 0 warnings)
+- ~~Set up dedicated git repo for 06-opendaw~~ ✅ DONE (2026-04-21: initialized, committed)
+- Push to GitHub (requires manual action: `git remote add origin <url>` then `git push -u origin main`)
 - Fix pre-existing `noise_suppression_test` failure (needs real RNNoise library — Phase 11)
 
 ---
 
 ## Recommended Next Steps
 
-1. **E2E audio verification** — Prove audio actually plays through the stack
-2. **Complete Suno browser integration** — Wire UI → API → import → playback
-3. **Audio export verification** — Prove export produces valid files
+1. **~~E2E audio verification~~** ✅ VERIFIED (2026-04-21: `integration_full_playback_workflow` passes, peak 0.50, non-zero audio)
+2. **~~Audio export verification~~** ✅ VERIFIED (2026-04-21: `test_export_wav_success` produces valid 48kHz/16-bit WAV)
+3. **Complete Suno browser integration** — Wire UI → API → import → playback
 4. **Performance profiling** (Tracy integration)
