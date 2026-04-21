@@ -1,0 +1,46 @@
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# C++ / JUCE
+ui/build/
+*.exe
+*.dll
+*.lib
+*.obj
+*.o
+*.so
+*.dylib
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+*.opendaw
+/test_output.log
+/test_exports.ps1
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.venv/
+
+# Large files
+*.wav
+*.mp3
+*.ogg
+/stems/
+/cache/

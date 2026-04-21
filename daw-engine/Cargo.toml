@@ -1,0 +1,58 @@
+[package]
+name = "daw-engine"
+version = "0.1.0"
+edition = "2021"
+authors = ["OpenDAW Team"]
+description = "Real-time audio engine for OpenDAW"
+license = "MIT"
+
+[lib]
+name = "daw_engine"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+cpal = "0.15"
+crossbeam = "0.8"
+hound = "3.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+axum = "0.7"
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
+tower-http = { version = "0.5", features = ["cors"] }
+tower = { version = "0.5", features = ["util"] }
+
+# Loudness metering (EBU R 128)
+ebur128 = "0.1"
+
+# Reverse engineering module dependencies
+rustfft = "6.2"
+rusqlite = { version = "0.32", features = ["bundled"] }
+ndarray = "0.16"
+
+# MIDI device enumeration
+midir = "0.10"
+once_cell = "1.20"
+
+# Performance profiling
+tracy-client = { version = "0.17", optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3.0"
+
+[[bench]]
+name = "engine_benchmarks"
+harness = false
+
+[[bin]]
+name = "opendaw-server"
+path = "src/bin/server.rs"
+
+[features]
+default = []
+tracy = ["tracy-client"]
+
+[build-dependencies]
+cc = "1.0"

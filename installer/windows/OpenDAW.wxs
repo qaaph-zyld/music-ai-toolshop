@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" 
+           Name="OpenDAW" 
+           Version="1.0.0" 
+           Manufacturer="OpenDAW Team" 
+           UpgradeCode="12345678-1234-1234-1234-123456789012">
+    
+    <Package InstallerVersion="200" 
+             Compressed="yes" 
+             InstallScope="perMachine" 
+             Description="OpenDAW - Open Source Digital Audio Workstation"
+             Manufacturer="OpenDAW Team" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate />
+
+    <!-- Feature tree -->
+    <Feature Id="ProductFeature" Title="OpenDAW" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="VCRedistComponents" />
+    </Feature>
+
+    <!-- Installation directory -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="OpenDAW">
+          <Component Id="MainExecutable" Guid="*">
+            <File Source="$(var.UIBuildDir)\OpenDAW.exe" KeyPath="yes">
+              <Shortcut Id="StartMenuShortcut" 
+                        Directory="ApplicationProgramsFolder" 
+                        Name="OpenDAW" 
+                        WorkingDirectory="INSTALLFOLDER"
+                        Icon="OpenDAWIcon.exe"
+                        Advertise="yes" />
+              <Shortcut Id="DesktopShortcut" 
+                        Directory="DesktopFolder" 
+                        Name="OpenDAW" 
+                        WorkingDirectory="INSTALLFOLDER"
+                        Icon="OpenDAWIcon.exe"
+                        Advertise="no" />
+            </File>
+          </Component>
+          
+          <!-- Rust engine DLL -->
+          <Component Id="RustEngine" Guid="*">
+            <File Source="$(var.EngineBuildDir)\daw_engine.dll" />
+          </Component>
+          
+          <!-- AI modules -->
+          <Component Id="AIModules" Guid="*">
+            <File Source="$(var.SourceDir)\ai_modules" />
+          </Component>
+          
+          <!-- README and license -->
+          <Component Id="Documentation" Guid="*">
+            <File Source="$(var.SourceDir)\README.md" />
+          </Component>
+        </Directory>
+      </Directory>
+
+      <!-- Start Menu -->
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="OpenDAW" />
+      </Directory>
+
+      <!-- Desktop -->
+      <Directory Id="DesktopFolder" />
+    </Directory>
+
+    <!-- File association for .opendaw files -->
+    <Component Id="FileAssociation" Guid="*" Directory="TARGETDIR">
+      <ProgId Id="OpenDAW.Project" Description="OpenDAW Project">
+        <Extension Id="opendaw" ContentType="application/x-opendaw">
+          <Verb Id="open" Command="Open" TargetFile="MainExecutable" Argument=""%1"" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- Visual C++ Redistributable -->
+    <ComponentGroup Id="VCRedistComponents" Directory="TARGETDIR">
+      <Component Id="VCRedist" Guid="*">
+        <File Source="$(var.VCRedistDir)\vc_redist.x64.exe" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Custom action to install VCRedist -->
+    <CustomAction Id="InstallVCRedist" 
+                  FileKey="VCRedist" 
+                  ExeCommand="/install /quiet /norestart" 
+                  Execute="deferred" 
+                  Return="check" 
+                  HideTarget="no" 
+                  Impersonate="no" />
+
+    <InstallExecuteSequence>
+      <Custom Action="InstallVCRedist" Before="InstallFinalize">
+        <![CDATA[NOT Installed]]>
+      </Custom>
+    </InstallExecuteSequence>
+
+    <!-- Icon -->
+    <Icon Id="OpenDAWIcon.exe" SourceFile="$(var.UIBuildDir)\OpenDAW.exe" />
+
+    <!-- UI -->
+    <UIRef Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    
+    <!-- License -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.SourceDir)\installer\windows\LICENSE.rtf" />
+    
+    <!-- Banner images -->
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.SourceDir)\installer\windows\banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.SourceDir)\installer\windows\dialog.bmp" />
+
+  </Product>
+</Wix>
