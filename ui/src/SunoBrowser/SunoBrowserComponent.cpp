@@ -207,8 +207,51 @@ void SunoBrowserComponent::importSelectedTrack()
     if (selectedRow >= 0 && selectedRow < static_cast<int>(tracks.size()))
     {
         const auto& track = tracks[selectedRow];
-        if (onTrackImported)
-            onTrackImported(track.id, 0, 0); // Default to track 0, scene 0
+        
+        // Download WAV file from API
+        juce::String wavUrl = "http://127.0.0.1:3000/api/tracks/" + track.id + "/wav";
+        juce::URL apiUrl(wavUrl);
+        
+        statusLabel.setText("Downloading " + track.title + "...", juce::dontSendNotification);
+        
+        // Download to temp file
+        auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+        auto tempFile = tempDir.getChildFile("suno_" + track.id + ".wav");
+        
+        // Use async download
+        auto stream = apiUrl.createInputStream(juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inAddress)
+            .withConnectionTimeoutMs(30000)
+            .withNumRedirectsToFollow(3));
+        
+        if (stream != nullptr)
+        {
+            juce::MemoryBlock data;
+            auto bytesRead = stream->readIntoMemoryBlock(data);
+            
+            if (bytesRead > 0 && data.getSize() > 0)
+            {
+                // Save to temp file
+                if (tempFile.replaceWithData(data.getData(), static_cast<int>(data.getSize())))
+                {
+                    statusLabel.setText("Imported: " + track.title, juce::dontSendNotification);
+                    
+                    if (onTrackImported)
+                        onTrackImported(track.id, 0, 0, tempFile.getFullPathName());
+                }
+                else
+                {
+                    statusLabel.setText("Failed to save: " + track.title, juce::dontSendNotification);
+                }
+            }
+            else
+            {
+                statusLabel.setText("Failed to download: " + track.title, juce::dontSendNotification);
+            }
+        }
+        else
+        {
+            statusLabel.setText("Failed to connect for: " + track.title, juce::dontSendNotification);
+        }
     }
 }
 

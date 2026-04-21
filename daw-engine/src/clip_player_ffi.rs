@@ -3,16 +3,19 @@
 //! Provides FFI exports to allow JUCE C++ UI to control clip playback
 //! through the Rust clip_player module.
 
-use std::ffi::c_void;
+use std::ffi::{c_char, c_void, CStr};
 use std::sync::{Arc, Mutex};
 
 use crate::clip_player::{ClipPlayer, ClipPlaybackState};
 use crate::session::SessionView;
+use crate::sample_player_integration::SamplePlayerIntegration;
+use crate::sample::Sample;
 
 /// Opaque handle to the clip player instance
 pub struct ClipPlayerHandle {
     player: Arc<Mutex<ClipPlayer>>,
     _session: Arc<Mutex<SessionView>>,
+    sample_integration: Arc<Mutex<SamplePlayerIntegration>>,
 }
 
 /// Initialize the clip player subsystem
@@ -31,6 +34,7 @@ pub unsafe extern "C" fn opendaw_clip_player_init(
     let handle = Box::new(ClipPlayerHandle {
         player: Arc::new(Mutex::new(ClipPlayer::new(8, 16))), // 8 tracks, 16 clips per track
         _session: Arc::new(Mutex::new(SessionView::new(8, 16))),
+        sample_integration: Arc::new(Mutex::new(SamplePlayerIntegration::new(8))), // 8 tracks
     });
     
     Box::into_raw(handle) as *mut c_void
@@ -282,6 +286,45 @@ pub unsafe extern "C" fn opendaw_clip_player_get_playing_clip(
         } else {
             -1
         }
+    } else {
+        -1
+    }
+}
+
+/// Load a sample (WAV file) into a clip slot
+/// 
+/// # Safety
+/// engine_ptr must be valid. file_path must be a valid null-terminated C string.
+/// Returns 0 on success, -1 on error.
+#[no_mangle]
+pub unsafe extern "C" fn opendaw_clip_player_load_sample(
+    engine_ptr: *mut c_void,
+    track_idx: usize,
+    clip_idx: usize,
+    file_path: *const c_char,
+) -> i32 {
+    if engine_ptr.is_null() || file_path.is_null() {
+        return -1;
+    }
+    
+    let handle = &*(engine_ptr as *const ClipPlayerHandle);
+    
+    // Convert C string to Rust string
+    let path_str = match CStr::from_ptr(file_path).to_str() {
+        Ok(s) => s,
+        Err(_) => return -1,
+    };
+    
+    // Load the sample from file
+    let sample = match Sample::from_file(path_str) {
+        Ok(s) => s,
+        Err(_) => return -1,
+    };
+    
+    // Store the sample in the integration
+    if let Ok(mut integration) = handle.sample_integration.lock() {
+        integration.load_sample(track_idx, clip_idx, sample);
+        0
     } else {
         -1
     }

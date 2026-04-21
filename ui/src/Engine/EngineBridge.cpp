@@ -28,6 +28,7 @@ extern "C" {
     int opendaw_clip_player_get_position(void* engine, int track_idx, double* position_out);
     int opendaw_clip_player_is_playing(void* engine, int track_idx, int* playing_out);
     int opendaw_clip_player_get_playing_clip(void* engine, int track_idx, int* clip_idx_out);
+    int opendaw_clip_player_load_sample(void* engine, int track_idx, int clip_idx, const char* file_path);
     
     // Mixer
     float opendaw_mixer_get_meter(void* engine, int track);
@@ -365,10 +366,12 @@ void EngineBridge::stopClip(int trackIndex, int sceneIndex)
 
 void EngineBridge::loadClip(int trackIndex, int sceneIndex, const juce::String& filePath)
 {
-    (void)trackIndex;
-    (void)sceneIndex;
-    (void)filePath;
-    // TODO: Implement clip loading via FFI when available
+    if (rustEngine != nullptr && !filePath.isEmpty())
+    {
+        // Convert JUCE String to UTF-8 char array
+        auto pathUtf8 = filePath.toUTF8();
+        opendaw_clip_player_load_sample(rustEngine, trackIndex, sceneIndex, pathUtf8.getAddress());
+    }
 }
 
 void EngineBridge::moveClip(int fromTrack, int fromScene, int toTrack, int toScene)

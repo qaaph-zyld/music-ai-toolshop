@@ -31,8 +31,8 @@ public:
     void loadTracks();
     void searchTracks(const juce::String& query, const juce::String& genre, int tempoMin, int tempoMax);
 
-    // Callback when track is imported
-    std::function<void(const juce::String& trackId, int targetTrack, int targetScene)> onTrackImported;
+    // Callback when track is imported (includes downloaded file path)
+    std::function<void(const juce::String& trackId, int targetTrack, int targetScene, const juce::String& audioFilePath)> onTrackImported;
 
 private:
     // UI Components

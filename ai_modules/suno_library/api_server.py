@@ -165,6 +165,49 @@ def create_app():
             as_attachment=False
         )
 
+    @app.route('/api/tracks/<track_id>/wav', methods=['GET'])
+    def stream_wav(track_id):
+        """Stream audio file converted to WAV format for DAW compatibility."""
+        import tempfile
+        import soundfile as sf
+        from pydub import AudioSegment
+        from io import BytesIO
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT audio_path FROM tracks WHERE id = ?', (track_id,))
+        row = cursor.fetchone()
+        conn.close()
+
+        if row is None:
+            return jsonify({'error': 'Track not found'}), 404
+
+        audio_path = Path(row['audio_path'])
+        if not audio_path.is_absolute():
+            audio_path = audio_dir / audio_path
+
+        if not audio_path.exists():
+            return jsonify({'error': 'Audio file not found'}), 404
+
+        # Convert to WAV using pydub
+        try:
+            audio = AudioSegment.from_mp3(audio_path)
+            
+            # Export to WAV in memory
+            wav_buffer = BytesIO()
+            audio.export(wav_buffer, format='wav')
+            wav_buffer.seek(0)
+            
+            return send_file(
+                wav_buffer,
+                mimetype='audio/wav',
+                as_attachment=False,
+                download_name=f'{track_id}.wav'
+            )
+        except Exception as e:
+            return jsonify({'error': f'Failed to convert audio: {str(e)}'}), 500
+
     return app
 
 

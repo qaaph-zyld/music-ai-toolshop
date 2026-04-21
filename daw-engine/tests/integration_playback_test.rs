@@ -4,7 +4,7 @@
 //! Load project → Load sample → Start transport → Process audio → Stop → Save project
 
 use daw_engine::{
-    AudioCallback, Mixer, Sample, SamplePlayer, SineWave,
+    AudioCallback, Sample, SamplePlayer,
     Transport, TransportState, PlayMode,
     SessionView, Clip, Project, Track, TrackType,
 };

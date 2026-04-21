@@ -121,6 +121,11 @@ MainComponent::MainComponent()
     getLookAndFeel().setColour(juce::ResizableWindow::backgroundColourId, juce::Colour(0xFF2B2B2B));
     std::cout << "MainComponent: Look and feel set" << std::endl;
 
+    std::cout << "MainComponent: Enabling keyboard focus..." << std::endl;
+    setWantsKeyboardFocus(true);
+    grabKeyboardFocus();
+    std::cout << "MainComponent: Keyboard focus enabled" << std::endl;
+
     std::cout << "MainComponent: Creating menu bar..." << std::endl;
     menuBarModel = std::make_unique<MainMenuBarModel>();
     menuBar = std::make_unique<juce::MenuBarComponent>(menuBarModel.get());
@@ -250,10 +255,14 @@ MainComponent::MainComponent()
         (void)notes;
     };
 
-    // Wire up import callback - Phase 8.5
-    sunoBrowser->onTrackImported = [this](const juce::String& trackId, int track, int scene) {
+    // Wire up import callback - Phase 8.5 (Complete with audio loading)
+    sunoBrowser->onTrackImported = [this](const juce::String& trackId, int track, int scene, const juce::String& audioFilePath) {
         juce::Colour clipColor = juce::Colours::orange;
         sessionGrid->setClip(track, scene, "Suno: " + trackId, clipColor);
+        
+        // Load the audio file into the clip slot
+        auto& engine = EngineBridge::getInstance();
+        engine.loadClip(track, scene, audioFilePath);
     };
 
     std::cout << "MainComponent: Callbacks set up" << std::endl;
@@ -363,6 +372,46 @@ bool MainComponent::keyPressed(const juce::KeyPress& key)
             projectManager->saveProjectAs(this);
             return true;
         }
+    }
+
+    // Space - Play/Stop toggle
+    if (key == juce::KeyPress::spaceKey)
+    {
+        auto& engine = EngineBridge::getInstance();
+        if (engine.isPlaying())
+        {
+            engine.stop();
+        }
+        else
+        {
+            engine.play();
+        }
+        return true;
+    }
+
+    // Shift+Space - Rewind and Play
+    if (key == juce::KeyPress::spaceKey && modifiers.isShiftDown())
+    {
+        auto& engine = EngineBridge::getInstance();
+        engine.setPosition(0.0);
+        engine.play();
+        return true;
+    }
+
+    // Ctrl+R - Record toggle
+    if (key == juce::KeyPress('r', juce::ModifierKeys::ctrlModifier, 0))
+    {
+        auto& engine = EngineBridge::getInstance();
+        engine.record();
+        return true;
+    }
+
+    // Return - Rewind to start
+    if (key == juce::KeyPress::returnKey)
+    {
+        auto& engine = EngineBridge::getInstance();
+        engine.setPosition(0.0);
+        return true;
     }
 
     return false; // Let other handlers process

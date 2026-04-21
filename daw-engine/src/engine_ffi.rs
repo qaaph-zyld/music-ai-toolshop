@@ -66,6 +66,8 @@ pub extern "C" fn opendaw_transport_play(engine_ptr: *mut c_void) {
     if let Ok(mut transport) = handle.transport.lock() {
         transport.play();
     }
+    // Update audio processor transport state (1 = playing)
+    crate::audio_processor::opendaw_set_transport_state(1);
 }
 
 /// Stop playback
@@ -79,6 +81,8 @@ pub extern "C" fn opendaw_transport_stop(engine_ptr: *mut c_void) {
     if let Ok(mut transport) = handle.transport.lock() {
         transport.stop();
     }
+    // Update audio processor transport state (0 = stopped)
+    crate::audio_processor::opendaw_set_transport_state(0);
 }
 
 /// Start recording
@@ -92,6 +96,8 @@ pub extern "C" fn opendaw_transport_record(engine_ptr: *mut c_void) {
     if let Ok(mut transport) = handle.transport.lock() {
         transport.record();
     }
+    // Update audio processor transport state (2 = recording)
+    crate::audio_processor::opendaw_set_transport_state(2);
 }
 
 /// Set playback position in beats

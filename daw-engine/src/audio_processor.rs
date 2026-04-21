@@ -234,6 +234,9 @@ pub unsafe extern "C" fn opendaw_get_meter_levels(
     0 // Success
 }
 
+/// Current transport state (0=stopped, 1=playing, 2=recording, 3=paused)
+static TRANSPORT_STATE: AtomicU32 = AtomicU32::new(0);
+
 /// Atomic counter for tracking audio callback invocations (testing only)
 static CALLBACK_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -266,6 +269,18 @@ pub extern "C" fn opendaw_set_tempo(bpm: c_float) {
 #[no_mangle]
 pub extern "C" fn opendaw_get_tempo() -> c_float {
     CURRENT_TEMPO.load(Ordering::Relaxed) as f32 / 1000.0
+}
+
+/// Set transport state (0=stopped, 1=playing, 2=recording, 3=paused)
+#[no_mangle]
+pub extern "C" fn opendaw_set_transport_state(state: c_int) {
+    TRANSPORT_STATE.store(state as u32, Ordering::Relaxed);
+}
+
+/// Get transport state (0=stopped, 1=playing, 2=recording, 3=paused)
+#[no_mangle]
+pub extern "C" fn opendaw_get_transport_state() -> c_int {
+    TRANSPORT_STATE.load(Ordering::Relaxed) as c_int
 }
 
 /// Check if a clip was triggered (for UI polling)
