@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2026-04-24) — AI Module Test Coverage
+- **musicgen tests**: 6 tests covering `MusicGenBridge` subprocess wrapper, `MusicGenGenerator` instantiation, CLI interface, and error handling
+- **production_analyzer tests**: 8 tests covering `ChainClassifier`, `BatchAnalyzer`, `AudioFingerprint` dataclass, `FeatureVector`, and graceful degradation without sklearn
+- **Test execution**: `python -m pytest ai_modules/musicgen/test_musicgen.py ai_modules/production_analyzer/test_analyzer.py` - 14 passed
+
 ### Phase 0: E2E Verification PASSED (2026-04-12)
 - **Full playback pipeline verified**: Sample → SamplePlayer → Mixer → AudioCallback → output (peak 0.50, CPU 2.6%)
 - **Transport verified**: play/stop/loop all working, position tracks correctly

@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-21
+**Last Updated:** 2026-04-24
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -15,7 +15,8 @@
 | Rust source files (active) | ~40 | 2026-04-12 |
 | Quarantined stubs | 53 (in `src/future/`) | 2026-04-12 |
 | C++ UI files | 52 | 2026-04-12 |
-| AI Python modules (real) | 5 | 2026-04-12 |
+| AI Python modules (real) | 5 | 2026-04-24 |
+| Python AI tests | **14 passed** | 2026-04-24 |
 
 \* 1 pre-existing failure in `noise_suppression_test` (RNNoise not linked — expected)
 
@@ -101,8 +102,8 @@
 | `suno_library/` | **Real + UI** | SQLite queries, API server, 10 test tracks, WAV streaming, full JUCE UI integration |
 | `stem_extractor/` | **Real** | Demucs subprocess with caching; stubs when demucs unavailable |
 | `pattern_generator/` | **Real** | Algorithmic MIDI generation (renamed from ace_step_bridge) |
-| `musicgen/` | **Has code** | bridge.py + generator.py; untested against real AudioCraft model |
-| `production_analyzer/` | **Has code** | classifier.py, batch_analyzer.py |
+| `musicgen/` | **Tested** | 6 tests - bridge.py + generator.py; subprocess-based architecture verified |
+| `production_analyzer/` | **Tested** | 8 tests - classifier.py + batch_analyzer.py dataclass verification |
 
 ---
 
