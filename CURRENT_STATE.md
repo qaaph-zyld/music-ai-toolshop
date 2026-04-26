@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-24
+**Last Updated:** 2026-04-26
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -9,14 +9,14 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| `cargo test --lib` | **350 passed, 0 failed, 1 ignored** | 2026-04-21 |
+| `cargo test --lib` | **350 passed, 0 failed, 1 ignored** | 2026-04-26 |
 | `cargo test --tests` (integration) | **427 passed, 1 failed*, 3 ignored** | 2026-04-21 |
-| `cargo check --lib` | **0 errors, 0 warnings** | 2026-04-21 |
+| `cargo check --lib` | **0 errors, 0 warnings** | 2026-04-26 |
 | Rust source files (active) | ~40 | 2026-04-12 |
 | Quarantined stubs | 53 (in `src/future/`) | 2026-04-12 |
 | C++ UI files | 52 | 2026-04-12 |
 | AI Python modules (real) | 5 | 2026-04-24 |
-| Python AI tests | **14 passed** | 2026-04-24 |
+| Python AI tests | **20 passed** | 2026-04-26 |
 
 \* 1 pre-existing failure in `noise_suppression_test` (RNNoise not linked — expected)
 
