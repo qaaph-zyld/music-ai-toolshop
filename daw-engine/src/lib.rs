@@ -27,6 +27,7 @@ pub mod clip_player;
 pub mod audio_processor;
 pub mod audio_device;
 pub mod profiler;
+pub mod profiler_config;
 pub mod memory_pool;
 pub mod disk_stream;
 pub mod loudness;
@@ -90,3 +91,5 @@ pub use musicgen::{MusicGenBridge, MusicGenStatus, GenerationRequest, Generation
 pub use serialization::{SerializableProject, project_to_json, project_from_json, save_project_to_file, load_project_from_file, PROJECT_VERSION};
 pub use audio_device::{AudioDeviceManager, AudioDeviceInfo, AudioDeviceError};
 pub use api_server::start_server;
+pub use profiler::{Profiler, CpuUsageTracker};
+pub use profiler_config::{ProfilerConfig, init_from_env};

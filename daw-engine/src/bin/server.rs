@@ -3,13 +3,34 @@
 //! Standalone HTTP API server for the OpenDAW audio engine.
 //! Provides REST endpoints for UI communication without FFI complexity.
 
-use daw_engine::start_server;
+use daw_engine::{start_server, init_from_env};
+
+#[cfg(feature = "tracy")]
+use tracy_client;
 
 #[tokio::main]
 async fn main() {
+    // Initialize Tracy client if feature enabled and env var set
+    #[cfg(feature = "tracy")]
+    let _tracy_client = if init_from_env() {
+        Some(tracy_client::Client::start())
+    } else {
+        None
+    };
+
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║           OpenDAW Engine Server (Axum REST API)              ║");
     println!("╠══════════════════════════════════════════════════════════════╣");
+    #[cfg(feature = "tracy")]
+    {
+        if init_from_env() {
+            println!("║ Tracy Profiler: ENABLED (OPENDAW_TRACY=1)                    ║");
+        } else {
+            println!("║ Tracy Profiler: available (set OPENDAW_TRACY=1 to enable)  ║");
+        }
+    }
+    #[cfg(not(feature = "tracy"))]
+    println!("║ Tracy Profiler: disabled (zero overhead)                     ║");
     println!("║ Endpoints:                                                   ║");
     println!("║   GET  /health                    - Health check             ║");
     println!("║   POST /api/engine/init           - Initialize engine        ║");

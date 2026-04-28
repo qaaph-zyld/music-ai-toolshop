@@ -3,6 +3,7 @@
 //! Playback transport: play, stop, record, loop, punch-in/out.
 
 use crate::ffi_bridge::{invoke_transport_callback, invoke_position_callback};
+use crate::{profile_scope, plot_value};
 use serde::{Serialize, Deserialize};
 
 /// Transport state
@@ -72,20 +73,26 @@ impl Transport {
     
     /// Start playback
     pub fn play(&mut self) {
+        profile_scope!("transport_play");
         self.state = TransportState::Playing;
         invoke_transport_callback(self.state);
+        plot_value!("transport_state", 1.0); // Playing
     }
     
     /// Stop playback
     pub fn stop(&mut self) {
+        profile_scope!("transport_stop");
         self.state = TransportState::Stopped;
         invoke_transport_callback(self.state);
+        plot_value!("transport_state", 0.0); // Stopped
     }
     
     /// Start recording
     pub fn record(&mut self) {
+        profile_scope!("transport_record");
         self.state = TransportState::Recording;
         invoke_transport_callback(self.state);
+        plot_value!("transport_state", 2.0); // Recording
     }
     
     /// Pause playback
@@ -150,6 +157,8 @@ impl Transport {
     
     /// Process audio samples and advance position
     pub fn process(&mut self, samples: u32) {
+        profile_scope!("transport_process");
+        
         if self.state == TransportState::Stopped {
             return;
         }
@@ -160,6 +169,7 @@ impl Transport {
         // Handle loop mode
         if self.play_mode == PlayMode::Loop {
             if self.position_beats >= self.loop_end_beats {
+                profile_scope!("transport_loop");
                 let loop_length = self.loop_end_beats - self.loop_start_beats;
                 let excess = self.position_beats - self.loop_start_beats;
                 self.position_beats = self.loop_start_beats + (excess % loop_length);
@@ -171,17 +181,21 @@ impl Transport {
         if self.state == TransportState::Playing || self.state == TransportState::Recording {
             if let Some(punch_in) = self.punch_in_beats {
                 if self.position_beats >= punch_in {
+                    profile_scope!("transport_punch");
                     if let Some(punch_out) = self.punch_out_beats {
                         if self.position_beats < punch_out {
                             self.state = TransportState::Recording;
                             invoke_transport_callback(self.state);
+                            plot_value!("transport_state", 2.0); // Recording
                         } else {
                             self.state = TransportState::Playing;
                             invoke_transport_callback(self.state);
+                            plot_value!("transport_state", 1.0); // Playing
                         }
                     } else {
                         self.state = TransportState::Recording;
                         invoke_transport_callback(self.state);
+                        plot_value!("transport_state", 2.0); // Recording
                     }
                 }
             }
@@ -189,6 +203,9 @@ impl Transport {
         
         // Report position change if significant (bars/beats/sixteenths changed)
         self.report_position_if_changed();
+        
+        // Plot position for profiling
+        plot_value!("transport_position", self.position_beats as f64);
     }
     
     /// Report position change to callback if bars/beats/sixteenths changed

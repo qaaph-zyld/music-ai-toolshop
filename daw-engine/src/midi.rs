@@ -2,6 +2,8 @@
 //! 
 //! MIDI message handling, note processing, and channel management.
 
+use crate::{profile_scope, plot_value};
+
 /// MIDI message types
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MidiMessage {
@@ -229,15 +231,21 @@ impl MidiEngine {
     
     /// Process at given beat, generate MIDI messages
     pub fn process(&mut self, beat: f32) -> Vec<MidiMessage> {
+        profile_scope!("midi_process");
+        
         let mut messages = Vec::new();
+        let mut total_playing_notes = 0;
         
         for (channel_idx, channel) in self.channels.iter_mut().enumerate() {
+            profile_scope!("midi_channel_process");
+            
             // Check which notes should trigger or release
             for note in &channel.notes {
                 let channel_num = channel_idx as u8;
                 
                 // Note on: if we just crossed the start boundary
                 if beat >= note.start_beat && self.current_beat < note.start_beat {
+                    profile_scope!("midi_note_on");
                     messages.push(MidiMessage::note_on(
                         note.pitch,
                         note.velocity,
@@ -248,13 +256,21 @@ impl MidiEngine {
                 
                 // Note off: if we just crossed the end boundary
                 if beat >= note.end_beat() && self.current_beat < note.end_beat() {
+                    profile_scope!("midi_note_off");
                     messages.push(MidiMessage::note_off(note.pitch, channel_num));
                     channel.playing_notes.retain(|&n| n != note.pitch);
                 }
             }
+            
+            total_playing_notes += channel.playing_notes.len();
         }
         
         self.current_beat = beat;
+        
+        // Plot metrics
+        plot_value!("midi_message_count", messages.len() as f64);
+        plot_value!("midi_playing_notes", total_playing_notes as f64);
+        
         messages
     }
     
@@ -265,6 +281,8 @@ impl MidiEngine {
     
     /// Stop all notes (panic)
     pub fn stop_all(&mut self) -> Vec<MidiMessage> {
+        profile_scope!("midi_stop_all");
+        
         let mut messages = Vec::new();
         
         for (channel_idx, channel) in self.channels.iter_mut().enumerate() {
@@ -273,6 +291,9 @@ impl MidiEngine {
             }
             channel.playing_notes.clear();
         }
+        
+        plot_value!("midi_playing_notes", 0.0);
+        plot_value!("midi_message_count", messages.len() as f64);
         
         messages
     }

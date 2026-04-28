@@ -7,6 +7,7 @@ use crate::sample_player::SamplePlayer;
 use crate::plugin::PluginChain;
 use crate::loudness::{LoudnessMeter, LoudnessReading};
 use crate::ffi_bridge::invoke_meter_callback;
+use crate::{profile_scope, plot_value};
 
 /// Audio mixer with multiple sources and loudness metering
 pub struct Mixer {
@@ -150,13 +151,21 @@ impl Mixer {
     
     /// Process audio - mix all sources
     pub fn process(&mut self, output: &mut [f32]) {
+        profile_scope!("mixer_process");
+        let _source_count = self.sources.len();
+        
         // Clear output
-        for sample in output.iter_mut() {
-            *sample = 0.0;
+        {
+            profile_scope!("mixer_clear_output");
+            for sample in output.iter_mut() {
+                *sample = 0.0;
+            }
         }
         
         // Mix all sources and calculate peak levels
+        profile_scope!("mixer_sources");
         for (source_idx, source) in self.sources.iter_mut().enumerate() {
+            profile_scope!("mixer_source_process");
             let mut temp = vec![0.0f32; output.len()];
             source.process(&mut temp);
             
@@ -186,8 +195,13 @@ impl Mixer {
         
         // Feed mixed output to loudness meter if enabled
         if let Some(ref mut meter) = self.loudness_meter {
+            profile_scope!("mixer_loudness");
             meter.process(output);
         }
+        
+        // Plot metrics for Tracy visualization
+        plot_value!("mixer_source_count", _source_count as f64);
+        plot_value!("mixer_output_samples", (output.len() / self.channels) as f64);
     }
     
     /// Get peak level for a specific track (in dB)

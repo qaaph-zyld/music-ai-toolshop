@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-26
+**Last Updated:** 2026-04-28 (Phase 3 Complete)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -9,9 +9,10 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| `cargo test --lib` | **350 passed, 0 failed, 1 ignored** | 2026-04-26 |
+| `cargo test --lib` | **354 passed, 0 failed, 1 ignored** | 2026-04-28 |
 | `cargo test --tests` (integration) | **427 passed, 1 failed*, 3 ignored** | 2026-04-21 |
-| `cargo check --lib` | **0 errors, 0 warnings** | 2026-04-26 |
+| `cargo check --lib` | **0 errors, 0 warnings** | 2026-04-28 |
+| Tracy profiling | **Integrated** | 2026-04-28 |
 | Rust source files (active) | ~40 | 2026-04-12 |
 | Quarantined stubs | 53 (in `src/future/`) | 2026-04-12 |
 | C++ UI files | 52 | 2026-04-12 |
@@ -264,6 +265,81 @@ cmake -B build && cmake --build build
 8. When clip is launched, `SamplePlayerIntegration` plays the loaded sample
 
 **Test Verification:**
-- 350 Rust tests passing
+- 351 Rust tests passing
 - Release build produces 3.1 MB DLL
 - WAV conversion verified: 13KB MP3 → 132KB WAV
+
+---
+
+## Phase 10: Performance Profiling (Tracy Integration) ✅ COMPLETE (2026-04-28)
+
+**Summary:** Tracy profiler integrated for real-time performance analysis of the audio engine.
+
+### Phase 3: Tracy Server Integration ✅ COMPLETE (2026-04-28)
+
+**Summary:** Production-ready Tracy initialization with runtime toggle and CI integration.
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Tracy client init | ✅ | Auto-starts in server.rs when enabled |
+| Runtime toggle | ✅ | `OPENDAW_TRACY=1` environment variable |
+| Build profiles | ✅ | `release-tracy` profile with debug symbols |
+| CI tests | ✅ | 7 new tests in `tracy_ci_integration.rs` |
+| Documentation | ✅ | Production usage section in `tracy_profiling.md` |
+
+**New Files:**
+- `src/profiler_config.rs` - Runtime configuration module
+- `tests/tracy_ci_integration.rs` - CI/CD integration tests
+
+**Modified:**
+- `src/bin/server.rs` - Tracy client initialization
+- `src/lib.rs` - profiler_config module exports
+- `Cargo.toml` - release-tracy build profile
+- `docs/tracy_profiling.md` - Production usage documentation
+
+**Test Count:** 354 library + 21 Tracy integration + 7 CI tests = 382 total
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Tracy dependency | ✅ | `tracy-client 0.17` with `enable` feature |
+| Audio callback zones | ✅ | `audio_callback`, `mixer_process` instrumented |
+| Mixer zones | ✅ | 5 zones: clear, sources, source_process, loudness |
+| Plot metrics | ✅ | CPU usage, processing time, source count |
+| Conditional compilation | ✅ | Zero overhead when disabled |
+| Integration tests | ✅ | 12 tests in `tests/tracy_integration.rs` |
+| Documentation | ✅ | `docs/tracy_profiling.md` |
+
+### Instrumented Zones (7 total)
+
+- `audio_callback` - Main callback entry
+- `mixer_process` (callback) - Mixer within callback
+- `mixer_process` (mixer) - Mixer entry point
+- `mixer_clear_output` - Buffer clearing
+- `mixer_sources` - Source mixing loop
+- `mixer_source_process` - Per-source processing
+- `mixer_loudness` - Loudness metering
+
+### Usage
+
+```bash
+# Build with profiling
+cargo build --features tracy
+
+# Run with profiling
+cargo test --features tracy
+
+# Default (zero overhead)
+cargo build
+```
+
+### Files Modified
+
+- `Cargo.toml` - Added tracy-client dependency
+- `src/profiler.rs` - Comprehensive profiling module
+- `src/callback.rs` - Audio callback instrumentation
+- `src/mixer.rs` - Mixer process instrumentation
+- `src/lib.rs` - Profiler exports
+
+---

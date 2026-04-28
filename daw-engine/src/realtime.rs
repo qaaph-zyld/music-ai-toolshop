@@ -3,6 +3,7 @@
 //! Provides lock-free data structures, priority inversion protection,
 //! and watchdog timers for reliable real-time audio processing.
 
+use crate::{profile_scope, plot_value};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -28,6 +29,8 @@ impl<T: Default + Clone + Copy, const N: usize> LockFreeQueue<T, N> {
     /// Push item (non-blocking, thread-safe)
     /// Returns false if queue is full
     pub fn push(&self, item: T) -> bool {
+        profile_scope!("lockfree_push");
+        
         let write = self.write_index.load(Ordering::Relaxed);
         let read = self.read_index.load(Ordering::Acquire);
         
@@ -49,6 +52,8 @@ impl<T: Default + Clone + Copy, const N: usize> LockFreeQueue<T, N> {
     /// Pop item (non-blocking, thread-safe)
     /// Returns None if queue is empty
     pub fn pop(&self) -> Option<T> {
+        profile_scope!("lockfree_pop");
+        
         let read = self.read_index.load(Ordering::Relaxed);
         let write = self.write_index.load(Ordering::Acquire);
         
@@ -137,6 +142,8 @@ impl WatchdogTimer {
 
     /// Reset the watchdog (call from audio thread)
     pub fn pet(&self) {
+        profile_scope!("watchdog_pet");
+        
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_micros() as u64;
         self.last_update.store(now, Ordering::Release);
     }
@@ -225,9 +232,12 @@ impl AudioThreadStats {
 
     /// Record callback duration
     pub fn record_callback(&self, duration: Duration) {
+        profile_scope!("stats_record_callback");
+        
         self.callbacks.fetch_add(1, Ordering::Relaxed);
         
         let us = duration.as_micros() as u64;
+        plot_value!("callback_duration_us", us as f64);
         
         // Update max
         let mut current_max = self.max_duration_us.load(Ordering::Relaxed);
@@ -305,6 +315,8 @@ impl RealTimeCommandProcessor {
     where
         F: FnMut(RealTimeCommand),
     {
+        profile_scope!("rt_command_process");
+        
         let start = Instant::now();
         
         // Pet the watchdog
@@ -312,11 +324,15 @@ impl RealTimeCommandProcessor {
         
         // Process all pending commands
         while let Some(cmd) = self.queue.pop() {
+            profile_scope!("rt_command_handler");
             handler(cmd);
         }
         
         // Record stats
         self.stats.record_callback(start.elapsed());
+        
+        // Plot queue length after processing
+        plot_value!("queue_length", self.queue.len() as f64);
     }
 
     /// Get queue reference

@@ -3,6 +3,7 @@
 //! Manages clip triggering and playback state, integrating with the
 //! audio processor for sample-accurate clip playback.
 
+use crate::{profile_scope, plot_value};
 
 /// Playback state for a single clip
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -44,6 +45,8 @@ impl TrackPlaybackState {
     
     /// Trigger a clip to play
     pub fn trigger_clip(&mut self, clip_idx: usize) {
+        profile_scope!("track_trigger_clip");
+        
         if clip_idx >= self.clip_states.len() {
             return;
         }
@@ -61,6 +64,8 @@ impl TrackPlaybackState {
     
     /// Stop playing clip
     pub fn stop_clip(&mut self) {
+        profile_scope!("track_stop_clip");
+        
         if let Some(current) = self.playing_clip_idx {
             self.clip_states[current] = ClipPlaybackState::Stopped;
             self.playing_clip_idx = None;
@@ -69,6 +74,8 @@ impl TrackPlaybackState {
     
     /// Queue a clip to start on next beat
     pub fn queue_clip(&mut self, clip_idx: usize) {
+        profile_scope!("track_queue_clip");
+        
         if clip_idx < self.clip_states.len() {
             self.queued_clip_idx = Some(clip_idx);
         }
@@ -123,8 +130,11 @@ impl ClipPlayer {
     
     /// Trigger a clip on a specific track
     pub fn trigger_clip(&mut self, track_idx: usize, clip_idx: usize) -> bool {
+        profile_scope!("clip_player_trigger");
+        
         if let Some(track) = self.track_states.get_mut(track_idx) {
             track.trigger_clip(clip_idx);
+            plot_value!("playing_tracks", self.track_states.iter().filter(|t| t.is_playing()).count() as f64);
             true
         } else {
             false
@@ -174,14 +184,24 @@ impl ClipPlayer {
     
     /// Process queued clips at beat boundary (call from audio thread)
     pub fn process_queued_clips(&mut self) {
+        profile_scope!("clip_player_process_queue");
+        
         for track in &mut self.track_states {
             track.process_queue();
         }
+        
+        // Plot playing track count
+        let playing_count = self.track_states.iter().filter(|t| t.is_playing()).count();
+        plot_value!("playing_tracks", playing_count as f64);
     }
     
     /// Stop clip on a specific track (alias for stop_track for API consistency)
     pub fn stop_clip(&mut self, track_idx: usize) -> bool {
-        self.stop_track(track_idx)
+        let result = self.stop_track(track_idx);
+        if result {
+            plot_value!("playing_tracks", self.track_states.iter().filter(|t| t.is_playing()).count() as f64);
+        }
+        result
     }
     
     /// Get number of tracks
@@ -222,9 +242,12 @@ impl ClipPlayer {
     
     /// Stop all clips (panic button)
     pub fn stop_all(&mut self) {
+        profile_scope!("clip_player_stop_all");
+        
         for track in &mut self.track_states {
             track.stop_clip();
         }
+        plot_value!("playing_tracks", 0.0);
     }
 }
 

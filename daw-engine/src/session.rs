@@ -3,6 +3,7 @@
 //! Ableton Live-style clip slot grid with scene launch functionality.
 
 use crate::ffi_bridge::invoke_clip_callback;
+use crate::{profile_scope, plot_value};
 use serde::{Serialize, Deserialize};
 
 /// Clip playback state
@@ -201,6 +202,8 @@ impl SessionView {
     
     /// Launch a scene (row)
     pub fn launch_scene(&mut self, scene_index: usize) {
+        profile_scope!("session_launch_scene");
+        
         // Stop current scene if different
         if let Some(current) = self.current_scene {
             if current != scene_index {
@@ -216,14 +219,18 @@ impl SessionView {
         }
         
         self.current_scene = Some(scene_index);
+        plot_value!("active_scene", (scene_index + 1) as f64);
     }
     
     /// Stop all clips
     pub fn stop_all(&mut self) {
+        profile_scope!("session_stop_all");
+        
         for (scene_idx, scene) in self.scenes.iter_mut().enumerate() {
             scene.stop(scene_idx);
         }
         self.current_scene = None;
+        plot_value!("active_scene", 0.0);
     }
     
     /// Get all currently playing clips

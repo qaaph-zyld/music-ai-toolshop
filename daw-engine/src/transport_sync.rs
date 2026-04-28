@@ -3,6 +3,7 @@
 //! Synchronizes clip playback to the transport's beat clock for
 //! sample-accurate triggering and quantization.
 
+use crate::{profile_scope, plot_value};
 use std::collections::VecDeque;
 
 /// Scheduled clip event for quantized playback
@@ -110,8 +111,10 @@ impl TransportSync {
     
     /// Update tempo (recalculates timing)
     pub fn set_tempo(&mut self, tempo: f32) {
+        profile_scope!("sync_set_tempo");
         self.tempo = tempo;
         self.samples_per_beat = Self::calculate_samples_per_beat(self.sample_rate, tempo);
+        plot_value!("samples_per_beat", self.samples_per_beat);
     }
     
     /// Get current tempo
@@ -136,6 +139,7 @@ impl TransportSync {
     
     /// Schedule a clip to trigger at a specific beat
     pub fn schedule_clip(&mut self, track_idx: usize, clip_idx: usize, target_beat: f64, looped: bool) {
+        profile_scope!("sync_schedule");
         let scheduled = ScheduledClip {
             track_idx,
             clip_idx,
@@ -143,6 +147,7 @@ impl TransportSync {
             looped,
         };
         self.pending.push_back(scheduled);
+        plot_value!("pending_clips", self.pending.len() as f64);
     }
     
     /// Schedule a clip with quantization applied to current transport position
@@ -170,7 +175,9 @@ impl TransportSync {
     
     /// Clear all pending scheduled clips
     pub fn clear_all(&mut self) {
+        profile_scope!("sync_clear_all");
         self.pending.clear();
+        plot_value!("pending_clips", 0.0);
     }
     
     /// Get number of pending scheduled clips
@@ -192,6 +199,7 @@ impl TransportSync {
     /// Process scheduled clips at current beat position
     /// Returns vector of clips that should trigger now
     pub fn process(&mut self, current_beat: f64) -> Vec<ScheduledClip> {
+        profile_scope!("sync_process");
         let mut triggered = Vec::new();
         
         // Find clips that should trigger (target beat <= current beat)
@@ -203,6 +211,9 @@ impl TransportSync {
                 break;
             }
         }
+        
+        plot_value!("pending_clips", self.pending.len() as f64);
+        plot_value!("triggered_clips", triggered.len() as f64);
         
         triggered
     }

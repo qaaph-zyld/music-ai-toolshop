@@ -6,6 +6,7 @@
 use crate::mixer::Mixer;
 use crate::generators::SineWave;
 use crate::sample_player::SamplePlayer;
+use crate::{profile_scope, plot_value, frame_mark};
 
 /// Profiling data for a single process callback
 #[derive(Debug, Clone, Copy, Default)]
@@ -59,9 +60,15 @@ impl AudioCallback {
     
     /// Process audio buffer - mixes all sources with profiling
     pub fn process(&mut self, output: &mut [f32]) {
+        profile_scope!("audio_callback");
         let start = std::time::Instant::now();
         
-        self.mixer.process(output);
+        let sample_count = output.len() / self.channels as usize;
+        
+        {
+            profile_scope!("mixer_process");
+            self.mixer.process(output);
+        }
         
         let elapsed = start.elapsed();
         let processing_time_ns = elapsed.as_nanos() as u64;
@@ -70,12 +77,20 @@ impl AudioCallback {
         // At sample_rate Hz, each sample takes 1/sample_rate seconds
         let buffer_duration_us = (output.len() as f64 / self.channels as f64) * 1_000_000.0 / self.sample_rate as f64;
         let processing_time_us = processing_time_ns as f64 / 1000.0;
+        let cpu_usage = (processing_time_us / buffer_duration_us * 100.0) as f32;
+        
+        // Plot CPU usage for Tracy visualization
+        plot_value!("callback_cpu_usage", cpu_usage as f64);
+        plot_value!("callback_processing_us", processing_time_us);
+        plot_value!("callback_samples", sample_count as f64);
         
         self.last_metrics = CallbackMetrics {
             processing_time_ns,
-            sample_count: output.len() / self.channels as usize,
-            cpu_usage_percent: (processing_time_us / buffer_duration_us * 100.0) as f32,
+            sample_count,
+            cpu_usage_percent: cpu_usage,
         };
+        
+        frame_mark!();
     }
     
     /// Clear all sources from the mixer
