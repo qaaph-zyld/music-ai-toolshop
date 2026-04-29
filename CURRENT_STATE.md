@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-29 (Phase 7 Complete)
+**Last Updated:** 2026-04-30 (Phase 8 Complete)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -9,7 +9,7 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| `cargo test --lib` | **362 passed, 0 failed, 1 ignored** | 2026-04-29 |
+| `cargo test --lib` | **370 passed, 0 failed, 1 ignored** | 2026-04-30 |
 | `cargo test --tests` (integration) | **436 passed, 1 failed*, 3 ignored** | 2026-04-29 |
 | `cargo check --lib` | **0 errors, 0 warnings** | 2026-04-28 |
 | Tracy profiling | **Integrated** | 2026-04-28 |
@@ -68,6 +68,7 @@
 - **Session View** (clip slots, scene launch, playback states)
 - **MIDI engine** (note on/off, velocity, channels, CC)
 - **MIDI input** (device enumeration via midir, quantization)
+- **MIDI editing** (piano roll, quantize, transpose, velocity scaling)
 - **Sample playback** (WAV loading via hound)
 - **Project save/load** (JSON serialization, `.opendaw` format)
 - **Lock-free SPSC queue** (atomic indices, real-time safe)
@@ -200,6 +201,29 @@ cmake -B build && cmake --build build
 6. **~~Export Audio Integration~~** ✅ COMPLETE (2026-04-29: File menu → Export Dialog → Rust FFI wired)
 7. **~~MIDI Recording Integration~~** ✅ COMPLETE (2026-04-29: Recording → Clip Creation workflow implemented)
 8. **~~Mixer Level Meters~~** ✅ COMPLETE (2026-04-29: Real-time meter polling UI ↔ Rust FFI)
+9. **~~Advanced MIDI Features~~** ✅ COMPLETE (2026-04-30: Piano roll, quantization, transpose, velocity editing)
+
+---
+
+## Phase 8: Advanced MIDI Features ✅ COMPLETE (2026-04-30)
+
+**Summary:** Implemented comprehensive MIDI editing with piano roll UI, quantization, transpose, and velocity controls.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| MIDI edit module | ✅ | `midi_edit.rs` with quantize, transpose, humanize |
+| MIDI edit FFI | ✅ | `midi_edit_ffi.rs` exports for C++ UI |
+| Piano roll component | ✅ | `PianoRollComponent.h/cpp` with full editing |
+| EngineBridge methods | ✅ | quantize, transpose, velocity, duplicate |
+| Integration tests | ✅ | 12 tests in `integration_midi_edit.rs` |
+
+### Test Count
+
+- Library tests: 370 (was 362, +8 new)
+- MIDI edit integration: 12
+- **Total: 382 tests passing**
 
 ---
 

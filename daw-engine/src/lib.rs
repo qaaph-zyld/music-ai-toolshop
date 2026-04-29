@@ -20,6 +20,7 @@ pub mod sample_player;
 pub mod sample_player_integration;
 pub mod session;
 pub mod midi;
+pub mod midi_edit;
 pub mod midi_input;
 pub mod transport;
 pub mod realtime;
@@ -57,6 +58,7 @@ pub mod clip_player_ffi;
 pub mod transport_sync;
 pub mod transport_sync_ffi;
 pub mod midi_ffi;
+pub mod midi_edit_ffi;
 pub mod meter_ffi;
 pub mod project_ffi;
 

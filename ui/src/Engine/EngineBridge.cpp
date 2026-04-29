@@ -75,6 +75,9 @@ extern "C" {
     void daw_midi_free_notes(void* notes, int count);
     int daw_midi_is_recording();
     
+    // MIDI Clip Creation FFI (Phase 6)
+    int daw_create_midi_clip(void* engine_ptr, int track, int scene, const MidiNoteFFI* notes, int note_count, const char* clip_name);
+    
     // Stem Separation FFI (Phase 8.x)
     void* daw_stem_separator_create();
     void daw_stem_separator_free(void* handle);
@@ -691,6 +694,47 @@ void EngineBridge::setQuantization(float gridDivision, float strength)
     (void)strength;
 }
 
+bool EngineBridge::createMidiClip(int trackIndex, int sceneIndex, const std::vector<RecordedNote>& notes, const juce::String& clipName)
+{
+    if (!initialized || rustEngine == nullptr)
+    {
+        DBG("EngineBridge::createMidiClip() - engine not initialized!");
+        return false;
+    }
+    
+    if (notes.empty())
+    {
+        DBG("EngineBridge::createMidiClip() - no notes to create clip");
+        return false;
+    }
+    
+    // Convert RecordedNote array to MidiNoteFFI array
+    std::vector<MidiNoteFFI> ffiNotes;
+    ffiNotes.reserve(notes.size());
+    
+    for (const auto& note : notes)
+    {
+        MidiNoteFFI ffiNote;
+        ffiNote.pitch = note.pitch;
+        ffiNote.velocity = note.velocity;
+        ffiNote.start_beat = note.startBeat;
+        ffiNote.duration_beats = note.duration;
+        ffiNotes.push_back(ffiNote);
+    }
+    
+    // Call Rust FFI to create the MIDI clip
+    int result = daw_create_midi_clip(
+        rustEngine,
+        trackIndex,
+        sceneIndex,
+        ffiNotes.data(),
+        static_cast<int>(ffiNotes.size()),
+        clipName.toRawUTF8()
+    );
+    
+    return result == 0;
+}
+
 // ============================================================================
 // Meter Level Meters (Phase 7.2)
 // ============================================================================
@@ -727,6 +771,134 @@ EngineBridge::MeterLevels EngineBridge::getMasterMeterLevels()
     levels.peakDb = daw_meter_get_master_peak();
     levels.rmsDb = daw_meter_get_master_rms();
     return levels;
+}
+
+// ============================================================================
+// MIDI Editing (Phase 8)
+// ============================================================================
+
+// FFI declarations for MIDI editing functions
+extern "C" {
+    void daw_midi_edit_init();
+    int daw_midi_quantize(const void* notes_in, int note_count, float grid_division, void* notes_out);
+    int daw_midi_transpose(const void* notes_in, int note_count, int semitones, void* notes_out);
+    int daw_midi_scale_velocity(const void* notes_in, int note_count, float scale, void* notes_out);
+    int daw_midi_duplicate_clip(int from_track, int from_scene, int to_track, int to_scene);
+}
+
+// Helper struct matching Rust FFI format
+struct MidiNoteFFI {
+    int pitch;
+    int velocity;
+    float start_beat;
+    float duration_beats;
+};
+
+std::vector<EngineBridge::MidiNoteData> EngineBridge::quantizeMidiNotes(
+    const std::vector<MidiNoteData>& notes, float gridDivision)
+{
+    if (notes.empty()) return {};
+    
+    // Initialize MIDI editor
+    daw_midi_edit_init();
+    
+    // Convert to FFI format
+    std::vector<MidiNoteFFI> ffiNotes;
+    ffiNotes.reserve(notes.size());
+    for (const auto& note : notes) {
+        ffiNotes.push_back({note.pitch, note.velocity, note.startBeat, note.durationBeats});
+    }
+    
+    // Call Rust FFI
+    std::vector<MidiNoteFFI> output(notes.size());
+    int count = daw_midi_quantize(
+        ffiNotes.data(), 
+        static_cast<int>(ffiNotes.size()), 
+        gridDivision, 
+        output.data()
+    );
+    
+    // Convert back
+    std::vector<MidiNoteData> result;
+    result.reserve(count);
+    for (int i = 0; i < count; ++i) {
+        result.push_back({output[i].pitch, output[i].velocity, 
+                         output[i].start_beat, output[i].duration_beats});
+    }
+    return result;
+}
+
+std::vector<EngineBridge::MidiNoteData> EngineBridge::transposeMidiNotes(
+    const std::vector<MidiNoteData>& notes, int semitones)
+{
+    if (notes.empty()) return {};
+    
+    daw_midi_edit_init();
+    
+    std::vector<MidiNoteFFI> ffiNotes;
+    ffiNotes.reserve(notes.size());
+    for (const auto& note : notes) {
+        ffiNotes.push_back({note.pitch, note.velocity, note.startBeat, note.durationBeats});
+    }
+    
+    std::vector<MidiNoteFFI> output(notes.size());
+    int count = daw_midi_transpose(
+        ffiNotes.data(), 
+        static_cast<int>(ffiNotes.size()), 
+        semitones, 
+        output.data()
+    );
+    
+    std::vector<MidiNoteData> result;
+    result.reserve(count);
+    for (int i = 0; i < count; ++i) {
+        result.push_back({output[i].pitch, output[i].velocity, 
+                         output[i].start_beat, output[i].duration_beats});
+    }
+    return result;
+}
+
+std::vector<EngineBridge::MidiNoteData> EngineBridge::scaleMidiVelocities(
+    const std::vector<MidiNoteData>& notes, float scale)
+{
+    if (notes.empty()) return {};
+    
+    daw_midi_edit_init();
+    
+    std::vector<MidiNoteFFI> ffiNotes;
+    ffiNotes.reserve(notes.size());
+    for (const auto& note : notes) {
+        ffiNotes.push_back({note.pitch, note.velocity, note.startBeat, note.durationBeats});
+    }
+    
+    std::vector<MidiNoteFFI> output(notes.size());
+    int count = daw_midi_scale_velocity(
+        ffiNotes.data(), 
+        static_cast<int>(ffiNotes.size()), 
+        scale, 
+        output.data()
+    );
+    
+    std::vector<MidiNoteData> result;
+    result.reserve(count);
+    for (int i = 0; i < count; ++i) {
+        result.push_back({output[i].pitch, output[i].velocity, 
+                         output[i].start_beat, output[i].duration_beats});
+    }
+    return result;
+}
+
+bool EngineBridge::duplicateMidiClip(int fromTrack, int fromScene, int toTrack, int toScene)
+{
+    if (!initialized) {
+        DBG("EngineBridge::duplicateMidiClip() - engine not initialized!");
+        return false;
+    }
+    
+    daw_midi_edit_init();
+    
+    int result = daw_midi_duplicate_clip(fromTrack, fromScene, toTrack, toScene);
+    return result == 0;
 }
 
 // ============================================================================

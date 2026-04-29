@@ -1,9 +1,9 @@
 //! Session view
-//! 
+//!
 //! Ableton Live-style clip slot grid with scene launch functionality.
 
 use crate::ffi_bridge::invoke_clip_callback;
-use crate::{profile_scope, plot_value};
+use crate::{profile_scope, plot_value, MidiNote};
 use serde::{Serialize, Deserialize};
 
 /// Clip playback state
@@ -33,6 +33,9 @@ pub struct Clip {
     #[serde(skip)] // Runtime state, not serialized
     state: ClipState,
     is_audio: bool,
+    /// MIDI notes for MIDI clips (empty for audio clips)
+    #[serde(skip)]
+    midi_notes: Vec<MidiNote>,
 }
 
 impl Clip {
@@ -43,9 +46,10 @@ impl Clip {
             duration_bars,
             state: ClipState::Stopped,
             is_audio: true,
+            midi_notes: Vec::new(),
         }
     }
-    
+
     /// Create new MIDI clip
     pub fn new_midi(name: &str, duration_bars: f32) -> Self {
         Self {
@@ -53,6 +57,18 @@ impl Clip {
             duration_bars,
             state: ClipState::Stopped,
             is_audio: false,
+            midi_notes: Vec::new(),
+        }
+    }
+
+    /// Create new MIDI clip with notes
+    pub fn new_midi_with_notes(name: &str, duration_bars: f32, notes: Vec<MidiNote>) -> Self {
+        Self {
+            name: name.to_string(),
+            duration_bars,
+            state: ClipState::Stopped,
+            is_audio: false,
+            midi_notes: notes,
         }
     }
     
@@ -103,6 +119,21 @@ impl Clip {
     /// Check if clip is MIDI
     pub fn is_midi(&self) -> bool {
         !self.is_audio
+    }
+
+    /// Get MIDI notes (empty for audio clips)
+    pub fn midi_notes(&self) -> &[MidiNote] {
+        &self.midi_notes
+    }
+
+    /// Set MIDI notes for this clip
+    pub fn set_midi_notes(&mut self, notes: Vec<MidiNote>) {
+        self.midi_notes = notes;
+    }
+
+    /// Add a MIDI note to this clip
+    pub fn add_midi_note(&mut self, note: MidiNote) {
+        self.midi_notes.push(note);
     }
 }
 
@@ -198,6 +229,26 @@ impl SessionView {
                 invoke_clip_callback(track, scene, Some(ClipState::Stopped));
             }
         }
+    }
+
+    /// Create and insert a MIDI clip with notes at track/scene position
+    /// Returns true if clip was successfully created
+    pub fn create_midi_clip(&mut self, track: usize, scene: usize, notes: Vec<MidiNote>, name: &str) -> bool {
+        if track >= self.tracks || scene >= self.scenes.len() {
+            return false;
+        }
+
+        // Calculate duration based on notes (max start + duration, or minimum 1 bar)
+        let duration_bars = notes.iter()
+            .map(|n| n.start_beat() + n.duration_beats())
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap_or(4.0) / 4.0; // Convert beats to bars
+
+        let clip_duration = duration_bars.max(1.0); // Minimum 1 bar
+
+        let clip = Clip::new_midi_with_notes(name, clip_duration, notes);
+        self.set_clip(track, scene, clip);
+        true
     }
     
     /// Launch a scene (row)

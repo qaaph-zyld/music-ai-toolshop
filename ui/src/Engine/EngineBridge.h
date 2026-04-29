@@ -98,6 +98,9 @@ public:
     std::vector<RecordedNote> stopMidiRecording();
     bool isMidiRecording() const;
     void setQuantization(float gridDivision, float strength);
+    
+    // Create MIDI clip from recorded notes (Phase 6)
+    bool createMidiClip(int trackIndex, int sceneIndex, const std::vector<RecordedNote>& notes, const juce::String& clipName);
 
     // Meter Level Meters (Phase 7.2)
     struct MeterLevels {
@@ -113,6 +116,26 @@ public:
     
     // Get master output meter levels
     MeterLevels getMasterMeterLevels();
+
+    // MIDI Editing (Phase 8)
+    struct MidiNoteData {
+        int pitch = 60;
+        int velocity = 100;
+        float startBeat = 0.0f;
+        float durationBeats = 1.0f;
+    };
+    
+    // Quantize MIDI notes to grid (e.g., 0.25 = 1/16, 0.5 = 1/8)
+    std::vector<MidiNoteData> quantizeMidiNotes(const std::vector<MidiNoteData>& notes, float gridDivision);
+    
+    // Transpose MIDI notes by semitones (positive = up, negative = down)
+    std::vector<MidiNoteData> transposeMidiNotes(const std::vector<MidiNoteData>& notes, int semitones);
+    
+    // Scale velocities by factor (1.0 = no change, 1.5 = 50% louder)
+    std::vector<MidiNoteData> scaleMidiVelocities(const std::vector<MidiNoteData>& notes, float scale);
+    
+    // Duplicate MIDI clip to new location
+    bool duplicateMidiClip(int fromTrack, int fromScene, int toTrack, int toScene);
 
     // Project Management (Phase 7.3)
     bool newProject();

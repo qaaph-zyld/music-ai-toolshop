@@ -12,6 +12,7 @@ use crate::project::Project;
 use crate::session::{SessionView, ClipState};
 use crate::transport::{Transport, TransportState};
 use crate::midi_input::{MidiDeviceEnumerator, MidiInput};
+use crate::MidiNote;
 
 // ============================================================================
 // FFI Callback Types for JUCE UI-to-Engine Connection (Step B)
@@ -692,6 +693,70 @@ pub extern "C" fn daw_midi_is_recording() -> c_int {
     match MIDI_INPUT.lock() {
         Ok(midi_input) => if midi_input.is_recording() { 1 } else { 0 },
         Err(_) => 0,
+    }
+}
+
+/// Create a MIDI clip with recorded notes at track/scene position
+///
+/// # Arguments
+/// * `engine_ptr` - Engine handle
+/// * `track` - Track index (0-based)
+/// * `scene` - Scene index (0-based)
+/// * `notes_ptr` - Pointer to array of MidiNoteFFI structures
+/// * `note_count` - Number of notes in array
+/// * `clip_name` - Null-terminated clip name string
+///
+/// # Returns
+/// 0 on success, -1 on error
+///
+/// # Safety
+/// All pointer arguments must be valid
+#[no_mangle]
+pub unsafe extern "C" fn daw_create_midi_clip(
+    engine_ptr: *mut c_void,
+    track: c_int,
+    scene: c_int,
+    notes_ptr: *const MidiNoteFFI,
+    note_count: c_int,
+    clip_name: *const c_char,
+) -> c_int {
+    if engine_ptr.is_null() || notes_ptr.is_null() || clip_name.is_null() {
+        return -1;
+    }
+
+    if track < 0 || scene < 0 || note_count < 0 {
+        return -1;
+    }
+
+    let engine = &*(engine_ptr as *mut DawEngine);
+
+    // Convert FFI notes to internal MidiNote format
+    let notes_slice = std::slice::from_raw_parts(notes_ptr, note_count as usize);
+    let midi_notes: Vec<MidiNote> = notes_slice.iter().map(|n| {
+        MidiNote::new(
+            n.pitch as u8,
+            n.velocity as u8,
+            n.start_beat,
+            n.duration_beats,
+        )
+    }).collect();
+
+    // Get clip name
+    let name = match CStr::from_ptr(clip_name).to_str() {
+        Ok(s) => s,
+        Err(_) => "Recorded MIDI",
+    };
+
+    // Create the MIDI clip in session
+    match engine._session.lock() {
+        Ok(mut session) => {
+            if session.create_midi_clip(track as usize, scene as usize, midi_notes, name) {
+                0
+            } else {
+                -1
+            }
+        }
+        Err(_) => -1,
     }
 }
 

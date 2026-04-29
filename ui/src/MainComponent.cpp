@@ -266,11 +266,35 @@ MainComponent::MainComponent()
         }
     };
 
-    // Wire recording completion to create clip - Phase 7.1
+    // Wire recording completion to create clip - Phase 6 (MIDI Recording Integration)
     recordingPanel->onRecordingComplete = [this](int track, int scene, const juce::Array<EngineBridge::RecordedNote>& notes) {
         juce::Colour clipColor = juce::Colours::cyan;
         sessionGrid->setClip(track, scene, "MIDI Recording", clipColor);
-        (void)notes;
+        
+        // Create MIDI clip in the engine with recorded notes
+        if (!notes.isEmpty())
+        {
+            auto& engine = EngineBridge::getInstance();
+            
+            // Convert JUCE Array to std::vector for EngineBridge
+            std::vector<EngineBridge::RecordedNote> notesVector;
+            notesVector.reserve(notes.size());
+            for (int i = 0; i < notes.size(); ++i)
+            {
+                notesVector.push_back(notes[i]);
+            }
+            
+            bool success = engine.createMidiClip(track, scene, notesVector, "MIDI Recording");
+            if (!success)
+            {
+                std::cerr << "MainComponent: Failed to create MIDI clip in engine" << std::endl;
+            }
+            else
+            {
+                std::cout << "MainComponent: Created MIDI clip with " << notes.size() << " notes at track " 
+                          << (track + 1) << ", scene " << (scene + 1) << std::endl;
+            }
+        }
     };
 
     // Wire up import callback - Phase 8.5 (Complete with audio loading)
