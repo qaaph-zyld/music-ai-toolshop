@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-29 (Phase 4 Complete)
+**Last Updated:** 2026-04-29 (Phase 5 Complete)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -197,6 +197,7 @@ cmake -B build && cmake --build build
 3. **~~Transport UI Control~~** ✅ VERIFIED (2026-04-21: Keyboard shortcuts added, state syncs to audio processor - see Phase 6.9)
 4. **~~Suno browser integration~~** ✅ COMPLETE (2026-04-22: UI → API → WAV download → SamplePlayerIntegration, see Phase 8.5)
 5. **~~Performance profiling~~** ✅ COMPLETE (2026-04-29: Tracy integration + Performance Analysis baselines)
+6. **~~Export Audio Integration~~** ✅ COMPLETE (2026-04-29: File menu → Export Dialog → Rust FFI wired)
 
 ---
 
@@ -383,3 +384,41 @@ let report = analyzer.generate_report();
 ```
 
 ---
+
+## Phase 5: Export Audio Integration ✅ COMPLETE (2026-04-29)
+
+**Summary:** Connected the Export Audio dialog to the Rust export engine via FFI, enabling end-to-end audio export from the DAW.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Export menu item | ✅ | "Export Audio..." added to File menu |
+| Menu callback | ✅ | `onExportAudio` wired to launch ExportDialog |
+| FFI bridge | ✅ | All 8 FFI methods implemented in ExportFFI.cpp |
+| Rust exports | ✅ | `daw_export_*` functions in ffi_bridge.rs (lines 1122-1329) |
+| Completion alert | ✅ | Shows success/failure after export |
+
+### Files Modified
+
+- `ui/src/MainComponent.h` - Added `fileExport` menu ID and `onExportAudio` callback
+- `ui/src/MainComponent.cpp` - Added menu item, handler, and callback wiring
+- `ui/src/Export/ExportFFI.cpp` - Implemented all FFI wrapper methods
+
+### Export Flow
+
+File → Export Audio... → ExportDialog → ExportFFI → Rust `daw_export_*` → ExportEngine
+
+### FFI Methods
+
+- `daw_export_create()` - Create export handle
+- `daw_export_configure()` - Set file path, format, sample rate
+- `daw_export_start()` - Begin export
+- `daw_export_get_progress()` - Poll progress (0.0-1.0)
+- `daw_export_is_complete()` - Check completion
+- `daw_export_cancel()` - Cancel export
+- `daw_export_get_result()` - Get result (0=in_progress, 1=success, 2=cancelled, 3=error)
+- `daw_export_destroy()` - Free resources
+
+---
+

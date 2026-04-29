@@ -9,6 +9,7 @@
 #include "Project/ProjectManager.h"
 #include "SunoBrowser/SunoBrowserComponent.h"
 #include "PatternGen/PatternGeneratorDialog.h"
+#include "Export/ExportDialog.h"
 
 /**
  * MainMenuBarModel - File menu for OpenDAW
@@ -35,6 +36,7 @@ public:
     std::function<void()> onExit;
     std::function<void()> onToggleSunoBrowser;
     std::function<void()> onGeneratePattern;
+    std::function<void()> onExportAudio;
 
 private:
     juce::PopupMenu createFileMenu();
@@ -48,6 +50,7 @@ private:
         fileSave,
         fileSaveAs,
         fileSeparator1,
+        fileExport,
         fileExit,
         viewSunoBrowser = 2001,
         viewMenu = 2000,

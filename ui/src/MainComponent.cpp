@@ -39,6 +39,7 @@ juce::PopupMenu MainMenuBarModel::createFileMenu()
     menu.addItem(fileSave, "Save Project");
     menu.addItem(fileSaveAs, "Save Project As...");
     menu.addSeparator();
+    menu.addItem(fileExport, "Export Audio...");
     menu.addItem(fileExit, "Exit");
 
     return menu;
@@ -83,6 +84,10 @@ void MainMenuBarModel::menuItemSelected(int menuItemID, int topLevelMenuIndex)
         case fileExit:
             if (onExit)
                 onExit();
+            break;
+        case fileExport:
+            if (onExportAudio)
+                onExportAudio();
             break;
         case viewSunoBrowser:
             if (onToggleSunoBrowser)
@@ -193,6 +198,19 @@ MainComponent::MainComponent()
             sunoBrowser->setVisible(!sunoBrowser->isVisible());
             resized();
         }
+    };
+
+    // Wire up File menu - Export Audio
+    menuBarModel->onExportAudio = [this]() {
+        auto dialog = std::make_unique<ExportDialog>(this);
+        dialog->onExportComplete = [this](bool success, const juce::String& message) {
+            juce::AlertWindow::showMessageBoxAsync(
+                success ? juce::AlertWindow::InfoIcon : juce::AlertWindow::WarningIcon,
+                success ? "Export Complete" : "Export Failed",
+                message
+            );
+        };
+        dialog.release();
     };
 
     // Wire up Tools menu - Phase 8.3
