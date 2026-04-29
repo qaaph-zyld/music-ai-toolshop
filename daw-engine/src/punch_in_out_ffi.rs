@@ -502,8 +502,11 @@ mod tests {
         
         daw_punch_in_out_set_in(4.0);
         daw_punch_in_out_set_out(8.0);
+        daw_punch_in_out_set_pre_roll(0.0); // No pre-roll for direct recording
         daw_punch_in_out_arm(0.0);
         daw_punch_in_out_process(4.0, 1); // Start recording
+        
+        assert_eq!(daw_punch_in_out_get_state(), 3); // Verify Recording state
         
         let mut beats: c_float = 0.0;
         let valid = daw_punch_in_out_get_beats_until_out(5.0, &mut beats);
@@ -565,6 +568,7 @@ mod tests {
         daw_punch_in_out_init();
         
         daw_punch_in_out_set_in(10.0);
+        daw_punch_in_out_set_pre_roll(0.0); // No pre-roll for direct recording
         daw_punch_in_out_arm(0.0);
         daw_punch_in_out_process(10.0, 1);
         

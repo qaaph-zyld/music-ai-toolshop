@@ -8,9 +8,8 @@
 //! 5. Plugin removal and reordering in chain
 //! 6. Full workflow combining all operations
 
-use daw_engine::{
-    PluginChain, PluginInstanceWrapper, GainPlugin, Plugin, PluginInfo, PluginFormat,
-};
+use daw_engine::{PluginChain, PluginInstanceWrapper};
+use daw_engine::plugin::{GainPlugin, Plugin, PluginInfo, PluginFormat};
 use std::sync::Mutex;
 
 // Serial test guard to prevent parallel test conflicts with global plugin state

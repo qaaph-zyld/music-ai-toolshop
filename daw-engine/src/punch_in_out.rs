@@ -494,7 +494,12 @@ mod tests {
         // At beat 1, should have 3 beats until punch-in (at beat 4)
         assert_eq!(controller.beats_until_punch_in(1.0), Some(3.0));
         assert_eq!(controller.beats_until_punch_in(3.0), Some(1.0));
-        assert_eq!(controller.beats_until_punch_in(4.0), Some(0.0));
+        // Just before punch-in (using approximate comparison for floating point)
+        let remaining = controller.beats_until_punch_in(3.99).unwrap();
+        assert!((remaining - 0.01).abs() < 0.001);
+        
+        // At or after punch-in, should return None
+        assert_eq!(controller.beats_until_punch_in(4.0), None);
         
         // After punch-in, should return None
         controller.process(4.0, true);
@@ -555,6 +560,8 @@ mod tests {
     #[test]
     fn test_reset() {
         let mut controller = PunchInOutController::new();
+        // Configure: punch-in at 4, no pre-roll for direct recording
+        controller.set_pre_roll(0.0);
         controller.arm(0.0);
         controller.process(4.0, true);
         assert_eq!(controller.state(), PunchState::Recording);
