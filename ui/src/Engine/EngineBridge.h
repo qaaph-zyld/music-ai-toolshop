@@ -43,6 +43,25 @@ public:
     bool isRecording() const;
     double getCurrentBeat() const;
 
+    // Punch-In/Out Recording (Phase 10.1)
+    void setPunchIn(double beats);
+    void setPunchOut(double beats);  // -1 to disable
+    void clearPunchOut();
+    void setPreRoll(double beats);
+    void setPunchEnabled(bool enabled);
+    bool isPunchEnabled() const;
+    void armPunchInOut();
+    void disarmPunchInOut();
+    int getPunchState() const;  // 0=disarmed, 1=armed, 2=preroll, 3=recording, 4=completed
+    bool isInPunchRange(double beat) const;
+    double getPunchIn() const;
+    double getPunchOut() const;  // -1 if not set
+    double getPreRoll() const;
+    double getPreRollStart() const;
+    double getPreRollProgress(double currentBeat) const;  // Returns 0.0-1.0 or -1.0 if not pre-rolling
+    double getBeatsUntilPunchIn(double currentBeat) const;  // Returns -1.0 if not applicable
+    double getBeatsUntilPunchOut(double currentBeat) const;  // Returns -1.0 if not applicable
+
     // Clip management
     void launchClip(int trackIndex, int sceneIndex);
     void stopClip(int trackIndex, int sceneIndex);

@@ -104,6 +104,29 @@ extern "C" {
     int daw_plugin_chain_set_bypass(int track_index, int slot_index, int bypass);
     int daw_plugin_chain_get_bypass(int track_index, int slot_index);
     int daw_plugin_chain_clear(int track_index);
+
+    // Punch-In/Out Recording FFI (Phase 10.1)
+    int daw_punch_in_out_init();
+    void daw_punch_in_out_shutdown();
+    void daw_punch_in_out_set_in(float beats);
+    void daw_punch_in_out_set_out(float beats);
+    void daw_punch_in_out_set_pre_roll(float beats);
+    void daw_punch_in_out_set_enabled(int enabled);
+    int daw_punch_in_out_is_enabled();
+    int daw_punch_in_out_arm(float current_beat);
+    void daw_punch_in_out_disarm();
+    int daw_punch_in_out_get_state();
+    int daw_punch_in_out_is_in_range(float beat);
+    float daw_punch_in_out_get_in();
+    float daw_punch_in_out_get_out();
+    float daw_punch_in_out_get_pre_roll();
+    float daw_punch_in_out_get_pre_roll_start();
+    int daw_punch_in_out_get_pre_roll_progress(float current_beat, float* out_progress);
+    int daw_punch_in_out_get_beats_until_in(float current_beat, float* out_beats);
+    int daw_punch_in_out_get_beats_until_out(float current_beat, float* out_beats);
+    void daw_punch_in_out_reset();
+    char* daw_punch_in_out_get_status_text();
+    void daw_punch_in_out_free_string(char* ptr);
 }
 
 // Quantization levels matching Rust FFITransportQuantization enum
@@ -1320,4 +1343,104 @@ void EngineBridge::sendCommand(std::unique_ptr<Command> cmd)
     juce::GenericScopedLock<juce::CriticalSection> lock(commandLock);
     commandQueue.push(std::move(cmd));
     commandEvent.signal();
+}
+
+// ============================================================================
+// Punch-In/Out Recording (Phase 10.1)
+// ============================================================================
+
+void EngineBridge::setPunchIn(double beats)
+{
+    daw_punch_in_out_set_in(static_cast<float>(beats));
+}
+
+void EngineBridge::setPunchOut(double beats)
+{
+    if (beats < 0)
+        daw_punch_in_out_set_out(0.0f);  // 0 or negative clears punch-out
+    else
+        daw_punch_in_out_set_out(static_cast<float>(beats));
+}
+
+void EngineBridge::clearPunchOut()
+{
+    daw_punch_in_out_set_out(0.0f);  // Setting to 0 clears punch-out
+}
+
+void EngineBridge::setPreRoll(double beats)
+{
+    daw_punch_in_out_set_pre_roll(static_cast<float>(beats));
+}
+
+void EngineBridge::setPunchEnabled(bool enabled)
+{
+    daw_punch_in_out_set_enabled(enabled ? 1 : 0);
+}
+
+bool EngineBridge::isPunchEnabled() const
+{
+    return daw_punch_in_out_is_enabled() == 1;
+}
+
+void EngineBridge::armPunchInOut()
+{
+    double currentBeat = getCurrentBeat();
+    daw_punch_in_out_arm(static_cast<float>(currentBeat));
+}
+
+void EngineBridge::disarmPunchInOut()
+{
+    daw_punch_in_out_disarm();
+}
+
+int EngineBridge::getPunchState() const
+{
+    return daw_punch_in_out_get_state();
+}
+
+bool EngineBridge::isInPunchRange(double beat) const
+{
+    return daw_punch_in_out_is_in_range(static_cast<float>(beat)) == 1;
+}
+
+double EngineBridge::getPunchIn() const
+{
+    return static_cast<double>(daw_punch_in_out_get_in());
+}
+
+double EngineBridge::getPunchOut() const
+{
+    float out = daw_punch_in_out_get_out();
+    return (out < 0.0f) ? -1.0 : static_cast<double>(out);
+}
+
+double EngineBridge::getPreRoll() const
+{
+    return static_cast<double>(daw_punch_in_out_get_pre_roll());
+}
+
+double EngineBridge::getPreRollStart() const
+{
+    return static_cast<double>(daw_punch_in_out_get_pre_roll_start());
+}
+
+double EngineBridge::getPreRollProgress(double currentBeat) const
+{
+    float progress = 0.0f;
+    int valid = daw_punch_in_out_get_pre_roll_progress(static_cast<float>(currentBeat), &progress);
+    return (valid == 1) ? static_cast<double>(progress) : -1.0;
+}
+
+double EngineBridge::getBeatsUntilPunchIn(double currentBeat) const
+{
+    float beats = 0.0f;
+    int valid = daw_punch_in_out_get_beats_until_in(static_cast<float>(currentBeat), &beats);
+    return (valid == 1) ? static_cast<double>(beats) : -1.0;
+}
+
+double EngineBridge::getBeatsUntilPunchOut(double currentBeat) const
+{
+    float beats = 0.0f;
+    int valid = daw_punch_in_out_get_beats_until_out(static_cast<float>(currentBeat), &beats);
+    return (valid == 1) ? static_cast<double>(beats) : -1.0;
 }

@@ -211,6 +211,7 @@ cmake -B build && cmake --build build
 8. **~~Mixer Level Meters~~** ✅ COMPLETE (2026-04-29: Real-time meter polling UI ↔ Rust FFI)
 9. **~~Advanced MIDI Features~~** ✅ COMPLETE (2026-04-30: Piano roll, quantization, transpose, velocity editing)
 10. **~~Audio Effects Chain FFI~~** ✅ COMPLETE (2026-04-30: Plugin registry, chain management, 12 FFI exports)
+11. **~~Punch-In/Out Recording~~** ✅ COMPLETE (2026-04-30: Pre-roll, punch points, 35 tests, C++ UI)
 
 ---
 
@@ -593,3 +594,53 @@ File → Export Audio... → ExportDialog → ExportFFI → Rust `daw_export_*` 
 
 ---
 
+## Phase 10.1: Punch-In/Out Recording ✅ COMPLETE (2026-04-30)
+
+**Summary:** Implemented punch-in/out recording system with pre-roll, enabling automated recording workflows for professional use cases.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| PunchInOutController | ✅ | `punch_in_out.rs` - State machine with 5 states |
+| Punch range detection | ✅ | Exclusive punch-in, inclusive punch-out boundaries |
+| Pre-roll support | ✅ | Configurable 0/1/2/4 bars pre-roll |
+| FFI exports | ✅ | 18 functions for C++ UI integration |
+| C++ UI Panel | ✅ | `PunchInOutPanel` with full controls |
+| EngineBridge methods | ✅ | 16 methods for UI callbacks |
+
+### New Files
+
+**Rust Engine:**
+- `daw-engine/src/punch_in_out.rs` - Core controller (618 lines)
+- `daw-engine/src/punch_in_out_ffi.rs` - FFI layer (597 lines)
+
+**C++ UI:**
+- `ui/src/Transport/PunchInOutPanel.h` - UI component header
+- `ui/src/Transport/PunchInOutPanel.cpp` - Implementation (280 lines)
+
+### Test Count
+
+- Unit tests: 19 (punch_in_out.rs)
+- FFI tests: 16 (punch_in_out_ffi.rs)
+- **Total: 35 new tests passing**
+
+### FFI Functions
+
+| Function | Purpose |
+|----------|---------|
+| `daw_punch_in_out_set_in()` | Set punch-in position |
+| `daw_punch_in_out_set_out()` | Set punch-out position |
+| `daw_punch_in_out_set_pre_roll()` | Set pre-roll duration |
+| `daw_punch_in_out_arm()` | Arm for punch recording |
+| `daw_punch_in_out_get_state()` | Get current state (0-4) |
+| `daw_punch_in_out_is_in_range()` | Check if beat is in range |
+
+### State Machine
+
+```
+Disarmed → Armed → PreRolling → Recording → Completed
+   ↑___________________________________________|
+```
+
+---
