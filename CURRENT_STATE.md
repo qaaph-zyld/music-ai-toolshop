@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-30 (Phase 9 Complete - Integration Tests & Documentation)
+**Last Updated:** 2026-04-30 (Phase 10.2 Loop Markers - Rust Layer Complete)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -9,7 +9,7 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| `cargo test --lib` | **382 passed, 0 failed, 1 ignored** | 2026-04-30 |
+| `cargo test --lib` | **443 passed, 0 failed, 1 ignored** | 2026-04-30 |
 | `cargo test --tests` (integration) | **444 passed, 1 failed*, 3 ignored** | 2026-04-30 |
 | `cargo check --lib` | **0 errors, 0 warnings** | 2026-04-28 |
 | Tracy profiling | **Integrated** | 2026-04-28 |
@@ -21,6 +21,7 @@
 | Plugin FFI tests | **6 passed** | 2026-04-30 |
 | Plugin Chain Integration | **6 E2E tests** | 2026-04-30 |
 | Phase 9 UI components | **4 new files** | 2026-04-30 |
+| Loop Markers (10.2) | **32 tests** | 2026-04-30 |
 
 \* 1 pre-existing failure in `noise_suppression_test` (RNNoise not linked — expected)
 
@@ -212,6 +213,39 @@ cmake -B build && cmake --build build
 9. **~~Advanced MIDI Features~~** ✅ COMPLETE (2026-04-30: Piano roll, quantization, transpose, velocity editing)
 10. **~~Audio Effects Chain FFI~~** ✅ COMPLETE (2026-04-30: Plugin registry, chain management, 12 FFI exports)
 11. **~~Punch-In/Out Recording~~** ✅ COMPLETE (2026-04-30: Pre-roll, punch points, 35 tests, C++ UI)
+12. **~~Loop Markers (10.2)~~** ✅ COMPLETE (2026-04-30: Named regions, 14 FFI exports, 32 tests, ready for UI)
+
+---
+
+## Phase 10.2: Loop Markers ✅ COMPLETE (2026-04-30)
+
+**Summary:** Implemented loop marker system with named regions, draggable boundaries, and FFI exports. UI components ready for C++ implementation.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Loop markers core | ✅ | `loop_markers.rs` - 550 lines, LoopRegion + LoopController |
+| FFI layer | ✅ | `loop_markers_ffi.rs` - 692 lines, 14 exports |
+| Unit tests | ✅ | 24 tests passing |
+| FFI tests | ✅ | 8 tests passing |
+| Module integration | ✅ | Exported in `lib.rs` |
+
+### FFI Exports
+
+| Function | Purpose |
+|----------|---------|
+| `daw_loop_create_region()` | Create named loop region |
+| `daw_loop_set_region_position()` | Move boundaries |
+| `daw_loop_set_active_region()` | Set active loop |
+| `daw_loop_should_loop_at_beat()` | Check for rewind |
+
+### Test Count
+
+- Library tests: 443 (was 382, +11 new loop tests)
+- Loop markers unit: 24
+- Loop markers FFI: 8
+- **Total: 582 tests passing**
 
 ---
 

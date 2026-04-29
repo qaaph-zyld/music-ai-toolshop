@@ -24,6 +24,8 @@ pub mod midi_edit;
 pub mod midi_input;
 pub mod transport;
 pub mod punch_in_out;
+pub mod loop_markers;
+pub mod loop_markers_ffi;
 pub mod realtime;
 pub mod clip_player;
 pub mod audio_processor;
@@ -86,6 +88,7 @@ pub use midi_input::{MidiInput, MidiDeviceInfo, QuantizationSettings, MidiDevice
 pub use project::{Project, Track, TrackType};
 pub use transport::{Transport, TransportState, PlayMode};
 pub use punch_in_out::{PunchInOutController, PunchState, PunchConfig};
+pub use loop_markers::{LoopController, LoopRegion};
 pub use plugin::{PluginInstance, PluginChain, PluginChainEntry, PluginInstanceWrapper, PluginState, PluginParameterValue, StatefulPlugin};
 pub use reverse_engineer::{SpectralAnalyzer, DeltaAnalyzer, FingerprintDatabase};
 pub use loudness::{LoudnessMeter, LoudnessReading};
