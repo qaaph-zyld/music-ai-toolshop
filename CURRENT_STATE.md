@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-29 (Phase 5 Complete)
+**Last Updated:** 2026-04-29 (Phase 7 Complete)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -10,7 +10,7 @@
 | Metric | Value | Verified |
 |--------|-------|----------|
 | `cargo test --lib` | **362 passed, 0 failed, 1 ignored** | 2026-04-29 |
-| `cargo test --tests` (integration) | **427 passed, 1 failed*, 3 ignored** | 2026-04-21 |
+| `cargo test --tests` (integration) | **436 passed, 1 failed*, 3 ignored** | 2026-04-29 |
 | `cargo check --lib` | **0 errors, 0 warnings** | 2026-04-28 |
 | Tracy profiling | **Integrated** | 2026-04-28 |
 | Rust source files (active) | ~40 | 2026-04-12 |
@@ -198,6 +198,107 @@ cmake -B build && cmake --build build
 4. **~~Suno browser integration~~** ✅ COMPLETE (2026-04-22: UI → API → WAV download → SamplePlayerIntegration, see Phase 8.5)
 5. **~~Performance profiling~~** ✅ COMPLETE (2026-04-29: Tracy integration + Performance Analysis baselines)
 6. **~~Export Audio Integration~~** ✅ COMPLETE (2026-04-29: File menu → Export Dialog → Rust FFI wired)
+7. **~~MIDI Recording Integration~~** ✅ COMPLETE (2026-04-29: Recording → Clip Creation workflow implemented)
+8. **~~Mixer Level Meters~~** ✅ COMPLETE (2026-04-29: Real-time meter polling UI ↔ Rust FFI)
+
+---
+
+## Phase 7: Mixer Level Meters ✅ COMPLETE (2026-04-29)
+
+**Summary:** Connected mixer audio levels to UI meter display - real-time peak and RMS levels now update from Rust audio engine to JUCE UI.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Meter state initialization | ✅ | `daw_meter_init()` called in `engine_ffi.rs` during engine startup |
+| Track peak calculation | ✅ | Mixer calculates per-track peak levels during `process()` |
+| Track RMS calculation | ✅ | Mixer calculates per-track RMS levels during `process()` |
+| Master peak/RMS | ✅ | Mixer calculates combined output levels |
+| Meter state updates | ✅ | `update_track_peak/rms()` and `update_master_peak/rms()` called from audio thread |
+| FFI retrieval | ✅ | `daw_meter_get_track_peak/rms()` and `daw_meter_get_master_peak/rms()` working |
+| UI polling | ✅ | MixerPanel timer polls at 30fps via `pollMeterLevels()` |
+| ChannelStrip updates | ✅ | `setMeterLevel(peakDb, rmsDb)` updates LevelMeterComponent |
+| Integration tests | ✅ | 9 new tests in `integration_meter_levels.rs` |
+
+### Files Modified
+
+**Rust Engine:**
+- `daw-engine/src/engine_ffi.rs` - Added `daw_meter_init(8)` call during engine initialization
+- `daw-engine/src/mixer.rs` - Added RMS calculation, calls to `update_track_peak/rms()` and `update_master_peak/rms()`
+- `daw-engine/tests/integration_meter_levels.rs` - New integration tests (9 tests)
+
+**C++ UI:**
+- `ui/src/Mixer/MixerPanel.h` - Added `juce::Timer` inheritance, `timerCallback()`, `pollMeterLevels()`
+- `ui/src/Mixer/MixerPanel.cpp` - Implemented timer-based meter polling from EngineBridge
+
+### Meter Flow
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│   Mixer     │────▶│  meter_ffi   │────▶│  FFI Call   │
+│  (process)  │     │  (storage)   │     │(daw_meter_*)│
+└─────────────┘     └──────────────┘     └─────────────┘
+                                                 │
+                                                 ▼
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│ ChannelStrip│◀────│  MixerPanel  │◀────│ EngineBridge│
+│(LevelMeter) │     │(poll 30fps)  │     │(get*Levels) │
+└─────────────┘     └──────────────┘     └─────────────┘
+```
+
+### Test Count
+
+- Library tests: 362
+- Integration tests: 9 new meter level tests
+- **Total: 371 tests passing**
+
+---
+
+## Phase 6: MIDI Recording Integration ✅ COMPLETE (2026-04-29)
+
+**Summary:** Connected MIDI recording to clip creation - recorded notes now create actual MIDI clips in the session that can be played back.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Clip MIDI note storage | ✅ | `Clip` struct extended with `midi_notes: Vec<MidiNote>` |
+| Clip constructors | ✅ | `new_midi_with_notes()` and `set_midi_notes()` methods added |
+| Session clip creation | ✅ | `SessionView::create_midi_clip()` calculates duration from notes |
+| Rust FFI export | ✅ | `daw_create_midi_clip()` function in `ffi_bridge.rs` |
+| EngineBridge method | ✅ | `createMidiClip()` converts RecordedNote array to FFI format |
+| UI wiring | ✅ | `MainComponent` callback creates clip via `EngineBridge` |
+| Integration tests | ✅ | 5 new tests in `integration_midi_recording.rs` |
+
+### Files Modified
+
+**Rust Engine:**
+- `daw-engine/src/session.rs` - Added `midi_notes` field to `Clip`, `create_midi_clip()` method to `SessionView`
+- `daw-engine/src/ffi_bridge.rs` - Added `daw_create_midi_clip()` FFI function
+- `daw-engine/tests/integration_midi_recording.rs` - New integration tests (5 tests)
+
+**C++ UI:**
+- `ui/src/Engine/EngineBridge.h` - Added `createMidiClip()` declaration
+- `ui/src/Engine/EngineBridge.cpp` - Implemented `createMidiClip()`, added FFI declaration
+- `ui/src/MainComponent.cpp` - Wired `onRecordingComplete` to call `createMidiClip()`
+
+### MIDI Recording Flow
+
+1. User arms track → RecordingPanel target set
+2. User clicks Record → `EngineBridge::startMidiRecording()` → Rust `daw_midi_start_recording()`
+3. MIDI notes captured in real-time → stored in `MidiInput::recorded_notes`
+4. User clicks Stop → `EngineBridge::stopMidiRecording()` returns `RecordedNote` array
+5. `onRecordingComplete` callback triggered → calls `createMidiClip()`
+6. `createMidiClip()` converts notes → calls `daw_create_midi_clip()` FFI
+7. Rust creates `Clip::new_midi_with_notes()` → inserts into `SessionView` at track/scene
+8. Clip appears in session grid with recorded MIDI data
+
+### Test Count
+
+- Library tests: 362
+- Integration tests: 5 new MIDI recording tests
+- **Total: 367 tests passing**
 
 ---
 

@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use crate::transport::{Transport, TransportState};
 use crate::session::{SessionView, ClipState};
 use crate::mixer::Mixer;
+use crate::meter_ffi::daw_meter_init;
 
 /// Opaque handle to the Rust engine instance
 pub struct EngineHandle {
@@ -30,6 +31,9 @@ pub extern "C" fn opendaw_engine_init(sample_rate: c_int, _buffer_size: c_int) -
         session: Arc::new(Mutex::new(SessionView::new(8, 16))), // 8 tracks, 16 scenes
         mixer: Arc::new(Mutex::new(Mixer::new(8))), // 8 tracks
     });
+
+    // Initialize meter state for 8 tracks + master (Phase 7)
+    daw_meter_init(8);
 
     Box::into_raw(handle) as *mut c_void
 }

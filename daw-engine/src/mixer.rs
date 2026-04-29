@@ -7,6 +7,7 @@ use crate::sample_player::SamplePlayer;
 use crate::plugin::PluginChain;
 use crate::loudness::{LoudnessMeter, LoudnessReading};
 use crate::ffi_bridge::invoke_meter_callback;
+use crate::meter_ffi::{update_track_peak, update_track_rms, update_master_peak, update_master_rms};
 use crate::{profile_scope, plot_value};
 
 /// Audio mixer with multiple sources and loudness metering
@@ -162,7 +163,7 @@ impl Mixer {
             }
         }
         
-        // Mix all sources and calculate peak levels
+        // Mix all sources and calculate peak/RMS levels
         profile_scope!("mixer_sources");
         for (source_idx, source) in self.sources.iter_mut().enumerate() {
             profile_scope!("mixer_source_process");
@@ -171,27 +172,68 @@ impl Mixer {
             
             // Calculate peak level for this source
             let mut peak = 0.0f32;
+            let mut sum_squares = 0.0f32;
+            let mut sample_count = 0usize;
             for sample in &temp {
-                peak = peak.max(sample.abs());
+                let abs_sample = sample.abs();
+                peak = peak.max(abs_sample);
+                sum_squares += abs_sample * abs_sample;
+                sample_count += 1;
             }
-            let db = if peak > 0.0 {
+            let peak_db = if peak > 0.0 {
                 20.0 * peak.log10()
+            } else {
+                -96.0
+            };
+            let rms_db = if sample_count > 0 && sum_squares > 0.0 {
+                let rms = (sum_squares / sample_count as f32).sqrt();
+                20.0 * rms.log10()
             } else {
                 -96.0
             };
             
             // Update stored peak level
             if source_idx < self.track_peak_levels.len() {
-                self.track_peak_levels[source_idx] = db;
+                self.track_peak_levels[source_idx] = peak_db;
             }
             
+            // Update meter state for UI polling (Phase 7)
+            update_track_peak(source_idx, peak_db);
+            update_track_rms(source_idx, rms_db);
+            
             // Invoke callback for level meter update (every process call for real-time)
-            invoke_meter_callback(source_idx, db);
+            invoke_meter_callback(source_idx, peak_db);
             
             for (out, src) in output.iter_mut().zip(temp.iter()) {
                 *out += src * source.gain();
             }
         }
+        
+        // Calculate master output peak and RMS
+        let mut master_peak = 0.0f32;
+        let mut master_sum_squares = 0.0f32;
+        let mut master_sample_count = 0usize;
+        for sample in output.iter() {
+            let abs_sample = sample.abs();
+            master_peak = master_peak.max(abs_sample);
+            master_sum_squares += abs_sample * abs_sample;
+            master_sample_count += 1;
+        }
+        let master_peak_db = if master_peak > 0.0 {
+            20.0 * master_peak.log10()
+        } else {
+            -96.0
+        };
+        let master_rms_db = if master_sample_count > 0 && master_sum_squares > 0.0 {
+            let rms = (master_sum_squares / master_sample_count as f32).sqrt();
+            20.0 * rms.log10()
+        } else {
+            -96.0
+        };
+        
+        // Update master meter levels (Phase 7)
+        update_master_peak(master_peak_db);
+        update_master_rms(master_rms_db);
         
         // Feed mixed output to loudness meter if enabled
         if let Some(ref mut meter) = self.loudness_meter {

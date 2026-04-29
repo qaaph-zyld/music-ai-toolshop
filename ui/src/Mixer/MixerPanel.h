@@ -3,17 +3,22 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "ChannelStrip.h"
 
-class MixerPanel : public juce::Component
+class MixerPanel : public juce::Component,
+                   public juce::Timer
 {
 public:
     explicit MixerPanel(int numChannels);
-    ~MixerPanel() override = default;
+    ~MixerPanel() override;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void timerCallback() override;
 
-    // Audio metering (called from audio thread)
+    // Audio metering (called from audio thread - legacy)
     void setMeterLevel(int channelIndex, float dbLevel);
+    
+    // Phase 7: Poll meter levels from engine (called from timer)
+    void pollMeterLevels();
 
     // Control access for binding to engine
     ChannelStrip* getChannelStrip(int index);
@@ -28,6 +33,9 @@ private:
 
     juce::Viewport viewport;
     juce::Component contentComponent;
+    
+    // Phase 7: Meter polling timer (30fps)
+    static constexpr int meterTimerIntervalMs = 33;
 
     void setupChannels();
 

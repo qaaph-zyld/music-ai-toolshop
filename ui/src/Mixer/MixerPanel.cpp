@@ -8,7 +8,17 @@ MixerPanel::MixerPanel(int numChannels_)
     std::cout << "MixerPanel constructor - START" << std::endl;
     setupChannels();
     setSize(800, 250);
+    
+    // Phase 7: Start meter polling timer (30fps)
+    startTimer(meterTimerIntervalMs);
+    std::cout << "MixerPanel constructor - meter polling timer started" << std::endl;
+    
     std::cout << "MixerPanel constructor - END" << std::endl;
+}
+
+MixerPanel::~MixerPanel()
+{
+    stopTimer();
 }
 
 void MixerPanel::setupChannels()
@@ -89,6 +99,7 @@ void MixerPanel::resized()
 
 void MixerPanel::setMeterLevel(int channelIndex, float dbLevel)
 {
+    // Legacy method - kept for backward compatibility
     if (channelIndex >= 0 && channelIndex < numChannels)
     {
         channelStrips[channelIndex]->setMeterLevel(dbLevel);
@@ -96,6 +107,37 @@ void MixerPanel::setMeterLevel(int channelIndex, float dbLevel)
     else if (channelIndex == -1) // Master
     {
         masterStrip->setMeterLevel(dbLevel);
+    }
+}
+
+void MixerPanel::timerCallback()
+{
+    pollMeterLevels();
+}
+
+void MixerPanel::pollMeterLevels()
+{
+    // Phase 7: Poll meter levels from EngineBridge and update ChannelStrips
+    auto& engine = EngineBridge::getInstance();
+    
+    if (!engine.isInitialized())
+        return;
+    
+    // Update track meters
+    for (int i = 0; i < numChannels; ++i)
+    {
+        auto levels = engine.getTrackMeterLevels(i);
+        if (i < (int)channelStrips.size())
+        {
+            channelStrips[i]->setMeterLevel(levels.peakDb, levels.rmsDb);
+        }
+    }
+    
+    // Update master meter
+    if (masterStrip != nullptr)
+    {
+        auto masterLevels = engine.getMasterMeterLevels();
+        masterStrip->setMeterLevel(masterLevels.peakDb, masterLevels.rmsDb);
     }
 }
 
