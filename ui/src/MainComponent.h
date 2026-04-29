@@ -10,6 +10,7 @@
 #include "SunoBrowser/SunoBrowserComponent.h"
 #include "PatternGen/PatternGeneratorDialog.h"
 #include "Export/ExportDialog.h"
+#include "PluginBrowser/PluginBrowserComponent.h"
 
 /**
  * MainMenuBarModel - File menu for OpenDAW
@@ -35,6 +36,7 @@ public:
     std::function<void()> onSaveProjectAs;
     std::function<void()> onExit;
     std::function<void()> onToggleSunoBrowser;
+    std::function<void()> onTogglePluginBrowser;
     std::function<void()> onGeneratePattern;
     std::function<void()> onExportAudio;
 
@@ -53,6 +55,7 @@ private:
         fileExport,
         fileExit,
         viewSunoBrowser = 2001,
+        viewPluginBrowser = 2002,
         viewMenu = 2000,
         toolsGeneratePattern = 3001,
         toolsMenu = 3000
@@ -83,6 +86,7 @@ private:
     std::unique_ptr<SessionGridComponent> sessionGrid;
     std::unique_ptr<MixerPanel> mixerPanel;
     std::unique_ptr<SunoBrowserComponent> sunoBrowser;
+    std::unique_ptr<PluginBrowserComponent> pluginBrowser;
 
     // Layout dividers
     juce::StretchableLayoutManager verticalLayout;

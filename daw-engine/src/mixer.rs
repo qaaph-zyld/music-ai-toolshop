@@ -337,6 +337,7 @@ mod tests {
     #[test]
     fn test_plugin_audio_source() {
         use crate::sample_player::SamplePlayer;
+        use crate::plugin::PluginInstanceWrapper;
         
         // Create a sample player as the base audio source
         let data = vec![0.5f32; 64]; // Constant 0.5 values
@@ -353,7 +354,7 @@ mod tests {
         gain_plugin.set_gain_db(6.0); // +6dB = 2x gain
         
         let plugin_info = gain_plugin.info().clone();
-        chain.add_plugin("gain-1", plugin_info);
+        chain.add_plugin_with_instance("gain-1", plugin_info, PluginInstanceWrapper::Gain(gain_plugin));
         
         // Create PluginAudioSource wrapping the player with the chain
         let mut plugin_source = PluginAudioSource::new(Box::new(player), chain);
@@ -370,6 +371,7 @@ mod tests {
     #[test]
     fn test_mixer_with_plugin_source() {
         use crate::sample_player::SamplePlayer;
+        use crate::plugin::PluginInstanceWrapper;
         
         let mut mixer = Mixer::new(1);
         
@@ -386,7 +388,7 @@ mod tests {
         gain_plugin.set_gain_db(6.0);
         
         let plugin_info = gain_plugin.info().clone();
-        chain.add_plugin("gain-1", plugin_info);
+        chain.add_plugin_with_instance("gain-1", plugin_info, PluginInstanceWrapper::Gain(gain_plugin));
         
         // Create PluginAudioSource and add to mixer
         let plugin_source = PluginAudioSource::new(Box::new(player), chain);

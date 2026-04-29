@@ -153,12 +153,37 @@ public:
         juce::String other;
         bool success = false;
     };
-    
+
     bool isStemSeparationAvailable();
-    StemPaths extractStems(const juce::String& inputPath, 
+    StemPaths extractStems(const juce::String& inputPath,
                            const juce::String& outputDir,
                            std::function<void(float progress)> onProgress = nullptr);
     void cancelStemExtraction();
+
+    // Plugin Chain Management (Phase 9)
+    struct PluginInfo {
+        juce::String name;
+        juce::String vendor;
+        juce::String version;
+        juce::String uniqueId;
+        int format;  // 0=VST3, 1=AU, 2=Internal
+        int numInputs;
+        int numOutputs;
+    };
+
+    // Plugin Registry
+    std::vector<PluginInfo> scanPluginRegistry();
+    std::vector<PluginInfo> searchPlugins(const juce::String& query);
+
+    // Plugin Chain
+    bool createPluginChain(int trackIndex);
+    int getPluginChainCount(int trackIndex);
+    std::vector<PluginInfo> getPluginChain(int trackIndex);
+    int addPluginToChain(int trackIndex, const juce::String& uniqueId);
+    bool removePluginFromChain(int trackIndex, int slotIndex);
+    bool movePluginInChain(int trackIndex, int fromSlot, int toSlot);
+    bool setPluginBypass(int trackIndex, int slotIndex, bool bypassed);
+    bool getPluginBypass(int trackIndex, int slotIndex);
 
     // Audio callbacks (called from audio thread)
     void getMeterLevels(std::vector<float>& levels); // Per-channel dB levels

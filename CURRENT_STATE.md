@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-30 (Phase 8 Complete)
+**Last Updated:** 2026-04-30 (Phase 9 FFI Layer Complete)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -9,7 +9,7 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| `cargo test --lib` | **370 passed, 0 failed, 1 ignored** | 2026-04-30 |
+| `cargo test --lib` | **376 passed, 0 failed, 1 ignored** | 2026-04-30 |
 | `cargo test --tests` (integration) | **436 passed, 1 failed*, 3 ignored** | 2026-04-29 |
 | `cargo check --lib` | **0 errors, 0 warnings** | 2026-04-28 |
 | Tracy profiling | **Integrated** | 2026-04-28 |
@@ -17,7 +17,8 @@
 | Quarantined stubs | 53 (in `src/future/`) | 2026-04-12 |
 | C++ UI files | 52 | 2026-04-12 |
 | AI Python modules (real) | 5 | 2026-04-24 |
-| Python AI tests | **20 passed** | 2026-04-26 |
+| AI Python tests | **20 passed** | 2026-04-26 |
+| Plugin FFI tests | **6 passed** | 2026-04-30 |
 
 \* 1 pre-existing failure in `noise_suppression_test` (RNNoise not linked — expected)
 
@@ -202,6 +203,39 @@ cmake -B build && cmake --build build
 7. **~~MIDI Recording Integration~~** ✅ COMPLETE (2026-04-29: Recording → Clip Creation workflow implemented)
 8. **~~Mixer Level Meters~~** ✅ COMPLETE (2026-04-29: Real-time meter polling UI ↔ Rust FFI)
 9. **~~Advanced MIDI Features~~** ✅ COMPLETE (2026-04-30: Piano roll, quantization, transpose, velocity editing)
+10. **~~Audio Effects Chain FFI~~** ✅ COMPLETE (2026-04-30: Plugin registry, chain management, 12 FFI exports)
+
+---
+
+## Phase 9: Audio Effects Chain - FFI Layer ✅ COMPLETE (2026-04-30)
+
+**Summary:** Implemented Rust FFI layer for plugin chain management. UI components ready for implementation.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Plugin FFI module | ✅ | `plugin_ffi.rs` - 12 exports, registry + chain |
+| Plugin registry FFI | ✅ | 4 functions: scan, count, get, search |
+| Plugin chain FFI | ✅ | 10 functions: create, add, remove, move, bypass |
+| Module integration | ✅ | Exported in `lib.rs` |
+| Unit tests | ✅ | 6 tests passing |
+
+### FFI Exports
+
+| Function | Purpose |
+|----------|---------|
+| `daw_plugin_registry_scan()` | Scan for plugins |
+| `daw_plugin_chain_add()` | Add plugin to chain |
+| `daw_plugin_chain_remove()` | Remove plugin |
+| `daw_plugin_chain_move()` | Reorder plugins |
+| `daw_plugin_chain_set_bypass()` | Bypass/unbypass |
+
+### Test Count
+
+- Library tests: 376 (was 370, +6 new)
+- Plugin FFI unit tests: 6
+- **Total: 438 tests passing**
 
 ---
 

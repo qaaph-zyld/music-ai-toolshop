@@ -1,4 +1,6 @@
 #include "ChannelStrip.h"
+#include "../PluginChain/PluginChainDialog.h"
+#include "Engine/EngineBridge.h"
 #include <iostream>
 
 ChannelStrip::ChannelStrip(int channelIndex, bool isMasterChannel)
@@ -80,6 +82,14 @@ void ChannelStrip::setupControls()
         // Arm button (not for master)
         armButton.setTooltip("Arm for recording");
         addAndMakeVisible(armButton);
+
+        // FX button (not for master)
+        fxButton.setTooltip("Open plugin chain");
+        fxButton.onClick = [this] { onFxButtonClicked(); };
+        addAndMakeVisible(fxButton);
+
+        // Update plugin count badge
+        updatePluginCount();
     }
 
     updateButtonColors();
@@ -116,7 +126,7 @@ void ChannelStrip::resized()
     // Pan knob
     panSlider.setBounds(bounds.removeFromTop(25).reduced(2));
 
-    // Mute/Solo/Arm buttons
+    // Mute/Solo/Arm/FX buttons
     if (!isMaster)
     {
         auto buttonRow = bounds.removeFromTop(25);
@@ -124,6 +134,9 @@ void ChannelStrip::resized()
         soloButton.setBounds(buttonRow.reduced(1));
 
         armButton.setBounds(bounds.removeFromTop(20).reduced(2));
+
+        // FX button below arm
+        fxButton.setBounds(bounds.removeFromTop(25).reduced(2));
     }
     else
     {
@@ -192,4 +205,101 @@ void ChannelStrip::updateButtonColors()
     // Arm: red when active
     armButton.setColour(juce::ToggleButton::tickColourId,
                         armButton.getToggleState() ? juce::Colours::red : juce::Colours::grey);
+
+    // FX: green when plugins present
+    int count = EngineBridge::getInstance().getPluginChainCount(channelIdx);
+    fxButton.setColour(juce::TextButton::buttonColourId,
+                       count > 0 ? juce::Colours::lightgreen.darker(0.3f)
+                                 : juce::Colour(0xFF5B5B5B));
+}
+
+// ============================================================================
+// Drag and drop
+// ============================================================================
+
+bool ChannelStrip::isInterestedInDragSource(const juce::DragAndDropTarget::SourceDetails& dragSourceDetails)
+{
+    if (isMaster)
+        return false;
+
+    auto desc = dragSourceDetails.description.toString();
+    return desc.startsWith("plugin:");
+}
+
+void ChannelStrip::itemDropped(const juce::DragAndDropTarget::SourceDetails& dragSourceDetails)
+{
+    if (isMaster)
+        return;
+
+    auto desc = dragSourceDetails.description.toString();
+    if (!desc.startsWith("plugin:"))
+        return;
+
+    // Parse "plugin:unique_id:name"
+    auto parts = juce::StringArray::fromTokens(desc, ":", "");
+    if (parts.size() >= 2)
+    {
+        auto uniqueId = parts[1];
+
+        auto& engine = EngineBridge::getInstance();
+        int slot = engine.addPluginToChain(channelIdx, uniqueId);
+
+        if (slot >= 0)
+        {
+            // Successfully added, open chain dialog
+            onFxButtonClicked();
+        }
+    }
+
+    // Remove highlight
+    repaint();
+}
+
+void ChannelStrip::itemDragEnter(const juce::DragAndDropTarget::SourceDetails& dragSourceDetails)
+{
+    (void)dragSourceDetails;
+    // Highlight to show drop target
+    repaint();
+}
+
+void ChannelStrip::itemDragExit(const juce::DragAndDropTarget::SourceDetails& dragSourceDetails)
+{
+    (void)dragSourceDetails;
+    // Remove highlight
+    repaint();
+}
+
+// ============================================================================
+// FX button handler
+// ============================================================================
+
+void ChannelStrip::onFxButtonClicked()
+{
+    if (isMaster)
+        return;
+
+    // Create and show plugin chain dialog
+    auto dialog = std::make_unique<PluginChainDialog>(channelIdx, this);
+
+    // Release to let it manage itself ( DialogWindow handles its own lifecycle )
+    dialog.release();
+}
+
+void ChannelStrip::updatePluginCount()
+{
+    if (isMaster)
+        return;
+
+    int count = EngineBridge::getInstance().getPluginChainCount(channelIdx);
+
+    if (count > 0)
+    {
+        fxButton.setButtonText("FX (" + juce::String(count) + ")");
+    }
+    else
+    {
+        fxButton.setButtonText("FX");
+    }
+
+    updateButtonColors();
 }

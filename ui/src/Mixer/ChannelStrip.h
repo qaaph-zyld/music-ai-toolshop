@@ -4,8 +4,12 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "LevelMeterComponent.h"
 
+// Forward declaration
+class PluginChainDialog;
+
 class ChannelStrip : public juce::Component,
-                     public juce::Timer
+                     public juce::Timer,
+                     public juce::DragAndDropTarget
 {
 public:
     explicit ChannelStrip(int channelIndex, bool isMaster = false);
@@ -34,6 +38,18 @@ public:
     std::function<void()> onMuteToggle;
     std::function<void()> onSoloToggle;
 
+    // Drag and drop target interface
+    bool isInterestedInDragSource(const juce::DragAndDropTarget::SourceDetails& dragSourceDetails) override;
+    void itemDropped(const juce::DragAndDropTarget::SourceDetails& dragSourceDetails) override;
+    void itemDragEnter(const juce::DragAndDropTarget::SourceDetails& dragSourceDetails) override;
+    void itemDragExit(const juce::DragAndDropTarget::SourceDetails& dragSourceDetails) override;
+
+    // FX button handler
+    void onFxButtonClicked();
+
+    // Update plugin count display
+    void updatePluginCount();
+
 private:
     int channelIdx;
     bool isMaster;
@@ -46,6 +62,7 @@ private:
     juce::TextButton muteButton{"M"};
     juce::TextButton soloButton{"S"};
     juce::ToggleButton armButton{"R"};
+    juce::TextButton fxButton{"FX"};
 
     // Level meter component (Phase 7.2)
     std::unique_ptr<LevelMeterComponent> levelMeter;

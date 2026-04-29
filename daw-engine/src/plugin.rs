@@ -118,6 +118,7 @@ impl PluginRegistry {
 }
 
 /// Simple gain plugin for testing the architecture
+#[derive(Debug)]
 pub struct GainPlugin {
     info: PluginInfo,
     gain_param: PluginParameter,
@@ -321,53 +322,165 @@ impl PluginInstance {
     }
 }
 
+/// Wrapper enum for actual plugin instances that can process audio
+#[derive(Debug)]
+pub enum PluginInstanceWrapper {
+    Gain(GainPlugin),
+    // Future plugin types can be added here:
+    // Eq(EqPlugin),
+    // Compressor(CompressorPlugin),
+    // etc.
+}
+
+impl PluginInstanceWrapper {
+    /// Process audio through this plugin instance
+    pub fn process(&mut self, buffer: &mut AudioBuffer) {
+        match self {
+            PluginInstanceWrapper::Gain(plugin) => plugin.process(buffer),
+        }
+    }
+
+    /// Get the plugin info
+    pub fn info(&self) -> &PluginInfo {
+        match self {
+            PluginInstanceWrapper::Gain(plugin) => plugin.info(),
+        }
+    }
+
+    /// Check if plugin is active
+    pub fn is_active(&self) -> bool {
+        match self {
+            PluginInstanceWrapper::Gain(plugin) => plugin.is_active(),
+        }
+    }
+
+    /// Activate the plugin
+    pub fn activate(&mut self, sample_rate: f64, max_buffer_size: usize) -> Result<(), String> {
+        match self {
+            PluginInstanceWrapper::Gain(plugin) => plugin.activate(sample_rate, max_buffer_size),
+        }
+    }
+
+    /// Get parameter value
+    pub fn get_parameter_value(&self, id: u32) -> Option<f32> {
+        match self {
+            PluginInstanceWrapper::Gain(plugin) => {
+                plugin.get_parameter(id).map(|p| p.current_value)
+            }
+        }
+    }
+
+    /// Set parameter value
+    pub fn set_parameter_value(&mut self, id: u32, value: f32) -> Result<(), String> {
+        match self {
+            PluginInstanceWrapper::Gain(plugin) => plugin.set_parameter(id, value),
+        }
+    }
+}
+
+/// Plugin chain entry - combines metadata with actual plugin instance
+#[derive(Debug)]
+pub struct PluginChainEntry {
+    pub instance: PluginInstance,
+    pub plugin_impl: Option<PluginInstanceWrapper>,
+}
+
+impl PluginChainEntry {
+    pub fn new(instance: PluginInstance, plugin_impl: Option<PluginInstanceWrapper>) -> Self {
+        Self {
+            instance,
+            plugin_impl,
+        }
+    }
+}
+
 /// Plugin chain for managing multiple plugins on a track
-#[derive(Debug, Clone)]
 pub struct PluginChain {
-    instances: Vec<PluginInstance>,
+    entries: Vec<PluginChainEntry>,
+}
+
+impl std::fmt::Debug for PluginChain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PluginChain")
+            .field("entry_count", &self.entries.len())
+            .field("instances", &self.entries.iter().map(|e| &e.instance).collect::<Vec<_>>())
+            .finish()
+    }
+}
+
+impl Clone for PluginChain {
+    fn clone(&self) -> Self {
+        // Clone only the metadata, not the actual plugin implementations
+        // This is sufficient for state management
+        Self {
+            entries: self.entries.iter().map(|e| PluginChainEntry {
+                instance: e.instance.clone(),
+                plugin_impl: None, // Plugin implementations are not cloned
+            }).collect(),
+        }
+    }
 }
 
 impl PluginChain {
     pub fn new() -> Self {
         Self {
-            instances: Vec::new(),
+            entries: Vec::new(),
         }
     }
 
+    /// Add a plugin to the chain (metadata only, no instance)
     pub fn add_plugin(&mut self, instance_id: &str, plugin_info: PluginInfo) -> usize {
-        let slot_index = self.instances.len();
+        let slot_index = self.entries.len();
         let instance = PluginInstance::new(instance_id, plugin_info, slot_index);
-        self.instances.push(instance);
+        let entry = PluginChainEntry::new(instance, None);
+        self.entries.push(entry);
+        slot_index
+    }
+
+    /// Add a plugin with an actual implementation instance
+    pub fn add_plugin_with_instance(&mut self, instance_id: &str, plugin_info: PluginInfo, plugin_impl: PluginInstanceWrapper) -> usize {
+        let slot_index = self.entries.len();
+        let instance = PluginInstance::new(instance_id, plugin_info, slot_index);
+        let entry = PluginChainEntry::new(instance, Some(plugin_impl));
+        self.entries.push(entry);
         slot_index
     }
 
     pub fn get(&self, index: usize) -> Option<&PluginInstance> {
-        self.instances.get(index)
+        self.entries.get(index).map(|e| &e.instance)
     }
 
     pub fn get_mut(&mut self, index: usize) -> Option<&mut PluginInstance> {
-        self.instances.get_mut(index)
+        self.entries.get_mut(index).map(|e| &mut e.instance)
+    }
+
+    pub fn get_entry(&self, index: usize) -> Option<&PluginChainEntry> {
+        self.entries.get(index)
+    }
+
+    pub fn get_entry_mut(&mut self, index: usize) -> Option<&mut PluginChainEntry> {
+        self.entries.get_mut(index)
     }
 
     pub fn count(&self) -> usize {
-        self.instances.len()
+        self.entries.len()
     }
 
     pub fn remove(&mut self, index: usize) -> Option<PluginInstance> {
-        if index < self.instances.len() {
-            let removed = self.instances.remove(index);
+        if index < self.entries.len() {
+            let removed = self.entries.remove(index);
             // Reassign slot indices
-            for (i, instance) in self.instances.iter_mut().enumerate() {
-                instance.set_slot_index(i);
+            for (i, entry) in self.entries.iter_mut().enumerate() {
+                entry.instance.set_slot_index(i);
             }
-            Some(removed)
+            Some(removed.instance)
         } else {
             None
         }
     }
 
     pub fn move_plugin(&mut self, from_index: usize, to_index: usize) -> bool {
-        if from_index >= self.instances.len() || to_index >= self.instances.len() {
+        if from_index >= self.entries.len() || to_index >= self.entries.len() {
             return false;
         }
 
@@ -376,55 +489,107 @@ impl PluginChain {
         }
 
         // Remove and re-insert
-        let instance = self.instances.remove(from_index);
-        self.instances.insert(to_index, instance);
+        let entry = self.entries.remove(from_index);
+        self.entries.insert(to_index, entry);
 
         // Reassign slot indices
-        for (i, inst) in self.instances.iter_mut().enumerate() {
-            inst.set_slot_index(i);
+        for (i, entry) in self.entries.iter_mut().enumerate() {
+            entry.instance.set_slot_index(i);
         }
 
         true
     }
 
     pub fn clear(&mut self) {
-        self.instances.clear();
+        self.entries.clear();
     }
 
-    /// Process audio through the plugin chain
+    /// Process audio through the plugin chain with real plugin instances
     /// 
     /// Takes input buffer, routes through each enabled plugin in sequence,
     /// and writes to output buffer. Disabled plugins are bypassed.
+    /// 
+    /// Note: Currently supports mono and stereo. For mono, the same signal
+    /// is processed on both channels. For stereo, interleaved format is used.
     pub fn process(&mut self, input: &[f32], output: &mut [f32]) {
         // Copy input to output initially
         output.copy_from_slice(input);
         
         // Process through each enabled plugin in the chain
-        for instance in &self.instances {
-            if instance.is_enabled() {
-                // For now, we apply a simple gain if the plugin is a gain plugin
-                // In a full implementation, we'd have actual plugin instances stored
-                if instance.plugin_info().unique_id == "opendaw.gain" {
-                    // Apply 6dB gain as a placeholder for actual plugin processing
-                    let gain_linear = 10.0_f32.powf(6.0 / 20.0);
-                    for sample in output.iter_mut() {
-                        *sample *= gain_linear;
+        for entry in &mut self.entries {
+            if entry.instance.is_enabled() {
+                if let Some(ref mut plugin_impl) = entry.plugin_impl {
+                    // Determine channel configuration
+                    let num_channels = 2; // Always process as stereo for plugins
+                    let num_samples = output.len();
+                    
+                    // For mono input, duplicate to both channels
+                    // For stereo interleaved, split into left/right
+                    let (left, right): (Vec<f32>, Vec<f32>) = if output.len() >= 2 {
+                        // Try to interpret as interleaved stereo
+                        let left_ch: Vec<f32> = output.iter().step_by(2).copied().collect();
+                        let right_ch: Vec<f32> = output.iter().skip(1).step_by(2).copied().collect();
+                        
+                        if left_ch.len() == right_ch.len() && left_ch.len() * 2 == output.len() {
+                            // True stereo
+                            (left_ch, right_ch)
+                        } else {
+                            // Treat as mono - duplicate to both channels
+                            (output.to_vec(), output.to_vec())
+                        }
+                    } else {
+                        // Mono
+                        (output.to_vec(), output.to_vec())
+                    };
+                    
+                    let channel_samples = left.len();
+                    
+                    // Create audio buffer
+                    let inputs: &[&[f32]] = &[&left, &right];
+                    let mut left_out = vec![0.0_f32; channel_samples];
+                    let mut right_out = vec![0.0_f32; channel_samples];
+                    let outputs: &mut [&mut [f32]] = &mut [&mut left_out, &mut right_out];
+                    
+                    let mut buffer = AudioBuffer {
+                        inputs,
+                        outputs,
+                        num_samples: channel_samples,
+                        num_channels,
+                    };
+                    
+                    // Process through the plugin
+                    plugin_impl.process(&mut buffer);
+                    
+                    // Copy processed audio back to output
+                    if left.len() * 2 == output.len() {
+                        // Interleaved stereo output
+                        for i in 0..channel_samples {
+                            if i * 2 < output.len() {
+                                output[i * 2] = left_out[i];
+                                output[i * 2 + 1] = right_out[i];
+                            }
+                        }
+                    } else {
+                        // Mono output - just use left channel
+                        for i in 0..num_samples.min(left_out.len()) {
+                            output[i] = left_out[i];
+                        }
                     }
                 }
             }
-            // If disabled, audio passes through unchanged (bypass)
+            // If disabled or no implementation, audio passes through unchanged (bypass)
         }
     }
 
     /// Save state for all plugins in the chain
     pub fn save_state(&self) -> Vec<PluginState> {
-        self.instances
+        self.entries
             .iter()
-            .map(|instance| PluginState {
-                plugin_id: instance.plugin_info.unique_id.clone(),
-                instance_id: instance.instance_id.clone(),
-                slot_index: instance.slot_index,
-                enabled: instance.enabled,
+            .map(|entry| PluginState {
+                plugin_id: entry.instance.plugin_info.unique_id.clone(),
+                instance_id: entry.instance.instance_id.clone(),
+                slot_index: entry.instance.slot_index,
+                enabled: entry.instance.enabled,
                 parameters: HashMap::new(), // Parameters would be filled by concrete plugin
             })
             .collect()
@@ -847,10 +1012,8 @@ mod tests {
 
     // Helper to add a concrete plugin instance to chain (needed for processing)
     impl PluginChain {
-        fn add_plugin_instance(&mut self, _plugin: GainPlugin, instance_id: &str, plugin_info: PluginInfo) -> usize {
-            // For testing, we just register the plugin info
-            // The actual plugin processing needs a different architecture
-            self.add_plugin(instance_id, plugin_info)
+        fn add_plugin_instance(&mut self, plugin: GainPlugin, instance_id: &str, plugin_info: PluginInfo) -> usize {
+            self.add_plugin_with_instance(instance_id, plugin_info, PluginInstanceWrapper::Gain(plugin))
         }
     }
 }

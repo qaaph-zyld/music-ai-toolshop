@@ -46,6 +46,8 @@ target_sources(OpenDAW PRIVATE
     src/StemExtraction/StemExtractionDialog.cpp
     src/PatternGen/MmmFFI.cpp
     src/PatternGen/PatternGeneratorDialog.cpp
+    src/PluginBrowser/PluginBrowserComponent.cpp
+    src/PluginChain/PluginChainDialog.cpp
 )
 
 # Include directories

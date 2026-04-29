@@ -87,6 +87,23 @@ extern "C" {
     int daw_stem_is_complete(void* handle);
     const char* daw_stem_get_path(void* handle, int stem_type);
     void daw_stem_cancel(void* handle);
+
+    // Plugin Chain FFI (Phase 9)
+    int daw_plugin_registry_scan();
+    int daw_plugin_registry_get_count();
+    int daw_plugin_registry_get_plugin(int index, void* out_info);
+    int daw_plugin_registry_search(const char* query, int* out_indices, int max_results);
+    void daw_plugin_info_free(void* info);
+
+    int daw_plugin_chain_get_or_create(int track_index);
+    int daw_plugin_chain_add(int track_index, const char* unique_id);
+    int daw_plugin_chain_remove(int track_index, int slot_index);
+    int daw_plugin_chain_move(int track_index, int from_index, int to_index);
+    int daw_plugin_chain_get_count(int track_index);
+    int daw_plugin_chain_get_plugin_info(int track_index, int slot_index, void* out_info);
+    int daw_plugin_chain_set_bypass(int track_index, int slot_index, int bypass);
+    int daw_plugin_chain_get_bypass(int track_index, int slot_index);
+    int daw_plugin_chain_clear(int track_index);
 }
 
 // Quantization levels matching Rust FFITransportQuantization enum
@@ -1112,6 +1129,190 @@ void EngineBridge::cancelStemExtraction()
     {
         daw_stem_cancel(stemSeparatorHandle);
     }
+}
+
+// ============================================================================
+// Plugin Chain Management (Phase 9)
+// ============================================================================
+
+// C-compatible structure matching Rust PluginInfoData
+struct PluginInfoData {
+    const char* name;
+    const char* vendor;
+    const char* version;
+    int format;
+    int num_inputs;
+    int num_outputs;
+    const char* unique_id;
+};
+
+std::vector<EngineBridge::PluginInfo> EngineBridge::scanPluginRegistry()
+{
+    std::vector<PluginInfo> plugins;
+
+    int count = daw_plugin_registry_scan();
+    if (count <= 0)
+        return plugins;
+
+    plugins.reserve(count);
+
+    for (int i = 0; i < count; ++i)
+    {
+        PluginInfoData data;
+        if (daw_plugin_registry_get_plugin(i, &data) == 0)
+        {
+            PluginInfo info;
+            info.name = juce::String(data.name);
+            info.vendor = juce::String(data.vendor);
+            info.version = juce::String(data.version);
+            info.uniqueId = juce::String(data.unique_id);
+            info.format = data.format;
+            info.numInputs = data.num_inputs;
+            info.numOutputs = data.num_outputs;
+            plugins.push_back(info);
+
+            // Free allocated strings
+            daw_plugin_info_free(&data);
+        }
+    }
+
+    return plugins;
+}
+
+std::vector<EngineBridge::PluginInfo> EngineBridge::searchPlugins(const juce::String& query)
+{
+    std::vector<PluginInfo> results;
+
+    if (query.isEmpty())
+        return scanPluginRegistry();
+
+    // First scan to populate registry
+    daw_plugin_registry_scan();
+
+    // Search for matching indices
+    int indices[100];
+    int count = daw_plugin_registry_search(query.toRawUTF8(), indices, 100);
+
+    if (count <= 0)
+        return results;
+
+    results.reserve(count);
+
+    for (int i = 0; i < count; ++i)
+    {
+        PluginInfoData data;
+        if (daw_plugin_registry_get_plugin(indices[i], &data) == 0)
+        {
+            PluginInfo info;
+            info.name = juce::String(data.name);
+            info.vendor = juce::String(data.vendor);
+            info.version = juce::String(data.version);
+            info.uniqueId = juce::String(data.unique_id);
+            info.format = data.format;
+            info.numInputs = data.num_inputs;
+            info.numOutputs = data.num_outputs;
+            results.push_back(info);
+
+            daw_plugin_info_free(&data);
+        }
+    }
+
+    return results;
+}
+
+bool EngineBridge::createPluginChain(int trackIndex)
+{
+    if (trackIndex < 0)
+        return false;
+
+    return daw_plugin_chain_get_or_create(trackIndex) == 0;
+}
+
+int EngineBridge::getPluginChainCount(int trackIndex)
+{
+    if (trackIndex < 0)
+        return -1;
+
+    return daw_plugin_chain_get_count(trackIndex);
+}
+
+std::vector<EngineBridge::PluginInfo> EngineBridge::getPluginChain(int trackIndex)
+{
+    std::vector<PluginInfo> plugins;
+
+    if (trackIndex < 0)
+        return plugins;
+
+    int count = daw_plugin_chain_get_count(trackIndex);
+    if (count <= 0)
+        return plugins;
+
+    plugins.reserve(count);
+
+    for (int i = 0; i < count; ++i)
+    {
+        PluginInfoData data;
+        if (daw_plugin_chain_get_plugin_info(trackIndex, i, &data) == 0)
+        {
+            PluginInfo info;
+            info.name = juce::String(data.name);
+            info.vendor = juce::String(data.vendor);
+            info.version = juce::String(data.version);
+            info.uniqueId = juce::String(data.unique_id);
+            info.format = data.format;
+            info.numInputs = data.num_inputs;
+            info.numOutputs = data.num_outputs;
+            plugins.push_back(info);
+
+            daw_plugin_info_free(&data);
+        }
+    }
+
+    return plugins;
+}
+
+int EngineBridge::addPluginToChain(int trackIndex, const juce::String& uniqueId)
+{
+    if (trackIndex < 0 || uniqueId.isEmpty())
+        return -1;
+
+    // Ensure chain exists
+    daw_plugin_chain_get_or_create(trackIndex);
+
+    return daw_plugin_chain_add(trackIndex, uniqueId.toRawUTF8());
+}
+
+bool EngineBridge::removePluginFromChain(int trackIndex, int slotIndex)
+{
+    if (trackIndex < 0 || slotIndex < 0)
+        return false;
+
+    return daw_plugin_chain_remove(trackIndex, slotIndex) == 0;
+}
+
+bool EngineBridge::movePluginInChain(int trackIndex, int fromSlot, int toSlot)
+{
+    if (trackIndex < 0 || fromSlot < 0 || toSlot < 0)
+        return false;
+
+    return daw_plugin_chain_move(trackIndex, fromSlot, toSlot) == 0;
+}
+
+bool EngineBridge::setPluginBypass(int trackIndex, int slotIndex, bool bypassed)
+{
+    if (trackIndex < 0 || slotIndex < 0)
+        return false;
+
+    return daw_plugin_chain_set_bypass(trackIndex, slotIndex, bypassed ? 1 : 0) == 0;
+}
+
+bool EngineBridge::getPluginBypass(int trackIndex, int slotIndex)
+{
+    if (trackIndex < 0 || slotIndex < 0)
+        return false;
+
+    int result = daw_plugin_chain_get_bypass(trackIndex, slotIndex);
+    return result == 1;  // 1 = bypassed
 }
 
 void EngineBridge::sendCommand(std::unique_ptr<Command> cmd)

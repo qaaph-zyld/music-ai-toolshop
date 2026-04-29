@@ -49,6 +49,7 @@ juce::PopupMenu MainMenuBarModel::createViewMenu()
 {
     juce::PopupMenu menu;
     menu.addItem(viewSunoBrowser, "Suno Library");
+    menu.addItem(viewPluginBrowser, "Plugin Browser", true, false, juce::KeyPress('P', juce::ModifierKeys::ctrlModifier | juce::ModifierKeys::shiftModifier, 0));
     return menu;
 }
 
@@ -92,6 +93,10 @@ void MainMenuBarModel::menuItemSelected(int menuItemID, int topLevelMenuIndex)
         case viewSunoBrowser:
             if (onToggleSunoBrowser)
                 onToggleSunoBrowser();
+            break;
+        case viewPluginBrowser:
+            if (onTogglePluginBrowser)
+                onTogglePluginBrowser();
             break;
         case toolsGeneratePattern:
             if (onGeneratePattern)
@@ -167,6 +172,12 @@ MainComponent::MainComponent()
     addAndMakeVisible(sunoBrowser.get());
     std::cout << "MainComponent: SunoBrowser created" << std::endl;
 
+    std::cout << "MainComponent: Creating PluginBrowser..." << std::endl;
+    pluginBrowser = std::make_unique<PluginBrowserComponent>();
+    pluginBrowser->setVisible(false);
+    addAndMakeVisible(pluginBrowser.get());
+    std::cout << "MainComponent: PluginBrowser created" << std::endl;
+
     std::cout << "MainComponent: Setting up layout..." << std::endl;
     menuBarModel->onNewProject = [this]() {
         if (projectManager)
@@ -196,6 +207,15 @@ MainComponent::MainComponent()
         if (sunoBrowser)
         {
             sunoBrowser->setVisible(!sunoBrowser->isVisible());
+            resized();
+        }
+    };
+
+    menuBarModel->onTogglePluginBrowser = [this]() {
+        if (pluginBrowser)
+        {
+            pluginBrowser->setVisible(!pluginBrowser->isVisible());
+            pluginBrowser->refreshPlugins();
             resized();
         }
     };
@@ -338,12 +358,19 @@ void MainComponent::resized()
         menuBar->setBounds(bounds.removeFromTop(25));
     }
 
-    // Handle Suno browser side panel
+    // Handle Plugin browser side panel (left side)
+    if (pluginBrowser && pluginBrowser->isVisible())
+    {
+        auto browserWidth = 300;
+        pluginBrowser->setBounds(bounds.removeFromLeft(browserWidth));
+    }
+
+    // Handle Suno browser side panel (right side)
     if (sunoBrowser && sunoBrowser->isVisible())
     {
         auto browserWidth = 350;
         sunoBrowser->setBounds(bounds.removeFromRight(browserWidth));
-        
+
         // Resizer bar between browser and main content
         if (resizerBar == nullptr)
         {
@@ -454,6 +481,16 @@ bool MainComponent::keyPressed(const juce::KeyPress& key)
         auto& engine = EngineBridge::getInstance();
         engine.setPosition(0.0);
         return true;
+    }
+
+    // Ctrl+Shift+P - Toggle Plugin Browser
+    if (key == juce::KeyPress('P', juce::ModifierKeys::ctrlModifier | juce::ModifierKeys::shiftModifier, 0))
+    {
+        if (menuBarModel->onTogglePluginBrowser)
+        {
+            menuBarModel->onTogglePluginBrowser();
+            return true;
+        }
     }
 
     return false; // Let other handlers process

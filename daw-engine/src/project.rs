@@ -442,17 +442,17 @@ mod tests {
 
     #[test]
     fn test_track_process_with_plugins() {
-        use crate::plugin::{GainPlugin, Plugin};
+        use crate::plugin::{GainPlugin, Plugin, PluginInstanceWrapper};
         
         let mut track = Track::new("Test Track", TrackType::Audio);
         
-        // Add a gain plugin with +6dB
+        // Add a gain plugin with +6dB using the plugin_chain directly
         let mut gain_plugin = GainPlugin::new();
         gain_plugin.activate(48000.0, 64).unwrap();
         gain_plugin.set_gain_db(6.0);
         
         let plugin_info = gain_plugin.info().clone();
-        track.add_plugin("gain-1", plugin_info);
+        track.plugin_chain.add_plugin_with_instance("gain-1", plugin_info, PluginInstanceWrapper::Gain(gain_plugin));
         
         // Create input audio buffer (constant 0.5 values)
         let input = vec![0.5f32; 64];
