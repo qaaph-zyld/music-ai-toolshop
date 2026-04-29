@@ -151,6 +151,11 @@ MainComponent::MainComponent()
     addAndMakeVisible(transportBar.get());
     std::cout << "MainComponent: TransportBar created" << std::endl;
 
+    std::cout << "MainComponent: Creating LoopMarkersComponent..." << std::endl;
+    loopMarkers = std::make_unique<LoopMarkersComponent>();
+    addAndMakeVisible(loopMarkers.get());
+    std::cout << "MainComponent: LoopMarkersComponent created" << std::endl;
+
     std::cout << "MainComponent: Creating RecordingPanel..." << std::endl;
     recordingPanel = std::make_unique<RecordingPanel>();
     addAndMakeVisible(recordingPanel.get());
@@ -290,12 +295,12 @@ MainComponent::MainComponent()
     recordingPanel->onRecordingComplete = [this](int track, int scene, const juce::Array<EngineBridge::RecordedNote>& notes) {
         juce::Colour clipColor = juce::Colours::cyan;
         sessionGrid->setClip(track, scene, "MIDI Recording", clipColor);
-        
+
         // Create MIDI clip in the engine with recorded notes
         if (!notes.isEmpty())
         {
             auto& engine = EngineBridge::getInstance();
-            
+
             // Convert JUCE Array to std::vector for EngineBridge
             std::vector<EngineBridge::RecordedNote> notesVector;
             notesVector.reserve(notes.size());
@@ -303,7 +308,7 @@ MainComponent::MainComponent()
             {
                 notesVector.push_back(notes[i]);
             }
-            
+
             bool success = engine.createMidiClip(track, scene, notesVector, "MIDI Recording");
             if (!success)
             {
@@ -311,11 +316,79 @@ MainComponent::MainComponent()
             }
             else
             {
-                std::cout << "MainComponent: Created MIDI clip with " << notes.size() << " notes at track " 
+                std::cout << "MainComponent: Created MIDI clip with " << notes.size() << " notes at track "
                           << (track + 1) << ", scene " << (scene + 1) << std::endl;
             }
         }
     };
+
+    // Wire up LoopMarkersComponent callbacks - Phase 10.2
+    auto refreshLoopRegions = [this]() {
+        auto& engine = EngineBridge::getInstance();
+        auto regions = engine.getAllLoopRegions();
+
+        std::vector<LoopRegionView> views;
+        juce::String activeId = engine.getActiveLoopRegionId();
+        for (const auto& region : regions)
+        {
+            LoopRegionView view;
+            view.id = region.id;
+            view.name = region.name;
+            view.startBeat = region.startBeat;
+            view.endBeat = region.endBeat;
+            view.enabled = region.enabled;
+            view.color = juce::Colour::fromString(region.color);
+            view.isActive = (region.id == activeId);
+            views.push_back(view);
+        }
+        loopMarkers->setLoopRegions(views);
+        loopMarkers->setLoopingEnabled(engine.isLoopingEnabled());
+    };
+
+    loopMarkers->onRegionMoved = [this, refreshLoopRegions](const juce::String& id, double newStart, double newEnd) {
+        auto& engine = EngineBridge::getInstance();
+        engine.updateLoopRegion(id, newStart, newEnd);
+        refreshLoopRegions();
+    };
+
+    loopMarkers->onRegionSelected = [this, refreshLoopRegions](const juce::String& id) {
+        auto& engine = EngineBridge::getInstance();
+        engine.setActiveLoopRegion(id);
+        refreshLoopRegions();
+    };
+
+    loopMarkers->onRegionCreated = [this, refreshLoopRegions](double start, double end, const juce::String& name) {
+        auto& engine = EngineBridge::getInstance();
+        engine.createLoopRegion(name, start, end);
+        refreshLoopRegions();
+    };
+
+    loopMarkers->onRegionDeleted = [this, refreshLoopRegions](const juce::String& id) {
+        auto& engine = EngineBridge::getInstance();
+        engine.deleteLoopRegion(id);
+        refreshLoopRegions();
+    };
+
+    loopMarkers->onRegionRenamed = [this, refreshLoopRegions](const juce::String& id, const juce::String& newName) {
+        auto& engine = EngineBridge::getInstance();
+        engine.renameLoopRegion(id, newName);
+        refreshLoopRegions();
+    };
+
+    loopMarkers->onRegionEnabledChanged = [this, refreshLoopRegions](const juce::String& id, bool enabled) {
+        auto& engine = EngineBridge::getInstance();
+        engine.setLoopRegionEnabled(id, enabled);
+        refreshLoopRegions();
+    };
+
+    loopMarkers->onLoopingEnabledChanged = [this, refreshLoopRegions](bool enabled) {
+        auto& engine = EngineBridge::getInstance();
+        engine.setLoopingEnabled(enabled);
+        refreshLoopRegions();
+    };
+
+    // Initial load of loop regions
+    refreshLoopRegions();
 
     // Wire up import callback - Phase 8.5 (Complete with audio loading)
     sunoBrowser->onTrackImported = [this](const juce::String& trackId, int track, int scene, const juce::String& audioFilePath) {
@@ -385,14 +458,25 @@ void MainComponent::resized()
     }
 
     // Apply layout to remaining components
-    juce::Component* components[] = {
-        transportBar.get(),
-        recordingPanel.get(),
+    // Note: LoopMarkersComponent has fixed height, others use verticalLayout
+    auto topBounds = bounds.removeFromTop(60); // Transport bar
+    transportBar->setBounds(topBounds);
+
+    // Recording panel
+    auto recordingBounds = bounds.removeFromTop(80);
+    recordingPanel->setBounds(recordingBounds);
+
+    // Loop markers (timeline ruler) - fixed height
+    auto loopMarkerBounds = bounds.removeFromTop(60);
+    loopMarkers->setBounds(loopMarkerBounds);
+
+    // Remaining space split between session grid and mixer
+    juce::Component* mainComponents[] = {
         sessionGrid.get(),
         mixerPanel.get()
     };
 
-    verticalLayout.layOutComponents(components, 4,
+    verticalLayout.layOutComponents(mainComponents, 2,
                                     bounds.getX(), bounds.getY(),
                                     bounds.getWidth(), bounds.getHeight(),
                                     true, true);

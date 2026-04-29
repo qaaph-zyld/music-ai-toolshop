@@ -1,5 +1,19 @@
 #include "EngineBridge.h"
 
+// ============================================================================
+// Loop Markers FFI Structures (Phase 10.2)
+// ============================================================================
+#pragma pack(push, 1)
+struct LoopRegionInfoFFI {
+    const char* id;
+    const char* name;
+    double start_beat;
+    double end_beat;
+    int enabled;
+    const char* color;
+};
+#pragma pack(pop)
+
 // FFI declarations - these match the Rust engine_ffi.rs, clip_player_ffi.rs, and transport_sync_ffi.rs exports
 extern "C" {
     // Engine lifecycle
@@ -127,7 +141,66 @@ extern "C" {
     void daw_punch_in_out_reset();
     char* daw_punch_in_out_get_status_text();
     void daw_punch_in_out_free_string(char* ptr);
+
+    // Loop Markers FFI (Phase 10.2)
+    char* daw_loop_create_region(const char* name, double start_beat, double end_beat);
+    int daw_loop_get_region_count();
+    int daw_loop_get_region_at(int index, void* out_info);
+    int daw_loop_get_region_by_id(const char* id, void* out_info);
+    void daw_loop_free_region_info(void* info);
+    void daw_loop_free_string(char* s);
+    int daw_loop_delete_region(const char* id);
+    int daw_loop_set_region_position(const char* id, double start_beat, double end_beat);
+    int daw_loop_rename_region(const char* id, const char* new_name);
+    int daw_loop_set_region_enabled(const char* id, int enabled);
+    char* daw_loop_get_active_region_id();
+    int daw_loop_set_active_region(const char* id);
+    int daw_loop_is_looping_enabled();
+    void daw_loop_set_looping_enabled(int enabled);
+    double daw_loop_should_loop_at_beat(double beat);
+    int daw_loop_get_boundaries(double beat, double* out_start, double* out_end);
+
+    // Time Signature FFI (Phase 10.4)
+    int daw_time_sig_init();
+    int daw_time_sig_add_change(unsigned int bar, unsigned int numerator, unsigned int denominator);
+    int daw_time_sig_remove_change(unsigned int bar);
+    int daw_time_sig_get_change_count();
+    int daw_time_sig_get_change_at(int index, void* out_info);
+    int daw_time_sig_get_at_bar(unsigned int bar, void* out_info);
+    int daw_time_sig_beat_to_bar_beat(double beat, void* out_result);
+    double daw_time_sig_bar_beat_to_beat(unsigned int bar, unsigned int beat_in_bar);
+    double daw_time_sig_get_bar_start(unsigned int bar);
+    double daw_time_sig_get_bar_length(unsigned int bar);
+    char* daw_time_sig_format_string(unsigned int numerator, unsigned int denominator);
+    void daw_time_sig_free_string(char* s);
 }
+
+// Loop Region FFI structure (matches Rust LoopRegionInfo)
+#pragma pack(push, 1)
+struct LoopRegionInfoFFI {
+    const char* id;
+    const char* name;
+    double start_beat;
+    double end_beat;
+    int enabled;
+    const char* color;
+};
+#pragma pack(pop)
+
+// Time Signature FFI structures (match Rust TimeSignatureInfo and BarBeatResult)
+#pragma pack(push, 1)
+struct TimeSignatureInfoFFI {
+    unsigned int bar;
+    unsigned int numerator;
+    unsigned int denominator;
+};
+
+struct BarBeatResultFFI {
+    unsigned int bar;
+    unsigned int beat_in_bar;
+    double fraction;
+};
+#pragma pack(pop)
 
 // Quantization levels matching Rust FFITransportQuantization enum
 enum class TransportQuantization {
@@ -1443,4 +1516,332 @@ double EngineBridge::getBeatsUntilPunchOut(double currentBeat) const
     float beats = 0.0f;
     int valid = daw_punch_in_out_get_beats_until_out(static_cast<float>(currentBeat), &beats);
     return (valid == 1) ? static_cast<double>(beats) : -1.0;
+}
+
+// ============================================================================
+// Loop Markers (Phase 10.2)
+// ============================================================================
+
+juce::String EngineBridge::createLoopRegion(const juce::String& name, double startBeat, double endBeat)
+{
+    auto nameUtf8 = name.toUTF8();
+    char* idPtr = daw_loop_create_region(nameUtf8.getAddress(), startBeat, endBeat);
+    if (idPtr != nullptr)
+    {
+        juce::String id = juce::String(idPtr);
+        daw_loop_free_string(idPtr);
+        return id;
+    }
+    return juce::String();
+}
+
+bool EngineBridge::deleteLoopRegion(const juce::String& id)
+{
+    auto idUtf8 = id.toUTF8();
+    return daw_loop_delete_region(idUtf8.getAddress()) == 0;
+}
+
+bool EngineBridge::setLoopRegionPosition(const juce::String& id, double startBeat, double endBeat)
+{
+    auto idUtf8 = id.toUTF8();
+    return daw_loop_set_region_position(idUtf8.getAddress(), startBeat, endBeat) == 0;
+}
+
+bool EngineBridge::renameLoopRegion(const juce::String& id, const juce::String& newName)
+{
+    auto idUtf8 = id.toUTF8();
+    auto nameUtf8 = newName.toUTF8();
+    return daw_loop_rename_region(idUtf8.getAddress(), nameUtf8.getAddress()) == 0;
+}
+
+bool EngineBridge::setLoopRegionEnabled(const juce::String& id, bool enabled)
+{
+    auto idUtf8 = id.toUTF8();
+    return daw_loop_set_region_enabled(idUtf8.getAddress(), enabled ? 1 : 0) == 0;
+}
+
+int EngineBridge::getLoopRegionCount() const
+{
+    return daw_loop_get_region_count();
+}
+
+EngineBridge::LoopRegion EngineBridge::getLoopRegionAt(int index) const
+{
+    LoopRegion region;
+    LoopRegionInfoFFI ffiInfo;
+    
+    if (daw_loop_get_region_at(index, &ffiInfo) == 0)
+    {
+        if (ffiInfo.id != nullptr)
+            region.id = juce::String(ffiInfo.id);
+        if (ffiInfo.name != nullptr)
+            region.name = juce::String(ffiInfo.name);
+        region.startBeat = ffiInfo.start_beat;
+        region.endBeat = ffiInfo.end_beat;
+        region.enabled = ffiInfo.enabled != 0;
+        if (ffiInfo.color != nullptr)
+            region.color = juce::String(ffiInfo.color);
+        
+        daw_loop_free_region_info(&ffiInfo);
+    }
+    
+    return region;
+}
+
+EngineBridge::LoopRegion EngineBridge::getLoopRegionById(const juce::String& id) const
+{
+    LoopRegion region;
+    LoopRegionInfoFFI ffiInfo;
+    auto idUtf8 = id.toUTF8();
+    
+    if (daw_loop_get_region_by_id(idUtf8.getAddress(), &ffiInfo) == 0)
+    {
+        if (ffiInfo.id != nullptr)
+            region.id = juce::String(ffiInfo.id);
+        if (ffiInfo.name != nullptr)
+            region.name = juce::String(ffiInfo.name);
+        region.startBeat = ffiInfo.start_beat;
+        region.endBeat = ffiInfo.end_beat;
+        region.enabled = ffiInfo.enabled != 0;
+        if (ffiInfo.color != nullptr)
+            region.color = juce::String(ffiInfo.color);
+        
+        daw_loop_free_region_info(&ffiInfo);
+    }
+    
+    return region;
+}
+
+juce::String EngineBridge::getActiveLoopRegionId() const
+{
+    char* idPtr = daw_loop_get_active_region_id();
+    if (idPtr != nullptr)
+    {
+        juce::String id = juce::String(idPtr);
+        daw_loop_free_string(idPtr);
+        return id;
+    }
+    return juce::String();
+}
+
+bool EngineBridge::setActiveLoopRegion(const juce::String& id)
+{
+    auto idUtf8 = id.toUTF8();
+    return daw_loop_set_active_region(idUtf8.getAddress()) == 0;
+}
+
+bool EngineBridge::isLoopingEnabled()
+{
+    return daw_loop_is_looping_enabled() == 1;
+}
+
+void EngineBridge::setLoopingEnabled(bool enabled)
+{
+    daw_loop_set_looping_enabled(enabled ? 1 : 0);
+}
+
+double EngineBridge::shouldLoopAtBeat(double beat) const
+{
+    double result = daw_loop_should_loop_at_beat(beat);
+    return (result < 0.0) ? -1.0 : result;
+}
+
+bool EngineBridge::getLoopBoundaries(double beat, double& outStart, double& outEnd) const
+{
+    return daw_loop_get_boundaries(beat, &outStart, &outEnd) == 0;
+}
+
+// Convenience methods for getting active loop boundaries
+
+int EngineBridge::getLoopRegionCount() const
+{
+    return daw_loop_get_region_count();
+}
+
+EngineBridge::LoopRegion EngineBridge::getLoopRegionAt(int index) const
+{
+    LoopRegion result;
+    LoopRegionInfoFFI ffiInfo;
+    if (daw_loop_get_region_at(index, &ffiInfo) == 0)
+    {
+        if (ffiInfo.id != nullptr)
+            result.id = juce::String(ffiInfo.id);
+        if (ffiInfo.name != nullptr)
+            result.name = juce::String(ffiInfo.name);
+        result.startBeat = ffiInfo.start_beat;
+        result.endBeat = ffiInfo.end_beat;
+        result.enabled = ffiInfo.enabled != 0;
+        if (ffiInfo.color != nullptr)
+            result.color = juce::String(ffiInfo.color);
+        daw_loop_free_region_info(&ffiInfo);
+    }
+    return result;
+}
+
+EngineBridge::LoopRegion EngineBridge::getLoopRegionById(const juce::String& id) const
+{
+    LoopRegion result;
+    LoopRegionInfoFFI ffiInfo;
+    auto idUtf8 = id.toUTF8();
+    if (daw_loop_get_region_by_id(idUtf8.getAddress(), &ffiInfo) == 0)
+    {
+        if (ffiInfo.id != nullptr)
+            result.id = juce::String(ffiInfo.id);
+        if (ffiInfo.name != nullptr)
+            result.name = juce::String(ffiInfo.name);
+        result.startBeat = ffiInfo.start_beat;
+        result.endBeat = ffiInfo.end_beat;
+        result.enabled = ffiInfo.enabled != 0;
+        if (ffiInfo.color != nullptr)
+            result.color = juce::String(ffiInfo.color);
+        daw_loop_free_region_info(&ffiInfo);
+    }
+    return result;
+}
+
+std::vector<EngineBridge::LoopRegion> EngineBridge::getAllLoopRegions()
+{
+    std::vector<LoopRegion> result;
+
+    int count = daw_loop_get_region_count();
+
+    for (int i = 0; i < count; ++i)
+    {
+        LoopRegionInfoFFI ffiInfo;
+        if (daw_loop_get_region_at(i, &ffiInfo) == 0)
+        {
+            LoopRegion info;
+            if (ffiInfo.id != nullptr)
+                info.id = juce::String(ffiInfo.id);
+            if (ffiInfo.name != nullptr)
+                info.name = juce::String(ffiInfo.name);
+            info.startBeat = ffiInfo.start_beat;
+            info.endBeat = ffiInfo.end_beat;
+            info.enabled = ffiInfo.enabled != 0;
+            if (ffiInfo.color != nullptr)
+                info.color = juce::String(ffiInfo.color);
+
+            result.push_back(info);
+        }
+        daw_loop_free_region_info(&ffiInfo);
+    }
+
+    return result;
+}
+
+bool EngineBridge::updateLoopRegion(const juce::String& id, double start, double end)
+{
+    return setLoopRegionPosition(id, start, end);
+}
+
+double EngineBridge::getLoopStart()
+{
+    juce::String activeId = getActiveLoopRegionId();
+    if (activeId.isEmpty())
+        return -1.0;
+
+    LoopRegionInfoFFI ffiInfo;
+    auto idUtf8 = activeId.toUTF8();
+    if (daw_loop_get_region_by_id(idUtf8.getAddress(), &ffiInfo) == 0)
+    {
+        double start = ffiInfo.start_beat;
+        daw_loop_free_region_info(&ffiInfo);
+        return start;
+    }
+    return -1.0;
+}
+
+double EngineBridge::getLoopEnd()
+{
+    juce::String activeId = getActiveLoopRegionId();
+    if (activeId.isEmpty())
+        return -1.0;
+
+    LoopRegionInfoFFI ffiInfo;
+    auto idUtf8 = activeId.toUTF8();
+    if (daw_loop_get_region_by_id(idUtf8.getAddress(), &ffiInfo) == 0)
+    {
+        double end = ffiInfo.end_beat;
+        daw_loop_free_region_info(&ffiInfo);
+        return end;
+    }
+    return -1.0;
+}
+
+// ============================================================================
+// Time Signature (Phase 10.4)
+// ============================================================================
+
+bool EngineBridge::addTimeSignatureChange(uint32_t bar, uint8_t numerator, uint8_t denominator)
+{
+    int result = daw_time_sig_add_change(bar, numerator, denominator);
+    return result == 0;
+}
+
+bool EngineBridge::removeTimeSignatureChange(uint32_t bar)
+{
+    int result = daw_time_sig_remove_change(bar);
+    return result == 0;
+}
+
+std::vector<EngineBridge::TimeSignature> EngineBridge::getAllTimeSignatureChanges()
+{
+    std::vector<TimeSignature> result;
+
+    // Initialize time sig track if needed
+    daw_time_sig_init();
+
+    int count = daw_time_sig_get_change_count();
+
+    for (int i = 0; i < count; ++i)
+    {
+        TimeSignatureInfoFFI ffiInfo;
+        if (daw_time_sig_get_change_at(i, &ffiInfo) == 0)
+        {
+            TimeSignature sig;
+            sig.bar = ffiInfo.bar;
+            sig.numerator = static_cast<uint8_t>(ffiInfo.numerator);
+            sig.denominator = static_cast<uint8_t>(ffiInfo.denominator);
+            result.push_back(sig);
+        }
+    }
+
+    return result;
+}
+
+EngineBridge::TimeSignature EngineBridge::getTimeSignatureAtBar(uint32_t bar)
+{
+    TimeSignature result{1, 4, 4};  // Default 4/4
+
+    TimeSignatureInfoFFI ffiInfo;
+    if (daw_time_sig_get_at_bar(bar, &ffiInfo) == 0)
+    {
+        result.bar = ffiInfo.bar;
+        result.numerator = static_cast<uint8_t>(ffiInfo.numerator);
+        result.denominator = static_cast<uint8_t>(ffiInfo.denominator);
+    }
+
+    return result;
+}
+
+void EngineBridge::beatToBarBeat(double beat, uint32_t& bar, uint32_t& beatInBar, double& fraction)
+{
+    BarBeatResultFFI result;
+    if (daw_time_sig_beat_to_bar_beat(beat, &result) == 0)
+    {
+        bar = result.bar;
+        beatInBar = result.beat_in_bar;
+        fraction = result.fraction;
+    }
+    else
+    {
+        bar = 1;
+        beatInBar = 0;
+        fraction = 0.0;
+    }
+}
+
+double EngineBridge::barBeatToBeat(uint32_t bar, uint32_t beatInBar)
+{
+    return daw_time_sig_bar_beat_to_beat(bar, beatInBar);
 }

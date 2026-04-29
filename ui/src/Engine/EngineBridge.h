@@ -62,6 +62,45 @@ public:
     double getBeatsUntilPunchIn(double currentBeat) const;  // Returns -1.0 if not applicable
     double getBeatsUntilPunchOut(double currentBeat) const;  // Returns -1.0 if not applicable
 
+    // Loop Markers (Phase 10.2)
+    struct LoopRegion {
+        juce::String id;
+        juce::String name;
+        double startBeat = 0.0;
+        double endBeat = 4.0;
+        bool enabled = true;
+        juce::String color = "#4A90E2";
+    };
+
+    juce::String createLoopRegion(const juce::String& name, double startBeat, double endBeat);
+    bool deleteLoopRegion(const juce::String& id);
+    int getLoopRegionCount() const;
+    LoopRegion getLoopRegionAt(int index) const;
+    LoopRegion getLoopRegionById(const juce::String& id) const;
+    bool setLoopRegionPosition(const juce::String& id, double startBeat, double endBeat);
+    bool renameLoopRegion(const juce::String& id, const juce::String& newName);
+    bool setLoopRegionEnabled(const juce::String& id, bool enabled);
+    juce::String getActiveLoopRegionId() const;
+    bool setActiveLoopRegion(const juce::String& id);
+    bool isLoopingEnabled() const;
+    void setLoopingEnabled(bool enabled);
+    bool shouldLoopAtBeat(double beat) const;  // Returns true if playback should rewind
+    bool getLoopBoundaries(double beat, double& outStart, double& outEnd) const;  // Returns true if in loop
+
+    // Time Signature (Phase 10.4)
+    struct TimeSignature {
+        uint32_t bar = 1;
+        uint8_t numerator = 4;
+        uint8_t denominator = 4;
+    };
+
+    bool addTimeSignatureChange(uint32_t bar, uint8_t numerator, uint8_t denominator);
+    bool removeTimeSignatureChange(uint32_t bar);
+    std::vector<TimeSignature> getAllTimeSignatureChanges();
+    TimeSignature getTimeSignatureAtBar(uint32_t bar);
+    void beatToBarBeat(double beat, uint32_t& bar, uint32_t& beatInBar, double& fraction);
+    double barBeatToBeat(uint32_t bar, uint32_t beatInBar);
+
     // Clip management
     void launchClip(int trackIndex, int sceneIndex);
     void stopClip(int trackIndex, int sceneIndex);

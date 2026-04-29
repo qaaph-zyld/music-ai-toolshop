@@ -82,6 +82,19 @@ void TransportBar::setupControls()
     timeDisplay.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF1B1B1B));
     addAndMakeVisible(timeDisplay);
 
+    // Loop button
+    loopButton.setTooltip("Toggle Loop Mode");
+    loopButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF4B4B4B));
+    loopButton.onClick = [this] {
+        isLoopEnabled = !isLoopEnabled;
+        auto& engine = EngineBridge::getInstance();
+        engine.setLoopingEnabled(isLoopEnabled);
+        updateButtonStates();
+        if (onLoopEnabledChanged)
+            onLoopEnabledChanged(isLoopEnabled);
+    };
+    addAndMakeVisible(loopButton);
+
     // Metronome toggle
     metronomeButton.setTooltip("Toggle Metronome");
     addAndMakeVisible(metronomeButton);
@@ -116,9 +129,10 @@ void TransportBar::resized()
     tempoSlider.setBounds(tempoArea.removeFromTop(30).reduced(2));
     bpmLabel.setBounds(tempoArea);
 
-    // Far right: Metronome
-    auto metronomeArea = bounds.removeFromRight(100);
-    metronomeButton.setBounds(metronomeArea.reduced(5));
+    // Far right: Metronome and Loop
+    auto toggleArea = bounds.removeFromRight(200);
+    loopButton.setBounds(toggleArea.removeFromLeft(80).reduced(5));
+    metronomeButton.setBounds(toggleArea.removeFromLeft(100).reduced(5));
 
     // Center: Time display
     bounds.reduce(20, 5);
@@ -161,6 +175,24 @@ void TransportBar::timerCallback()
         currentTempo = tempo;
         tempoSlider.setValue(currentTempo, juce::dontSendNotification);
     }
+    
+    // Phase 10.2: Auto-rewind on loop end
+    if (isPlaying && engine.isLoopingEnabled())
+    {
+        double loopStart = engine.shouldLoopAtBeat(currentPosition);
+        if (loopStart >= 0.0)
+        {
+            engine.setPosition(loopStart);
+        }
+    }
+    
+    // Update loop state from engine
+    bool engineLooping = engine.isLoopingEnabled();
+    if (engineLooping != isLoopEnabled)
+    {
+        isLoopEnabled = engineLooping;
+        updateButtonStates();
+    }
 }
 
 void TransportBar::setPlaying(bool playing)
@@ -187,6 +219,14 @@ void TransportBar::setTempo(double bpm)
     tempoSlider.setValue(bpm, juce::dontSendNotification);
 }
 
+void TransportBar::setLoopEnabled(bool enabled)
+{
+    isLoopEnabled = enabled;
+    auto& engine = EngineBridge::getInstance();
+    engine.setLoopingEnabled(enabled);
+    updateButtonStates();
+}
+
 void TransportBar::updateButtonStates()
 {
     // Play button: green when playing
@@ -200,6 +240,10 @@ void TransportBar::updateButtonStates()
     // Stop button: subtle highlight when stopped
     stopButton.setColour(juce::TextButton::buttonColourId,
                          (!isPlaying && !isRecording) ? juce::Colour(0xFF6B6B6B) : juce::Colour(0xFF4B4B4B));
+
+    // Loop button: accent color when enabled
+    loopButton.setColour(juce::TextButton::buttonColourId,
+                         isLoopEnabled ? juce::Colour(0xFF4A90E2) : juce::Colour(0xFF4B4B4B));
 }
 
 void TransportBar::updateTimeDisplay()
@@ -222,4 +266,30 @@ juce::String TransportBar::formatTimeDisplay(double beats)
     return juce::String(bar + 1) + "." +
            juce::String(beat + 1) + "." +
            juce::String(sixteenths + 1);
+}
+
+void TransportBar::refreshLoopRegions()
+{
+    auto& engine = EngineBridge::getInstance();
+    
+    std::vector<LoopRegionView> views;
+    int count = engine.getLoopRegionCount();
+    juce::String activeId = engine.getActiveLoopRegionId();
+    
+    for (int i = 0; i < count; ++i)
+    {
+        auto region = engine.getLoopRegionAt(i);
+        LoopRegionView view;
+        view.id = region.id;
+        view.name = region.name;
+        view.startBeat = region.startBeat;
+        view.endBeat = region.endBeat;
+        view.enabled = region.enabled;
+        view.color = juce::Colour::fromString(region.color);
+        view.isActive = (region.id == activeId);
+        views.push_back(view);
+    }
+    
+    loopMarkers.setLoopRegions(views);
+    loopMarkers.setVisibleRange(0.0, 32.0);  // Default 8-bar view
 }

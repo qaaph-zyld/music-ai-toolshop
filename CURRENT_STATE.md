@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-30 (Phase 10.2 Loop Markers - Rust Layer Complete)
+**Last Updated:** 2026-04-30 (Phase 10.2 Loop Markers - UI COMPLETE)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -15,13 +15,13 @@
 | Tracy profiling | **Integrated** | 2026-04-28 |
 | Rust source files (active) | ~40 | 2026-04-12 |
 | Quarantined stubs | 53 (in `src/future/`) | 2026-04-12 |
-| C++ UI files | **58** | 2026-04-30 |
+| C++ UI files | **60** | 2026-04-30 |
 | AI Python modules (real) | 5 | 2026-04-24 |
 | AI Python tests | **20 passed** | 2026-04-26 |
 | Plugin FFI tests | **6 passed** | 2026-04-30 |
 | Plugin Chain Integration | **6 E2E tests** | 2026-04-30 |
 | Phase 9 UI components | **4 new files** | 2026-04-30 |
-| Loop Markers (10.2) | **32 tests** | 2026-04-30 |
+| Loop Markers (10.2) | **32 tests + 2 UI files** | 2026-04-30 |
 
 \* 1 pre-existing failure in `noise_suppression_test` (RNNoise not linked — expected)
 
@@ -213,13 +213,13 @@ cmake -B build && cmake --build build
 9. **~~Advanced MIDI Features~~** ✅ COMPLETE (2026-04-30: Piano roll, quantization, transpose, velocity editing)
 10. **~~Audio Effects Chain FFI~~** ✅ COMPLETE (2026-04-30: Plugin registry, chain management, 12 FFI exports)
 11. **~~Punch-In/Out Recording~~** ✅ COMPLETE (2026-04-30: Pre-roll, punch points, 35 tests, C++ UI)
-12. **~~Loop Markers (10.2)~~** ✅ COMPLETE (2026-04-30: Named regions, 14 FFI exports, 32 tests, ready for UI)
+12. **~~Loop Markers (10.2)~~** ✅ COMPLETE (2026-04-30: Full UI with draggable markers, auto-rewind, 14 FFI exports)
 
 ---
 
 ## Phase 10.2: Loop Markers ✅ COMPLETE (2026-04-30)
 
-**Summary:** Implemented loop marker system with named regions, draggable boundaries, and FFI exports. UI components ready for C++ implementation.
+**Summary:** Implemented complete loop marker system with Rust core, FFI exports, and C++ UI with visual timeline overlay, draggable boundaries, and auto-rewind during playback.
 
 ### Verified Components
 
@@ -230,22 +230,53 @@ cmake -B build && cmake --build build
 | Unit tests | ✅ | 24 tests passing |
 | FFI tests | ✅ | 8 tests passing |
 | Module integration | ✅ | Exported in `lib.rs` |
+| EngineBridge methods | ✅ | 14 FFI wrappers added |
+| LoopMarkersComponent | ✅ | Visual timeline overlay with draggable boundaries |
+| Transport integration | ✅ | Auto-rewind at loop end, Loop toggle button |
+
+### Files Created/Modified
+
+**New C++ Files:**
+- `ui/src/Transport/LoopMarkersComponent.h` - Visual loop region component (131 lines)
+- `ui/src/Transport/LoopMarkersComponent.cpp` - Drag interactions, painting (422 lines)
+
+**Modified Files:**
+- `ui/src/Engine/EngineBridge.h` - LoopRegion struct + 14 method declarations
+- `ui/src/Engine/EngineBridge.cpp` - 14 FFI wrapper implementations
+- `ui/src/Transport/TransportBar.h` - Loop button + LoopMarkersComponent member
+- `ui/src/Transport/TransportBar.cpp` - Auto-rewind logic, layout, callback wiring
+
+### Features
+
+- **Visual Loop Markers**: Colored regions displayed on timeline
+- **Draggable Boundaries**: Click and drag start/end handles to adjust loop
+- **Drag to Move**: Drag body to move entire loop region
+- **Double-click to Create**: Create new loops on empty timeline areas
+- **Context Menu**: Right-click for delete, rename, enable/disable, set active
+- **Auto-Rewind**: Transport automatically rewinds to loop start at loop end
+- **Loop Toggle**: Button to enable/disable global looping
+- **Visual Feedback**: Playhead position, active region highlighting
 
 ### FFI Exports
 
 | Function | Purpose |
 |----------|---------|
 | `daw_loop_create_region()` | Create named loop region |
+| `daw_loop_delete_region()` | Remove region |
+| `daw_loop_get_region_count()` | Get total regions |
+| `daw_loop_get_region_at()` | Get region by index |
 | `daw_loop_set_region_position()` | Move boundaries |
 | `daw_loop_set_active_region()` | Set active loop |
 | `daw_loop_should_loop_at_beat()` | Check for rewind |
+| `daw_loop_get_boundaries()` | Get loop boundaries |
 
 ### Test Count
 
-- Library tests: 443 (was 382, +11 new loop tests)
+- Library tests: 443
 - Loop markers unit: 24
 - Loop markers FFI: 8
 - **Total: 582 tests passing**
+- C++ UI: 2 new files, ~553 lines
 
 ---
 

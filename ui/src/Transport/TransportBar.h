@@ -22,12 +22,14 @@ public:
     std::function<void()> onRecord;
     std::function<void()> onRewind;
     std::function<void(double bpm)> onTempoChange;
+    std::function<void(bool enabled)> onLoopEnabledChanged;
 
     // State setters (called from engine)
     void setPlaying(bool playing);
     void setRecording(bool recording);
     void setPosition(double beats);
     void setTempo(double bpm);
+    void setLoopEnabled(bool enabled);
 
 private:
     // Transport buttons
@@ -47,9 +49,13 @@ private:
     // Metronome toggle
     juce::ToggleButton metronomeButton{"Metronome"};
 
+    // Loop toggle
+    juce::TextButton loopButton{"Loop"};
+
     // State
     bool isPlaying = false;
     bool isRecording = false;
+    bool isLoopEnabled = false;
     double currentPosition = 0.0; // in beats
     double currentTempo = 120.0;
 

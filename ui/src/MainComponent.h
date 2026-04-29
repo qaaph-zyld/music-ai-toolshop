@@ -4,6 +4,7 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "SessionView/SessionGridComponent.h"
 #include "Transport/TransportBar.h"
+#include "Transport/LoopMarkersComponent.h"
 #include "Mixer/MixerPanel.h"
 #include "Recording/RecordingPanel.h"
 #include "Project/ProjectManager.h"
@@ -82,6 +83,7 @@ private:
 
     // Main UI sections
     std::unique_ptr<TransportBar> transportBar;
+    std::unique_ptr<LoopMarkersComponent> loopMarkers;
     std::unique_ptr<RecordingPanel> recordingPanel;
     std::unique_ptr<SessionGridComponent> sessionGrid;
     std::unique_ptr<MixerPanel> mixerPanel;
