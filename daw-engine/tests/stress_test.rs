@@ -157,7 +157,7 @@ fn stress_many_projects() {
     assert_eq!(projects.len(), 100);
     
     // Verify all projects are valid
-    for (i, project) in projects.iter().enumerate() {
+    for (_i, project) in projects.iter().enumerate() {
         assert_eq!(project.track_count(), 16);
     }
 }
@@ -202,4 +202,242 @@ fn stress_callback_high_load() {
     let metrics = callback.last_metrics();
     assert!(metrics.processing_time_ns > 0);
     assert!(metrics.cpu_usage_percent >= 0.0);
+}
+
+/// Baseline measurement: Mixer with 8 tracks (typical project)
+#[test]
+fn baseline_mixer_8tracks() {
+    use daw_engine::PerformanceAnalyzer;
+    
+    let mut analyzer = PerformanceAnalyzer::with_config(48000, 128);
+    let mut mixer = daw_engine::Mixer::new(2);
+    
+    // Add 8 sine wave sources (typical track count)
+    for i in 0..8 {
+        let freq = 440.0 + (i as f32 * 10.0);
+        let sine = daw_engine::SineWave::new(freq, 0.1);
+        mixer.add_source(Box::new(sine));
+    }
+    
+    let mut output = vec![0.0f32; 128 * 2];
+    
+    // Collect 1000 samples
+    for _ in 0..1000 {
+        analyzer.measure(|| {
+            mixer.process(&mut output);
+        });
+    }
+    
+    let report = analyzer.generate_report();
+    
+    // Verify mixer performance is reasonable
+    // In debug builds, expect avg < 500µs, max < 2000µs
+    assert!(
+        report.metrics.avg_us < 500.0,
+        "8-track mixer avg too slow: {:.2} µs",
+        report.metrics.avg_us
+    );
+    assert!(
+        report.metrics.max_us < 2000.0,
+        "8-track mixer max too slow: {:.2} µs",
+        report.metrics.max_us
+    );
+}
+
+/// Baseline measurement: SamplePlayer processing
+#[test]
+fn baseline_sample_player() {
+    use daw_engine::{PerformanceAnalyzer, Sample, SamplePlayer};
+    
+    let mut analyzer = PerformanceAnalyzer::with_config(48000, 128);
+    
+    // 5-second stereo sample
+    let sample_data = vec![0.5f32; 48000 * 5 * 2];
+    let sample = Sample::from_raw(sample_data, 2, 48000);
+    let mut player = SamplePlayer::new(sample, 2);
+    player.play();
+    
+    let mut output = vec![0.0f32; 128 * 2];
+    
+    // Collect 1000 samples
+    for _ in 0..1000 {
+        analyzer.measure(|| {
+            player.process(&mut output);
+        });
+    }
+    
+    let report = analyzer.generate_report();
+    
+    // Sample player should be real-time safe (large sample processing takes time)
+    // Just verify it produces consistent output and is within reasonable bounds
+    assert!(report.metrics.avg_us < 1000.0, "SamplePlayer avg should be < 1000 µs, got {:.2} µs", report.metrics.avg_us);
+    assert!(report.metrics.max_us < 2000.0, "SamplePlayer max should be < 2000 µs, got {:.2} µs", report.metrics.max_us);
+}
+
+/// Baseline measurement: Transport clock advancement
+#[test]
+fn baseline_transport_clock() {
+    use daw_engine::{PerformanceAnalyzer, TransportClock};
+    
+    let mut analyzer = PerformanceAnalyzer::with_config(48000, 128);
+    let mut clock = TransportClock::new(48000);
+    clock.set_tempo(120.0);
+    
+    // Collect 1000 samples
+    for _ in 0..1000 {
+        analyzer.measure(|| {
+            clock.advance(128);
+            clock.beats();
+        });
+    }
+    
+    let report = analyzer.generate_report();
+    
+    // Clock should be extremely fast
+    assert!(report.metrics.avg_us < 10.0, "Clock advance should take < 10 µs, took {:.2} µs", report.metrics.avg_us);
+}
+
+/// Baseline measurement: MIDI engine processing
+#[test]
+fn baseline_midi_engine() {
+    use daw_engine::{PerformanceAnalyzer, MidiEngine, MidiNote};
+    
+    let mut analyzer = PerformanceAnalyzer::with_config(48000, 128);
+    let mut engine = MidiEngine::new(16);
+    
+    // Add 100 notes
+    for i in 0..100 {
+        let channel = i % 16;
+        let note = MidiNote::new(
+            60 + (i % 12) as u8,
+            100,
+            i as f32 * 0.1,
+            0.5,
+        );
+        engine.add_note(channel, note);
+    }
+    
+    let mut beat = 0.0f32;
+    
+    // Collect 1000 samples
+    for _ in 0..1000 {
+        analyzer.measure(|| {
+            beat = (beat + 0.1) % 100.0;
+            engine.process(beat);
+        });
+    }
+    
+    let report = analyzer.generate_report();
+    
+    // MIDI engine should be reasonably fast with 100 notes
+    assert!(report.metrics.avg_us < 100.0, "MIDI engine avg too slow: {:.2} µs", report.metrics.avg_us);
+    assert!(report.metrics.max_us < 500.0, "MIDI engine max too slow: {:.2} µs", report.metrics.max_us);
+}
+
+/// Performance degradation test: Linear scaling check
+#[test]
+fn baseline_scaling_linear() {
+    use daw_engine::{Mixer, SineWave};
+    
+    fn measure_mixer(tracks: usize) -> f64 {
+        let mut mixer = Mixer::new(2);
+        
+        for i in 0..tracks {
+            let freq = 440.0 + (i as f32 * 10.0);
+            let sine = SineWave::new(freq, 0.1);
+            mixer.add_source(Box::new(sine));
+        }
+        
+        let mut output = vec![0.0f32; 128 * 2];
+        
+        // Warmup
+        for _ in 0..100 {
+            mixer.process(&mut output);
+        }
+        
+        // Measure
+        let start = std::time::Instant::now();
+        for _ in 0..1000 {
+            mixer.process(&mut output);
+        }
+        let elapsed = start.elapsed();
+        
+        elapsed.as_secs_f64() * 1_000_000.0 / 1000.0 // Average µs per call
+    }
+    
+    let time_8 = measure_mixer(8);
+    let time_16 = measure_mixer(16);
+    let time_32 = measure_mixer(32);
+    
+    // Should scale roughly linearly (within 2.5x factor)
+    let ratio_16_8 = time_16 / time_8;
+    let ratio_32_8 = time_32 / time_8;
+    
+    assert!(
+        ratio_16_8 < 2.5,
+        "16 tracks should take < 2.5x 8 tracks, took {:.2}x",
+        ratio_16_8
+    );
+    assert!(
+        ratio_32_8 < 5.0,
+        "32 tracks should take < 5x 8 tracks, took {:.2}x",
+        ratio_32_8
+    );
+}
+
+/// Optimization candidate identification test
+#[test]
+fn baseline_identify_optimization_candidates() {
+    use daw_engine::{PerformanceAnalyzer, BaselineMeasurements, Mixer, SineWave};
+    
+    let mut candidates = Vec::new();
+    
+    // Test different track counts
+    for track_count in [8, 16, 32, 64].iter() {
+        let mut analyzer = PerformanceAnalyzer::with_config(48000, 128);
+        let mut mixer = Mixer::new(2);
+        
+        for i in 0..*track_count {
+            let freq = 440.0 + (i as f32 * 10.0);
+            let sine = SineWave::new(freq, 0.1);
+            mixer.add_source(Box::new(sine));
+        }
+        
+        let mut output = vec![0.0f32; 128 * 2];
+        
+        for _ in 0..1000 {
+            analyzer.measure(|| {
+                mixer.process(&mut output);
+            });
+        }
+        
+        let report = analyzer.generate_report();
+        
+        if BaselineMeasurements::is_optimization_candidate(&report.metrics, report.realtime_budget_us) {
+            candidates.push((*track_count, report.score, report.metrics.avg_us));
+        }
+    }
+    
+    // Print optimization candidates for analysis
+    if !candidates.is_empty() {
+        println!("Optimization candidates found:");
+        for (tracks, score, avg_us) in &candidates {
+            println!("  {} tracks - Score: {}, Avg: {:.2} µs", tracks, score, avg_us);
+        }
+    }
+    
+    // At least 8 tracks should not be candidates (16+ may vary by build)
+    assert!(
+        !candidates.iter().any(|(t, _, _)| *t == 8),
+        "8 tracks should not need optimization"
+    );
+    
+    // Print all candidates for analysis
+    if !candidates.is_empty() {
+        println!("\nAll optimization candidates:");
+        for (tracks, score, avg_us) in &candidates {
+            let status = if *tracks <= 16 { "MARGINAL" } else { "EXPECTED" };
+            println!("  {} tracks - Score: {}, Avg: {:.2} µs [{}]", tracks, score, avg_us, status);
+        }
+    }
 }
