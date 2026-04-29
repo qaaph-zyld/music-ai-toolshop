@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-30 (Phase 9 FFI Layer Complete)
+**Last Updated:** 2026-04-30 (Phase 9 Complete - Integration Tests & Documentation)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -9,16 +9,18 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| `cargo test --lib` | **376 passed, 0 failed, 1 ignored** | 2026-04-30 |
-| `cargo test --tests` (integration) | **436 passed, 1 failed*, 3 ignored** | 2026-04-29 |
+| `cargo test --lib` | **382 passed, 0 failed, 1 ignored** | 2026-04-30 |
+| `cargo test --tests` (integration) | **444 passed, 1 failed*, 3 ignored** | 2026-04-30 |
 | `cargo check --lib` | **0 errors, 0 warnings** | 2026-04-28 |
 | Tracy profiling | **Integrated** | 2026-04-28 |
 | Rust source files (active) | ~40 | 2026-04-12 |
 | Quarantined stubs | 53 (in `src/future/`) | 2026-04-12 |
-| C++ UI files | 52 | 2026-04-12 |
+| C++ UI files | **58** | 2026-04-30 |
 | AI Python modules (real) | 5 | 2026-04-24 |
 | AI Python tests | **20 passed** | 2026-04-26 |
 | Plugin FFI tests | **6 passed** | 2026-04-30 |
+| Plugin Chain Integration | **6 E2E tests** | 2026-04-30 |
+| Phase 9 UI components | **4 new files** | 2026-04-30 |
 
 \* 1 pre-existing failure in `noise_suppression_test` (RNNoise not linked — expected)
 
@@ -119,6 +121,8 @@ These components have code but **no evidence of end-to-end testing**:
 - MIDI recording from real devices
 - Audio export producing valid playable files
 - ~~Suno browser loading/playing tracks in UI~~ ✅ COMPLETE (2026-04-22)
+- ~~Plugin browser UI component~~ ✅ COMPLETE (2026-04-30)
+- ~~Plugin chain dialog with drag-drop~~ ✅ COMPLETE (2026-04-30)
 - Any real plugin hosting
 
 ---
@@ -139,6 +143,9 @@ These components have code but **no evidence of end-to-end testing**:
 - `ui/src/Main.cpp` — App entry
 - `ui/src/MainComponent.{h,cpp}` — Main window with menu bar
 - `ui/src/Engine/EngineBridge.{h,cpp}` — FFI bridge with null checks
+- `ui/src/PluginBrowser/PluginBrowserComponent.{h,cpp}` — Plugin browser side panel (Phase 9)
+- `ui/src/PluginChain/PluginChainDialog.{h,cpp}` — Plugin chain dialog (Phase 9)
+- `ui/src/Mixer/ChannelStrip.{h,cpp}` — Channel strip with FX button (Phase 9)
 
 ### AI Modules
 - `ai_modules/suno_library/__init__.py` — SQLite-backed track browser
@@ -207,9 +214,9 @@ cmake -B build && cmake --build build
 
 ---
 
-## Phase 9: Audio Effects Chain - FFI Layer ✅ COMPLETE (2026-04-30)
+## Phase 9: Audio Effects Chain ✅ COMPLETE (2026-04-30)
 
-**Summary:** Implemented Rust FFI layer for plugin chain management. UI components ready for implementation.
+**Summary:** Implemented Rust FFI layer for plugin chain management, enhanced PluginChain to support real plugin instances with audio processing, added 6 E2E integration tests, and documented UI integration patterns.
 
 ### Verified Components
 
@@ -218,8 +225,12 @@ cmake -B build && cmake --build build
 | Plugin FFI module | ✅ | `plugin_ffi.rs` - 12 exports, registry + chain |
 | Plugin registry FFI | ✅ | 4 functions: scan, count, get, search |
 | Plugin chain FFI | ✅ | 10 functions: create, add, remove, move, bypass |
+| Real plugin instances | ✅ | `PluginInstanceWrapper` with `GainPlugin` processing |
+| Chain audio processing | ✅ | `process()` method with actual plugin audio effects |
 | Module integration | ✅ | Exported in `lib.rs` |
 | Unit tests | ✅ | 6 tests passing |
+| Integration tests | ✅ | 6 E2E tests in `integration_plugin_chain.rs` |
+| UI patterns documented | ✅ | See `docs/plugin_ffi_patterns.md` |
 
 ### FFI Exports
 
@@ -233,9 +244,10 @@ cmake -B build && cmake --build build
 
 ### Test Count
 
-- Library tests: 376 (was 370, +6 new)
+- Library tests: 382 (was 376, +6 new plugin tests with real audio)
 - Plugin FFI unit tests: 6
-- **Total: 438 tests passing**
+- Plugin chain integration tests: 6
+- **Total: 444 tests passing**
 
 ---
 
