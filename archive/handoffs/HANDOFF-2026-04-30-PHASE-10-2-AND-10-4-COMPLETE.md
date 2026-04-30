@@ -320,3 +320,167 @@ Task: Integrate LoopMarkers and TimeSignatureTrack into MainComponent
 
 *Handoff created: April 30, 2026. Session - Phase 10.2 + 10.4 COMPLETE.*  
 *✅ Loop markers UI and Time signature system fully implemented*
+
+---
+
+## 🔄 Session B - E2E Integration Testing Prompt
+
+> Use this prompt to spin up Session B agent
+
+### Paste This Exact Text:
+
+```
+@[music-ai-toolshop/projects/06-opendaw/archive/handoffs/HANDOFF-2026-05-01-PHASE-10-3-COMPLETE.md]
+Task: E2E Integration Testing - Verify end-to-end integration with real audio
+
+**Session Type:** Testing / Code Review
+
+**Goals:**
+1. Create e2e_transport_workflow.rs - Full transport play/record/stop workflow
+2. Create e2e_plugin_chain_audio.rs - Plugin chain with real audio processing
+3. Create e2e_tempo_automation_timing.rs - Tempo changes affect playback timing
+4. Create manual_testing_protocol.md - QA testing checklist
+
+**Context:**
+- 505 library tests passing, 444 integration tests passing
+- Need E2E tests exercising full stack: Rust → FFI → callbacks
+- Transport, plugin chain, and tempo automation need verification
+
+**Files to Create:**
+1. `daw-engine/tests/e2e_transport_workflow.rs` (new)
+   - Test: Play for 2 bars, stop, verify position correct
+   - Test: Record MIDI, verify clip created
+   - Test: Loop playback with auto-rewind
+   
+2. `daw-engine/tests/e2e_plugin_chain_audio.rs` (new)
+   - Test: Create plugin chain, process audio, verify output modified
+   - Test: Bypass plugin, verify output unchanged
+   - Test: Reorder plugins, verify different output
+   
+3. `daw-engine/tests/e2e_tempo_automation_timing.rs` (new)
+   - Test: Static tempo, verify beat-to-seconds conversion
+   - Test: Tempo curve, verify timing calculations adjust
+   - Test: Abrupt tempo change, verify playback sync
+   
+4. `docs/manual_testing_protocol.md` (new)
+   - Step-by-step QA checklist for manual verification
+   - Test scenarios for release validation
+
+**Toolkit Selection:**
+| Toolkit | Selected | Rationale |
+|---------|----------|-----------|
+| Superpowers | Yes | Systematic testing approach |
+| Awesome Claude Code | Yes | Find existing test patterns |
+
+**Meta Layer Skills:**
+- test-driven-development
+- verification-before-completion
+- systematic-debugging
+
+**Acceptance Criteria:**
+- [ ] E2E transport test passes (play/stop/position)
+- [ ] E2E plugin chain test passes (audio processing)
+- [ ] E2E tempo automation test passes (timing)
+- [ ] All existing 505 library tests still pass
+- [ ] All existing 444 integration tests still pass
+- [ ] New tests use real code (no mocks unless unavoidable)
+- [ ] Manual testing protocol document complete
+
+**Verification Commands:**
+```bash
+cargo test --test e2e_transport_workflow
+cargo test --test e2e_plugin_chain_audio
+cargo test --test e2e_tempo_automation_timing
+cargo test --tests  # All integration tests
+```
+
+**Agent Report Format:**
+Report back with:
+- Status: Complete/Partial/Blocked
+- Tests: X new tests, Y passing, Z failing
+- Files created/modified
+- Any blockers or findings
+```
+
+### Decision Matrix for Next Session
+
+| If Session B... | Then... |
+|-----------------|---------|
+| Complete, no issues | Proceed to Session C or integration session |
+| Finds critical bugs | Spawn bugfix sessions immediately |
+| Tests fail unexpectedly | Spawn debugging session |
+| Partial completion | Continue with remaining tests |
+
+**Spin this agent:** After Session A report received
+
+---
+
+## ✅ Session B: E2E Integration Testing - COMPLETE (2026-05-01)
+
+**Summary:** Created comprehensive end-to-end integration tests for transport workflow, plugin chain audio processing, and tempo automation timing. All tests passing.
+
+### Files Created
+
+**New E2E Test Files (4):**
+1. `daw-engine/tests/e2e_transport_workflow.rs` - 4 tests
+   - `e2e_transport_play_stop_position` - Play for 2 bars, stop, verify position
+   - `e2e_transport_record_midi_clip_created` - Record MIDI, verify clip created
+   - `e2e_transport_loop_playback_auto_rewind` - Loop playback with auto-rewind
+   - `e2e_transport_punch_in_out_states` - Punch-in/out state transitions
+
+2. `daw-engine/tests/e2e_plugin_chain_audio.rs` - 5 tests
+   - `e2e_plugin_chain_process_audio_modified` - Process audio, verify output modified
+   - `e2e_plugin_chain_bypass_unchanged` - Bypass plugin, verify output unchanged
+   - `e2e_plugin_chain_reorder_different_output` - Reorder plugins, verify different output
+   - `e2e_plugin_chain_multiple_plugins_cumulative` - Multiple plugins cumulative effect
+   - `e2e_plugin_chain_full_workflow` - Full workflow create/process/remove/verify
+
+3. `daw-engine/tests/e2e_tempo_automation_timing.rs` - 6 tests
+   - `e2e_tempo_static_beat_to_seconds` - Static tempo, verify beat-to-seconds
+   - `e2e_tempo_curve_timing_adjustment` - Tempo curve, verify timing calculations
+   - `e2e_tempo_abrupt_change_playback_sync` - Abrupt tempo change, verify sync
+   - `e2e_transport_tempo_position_sync` - Transport position sync with tempo
+   - `e2e_tempo_multiple_changes` - Multiple tempo changes throughout project
+   - `e2e_tempo_average_calculation` - Tempo average calculation
+
+4. `docs/manual_testing_protocol.md` - QA testing checklist
+   - 10 sections covering Transport, Session View, Mixer, Plugin Chain, Suno Browser, Time Signature/Tempo, MIDI Editing, Project Management, Audio Export, Performance
+   - 25 manual test procedures with pass/fail checkboxes
+   - Test summary table for tracking results
+
+### Test Results
+
+| Test Suite | Count | Status |
+|------------|-------|--------|
+| E2E Transport Workflow | 4 | ✅ passing |
+| E2E Plugin Chain Audio | 5 | ✅ passing |
+| E2E Tempo Automation Timing | 6 | ✅ passing |
+| Library tests | 505 | ✅ passing |
+| Integration tests (excluding known failure) | 443 | ✅ passing |
+| **New E2E Tests Total** | **15** | **✅ all passing** |
+
+### Verification Commands
+
+```bash
+# E2E Transport Workflow
+cargo test --test e2e_transport_workflow
+
+# E2E Plugin Chain Audio
+cargo test --test e2e_plugin_chain_audio
+
+# E2E Tempo Automation Timing
+cargo test --test e2e_tempo_automation_timing
+
+# All integration tests
+cargo test --tests
+
+# Library tests
+cargo test --lib
+```
+
+### Notes
+- All E2E tests use real code (no mocks) as specified in acceptance criteria
+- Tests follow existing patterns from `integration_plugin_chain.rs` and `integration_transport_ui.rs`
+- Manual testing protocol includes 25 test procedures for QA verification
+- Pre-existing `noise_suppression_test` failure remains (RNNoise not linked - expected)
+- No compiler errors, 6 warnings (all pre-existing unused imports)

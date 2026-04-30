@@ -5,6 +5,8 @@
 #include "SessionView/SessionGridComponent.h"
 #include "Transport/TransportBar.h"
 #include "Transport/LoopMarkersComponent.h"
+#include "Transport/TimeSignatureTrack.h"
+#include "Transport/TempoAutomationTrack.h"
 #include "Mixer/MixerPanel.h"
 #include "Recording/RecordingPanel.h"
 #include "Project/ProjectManager.h"
@@ -83,6 +85,8 @@ private:
 
     // Main UI sections
     std::unique_ptr<TransportBar> transportBar;
+    std::unique_ptr<TimeSignatureTrack> timeSignatureTrack;
+    std::unique_ptr<TempoAutomationTrack> tempoAutomationTrack;
     std::unique_ptr<LoopMarkersComponent> loopMarkers;
     std::unique_ptr<RecordingPanel> recordingPanel;
     std::unique_ptr<SessionGridComponent> sessionGrid;

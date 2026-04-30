@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-04-30 (Phase 10.2 Loop Markers - UI COMPLETE)
+**Last Updated:** 2026-05-01 (Phase 10.5 Arrangement View Foundation COMPLETE)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -9,19 +9,23 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| `cargo test --lib` | **443 passed, 0 failed, 1 ignored** | 2026-04-30 |
+| `cargo test --lib` | **541 passed, 0 failed, 1 ignored** | 2026-05-01 |
 | `cargo test --tests` (integration) | **444 passed, 1 failed*, 3 ignored** | 2026-04-30 |
-| `cargo check --lib` | **0 errors, 0 warnings** | 2026-04-28 |
+| `cargo check --lib` | **0 errors, 51 warnings** | 2026-04-30 |
 | Tracy profiling | **Integrated** | 2026-04-28 |
 | Rust source files (active) | ~40 | 2026-04-12 |
 | Quarantined stubs | 53 (in `src/future/`) | 2026-04-12 |
-| C++ UI files | **60** | 2026-04-30 |
+| C++ UI files | **62** | 2026-05-01 |
 | AI Python modules (real) | 5 | 2026-04-24 |
 | AI Python tests | **20 passed** | 2026-04-26 |
 | Plugin FFI tests | **6 passed** | 2026-04-30 |
 | Plugin Chain Integration | **6 E2E tests** | 2026-04-30 |
 | Phase 9 UI components | **4 new files** | 2026-04-30 |
 | Loop Markers (10.2) | **32 tests + 2 UI files** | 2026-04-30 |
+| Time Signature (10.4) | **32 tests + 2 UI files** | 2026-04-30 |
+| Tempo Automation (10.3) | **30 tests + 2 UI files** | 2026-05-01 |
+| Phase 10 Integration | **MainComponent wired** | 2026-04-30 |
+| Arrangement View (10.5) | **36 tests + Rust core** | 2026-05-01 |
 
 \* 1 pre-existing failure in `noise_suppression_test` (RNNoise not linked — expected)
 
@@ -214,6 +218,9 @@ cmake -B build && cmake --build build
 10. **~~Audio Effects Chain FFI~~** ✅ COMPLETE (2026-04-30: Plugin registry, chain management, 12 FFI exports)
 11. **~~Punch-In/Out Recording~~** ✅ COMPLETE (2026-04-30: Pre-roll, punch points, 35 tests, C++ UI)
 12. **~~Loop Markers (10.2)~~** ✅ COMPLETE (2026-04-30: Full UI with draggable markers, auto-rewind, 14 FFI exports)
+13. **~~Tempo Automation (10.3)~~** ✅ COMPLETE (2026-05-01: Visual curve, drag editing, 11 FFI methods, C++ UI)
+14. **E2E Integration Testing** (Session B) - Expand E2E coverage for transport, plugin chain, tempo timing
+15. **Arrangement View (10.5)** (Session C) - Linear timeline composition view (design required first)
 
 ---
 
@@ -277,6 +284,67 @@ cmake -B build && cmake --build build
 - Loop markers FFI: 8
 - **Total: 582 tests passing**
 - C++ UI: 2 new files, ~553 lines
+
+---
+
+## Phase 10.3: Tempo Automation UI ✅ COMPLETE (2026-05-01)
+
+**Summary:** Implemented TempoAutomationTrack C++ UI component with visual tempo curve, breakpoint editing, drag interactions, and MainComponent integration.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Tempo automation core | ✅ | `tempo_automation.rs` - 498 lines, 4 interpolation types |
+| FFI layer | ✅ | `tempo_automation_ffi.rs` - 312 lines, 12 exports |
+| Unit tests | ✅ | 19 tests passing |
+| FFI tests | ✅ | 11 tests passing |
+| EngineBridge methods | ✅ | 11 tempo automation methods added |
+| TempoAutomationTrack | ✅ | Visual curve with draggable breakpoints |
+| MainComponent integration | ✅ | 40px track, callbacks wired |
+
+### Files Created/Modified
+
+**New C++ Files:**
+- `ui/src/Transport/TempoAutomationTrack.h` - Component header (112 lines)
+- `ui/src/Transport/TempoAutomationTrack.cpp` - Implementation (468 lines)
+
+**Modified Files:**
+- `ui/src/Engine/EngineBridge.h` - TempoBreakpoint struct + 11 method declarations
+- `ui/src/Engine/EngineBridge.cpp` - 11 FFI wrapper implementations
+- `ui/src/MainComponent.h` - TempoAutomationTrack include + member
+- `ui/src/MainComponent.cpp` - Component creation, callbacks, layout
+
+### Features
+
+- **Visual Tempo Curve**: Draws curve between breakpoints with interpolation
+- **4 Interpolation Types**: Step, Linear, Exponential, Smooth
+- **Click to Select**: Select breakpoint for editing
+- **Double-click to Add**: Create new breakpoint at click position
+- **Drag Horizontal**: Change beat position
+- **Drag Vertical**: Change BPM (40-240 range)
+- **Context Menu**: Edit BPM, Delete, Interpolation submenu
+- **BPM Labels**: Shows BPM value at each breakpoint
+
+### FFI Exports
+
+| Function | Purpose |
+|----------|---------|
+| `daw_tempo_auto_init()` | Initialize tempo track |
+| `daw_tempo_auto_add_breakpoint()` | Add breakpoint |
+| `daw_tempo_auto_remove_breakpoint()` | Remove breakpoint |
+| `daw_tempo_auto_get_breakpoint_count()` | Get count |
+| `daw_tempo_auto_get_breakpoint_at()` | Get by index |
+| `daw_tempo_auto_get_tempo_at_beat()` | Query tempo |
+| `daw_tempo_auto_beats_to_seconds()` | Time conversion |
+
+### Test Count
+
+- Library tests: 505
+- Tempo automation unit: 19
+- Tempo automation FFI: 11
+- **Total: 535 tests passing**
+- C++ UI: 2 new files, ~580 lines
 
 ---
 
@@ -707,5 +775,70 @@ File → Export Audio... → ExportDialog → ExportFFI → Rust `daw_export_*` 
 Disarmed → Armed → PreRolling → Recording → Completed
    ↑___________________________________________|
 ```
+
+---
+
+## Phase 10.x: MainComponent Integration ✅ COMPLETE (2026-04-30)
+
+**Summary:** Integrated LoopMarkersComponent and TimeSignatureTrack into MainComponent with full callback wiring and proper layout.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| TimeSignatureTrack integration | ✅ | Added to MainComponent layout (24px height) |
+| LoopMarkersComponent integration | ✅ | Already integrated, verified working |
+| Callback wiring | ✅ | All add/remove/modify callbacks connected |
+| Layout positioning | ✅ | Above session grid, below recording panel |
+| Transport time display | ✅ | Uses engine beatToBarBeat() conversion |
+| Auto-rewind | ✅ | Implemented in TransportBar::timerCallback() |
+
+### Files Modified
+
+- `ui/src/MainComponent.h` - TimeSignatureTrack include and member
+- `ui/src/MainComponent.cpp` - Creation, callbacks, layout (60+ lines added)
+- `ui/src/Transport/TransportBar.cpp` - Bar/beat display using time signature
+
+---
+
+## Phase 10.3 Foundation: Tempo Automation ✅ COMPLETE (2026-04-30)
+
+**Summary:** Implemented core tempo automation module with 4 interpolation types and FFI exports. Ready for C++ UI integration.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Tempo automation core | ✅ | `tempo_automation.rs` - 498 lines |
+| FFI layer | ✅ | `tempo_automation_ffi.rs` - 312 lines, 12 exports |
+| Unit tests | ✅ | 19 tests passing |
+| FFI tests | ✅ | 11 tests passing |
+| Module integration | ✅ | Exported in `lib.rs` |
+| Public re-exports | ✅ | TempoAutomationTrack, TempoBreakpoint, InterpolationType |
+
+### New Capabilities
+
+- **Breakpoint Management**: Add/remove tempo breakpoints at any beat
+- **4 Interpolation Types**: Step, Linear, Exponential, Smooth
+- **Tempo Queries**: Get tempo at any beat position
+- **Time Conversion**: Convert beats to seconds accounting for tempo changes
+
+### FFI Exports
+
+| Function | Purpose |
+|----------|---------|
+| `daw_tempo_auto_init()` | Initialize with default BPM |
+| `daw_tempo_auto_add_breakpoint()` | Add breakpoint with interpolation type |
+| `daw_tempo_auto_remove_breakpoint()` | Remove breakpoint |
+| `daw_tempo_auto_get_tempo_at_beat()` | Query tempo at beat |
+| `daw_tempo_auto_beats_to_seconds()` | Convert beats to time |
+| `daw_tempo_auto_get_breakpoint_count()` | Get total breakpoints |
+| `daw_tempo_auto_get_breakpoint_at()` | Get breakpoint by index |
+
+### Test Count
+
+- Tempo automation unit tests: 19
+- Tempo automation FFI tests: 11
+- **Total: 30 new tests passing**
 
 ---

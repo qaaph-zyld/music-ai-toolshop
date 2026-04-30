@@ -253,43 +253,18 @@ void TransportBar::updateTimeDisplay()
 
 juce::String TransportBar::formatTimeDisplay(double beats)
 {
-    // Convert beats to bars.beats.sixteenths (assuming 4/4 time)
-    int beatsPerBar = 4;
-    int sixteenthsPerBeat = 4;
-
-    int totalSixteenths = static_cast<int>(beats * sixteenthsPerBeat);
-    int sixteenths = totalSixteenths % sixteenthsPerBeat;
-    int totalBeats = totalSixteenths / sixteenthsPerBeat;
-    int beat = totalBeats % beatsPerBar;
-    int bar = totalBeats / beatsPerBar;
-
-    return juce::String(bar + 1) + "." +
-           juce::String(beat + 1) + "." +
-           juce::String(sixteenths + 1);
-}
-
-void TransportBar::refreshLoopRegions()
-{
+    // Phase 10.4: Use actual time signature from engine for bar/beat display
     auto& engine = EngineBridge::getInstance();
-    
-    std::vector<LoopRegionView> views;
-    int count = engine.getLoopRegionCount();
-    juce::String activeId = engine.getActiveLoopRegionId();
-    
-    for (int i = 0; i < count; ++i)
-    {
-        auto region = engine.getLoopRegionAt(i);
-        LoopRegionView view;
-        view.id = region.id;
-        view.name = region.name;
-        view.startBeat = region.startBeat;
-        view.endBeat = region.endBeat;
-        view.enabled = region.enabled;
-        view.color = juce::Colour::fromString(region.color);
-        view.isActive = (region.id == activeId);
-        views.push_back(view);
-    }
-    
-    loopMarkers.setLoopRegions(views);
-    loopMarkers.setVisibleRange(0.0, 32.0);  // Default 8-bar view
+    uint32_t bar = 1, beatInBar = 1;
+    double fraction = 0.0;
+    engine.beatToBarBeat(beats, bar, beatInBar, fraction);
+
+    // Convert fraction to sixteenth notes (0.0-0.99 -> 1-4)
+    int sixteenths = static_cast<int>(fraction * 4.0) + 1;
+    if (sixteenths > 4) sixteenths = 4;
+
+    return juce::String(bar) + "." +
+           juce::String(beatInBar) + "." +
+           juce::String(sixteenths);
 }
+

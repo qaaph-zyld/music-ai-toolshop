@@ -173,6 +173,18 @@ extern "C" {
     double daw_time_sig_get_bar_length(unsigned int bar);
     char* daw_time_sig_format_string(unsigned int numerator, unsigned int denominator);
     void daw_time_sig_free_string(char* s);
+
+    // Tempo Automation FFI (Phase 10.3)
+    void daw_tempo_auto_init(double default_bpm);
+    void daw_tempo_auto_reset(double bpm);
+    void daw_tempo_auto_add_breakpoint(double beat, double bpm, int interpolation);
+    int daw_tempo_auto_remove_breakpoint(double beat);
+    int daw_tempo_auto_get_breakpoint_count();
+    int daw_tempo_auto_get_breakpoint_at(int index, void* out_info);
+    double daw_tempo_auto_get_tempo_at_beat(double beat);
+    double daw_tempo_auto_get_average_tempo(double start_beat, double end_beat);
+    double daw_tempo_auto_beats_to_seconds(double start_beat, double end_beat);
+    int daw_tempo_auto_find_nearest(double beat, void* out_info);
 }
 
 // Loop Region FFI structure (matches Rust LoopRegionInfo)
@@ -199,6 +211,15 @@ struct BarBeatResultFFI {
     unsigned int bar;
     unsigned int beat_in_bar;
     double fraction;
+};
+#pragma pack(pop)
+
+// Tempo Automation FFI structure (matches Rust TempoBreakpointFFI)
+#pragma pack(push, 1)
+struct TempoBreakpointFFI {
+    double beat;
+    double bpm;
+    int interpolation; // 0=step, 1=linear, 2=exponential, 3=smooth
 };
 #pragma pack(pop)
 
@@ -1844,4 +1865,85 @@ void EngineBridge::beatToBarBeat(double beat, uint32_t& bar, uint32_t& beatInBar
 double EngineBridge::barBeatToBeat(uint32_t bar, uint32_t beatInBar)
 {
     return daw_time_sig_bar_beat_to_beat(bar, beatInBar);
+}
+
+// ============================================================================
+// Tempo Automation (Phase 10.3)
+// ============================================================================
+
+void EngineBridge::initTempoAutomation(double defaultBpm)
+{
+    daw_tempo_auto_init(defaultBpm);
+}
+
+void EngineBridge::resetTempoAutomation(double bpm)
+{
+    daw_tempo_auto_reset(bpm);
+}
+
+void EngineBridge::addTempoBreakpoint(double beat, double bpm, int interpolation)
+{
+    daw_tempo_auto_add_breakpoint(beat, bpm, interpolation);
+}
+
+bool EngineBridge::removeTempoBreakpoint(double beat)
+{
+    return daw_tempo_auto_remove_breakpoint(beat) == 1;
+}
+
+int EngineBridge::getTempoBreakpointCount()
+{
+    return daw_tempo_auto_get_breakpoint_count();
+}
+
+EngineBridge::TempoBreakpoint EngineBridge::getTempoBreakpointAt(int index)
+{
+    TempoBreakpoint result{0.0, 120.0, 1};
+
+    TempoBreakpointFFI ffiInfo;
+    if (daw_tempo_auto_get_breakpoint_at(index, &ffiInfo) == 1)
+    {
+        result.beat = ffiInfo.beat;
+        result.bpm = ffiInfo.bpm;
+        result.interpolation = ffiInfo.interpolation;
+    }
+
+    return result;
+}
+
+double EngineBridge::getTempoAtBeat(double beat)
+{
+    return daw_tempo_auto_get_tempo_at_beat(beat);
+}
+
+double EngineBridge::getAverageTempo(double startBeat, double endBeat)
+{
+    return daw_tempo_auto_get_average_tempo(startBeat, endBeat);
+}
+
+double EngineBridge::beatsToSeconds(double startBeat, double endBeat)
+{
+    return daw_tempo_auto_beats_to_seconds(startBeat, endBeat);
+}
+
+EngineBridge::TempoBreakpoint EngineBridge::findNearestTempoBreakpoint(double beat)
+{
+    TempoBreakpoint result{0.0, 120.0, 1};
+
+    TempoBreakpointFFI ffiInfo;
+    if (daw_tempo_auto_find_nearest(beat, &ffiInfo) == 1)
+    {
+        result.beat = ffiInfo.beat;
+        result.bpm = ffiInfo.bpm;
+        result.interpolation = ffiInfo.interpolation;
+    }
+
+    return result;
+}
+
+void EngineBridge::updateTempoBreakpoint(double oldBeat, double newBeat, double newBpm, int interpolation)
+{
+    // Remove old breakpoint and add new one at updated position
+    removeTempoBreakpoint(oldBeat);
+    addTempoBreakpoint(newBeat, newBpm, interpolation);
 }

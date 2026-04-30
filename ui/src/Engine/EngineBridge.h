@@ -101,6 +101,25 @@ public:
     void beatToBarBeat(double beat, uint32_t& bar, uint32_t& beatInBar, double& fraction);
     double barBeatToBeat(uint32_t bar, uint32_t beatInBar);
 
+    // Tempo Automation (Phase 10.3)
+    struct TempoBreakpoint {
+        double beat = 0.0;
+        double bpm = 120.0;
+        int interpolation = 1; // 0=step, 1=linear, 2=exponential, 3=smooth
+    };
+
+    void initTempoAutomation(double defaultBpm);
+    void resetTempoAutomation(double bpm);
+    void addTempoBreakpoint(double beat, double bpm, int interpolation);
+    bool removeTempoBreakpoint(double beat);
+    int getTempoBreakpointCount();
+    TempoBreakpoint getTempoBreakpointAt(int index);
+    double getTempoAtBeat(double beat);
+    double getAverageTempo(double startBeat, double endBeat);
+    double beatsToSeconds(double startBeat, double endBeat);
+    TempoBreakpoint findNearestTempoBreakpoint(double beat);
+    void updateTempoBreakpoint(double oldBeat, double newBeat, double newBpm, int interpolation);
+
     // Clip management
     void launchClip(int trackIndex, int sceneIndex);
     void stopClip(int trackIndex, int sceneIndex);

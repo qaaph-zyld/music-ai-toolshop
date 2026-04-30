@@ -151,6 +151,16 @@ MainComponent::MainComponent()
     addAndMakeVisible(transportBar.get());
     std::cout << "MainComponent: TransportBar created" << std::endl;
 
+    std::cout << "MainComponent: Creating TimeSignatureTrack..." << std::endl;
+    timeSignatureTrack = std::make_unique<TimeSignatureTrack>();
+    addAndMakeVisible(timeSignatureTrack.get());
+    std::cout << "MainComponent: TimeSignatureTrack created" << std::endl;
+
+    std::cout << "MainComponent: Creating TempoAutomationTrack..." << std::endl;
+    tempoAutomationTrack = std::make_unique<TempoAutomationTrack>();
+    addAndMakeVisible(tempoAutomationTrack.get());
+    std::cout << "MainComponent: TempoAutomationTrack created" << std::endl;
+
     std::cout << "MainComponent: Creating LoopMarkersComponent..." << std::endl;
     loopMarkers = std::make_unique<LoopMarkersComponent>();
     addAndMakeVisible(loopMarkers.get());
@@ -390,6 +400,88 @@ MainComponent::MainComponent()
     // Initial load of loop regions
     refreshLoopRegions();
 
+    // Wire up TimeSignatureTrack callbacks - Phase 10.4
+    auto refreshTimeSignatures = [this]() {
+        auto& engine = EngineBridge::getInstance();
+        auto sigs = engine.getAllTimeSignatureChanges();
+
+        std::vector<TimeSignatureChange> changes;
+        for (const auto& sig : sigs)
+        {
+            TimeSignatureChange change;
+            change.bar = sig.bar;
+            change.numerator = sig.numerator;
+            change.denominator = sig.denominator;
+            changes.push_back(change);
+        }
+        timeSignatureTrack->setTimeSignatureChanges(changes);
+    };
+
+    timeSignatureTrack->onChangeAdded = [this, refreshTimeSignatures](uint32_t bar, uint8_t num, uint8_t den) {
+        auto& engine = EngineBridge::getInstance();
+        engine.addTimeSignatureChange(bar, num, den);
+        refreshTimeSignatures();
+    };
+
+    timeSignatureTrack->onChangeRemoved = [this, refreshTimeSignatures](uint32_t bar) {
+        auto& engine = EngineBridge::getInstance();
+        engine.removeTimeSignatureChange(bar);
+        refreshTimeSignatures();
+    };
+
+    timeSignatureTrack->onChangeModified = [this, refreshTimeSignatures](uint32_t bar, uint8_t num, uint8_t den) {
+        auto& engine = EngineBridge::getInstance();
+        engine.removeTimeSignatureChange(bar);
+        engine.addTimeSignatureChange(bar, num, den);
+        refreshTimeSignatures();
+    };
+
+    // Initial load of time signatures
+    refreshTimeSignatures();
+
+    // Wire up TempoAutomationTrack callbacks - Phase 10.3
+    auto refreshTempoBreakpoints = [this]() {
+        auto& engine = EngineBridge::getInstance();
+
+        std::vector<TempoBreakpoint> breakpoints;
+        int count = engine.getTempoBreakpointCount();
+        for (int i = 0; i < count; ++i)
+        {
+            auto bp = engine.getTempoBreakpointAt(i);
+            TempoBreakpoint viewBp;
+            viewBp.beat = bp.beat;
+            viewBp.bpm = bp.bpm;
+            viewBp.interpolation = bp.interpolation;
+            breakpoints.push_back(viewBp);
+        }
+        tempoAutomationTrack->setBreakpoints(breakpoints);
+    };
+
+    tempoAutomationTrack->onBreakpointAdded = [this, refreshTempoBreakpoints](double beat, double bpm, int interpolation) {
+        auto& engine = EngineBridge::getInstance();
+        engine.addTempoBreakpoint(beat, bpm, interpolation);
+        refreshTempoBreakpoints();
+    };
+
+    tempoAutomationTrack->onBreakpointRemoved = [this, refreshTempoBreakpoints](double beat) {
+        auto& engine = EngineBridge::getInstance();
+        engine.removeTempoBreakpoint(beat);
+        refreshTempoBreakpoints();
+    };
+
+    tempoAutomationTrack->onBreakpointModified = [this, refreshTempoBreakpoints](double oldBeat, double newBeat, double newBpm, int interpolation) {
+        auto& engine = EngineBridge::getInstance();
+        engine.updateTempoBreakpoint(oldBeat, newBeat, newBpm, interpolation);
+        refreshTempoBreakpoints();
+    };
+
+    // Initial tempo automation setup
+    {
+        auto& engine = EngineBridge::getInstance();
+        engine.initTempoAutomation(120.0); // Initialize with default 120 BPM
+        refreshTempoBreakpoints();
+    }
+
     // Wire up import callback - Phase 8.5 (Complete with audio loading)
     sunoBrowser->onTrackImported = [this](const juce::String& trackId, int track, int scene, const juce::String& audioFilePath) {
         juce::Colour clipColor = juce::Colours::orange;
@@ -465,6 +557,14 @@ void MainComponent::resized()
     // Recording panel
     auto recordingBounds = bounds.removeFromTop(80);
     recordingPanel->setBounds(recordingBounds);
+
+    // Time signature track (above tempo automation) - fixed 24px height
+    auto timeSigBounds = bounds.removeFromTop(24);
+    timeSignatureTrack->setBounds(timeSigBounds);
+
+    // Tempo automation track (above loop markers) - fixed 40px height
+    auto tempoBounds = bounds.removeFromTop(40);
+    tempoAutomationTrack->setBounds(tempoBounds);
 
     // Loop markers (timeline ruler) - fixed height
     auto loopMarkerBounds = bounds.removeFromTop(60);
