@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-05-03 (Session W - Stem Separation Workflow COMPLETE)
+**Last Updated:** 2026-05-03 (Session X - Disk Streaming Foundation COMPLETE)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -9,10 +9,13 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| `cargo test --lib` | **551 passed, 0 failed, 1 ignored** | 2026-05-03 |
-| `cargo test --tests` (integration) | **10 new stem tests** | 2026-05-03 |
+| `cargo test --lib` | **564 passed, 0 failed, 1 ignored** | 2026-05-03 |
+| Disk Streaming | **Core implementation + 13 unit tests** | 2026-05-03 |
+| Circular Buffer | **Lock-free SPSC implementation** | 2026-05-03 |
 | Stem Separation Workflow | **UI + E2E complete** | 2026-05-03 |
 | C++ Build | **0 errors** | 2026-05-03 |
+| `cargo test --lib` (previous) | **551 passed, 0 failed, 1 ignored** | 2026-05-03 |
+| `cargo test --tests` (integration) | **10 new stem tests** | 2026-05-03 |
 | `cargo test --lib` (previous) | **541 passed, 0 failed, 1 ignored** | 2026-05-01 |
 | `cargo test --tests` (integration) | **444 passed, 1 failed*, 3 ignored** | 2026-04-30 |
 | `cargo check --lib` | **0 errors, 51 warnings** | 2026-04-30 |
@@ -474,6 +477,53 @@ User right-clicks clip
 - Stem separation unit tests: 18
 - **NEW E2E tests: 10**
 - **Total: 551 tests passing**
+
+---
+
+## Phase 9: Disk Streaming Foundation ✅ COMPLETE (2026-05-03)
+
+**Summary:** Implemented disk streaming for large audio files - background read-ahead thread with circular buffer, enabling playback of 10+ minute files with < 50MB RAM usage.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| CircularBuffer | ✅ | Lock-free SPSC ring buffer, power-of-2 optimized |
+| DiskStreamer | ✅ | WAV file streaming with read-ahead, seek support |
+| StreamingPlayer | ✅ | Background thread + audio thread integration |
+| FFI exports | ✅ | C++ interface via daw_streaming_player_* functions |
+| Threshold logic | ✅ | Files > 30s use streaming, shorter files load to RAM |
+| Unit tests | ✅ | 13 tests for circular buffer, streamer, FFI |
+
+### Files Created
+
+**Rust Engine:**
+- `daw-engine/src/circular_buffer.rs` - Lock-free SPSC circular buffer (140 lines)
+- `daw-engine/src/disk_streamer.rs` - File streaming with background thread (320 lines)
+- `daw-engine/src/disk_streamer_ffi.rs` - FFI exports for C++ (200 lines)
+- `daw-engine/tests/integration_disk_streaming.rs` - E2E tests (250 lines)
+
+### Architecture
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   Audio Thread  │────▶│  CircularBuffer  │◀────│  Reader Thread  │
+│   (process)     │     │  (lock-free SPSC)│     │  (read_ahead)   │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+                               │                          │
+                               ▼                          ▼
+                        ┌──────────────┐          ┌──────────────┐
+                        │   Output     │          │   WAV File   │
+                        └──────────────┘          └──────────────┘
+```
+
+### Test Count
+
+- Library tests: 564 (was 551, +13 new)
+- Circular buffer tests: 10
+- Disk streamer tests: 3
+- FFI tests: 5
+- **Total: 564 tests passing**
 
 ---
 
