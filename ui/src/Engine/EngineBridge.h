@@ -299,6 +299,10 @@ public:
 
     // Audio callbacks (called from audio thread)
     void getMeterLevels(std::vector<float>& levels); // Per-channel dB levels
+    
+    // Test tone for audio check (Session Z: Onboarding)
+    void playTestTone(float frequency, float amplitude);
+    void stopTestTone();
 
     // State callbacks (UI thread)
     std::function<void(bool isPlaying)> onTransportStateChange;

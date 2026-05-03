@@ -55,6 +55,7 @@ pub mod plugin_clap;
 pub mod project;
 pub mod project_file;
 pub mod serialization;
+pub mod settings;
 pub mod export;
 pub mod export_renderer;
 

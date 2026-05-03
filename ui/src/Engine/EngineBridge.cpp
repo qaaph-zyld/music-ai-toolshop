@@ -765,6 +765,36 @@ void EngineBridge::getMeterLevels(std::vector<float>& levels)
 }
 
 // ============================================================================
+// Test Tone (Session Z: Onboarding)
+// ============================================================================
+
+void EngineBridge::playTestTone(float frequency, float amplitude)
+{
+    // TODO: Implement via Rust FFI - generate sine wave in audio callback
+    DBG("EngineBridge::playTestTone - freq=" + juce::String(frequency) + 
+        "Hz, amp=" + juce::String(amplitude));
+    
+    // For now, just store the values - actual implementation would
+    // set a flag in the audio engine to mix in a sine wave
+    if (rustEngine != nullptr)
+    {
+        // FFI call to enable test tone
+        // daw_enable_test_tone(rustEngine, frequency, amplitude);
+    }
+}
+
+void EngineBridge::stopTestTone()
+{
+    DBG("EngineBridge::stopTestTone");
+    
+    if (rustEngine != nullptr)
+    {
+        // FFI call to disable test tone
+        // daw_disable_test_tone(rustEngine);
+    }
+}
+
+// ============================================================================
 // MIDI Recording (Phase 7.1)
 // ============================================================================
 

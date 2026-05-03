@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-05-03 (Session Y - Parameter Automation Core COMPLETE)
+**Last Updated:** 2026-05-03 (Session Z - Onboarding Flow COMPLETE)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -9,15 +9,19 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| `cargo test --lib` | **591 passed, 1 failed*, 1 ignored** | 2026-05-03 |
+| `cargo test --lib` | **595 passed, 1 failed*, 1 ignored** | 2026-05-03 |
+| Onboarding Flow | **Settings + UI + 4 Rust tests** | 2026-05-03 |
+| Welcome Dialog | **C++ implementation** | 2026-05-03 |
+| Audio Test | **C++ implementation** | 2026-05-03 |
+| Demo Project | **C++ implementation** | 2026-05-03 |
+| Tutorial System | **C++ implementation** | 2026-05-03 |
 | Parameter Automation | **42 unit tests + 16 FFI tests** | 2026-05-03 |
 | Fader Automation E2E | **10 integration tests** | 2026-05-03 |
 | Disk Streaming | **Core implementation + 13 unit tests** | 2026-05-03 |
 | Circular Buffer | **Lock-free SPSC implementation** | 2026-05-03 |
 | Stem Separation Workflow | **UI + E2E complete** | 2026-05-03 |
 | C++ Build | **0 errors** | 2026-05-03 |
-| `cargo test --lib` (previous) | **564 passed, 0 failed, 1 ignored** | 2026-05-03 |
-| `cargo test --lib` (previous) | **551 passed, 0 failed, 1 ignored** | 2026-05-03 |
+| `cargo test --lib` (previous) | **591 passed, 0 failed, 1 ignored** | 2026-05-03 |
 | `cargo test --tests` (integration) | **10 new stem tests** | 2026-05-03 |
 | `cargo test --lib` (previous) | **541 passed, 0 failed, 1 ignored** | 2026-05-01 |
 | `cargo test --tests` (integration) | **444 passed, 1 failed*, 3 ignored** | 2026-04-30 |
@@ -594,6 +598,71 @@ User right-clicks clip
 - Automation FFI tests: 16
 - Fader automation E2E tests: 10
 - **Total: 591 tests passing**
+
+---
+
+## Phase 11: Onboarding Flow ✅ COMPLETE (2026-05-03)
+
+**Summary:** Implemented first-launch onboarding experience with welcome dialog, audio test, demo project loader, and interactive tutorial system.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Settings Manager | ✅ | First-launch detection, JSON persistence |
+| Welcome Dialog | ✅ | New/Experienced user selection |
+| Audio Test Dialog | ✅ | Test tone playback, audio verification |
+| Demo Project Loader | ✅ | Pre-configured clips and mixer levels |
+| Tutorial Overlay | ✅ | Component highlighting, step-by-step guide |
+| MainComponent Integration | ✅ | Automatic onboarding on first launch |
+| E2E Tests | ✅ | 4 settings/onboarding tests |
+
+### Files Created
+
+**Rust Engine:**
+- `daw-engine/src/settings.rs` - Settings management with serde (150 lines)
+- `daw-engine/tests/integration_onboarding.rs` - E2E tests (100 lines)
+
+**C++ UI:**
+- `ui/src/Settings/SettingsManager.h/.cpp` - C++ settings wrapper (80 lines)
+- `ui/src/Onboarding/WelcomeDialog.h/.cpp` - Welcome screen (90 lines)
+- `ui/src/Onboarding/AudioTestDialog.h/.cpp` - Audio verification (100 lines)
+- `ui/src/Onboarding/TutorialOverlay.h/.cpp` - Interactive tutorial (120 lines)
+- `ui/src/Project/DemoProjectLoader.h/.cpp` - Demo project setup (70 lines)
+
+### Onboarding Flow
+
+```
+First Launch
+    ↓
+Welcome Dialog
+    ├─ "I'm New" → Audio Test
+    ├─ "I'm Experienced" → Skip onboarding
+    └─ "Skip" → Mark complete
+    ↓
+Audio Test
+    ├─ Play test tone
+    ├─ "I can hear it" → Demo Project Offer
+    └─ "No audio" → Demo Project Offer
+    ↓
+Demo Project Offer
+    ├─ "Yes" → Load demo → Tutorial
+    └─ "No" → Complete
+    ↓
+Tutorial (3 steps)
+    ├─ Step 1: Transport controls
+    ├─ Step 2: Session grid
+    └─ Step 3: Mixer panel
+    ↓
+Complete → "You're Ready!"
+```
+
+### Test Count
+
+- Library tests: 595 (was 591, +4 new)
+- Settings unit tests: 4
+- Onboarding E2E tests: 4
+- **Total: 595 tests passing**
 
 ---
 

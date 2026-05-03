@@ -17,6 +17,13 @@
 #include "Export/ExportDialog.h"
 #include "PluginBrowser/PluginBrowserComponent.h"
 
+// Session Z: Onboarding
+#include "Settings/SettingsManager.h"
+#include "Onboarding/WelcomeDialog.h"
+#include "Onboarding/AudioTestDialog.h"
+#include "Onboarding/TutorialOverlay.h"
+#include "Project/DemoProjectLoader.h"
+
 /**
  * MainMenuBarModel - File menu for OpenDAW
  */
@@ -82,6 +89,17 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
     bool keyPressed(const juce::KeyPress& key) override;
+    
+    // Onboarding flow (Session Z)
+    void showOnboarding();
+    void showWelcomeDialog();
+    void showAudioTest();
+    void showDemoProjectOffer();
+    void startTutorial();
+    void completeOnboarding();
+    
+    // Public method for onboarding to set clips
+    void setClip(int track, int scene, const juce::String& name, juce::Colour colour);
 
 private:
     // Menu bar
@@ -103,8 +121,14 @@ private:
     std::unique_ptr<SunoBrowserComponent> sunoBrowser;
     std::unique_ptr<PluginBrowserComponent> pluginBrowser;
     
+    // Onboarding (Session Z)
+    std::unique_ptr<class WelcomeDialog> welcomeDialog;
+    std::unique_ptr<class AudioTestDialog> audioTestDialog;
+    std::unique_ptr<class TutorialOverlay> tutorialOverlay;
+    
     // View state
     bool showingArrangementView = false;
+    bool onboardingShown = false;
 
     // Layout dividers
     juce::StretchableLayoutManager verticalLayout;

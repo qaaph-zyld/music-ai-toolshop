@@ -733,6 +733,16 @@ MainComponent::MainComponent()
 
     setSize(1200, 800);
     std::cout << "MainComponent constructor - COMPLETE" << std::endl;
+    
+    // Session Z: Check if onboarding should be shown
+    if (OpenDAW::SettingsManager::isFirstLaunch() || OpenDAW::SettingsManager::shouldShowOnboarding())
+    {
+        std::cout << "MainComponent: Showing onboarding (first launch or requested)" << std::endl;
+        // Delay onboarding slightly to ensure UI is fully initialized
+        juce::Timer::callAfterDelay(500, [this]() {
+            showOnboarding();
+        });
+    }
 }
 
 MainComponent::~MainComponent() = default;
@@ -917,4 +927,161 @@ bool MainComponent::keyPressed(const juce::KeyPress& key)
     }
 
     return false; // Let other handlers process
+}
+
+// ============================================================================
+// Session Z: Onboarding Flow Implementation
+// ============================================================================
+
+void MainComponent::showOnboarding()
+{
+    if (onboardingShown)
+        return;
+    
+    onboardingShown = true;
+    showWelcomeDialog();
+}
+
+void MainComponent::showWelcomeDialog()
+{
+    welcomeDialog = std::make_unique<OpenDAW::WelcomeDialog>();
+    
+    welcomeDialog->onNewUserSelected = [this] {
+        welcomeDialog->setVisible(false);
+        showAudioTest();
+    };
+    
+    welcomeDialog->onExperiencedUserSelected = [this] {
+        OpenDAW::SettingsManager::markOnboardingComplete();
+        welcomeDialog.reset();
+    };
+    
+    welcomeDialog->onSkip = [this] {
+        OpenDAW::SettingsManager::markOnboardingComplete();
+        welcomeDialog.reset();
+    };
+    
+    addAndMakeVisible(welcomeDialog.get());
+    welcomeDialog->setBounds(getLocalBounds());
+    welcomeDialog->toFront(true);
+}
+
+void MainComponent::showAudioTest()
+{
+    audioTestDialog = std::make_unique<OpenDAW::AudioTestDialog>();
+    
+    audioTestDialog->onAudioWorking = [this] {
+        audioTestDialog->setVisible(false);
+        showDemoProjectOffer();
+    };
+    
+    audioTestDialog->onAudioNotWorking = [this] {
+        // Could show audio settings or troubleshooting
+        audioTestDialog->setVisible(false);
+        showDemoProjectOffer();
+    };
+    
+    audioTestDialog->onOpenSettings = [this] {
+        // Could open audio settings dialog
+        audioTestDialog->setVisible(false);
+        showDemoProjectOffer();
+    };
+    
+    addAndMakeVisible(audioTestDialog.get());
+    audioTestDialog->setBounds(getLocalBounds());
+    audioTestDialog->toFront(true);
+}
+
+void MainComponent::showDemoProjectOffer()
+{
+    // Simple alert for demo project offer
+    juce::AlertWindow::showOkCancelBox(
+        juce::AlertWindow::QuestionIcon,
+        "Try a Demo Project?",
+        "Would you like to load a demo project with pre-configured clips and patterns?",
+        "Yes, Load Demo",
+        "No Thanks",
+        this,
+        juce::ModalCallbackFunction::create([this](int result) {
+            if (result == 1) // Yes
+            {
+                OpenDAW::DemoProjectLoader::loadDemoProject(this);
+                startTutorial();
+            }
+            else
+            {
+                completeOnboarding();
+            }
+        })
+    );
+}
+
+void MainComponent::startTutorial()
+{
+    tutorialOverlay = std::make_unique<OpenDAW::TutorialOverlay>();
+    
+    // Define tutorial steps
+    std::vector<OpenDAW::TutorialStep> steps;
+    
+    // Step 1: Transport
+    OpenDAW::TutorialStep step1;
+    step1.title = "Transport Controls";
+    step1.message = "Use these buttons to play, stop, and record your music. Try clicking Play!";
+    step1.targetComponent = transportBar.get();
+    step1.highlightBounds = transportBar->getBoundsInParent();
+    steps.push_back(step1);
+    
+    // Step 2: Session Grid
+    OpenDAW::TutorialStep step2;
+    step2.title = "Session Grid";
+    step2.message = "This is where you create and launch clips. Each slot can hold a different pattern or loop.";
+    step2.targetComponent = sessionGrid.get();
+    step2.highlightBounds = sessionGrid->getBoundsInParent();
+    steps.push_back(step2);
+    
+    // Step 3: Mixer
+    OpenDAW::TutorialStep step3;
+    step3.title = "Mixer Panel";
+    step3.message = "Adjust volume levels for each track and apply effects here.";
+    step3.targetComponent = mixerPanel.get();
+    step3.highlightBounds = mixerPanel->getBoundsInParent();
+    steps.push_back(step3);
+    
+    tutorialOverlay->startTutorial(steps);
+    
+    tutorialOverlay->onTutorialComplete = [this] {
+        tutorialOverlay.reset();
+        completeOnboarding();
+    };
+    
+    tutorialOverlay->onTutorialSkipped = [this] {
+        tutorialOverlay.reset();
+        completeOnboarding();
+    };
+    
+    addAndMakeVisible(tutorialOverlay.get());
+    tutorialOverlay->setBounds(getLocalBounds());
+    tutorialOverlay->toFront(true);
+}
+
+void MainComponent::completeOnboarding()
+{
+    OpenDAW::SettingsManager::markOnboardingComplete();
+    
+    // Show completion message
+    juce::AlertWindow::showMessageBoxAsync(
+        juce::AlertWindow::InfoIcon,
+        "You're Ready!",
+        "You're all set to start making music with OpenDAW. Have fun creating!",
+        "Start Creating",
+        this
+    );
+    
+    onboardingShown = false;
+}
+
+void MainComponent::setClip(int track, int scene, const juce::String& name, juce::Colour colour)
+{
+    if (sessionGrid)
+        sessionGrid->setClip(track, scene, name, colour);
 }
