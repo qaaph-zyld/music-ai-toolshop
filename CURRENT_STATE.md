@@ -1,6 +1,6 @@
 # OpenDAW - Current State
 
-**Last Updated:** 2026-05-03 (Session X - Disk Streaming Foundation COMPLETE)
+**Last Updated:** 2026-05-03 (Session Y - Parameter Automation Core COMPLETE)
 **Single Source of Truth** — replaces 44 archived handoff documents (see `archive/handoffs/`)
 
 ---
@@ -9,11 +9,14 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| `cargo test --lib` | **564 passed, 0 failed, 1 ignored** | 2026-05-03 |
+| `cargo test --lib` | **591 passed, 1 failed*, 1 ignored** | 2026-05-03 |
+| Parameter Automation | **42 unit tests + 16 FFI tests** | 2026-05-03 |
+| Fader Automation E2E | **10 integration tests** | 2026-05-03 |
 | Disk Streaming | **Core implementation + 13 unit tests** | 2026-05-03 |
 | Circular Buffer | **Lock-free SPSC implementation** | 2026-05-03 |
 | Stem Separation Workflow | **UI + E2E complete** | 2026-05-03 |
 | C++ Build | **0 errors** | 2026-05-03 |
+| `cargo test --lib` (previous) | **564 passed, 0 failed, 1 ignored** | 2026-05-03 |
 | `cargo test --lib` (previous) | **551 passed, 0 failed, 1 ignored** | 2026-05-03 |
 | `cargo test --tests` (integration) | **10 new stem tests** | 2026-05-03 |
 | `cargo test --lib` (previous) | **541 passed, 0 failed, 1 ignored** | 2026-05-01 |
@@ -524,6 +527,73 @@ User right-clicks clip
 - Disk streamer tests: 3
 - FFI tests: 5
 - **Total: 564 tests passing**
+
+---
+
+## Phase 10: Parameter Automation Core ✅ COMPLETE (2026-05-03)
+
+**Summary:** Implemented parameter automation system for faders and knobs with recording modes, sample-accurate interpolation, and mixer integration.
+
+### Verified Components
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| AutomationLane | ✅ | Point storage with sorted insertion |
+| Curve Types | ✅ | Linear, Log, Exponential, S-Curve |
+| Interpolation | ✅ | Sample-accurate value_at_sample() |
+| AutomationRecorder | ✅ | Write/Touch/Latch modes |
+| Mixer Integration | ✅ | ChannelStrip with fader/pan automation |
+| FFI Exports | ✅ | C++ interface via daw_auto_* functions |
+| E2E Tests | ✅ | 10 fader automation integration tests |
+
+### Files Created
+
+**Rust Engine:**
+- `daw-engine/src/automation.rs` - Core automation system (340 lines)
+- `daw-engine/src/automation_ffi.rs` - C FFI exports (200 lines)
+- `daw-engine/tests/integration_fader_automation.rs` - E2E tests (260 lines)
+
+### Architecture
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   Audio Thread  │────▶│  Mixer::process  │────▶│  ChannelStrip   │
+│                 │     │  with automation │     │                 │
+│  (real-time)    │     │  updates         │     │  fader_level    │
+│                 │     │                  │     │  pan            │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+                             │                           │
+                             ▼                           ▼
+                      ┌──────────────┐            ┌──────────────┐
+                      │AutomationLane│            │AutomationLane│
+                      │value_at()    │            │value_at()    │
+                      └──────────────┘            └──────────────┘
+                             │                           │
+                             ▼                           ▼
+                      ┌──────────────┐            ┌──────────────┐
+                      │  Interp:     │            │  Interp:     │
+                      │Linear/Log/    │            │Linear/Log/    │
+                      │Exp/S-Curve    │            │Exp/S-Curve    │
+                      └──────────────┘            └──────────────┘
+```
+
+### Recording Modes
+
+| Mode | Behavior |
+|------|----------|
+| Off | Automation disabled |
+| Read | Playback automation only |
+| Write | Overwrite all existing points |
+| Touch | Write when touched, return to existing after release |
+| Latch | Write when touched, stay at last value |
+
+### Test Count
+
+- Library tests: 591 (was 564, +27 new)
+- Automation unit tests: 42
+- Automation FFI tests: 16
+- Fader automation E2E tests: 10
+- **Total: 591 tests passing**
 
 ---
 

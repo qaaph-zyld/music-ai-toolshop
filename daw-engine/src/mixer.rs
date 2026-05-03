@@ -8,7 +8,91 @@ use crate::plugin::PluginChain;
 use crate::loudness::{LoudnessMeter, LoudnessReading};
 use crate::ffi_bridge::invoke_meter_callback;
 use crate::meter_ffi::{update_track_peak, update_track_rms, update_master_peak, update_master_rms};
+use crate::automation::{AutomationLane, AutomationMode, AutomationRecorder};
 use crate::{profile_scope, plot_value};
+
+/// Channel strip with fader and pan automation
+pub struct ChannelStrip {
+    /// Current fader level (0.0 - 1.0, or dB range)
+    pub fader_level: f32,
+    /// Current pan position (-1.0 left to 1.0 right)
+    pub pan: f32,
+    /// Fader automation lane
+    pub fader_automation: AutomationRecorder,
+    /// Pan automation lane
+    pub pan_automation: AutomationRecorder,
+    /// Whether the channel is muted
+    pub muted: bool,
+    /// Whether the channel is soloed
+    pub soloed: bool,
+}
+
+impl ChannelStrip {
+    /// Create a new channel strip with default values
+    pub fn new(track_idx: usize) -> Self {
+        let fader_id = format!("track_{}_fader", track_idx);
+        let pan_id = format!("track_{}_pan", track_idx);
+        
+        Self {
+            fader_level: 0.75, // Default -6dB-ish
+            pan: 0.0,          // Center
+            fader_automation: AutomationRecorder::new(&fader_id, 0.75, AutomationMode::Read),
+            pan_automation: AutomationRecorder::new(&pan_id, 0.0, AutomationMode::Read),
+            muted: false,
+            soloed: false,
+        }
+    }
+    
+    /// Set fader automation mode
+    pub fn set_fader_mode(&mut self, mode: AutomationMode) {
+        self.fader_automation.set_mode(mode);
+    }
+    
+    /// Set pan automation mode
+    pub fn set_pan_mode(&mut self, mode: AutomationMode) {
+        self.pan_automation.set_mode(mode);
+    }
+    
+    /// Process automation for this channel at sample position
+    /// Updates fader_level and pan from automation lanes
+    pub fn process_automation(&mut self, sample: u64, sample_rate: u32, bpm: f64) {
+        // Update fader from automation (if not in manual override)
+        if self.fader_automation.mode() == AutomationMode::Read {
+            self.fader_level = self.fader_automation.lane().value_at_sample(sample, sample_rate, bpm);
+        }
+        
+        // Update pan from automation
+        if self.pan_automation.mode() == AutomationMode::Read {
+            self.pan = self.pan_automation.lane().value_at_sample(sample, sample_rate, bpm);
+        }
+    }
+    
+    /// Start touching the fader (for Touch/Latch modes)
+    pub fn touch_fader(&mut self, beat: f64) {
+        let playback_value = self.fader_automation.lane().value_at(beat);
+        self.fader_automation.start_touch(beat, self.fader_level, playback_value);
+    }
+    
+    /// Update fader value while touching
+    pub fn update_fader(&mut self, beat: f64, value: f32) {
+        self.fader_level = value;
+        self.fader_automation.update_value(beat, value);
+    }
+    
+    /// Release fader (end touch)
+    pub fn release_fader(&mut self, beat: f64) {
+        self.fader_automation.end_touch(beat);
+    }
+    
+    /// Get the effective gain (considering mute)
+    pub fn effective_gain(&self) -> f32 {
+        if self.muted {
+            0.0
+        } else {
+            self.fader_level
+        }
+    }
+}
 
 /// Audio mixer with multiple sources and loudness metering
 pub struct Mixer {
@@ -18,6 +102,8 @@ pub struct Mixer {
     loudness_meter: Option<LoudnessMeter>,
     sample_rate: u32,
     track_peak_levels: Vec<f32>,
+    /// Channel strips with automation for each track
+    pub channel_strips: Vec<ChannelStrip>,
 }
 
 /// Trait for audio sources
@@ -114,12 +200,18 @@ impl AudioSource for PluginAudioSource {
 impl Mixer {
     /// Create new mixer
     pub fn new(channels: usize) -> Self {
+        let mut channel_strips = Vec::with_capacity(channels);
+        for i in 0..channels {
+            channel_strips.push(ChannelStrip::new(i));
+        }
+        
         Self {
             channels,
             sources: Vec::new(),
             loudness_meter: None,
             sample_rate: 48000, // Default, set properly via enable_loudness_meter
             track_peak_levels: Vec::new(),
+            channel_strips,
         }
     }
     
@@ -141,6 +233,56 @@ impl Mixer {
     pub fn reset_loudness_meter(&mut self) {
         if let Some(ref mut meter) = self.loudness_meter {
             meter.reset();
+        }
+    }
+    
+    /// Process automation for all channel strips at sample position
+    /// Updates fader levels and pan from automation lanes
+    pub fn process_automation(&mut self, sample: u64, bpm: f64) {
+        for strip in &mut self.channel_strips {
+            strip.process_automation(sample, self.sample_rate, bpm);
+        }
+    }
+    
+    /// Get reference to channel strip
+    pub fn channel_strip(&self, index: usize) -> Option<&ChannelStrip> {
+        self.channel_strips.get(index)
+    }
+    
+    /// Get mutable reference to channel strip
+    pub fn channel_strip_mut(&mut self, index: usize) -> Option<&mut ChannelStrip> {
+        self.channel_strips.get_mut(index)
+    }
+    
+    /// Set fader automation mode for a track
+    pub fn set_track_fader_mode(&mut self, track: usize, mode: AutomationMode) {
+        if let Some(strip) = self.channel_strips.get_mut(track) {
+            strip.set_fader_mode(mode);
+        }
+    }
+    
+    /// Set fader level for a track (with automation recording if enabled)
+    pub fn set_track_fader(&mut self, track: usize, beat: f64, value: f32) {
+        if let Some(strip) = self.channel_strips.get_mut(track) {
+            if strip.fader_automation.is_touched() {
+                strip.update_fader(beat, value);
+            } else {
+                strip.fader_level = value;
+            }
+        }
+    }
+    
+    /// Start touching fader (for Touch/Latch modes)
+    pub fn touch_fader(&mut self, track: usize, beat: f64) {
+        if let Some(strip) = self.channel_strips.get_mut(track) {
+            strip.touch_fader(beat);
+        }
+    }
+    
+    /// Release fader (end touch)
+    pub fn release_fader(&mut self, track: usize, beat: f64) {
+        if let Some(strip) = self.channel_strips.get_mut(track) {
+            strip.release_fader(beat);
         }
     }
     

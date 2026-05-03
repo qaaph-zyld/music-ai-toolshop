@@ -33,6 +33,8 @@ pub mod time_signature_ffi;
 pub mod tempo_automation;
 pub mod tempo_automation_ffi;
 pub mod realtime;
+pub mod automation;
+pub mod automation_ffi;
 pub mod clip_player;
 pub mod audio_processor;
 pub mod audio_device;
