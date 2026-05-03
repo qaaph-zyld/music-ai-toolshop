@@ -81,14 +81,9 @@ void ClipSlotComponent::mouseDrag(const juce::MouseEvent& event)
 {
     if (clipLoaded && !event.mods.isPopupMenu())
     {
-        // Phase 7.0: Start drag and drop operation
-        // Build drag data JSON properly for JUCE 7 compatibility
-        auto* obj = new juce::DynamicObject();
-        obj->setProperty("type", "clip");
-        obj->setProperty("trackIdx", trackIdx);
-        obj->setProperty("sceneIdx", sceneIdx);
-        obj->setProperty("clipName", clipName);
-        juce::var dragData(juce::JSON::toString(juce::var(obj)));
+        // Session H: Use simple format for session clip drag
+        // Format: "session_clip:trackIdx:sceneIdx"
+        juce::String dragData = "session_clip:" + juce::String(trackIdx) + ":" + juce::String(sceneIdx);
         
         juce::Image dragImage(juce::Image::ARGB, getWidth(), getHeight(), true);
         juce::Graphics g(dragImage);
@@ -374,12 +369,18 @@ void ClipSlotComponent::extractStemsForClip()
     if (!clipLoaded)
         return;
     
-    // TODO: Get actual audio file path from clip data
-    // For now, we'll show the dialog with a placeholder path
-    // The actual implementation should retrieve the audio file path 
-    // associated with this clip from the engine/session data
+    // Get actual audio file path from the session/clip data
+    // In a full implementation, this would query the engine for the clip's audio file
+    // For now, we use the clip name to construct a path (simplified)
+    juce::File audioFile = juce::File::getCurrentWorkingDirectory()
+        .getChildFile("audio")
+        .getChildFile(clipName + ".wav");
     
-    juce::String audioFilePath = "placeholder.wav"; // TODO: Get real path
+    // Fallback: if clip name doesn't resolve, use a test path
+    juce::String audioFilePath = audioFile.existsAsFile() 
+        ? audioFile.getFullPathName() 
+        : clipName; // Engine will resolve relative paths
+    
     juce::String outputDir = juce::File::getSpecialLocation(
         juce::File::userApplicationDataDirectory
     ).getChildFile("OpenDAW/stems").getFullPathName();
@@ -388,17 +389,84 @@ void ClipSlotComponent::extractStemsForClip()
     auto* dialog = new StemExtractionDialog(audioFilePath, outputDir);
     
     dialog->onExtractionComplete = [this](const EngineBridge::StemPaths& result) {
-        // TODO: Create 4 new tracks with the extracted stems
-        // This would involve:
-        // 1. Getting the current track count
-        // 2. Creating 4 new tracks at the end
-        // 3. Loading each stem file into a clip on those tracks
+        if (!result.success)
+        {
+            juce::Logger::writeToLog("Stem extraction failed");
+            return;
+        }
         
-        juce::Logger::writeToLog("Stem extraction complete:");
-        juce::Logger::writeToLog("  Drums: " + result.drums);
-        juce::Logger::writeToLog("  Bass: " + result.bass);
-        juce::Logger::writeToLog("  Vocals: " + result.vocals);
-        juce::Logger::writeToLog("  Other: " + result.other);
+        juce::Logger::writeToLog("Stem extraction complete - creating arrangement tracks...");
+        
+        auto& engine = EngineBridge::getInstance();
+        
+        // Get current arrangement track count to find starting position
+        uint32_t startTrack = engine.getArrangementTrackCount();
+        
+        // Ensure we have at least 4 arrangement tracks (for drums, bass, vocals, other)
+        uint32_t requiredTracks = startTrack + 4;
+        
+        // Re-initialize arrangement with enough tracks if needed
+        // Note: In production, this would dynamically add tracks
+        if (startTrack < requiredTracks)
+        {
+            engine.initArrangement(requiredTracks);
+            startTrack = requiredTracks - 4; // Place stems in the last 4 tracks
+        }
+        else
+        {
+            startTrack = 0; // Use first 4 tracks
+        }
+        
+        // Add each stem to the arrangement
+        struct StemInfo {
+            juce::String path;
+            juce::String name;
+            juce::Colour color;
+        };
+        
+        std::vector<StemInfo> stems;
+        
+        if (!result.drums.isEmpty())
+            stems.push_back({result.drums, "Drums", juce::Colours::red});
+        if (!result.bass.isEmpty())
+            stems.push_back({result.bass, "Bass", juce::Colours::blue});
+        if (!result.vocals.isEmpty())
+            stems.push_back({result.vocals, "Vocals", juce::Colours::green});
+        if (!result.other.isEmpty())
+            stems.push_back({result.other, "Other", juce::Colours::yellow});
+        
+        // Add stems to arrangement (starting at beat 0, 4 bars duration)
+        for (size_t i = 0; i < stems.size() && i < 4; ++i)
+        {
+            uint32_t trackIdx = startTrack + static_cast<uint32_t>(i);
+            const auto& stem = stems[i];
+            
+            auto clipInfo = engine.addAudioClipToArrangement(
+                trackIdx,
+                0.0,                    // startBeat
+                stem.name,              // name
+                4.0,                    // durationBars (default, will auto-adjust)
+                stem.path               // filePath
+            );
+            
+            if (clipInfo.isValid())
+            {
+                juce::Logger::writeToLog("Added " + stem.name + " to arrangement track " + 
+                                         juce::String(trackIdx + 1));
+            }
+            else
+            {
+                juce::Logger::writeToLog("Failed to add " + stem.name + " to arrangement");
+            }
+        }
+        
+        juce::Logger::writeToLog("Stem extraction workflow complete - " + 
+                                 juce::String(static_cast<int>(stems.size())) + " stems added");
+        
+        // Notify that arrangement has been updated
+        // This would typically trigger a UI refresh
+        if (onStateChange)
+            onStateChange(trackIdx, sceneIdx, State::Loaded);
     };
     
     dialog->onExtractionCancelled = []() {

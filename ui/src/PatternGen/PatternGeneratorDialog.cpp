@@ -16,18 +16,18 @@ PatternGeneratorDialog::PatternGeneratorDialog(juce::Component* parent)
     titleLabel.setText("Pattern Generator", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(24.0f, juce::Font::bold));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(titleLabel);
+    addAndMakeVisible(&titleLabel);
 
     subtitleLabel.setText("AI-powered MIDI pattern generation", juce::dontSendNotification);
     subtitleLabel.setFont(juce::Font(14.0f));
     subtitleLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    addAndMakeVisible(subtitleLabel);
+    addAndMakeVisible(&subtitleLabel);
 
     // Style selection
     styleLabel.setText("Style:", juce::dontSendNotification);
     styleLabel.setFont(juce::Font(14.0f));
     styleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(styleLabel);
+    addAndMakeVisible(&styleLabel);
 
     styleComboBox.addItem("Electronic", 1);
     styleComboBox.addItem("House", 2);
@@ -38,42 +38,42 @@ PatternGeneratorDialog::PatternGeneratorDialog(juce::Component* parent)
     styleComboBox.addItem("Rock", 7);
     styleComboBox.setSelectedId(1);
     styleComboBox.addListener(this);
-    addAndMakeVisible(styleComboBox);
+    addAndMakeVisible(&styleComboBox);
 
     // Pattern type
     typeLabel.setText("Type:", juce::dontSendNotification);
     typeLabel.setFont(juce::Font(14.0f));
     typeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(typeLabel);
+    addAndMakeVisible(&typeLabel);
 
     typeComboBox.addItem("Drums", 1);
     typeComboBox.addItem("Bass", 2);
     typeComboBox.addItem("Melody", 3);
     typeComboBox.setSelectedId(1);
     typeComboBox.addListener(this);
-    addAndMakeVisible(typeComboBox);
+    addAndMakeVisible(&typeComboBox);
 
     // Tempo
     tempoLabel.setText("Tempo:", juce::dontSendNotification);
     tempoLabel.setFont(juce::Font(14.0f));
     tempoLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(tempoLabel);
+    addAndMakeVisible(&tempoLabel);
 
     tempoSlider.setRange(60.0, 180.0, 1.0);
     tempoSlider.setValue(120.0);
     tempoSlider.addListener(this);
-    addAndMakeVisible(tempoSlider);
+    addAndMakeVisible(&tempoSlider);
 
     tempoValueLabel.setText("120 BPM", juce::dontSendNotification);
     tempoValueLabel.setFont(juce::Font(14.0f));
     tempoValueLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(tempoValueLabel);
+    addAndMakeVisible(&tempoValueLabel);
 
     // Key selection (for melody)
     keyLabel.setText("Key:", juce::dontSendNotification);
     keyLabel.setFont(juce::Font(14.0f));
     keyLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(keyLabel);
+    addAndMakeVisible(&keyLabel);
 
     keyComboBox.addItem("C", 1);
     keyComboBox.addItem("C#", 2);
@@ -88,67 +88,67 @@ PatternGeneratorDialog::PatternGeneratorDialog(juce::Component* parent)
     keyComboBox.addItem("A#", 11);
     keyComboBox.addItem("B", 12);
     keyComboBox.setSelectedId(1);
-    addAndMakeVisible(keyComboBox);
+    addAndMakeVisible(&keyComboBox);
 
     // Chords input (for bass)
     chordsLabel.setText("Chords:", juce::dontSendNotification);
     chordsLabel.setFont(juce::Font(14.0f));
     chordsLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(chordsLabel);
+    addAndMakeVisible(&chordsLabel);
 
     chordsEditor.setMultiLine(false);
     chordsEditor.setText("Am,F,C,G");
-    addAndMakeVisible(chordsEditor);
+    addAndMakeVisible(&chordsEditor);
 
     // Bars
     barsLabel.setText("Bars:", juce::dontSendNotification);
     barsLabel.setFont(juce::Font(14.0f));
     barsLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(barsLabel);
+    addAndMakeVisible(&barsLabel);
 
     barsSlider.setRange(1, 16, 1);
     barsSlider.setValue(4);
     barsSlider.addListener(this);
-    addAndMakeVisible(barsSlider);
+    addAndMakeVisible(&barsSlider);
 
     barsValueLabel.setText("4 bars", juce::dontSendNotification);
     barsValueLabel.setFont(juce::Font(14.0f));
     barsValueLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(barsValueLabel);
+    addAndMakeVisible(&barsValueLabel);
 
     // Buttons
     generateButton.setButtonText("Generate");
     generateButton.addListener(this);
-    addAndMakeVisible(generateButton);
+    addAndMakeVisible(&generateButton);
 
     cancelButton.setButtonText("Cancel");
     cancelButton.addListener(this);
-    addAndMakeVisible(cancelButton);
+    addAndMakeVisible(&cancelButton);
 
     importButton.setButtonText("Import to Track");
     importButton.setEnabled(false);
     importButton.addListener(this);
-    addAndMakeVisible(importButton);
+    addAndMakeVisible(&importButton);
 
     // Status
     statusLabel.setText("Ready", juce::dontSendNotification);
     statusLabel.setFont(juce::Font(12.0f));
     statusLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    addAndMakeVisible(statusLabel);
+    addAndMakeVisible(&statusLabel);
 
     progressBar.setColour(juce::ProgressBar::foregroundColourId, juce::Colours::lightblue);
-    addAndMakeVisible(progressBar);
+    addAndMakeVisible(&progressBar);
 
     // Preview
     previewLabel.setText("Preview:", juce::dontSendNotification);
     previewLabel.setFont(juce::Font(14.0f));
     previewLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(previewLabel);
+    addAndMakeVisible(&previewLabel);
 
     previewEditor.setMultiLine(true);
     previewEditor.setReadOnly(true);
     previewEditor.setText("Click 'Generate' to create a pattern...");
-    addAndMakeVisible(previewEditor);
+    addAndMakeVisible(&previewEditor);
 
     // Create MMM handle
     if (OpenDAW::MmmFFI::isAvailable()) {

@@ -34,6 +34,13 @@ public:
     // Drag and drop support
     void startDrag(const int rowIndex);
 
+    // Mouse events (Component already inherits MouseListener)
+    void mouseDrag(const juce::MouseEvent& event) override;
+    void mouseDoubleClick(const juce::MouseEvent& event) override;
+
+    // Callback for plugin selection (double-click to add)
+    std::function<void(const EngineBridge::PluginInfo&)> onPluginSelected;
+
     // Refresh plugin list
     void refreshPlugins();
 

@@ -52,6 +52,7 @@ public:
 
     // DialogWindow override
     void closeButtonPressed() override;
+    void resized() override;
 
     // DragAndDropTarget interface
     bool isInterestedInDragSource(const juce::DragAndDropTarget::SourceDetails& dragSourceDetails) override;

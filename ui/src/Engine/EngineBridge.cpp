@@ -90,7 +90,7 @@ extern "C" {
     int daw_midi_is_recording();
     
     // MIDI Clip Creation FFI (Phase 6)
-    int daw_create_midi_clip(void* engine_ptr, int track, int scene, const MidiNoteFFI* notes, int note_count, const char* clip_name);
+    int daw_create_midi_clip(void* engine_ptr, int track, int scene, const void* notes, int note_count, const char* clip_name);
     
     // Stem Separation FFI (Phase 8.x)
     void* daw_stem_separator_create();
@@ -185,19 +185,27 @@ extern "C" {
     double daw_tempo_auto_get_average_tempo(double start_beat, double end_beat);
     double daw_tempo_auto_beats_to_seconds(double start_beat, double end_beat);
     int daw_tempo_auto_find_nearest(double beat, void* out_info);
-}
 
-// Loop Region FFI structure (matches Rust LoopRegionInfo)
-#pragma pack(push, 1)
-struct LoopRegionInfoFFI {
-    const char* id;
-    const char* name;
-    double start_beat;
-    double end_beat;
-    int enabled;
-    const char* color;
-};
-#pragma pack(pop)
+    // Arrangement FFI (Phase 10.5)
+    void daw_arrangement_init(unsigned int track_count);
+    void daw_arrangement_reset();
+    unsigned int daw_arrangement_track_count();
+    unsigned long long daw_arrangement_add_midi_clip(unsigned int track_idx, double start_beat, const char* name, double duration_bars);
+    unsigned long long daw_arrangement_add_audio_clip(unsigned int track_idx, double start_beat, const char* name, double duration_bars, const char* file_path);
+    int daw_arrangement_remove_clip(unsigned int track_idx, unsigned long long clip_id);
+    int daw_arrangement_move_clip(unsigned int from_track, unsigned long long clip_id, unsigned int to_track, double new_start);
+    int daw_arrangement_resize_clip(unsigned int track_idx, unsigned long long clip_id, double new_duration);
+    unsigned int daw_arrangement_clip_count(unsigned int track_idx);
+    unsigned int daw_arrangement_total_clip_count();
+    int daw_arrangement_get_clip_at(unsigned int track_idx, unsigned int index, void* out_info);
+    int daw_arrangement_get_clip_by_id(unsigned int track_idx, unsigned long long clip_id, void* out_info);
+    void daw_arrangement_free_clip_info(void* info);
+    double daw_arrangement_total_duration();
+    int daw_arrangement_can_move_to(unsigned int track_idx, unsigned long long clip_id, double new_start, double duration);
+    unsigned int daw_arrangement_clips_in_range(unsigned int track_idx, double start_beat, double end_beat, unsigned long long* out_ids, unsigned int max_count);
+    unsigned long long daw_arrangement_clip_at_beat(unsigned int track_idx, double beat);
+    unsigned int daw_arrangement_active_clips(double beat, unsigned long long* out_ids, unsigned int max_count);
+}
 
 // Time Signature FFI structures (match Rust TimeSignatureInfo and BarBeatResult)
 #pragma pack(push, 1)
@@ -220,6 +228,18 @@ struct TempoBreakpointFFI {
     double beat;
     double bpm;
     int interpolation; // 0=step, 1=linear, 2=exponential, 3=smooth
+};
+#pragma pack(pop)
+
+// Arrangement FFI structure (matches Rust ArrangementClipInfo)
+#pragma pack(push, 1)
+struct ArrangementClipInfoFFI {
+    unsigned long long id;
+    unsigned int track_index;
+    double start_beat;
+    double duration_beats;
+    const char* name;
+    int is_audio;
 };
 #pragma pack(pop)
 
@@ -917,16 +937,8 @@ extern "C" {
     int daw_midi_quantize(const void* notes_in, int note_count, float grid_division, void* notes_out);
     int daw_midi_transpose(const void* notes_in, int note_count, int semitones, void* notes_out);
     int daw_midi_scale_velocity(const void* notes_in, int note_count, float scale, void* notes_out);
-    int daw_midi_duplicate_clip(int from_track, int from_scene, int to_track, int to_scene);
+    int daw_midi_duplicate_clip(void* engine, int from_track, int from_scene, int to_track, int to_scene);
 }
-
-// Helper struct matching Rust FFI format
-struct MidiNoteFFI {
-    int pitch;
-    int velocity;
-    float start_beat;
-    float duration_beats;
-};
 
 std::vector<EngineBridge::MidiNoteData> EngineBridge::quantizeMidiNotes(
     const std::vector<MidiNoteData>& notes, float gridDivision)
@@ -1024,14 +1036,12 @@ std::vector<EngineBridge::MidiNoteData> EngineBridge::scaleMidiVelocities(
 
 bool EngineBridge::duplicateMidiClip(int fromTrack, int fromScene, int toTrack, int toScene)
 {
-    if (!initialized) {
+    if (!initialized || rustEngine == nullptr) {
         DBG("EngineBridge::duplicateMidiClip() - engine not initialized!");
         return false;
     }
     
-    daw_midi_edit_init();
-    
-    int result = daw_midi_duplicate_clip(fromTrack, fromScene, toTrack, toScene);
+    int result = daw_midi_duplicate_clip(rustEngine, fromTrack, fromScene, toTrack, toScene);
     return result == 0;
 }
 
@@ -1651,7 +1661,7 @@ bool EngineBridge::setActiveLoopRegion(const juce::String& id)
     return daw_loop_set_active_region(idUtf8.getAddress()) == 0;
 }
 
-bool EngineBridge::isLoopingEnabled()
+bool EngineBridge::isLoopingEnabled() const
 {
     return daw_loop_is_looping_enabled() == 1;
 }
@@ -1670,54 +1680,6 @@ double EngineBridge::shouldLoopAtBeat(double beat) const
 bool EngineBridge::getLoopBoundaries(double beat, double& outStart, double& outEnd) const
 {
     return daw_loop_get_boundaries(beat, &outStart, &outEnd) == 0;
-}
-
-// Convenience methods for getting active loop boundaries
-
-int EngineBridge::getLoopRegionCount() const
-{
-    return daw_loop_get_region_count();
-}
-
-EngineBridge::LoopRegion EngineBridge::getLoopRegionAt(int index) const
-{
-    LoopRegion result;
-    LoopRegionInfoFFI ffiInfo;
-    if (daw_loop_get_region_at(index, &ffiInfo) == 0)
-    {
-        if (ffiInfo.id != nullptr)
-            result.id = juce::String(ffiInfo.id);
-        if (ffiInfo.name != nullptr)
-            result.name = juce::String(ffiInfo.name);
-        result.startBeat = ffiInfo.start_beat;
-        result.endBeat = ffiInfo.end_beat;
-        result.enabled = ffiInfo.enabled != 0;
-        if (ffiInfo.color != nullptr)
-            result.color = juce::String(ffiInfo.color);
-        daw_loop_free_region_info(&ffiInfo);
-    }
-    return result;
-}
-
-EngineBridge::LoopRegion EngineBridge::getLoopRegionById(const juce::String& id) const
-{
-    LoopRegion result;
-    LoopRegionInfoFFI ffiInfo;
-    auto idUtf8 = id.toUTF8();
-    if (daw_loop_get_region_by_id(idUtf8.getAddress(), &ffiInfo) == 0)
-    {
-        if (ffiInfo.id != nullptr)
-            result.id = juce::String(ffiInfo.id);
-        if (ffiInfo.name != nullptr)
-            result.name = juce::String(ffiInfo.name);
-        result.startBeat = ffiInfo.start_beat;
-        result.endBeat = ffiInfo.end_beat;
-        result.enabled = ffiInfo.enabled != 0;
-        if (ffiInfo.color != nullptr)
-            result.color = juce::String(ffiInfo.color);
-        daw_loop_free_region_info(&ffiInfo);
-    }
-    return result;
 }
 
 std::vector<EngineBridge::LoopRegion> EngineBridge::getAllLoopRegions()
@@ -1946,4 +1908,230 @@ void EngineBridge::updateTempoBreakpoint(double oldBeat, double newBeat, double 
     // Remove old breakpoint and add new one at updated position
     removeTempoBreakpoint(oldBeat);
     addTempoBreakpoint(newBeat, newBpm, interpolation);
+}
+
+// ============================================================================
+// Arrangement View (Phase 10.5)
+// ============================================================================
+
+void EngineBridge::initArrangement(uint32_t trackCount)
+{
+    daw_arrangement_init(static_cast<unsigned int>(trackCount));
+}
+
+void EngineBridge::resetArrangement()
+{
+    daw_arrangement_reset();
+}
+
+uint32_t EngineBridge::getArrangementTrackCount()
+{
+    return static_cast<uint32_t>(daw_arrangement_track_count());
+}
+
+EngineBridge::ArrangementClipInfo EngineBridge::addMidiClipToArrangement(uint32_t trackIndex, double startBeat, const juce::String& name, double durationBars)
+{
+    ArrangementClipInfo result;
+    
+    uint64_t id = daw_arrangement_add_midi_clip(
+        static_cast<unsigned int>(trackIndex),
+        startBeat,
+        name.toRawUTF8(),
+        durationBars
+    );
+    
+    if (id != 0)
+    {
+        result = getArrangementClipById(trackIndex, id);
+    }
+    
+    return result;
+}
+
+EngineBridge::ArrangementClipInfo EngineBridge::addAudioClipToArrangement(uint32_t trackIndex, double startBeat, const juce::String& name, double durationBars, const juce::String& filePath)
+{
+    ArrangementClipInfo result;
+    
+    uint64_t id = daw_arrangement_add_audio_clip(
+        static_cast<unsigned int>(trackIndex),
+        startBeat,
+        name.toRawUTF8(),
+        durationBars,
+        filePath.toRawUTF8()
+    );
+    
+    if (id != 0)
+    {
+        result = getArrangementClipById(trackIndex, id);
+    }
+    
+    return result;
+}
+
+bool EngineBridge::removeClipFromArrangement(uint32_t trackIndex, uint64_t clipId)
+{
+    int result = daw_arrangement_remove_clip(
+        static_cast<unsigned int>(trackIndex),
+        clipId
+    );
+    return result == 0;
+}
+
+bool EngineBridge::moveClipInArrangement(uint32_t fromTrack, uint64_t clipId, uint32_t toTrack, double newStart)
+{
+    int result = daw_arrangement_move_clip(
+        static_cast<unsigned int>(fromTrack),
+        clipId,
+        static_cast<unsigned int>(toTrack),
+        newStart
+    );
+    return result == 0;
+}
+
+bool EngineBridge::resizeClipInArrangement(uint32_t trackIndex, uint64_t clipId, double newDuration)
+{
+    int result = daw_arrangement_resize_clip(
+        static_cast<unsigned int>(trackIndex),
+        clipId,
+        newDuration
+    );
+    return result == 0;
+}
+
+uint32_t EngineBridge::getArrangementClipCount(uint32_t trackIndex)
+{
+    return static_cast<uint32_t>(daw_arrangement_clip_count(static_cast<unsigned int>(trackIndex)));
+}
+
+uint32_t EngineBridge::getArrangementTotalClipCount()
+{
+    return static_cast<uint32_t>(daw_arrangement_total_clip_count());
+}
+
+std::vector<EngineBridge::ArrangementClipInfo> EngineBridge::getAllArrangementClips(uint32_t trackIndex)
+{
+    std::vector<ArrangementClipInfo> result;
+    
+    uint32_t count = getArrangementClipCount(trackIndex);
+    result.reserve(count);
+    
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        ArrangementClipInfoFFI ffiInfo;
+        int ffiResult = daw_arrangement_get_clip_at(
+            static_cast<unsigned int>(trackIndex),
+            i,
+            &ffiInfo
+        );
+        
+        if (ffiResult == 0)
+        {
+            ArrangementClipInfo info;
+            info.id = ffiInfo.id;
+            info.trackIndex = ffiInfo.track_index;
+            info.startBeat = ffiInfo.start_beat;
+            info.durationBeats = ffiInfo.duration_beats;
+            info.name = juce::String(ffiInfo.name);
+            info.isAudio = ffiInfo.is_audio != 0;
+            result.push_back(info);
+            
+            // Free the allocated name string
+            daw_arrangement_free_clip_info(&ffiInfo);
+        }
+    }
+    
+    return result;
+}
+
+EngineBridge::ArrangementClipInfo EngineBridge::getArrangementClipById(uint32_t trackIndex, uint64_t clipId)
+{
+    ArrangementClipInfo result;
+    
+    ArrangementClipInfoFFI ffiInfo;
+    int ffiResult = daw_arrangement_get_clip_by_id(
+        static_cast<unsigned int>(trackIndex),
+        clipId,
+        &ffiInfo
+    );
+    
+    if (ffiResult == 0)
+    {
+        result.id = ffiInfo.id;
+        result.trackIndex = ffiInfo.track_index;
+        result.startBeat = ffiInfo.start_beat;
+        result.durationBeats = ffiInfo.duration_beats;
+        result.name = juce::String(ffiInfo.name);
+        result.isAudio = ffiInfo.is_audio != 0;
+        
+        // Free the allocated name string
+        daw_arrangement_free_clip_info(&ffiInfo);
+    }
+    
+    return result;
+}
+
+double EngineBridge::getArrangementTotalDuration()
+{
+    return daw_arrangement_total_duration();
+}
+
+bool EngineBridge::canMoveClipTo(uint32_t trackIndex, uint64_t clipId, double newStart, double duration)
+{
+    int result = daw_arrangement_can_move_to(
+        static_cast<unsigned int>(trackIndex),
+        clipId,
+        newStart,
+        duration
+    );
+    return result == 1;
+}
+
+std::vector<uint64_t> EngineBridge::getArrangementClipsInRange(uint32_t trackIndex, double startBeat, double endBeat)
+{
+    std::vector<uint64_t> result;
+    
+    uint64_t ids[64];  // Max 64 clips in range
+    unsigned int count = daw_arrangement_clips_in_range(
+        static_cast<unsigned int>(trackIndex),
+        startBeat,
+        endBeat,
+        ids,
+        64
+    );
+    
+    result.reserve(count);
+    for (unsigned int i = 0; i < count; ++i)
+    {
+        result.push_back(ids[i]);
+    }
+    
+    return result;
+}
+
+uint64_t EngineBridge::getArrangementClipAtBeat(uint32_t trackIndex, double beat)
+{
+    return daw_arrangement_clip_at_beat(
+        static_cast<unsigned int>(trackIndex),
+        beat
+    );
+}
+
+std::vector<uint64_t> EngineBridge::getActiveArrangementClips(double beat)
+{
+    std::vector<uint64_t> result;
+    
+    uint64_t ids[64];  // Max 64 active clips
+    unsigned int count = daw_arrangement_active_clips(
+        beat,
+        ids,
+        64
+    );
+    
+    result.reserve(count);
+    for (unsigned int i = 0; i < count; ++i)
+    {
+        result.push_back(ids[i]);
+    }
+    
+    return result;
 }

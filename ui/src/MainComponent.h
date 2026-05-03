@@ -7,6 +7,8 @@
 #include "Transport/LoopMarkersComponent.h"
 #include "Transport/TimeSignatureTrack.h"
 #include "Transport/TempoAutomationTrack.h"
+#include "Arrangement/ArrangementTrack.h"
+#include "Arrangement/ClipEditorDialog.h"
 #include "Mixer/MixerPanel.h"
 #include "Recording/RecordingPanel.h"
 #include "Project/ProjectManager.h"
@@ -26,7 +28,7 @@ public:
 
     juce::StringArray getMenuBarNames() override
     {
-        return { "File", "View", "Tools" };
+        return { "File", "Edit", "View", "Tools" };
     }
 
     juce::PopupMenu getMenuForIndex(int menuIndex, const juce::String& menuName) override;
@@ -40,11 +42,14 @@ public:
     std::function<void()> onExit;
     std::function<void()> onToggleSunoBrowser;
     std::function<void()> onTogglePluginBrowser;
+    std::function<void()> onToggleArrangementView;
     std::function<void()> onGeneratePattern;
     std::function<void()> onExportAudio;
+    std::function<void()> onDuplicateClip;
 
 private:
     juce::PopupMenu createFileMenu();
+    juce::PopupMenu createEditMenu();
     juce::PopupMenu createViewMenu();
     juce::PopupMenu createToolsMenu();
 
@@ -59,9 +64,12 @@ private:
         fileExit,
         viewSunoBrowser = 2001,
         viewPluginBrowser = 2002,
+        viewArrangement = 2003,
         viewMenu = 2000,
         toolsGeneratePattern = 3001,
-        toolsMenu = 3000
+        toolsMenu = 3000,
+        editDuplicateClip = 4001,
+        editMenu = 4000
     };
 };
 
@@ -90,9 +98,13 @@ private:
     std::unique_ptr<LoopMarkersComponent> loopMarkers;
     std::unique_ptr<RecordingPanel> recordingPanel;
     std::unique_ptr<SessionGridComponent> sessionGrid;
+    std::unique_ptr<ArrangementTrack> arrangementTrack;
     std::unique_ptr<MixerPanel> mixerPanel;
     std::unique_ptr<SunoBrowserComponent> sunoBrowser;
     std::unique_ptr<PluginBrowserComponent> pluginBrowser;
+    
+    // View state
+    bool showingArrangementView = false;
 
     // Layout dividers
     juce::StretchableLayoutManager verticalLayout;

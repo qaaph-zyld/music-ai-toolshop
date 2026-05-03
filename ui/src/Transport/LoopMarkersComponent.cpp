@@ -341,19 +341,39 @@ juce::PopupMenu LoopMarkersComponent::createRegionContextMenu(const LoopRegionVi
     });
 
     menu.addItem("Rename...", [this, &region]() {
-        juce::AlertWindow::showAsync(
-            juce::MessageBoxOptions()
-                .withIconType(juce::AlertWindow::QuestionIcon)
-                .withTitle("Rename Loop Region")
-                .withMessage("Enter new name:")
-                .withButton("OK")
-                .withButton("Cancel")
-                .withInputField("Name", region.name),
-            [this, &region](int result, const juce::String& newName) {
-                if (result == 1 && onRegionRenamed && !newName.isEmpty())
-                    onRegionRenamed(region.id, newName);
+        // JUCE async dialog for renaming loop region
+        auto alert = std::make_unique<juce::AlertWindow>(
+            "Rename Loop Region",
+            "Enter new name for the loop region:",
+            juce::AlertWindow::QuestionIcon, this);
+
+        alert->addTextEditor("name", region.name, "Name:");
+        alert->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+        alert->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+        auto callback = [this, regionId = region.id, alert = alert.get()](int result) mutable {
+            if (result == 1)
+            {
+                juce::String newName = alert->getTextEditorContents("name").trim();
+                
+                if (newName.isNotEmpty() && newName.length() <= 50)
+                {
+                    if (onRegionRenamed)
+                        onRegionRenamed(regionId, newName);
+                }
+                else if (newName.isEmpty())
+                {
+                    juce::AlertWindow::showMessageBoxAsync(
+                        juce::AlertWindow::WarningIcon,
+                        "Invalid Name",
+                        "Region name cannot be empty.",
+                        "OK", this);
+                }
             }
-        );
+        };
+
+        alert->enterModalState(true, juce::ModalCallbackFunction::create(callback));
+        alert.release();
     });
 
     menu.addSeparator();

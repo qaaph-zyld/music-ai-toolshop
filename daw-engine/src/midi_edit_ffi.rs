@@ -219,6 +219,86 @@ pub extern "C" fn daw_midi_get_clip_note_count(clip_id: c_int) -> c_int {
     0 // Placeholder
 }
 
+use crate::ffi_bridge::DawEngine;
+use std::ffi::c_void;
+
+/// Duplicate a MIDI clip to another location in the session
+/// 
+/// # Arguments
+/// * `engine_ptr` - Pointer to DawEngine instance
+/// * `from_track` - Source track index
+/// * `from_scene` - Source scene index  
+/// * `to_track` - Target track index
+/// * `to_scene` - Target scene index
+/// 
+/// # Returns
+/// 0 on success, -1 on error
+/// 
+/// # Safety
+/// engine_ptr must be a valid pointer to DawEngine instance
+#[no_mangle]
+pub unsafe extern "C" fn daw_midi_duplicate_clip(
+    engine_ptr: *mut c_void,
+    from_track: c_int,
+    from_scene: c_int,
+    to_track: c_int,
+    to_scene: c_int,
+) -> c_int {
+    // Validate pointers and indices
+    if engine_ptr.is_null() {
+        return -1;
+    }
+    if from_track < 0 || from_scene < 0 || to_track < 0 || to_scene < 0 {
+        return -1;
+    }
+    
+    let engine = &*(engine_ptr as *mut DawEngine);
+    
+    // Lock session for access
+    match engine.session().lock() {
+        Ok(mut session) => {
+            let from_track = from_track as usize;
+            let from_scene = from_scene as usize;
+            let to_track = to_track as usize;
+            let to_scene = to_scene as usize;
+            
+            // Check bounds
+            let track_count = session.track_count();
+            let scene_count = session.scene_count();
+            if from_track >= track_count || to_track >= track_count {
+                return -1;
+            }
+            if from_scene >= scene_count || to_scene >= scene_count {
+                return -1;
+            }
+            
+            // Get source clip
+            let source_notes: Vec<crate::MidiNote> = if let Some(source_clip) = session.get_clip(from_track, from_scene) {
+                // Check if it's a MIDI clip (has notes)
+                if !source_clip.is_midi() {
+                    return -1; // Cannot duplicate audio clips via MIDI function
+                }
+                source_clip.midi_notes().to_vec()
+            } else {
+                return -1; // No clip at source location
+            };
+            
+            // Get clip name for the duplicate
+            let name: String = session.get_clip(from_track, from_scene)
+                .map(|c: &crate::session::Clip| c.name().to_string())
+                .unwrap_or_else(|| "Duplicated Clip".to_string());
+            
+            // Create duplicate clip at destination
+            if session.create_midi_clip(to_track, to_scene, source_notes, &name) {
+                0 // Success
+            } else {
+                -1 // Failed to create clip
+            }
+        }
+        Err(_) => -1, // Failed to lock session
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

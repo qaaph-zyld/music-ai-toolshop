@@ -9,7 +9,7 @@
 //! use daw_engine::PerformanceAnalyzer;
 //!
 //! let mut analyzer = PerformanceAnalyzer::new();
-//! analyzer.baseline_mixer_8tracks();
+//! analyzer.measure(|| { /* code to measure */ });
 //! let report = analyzer.generate_report();
 //! ```
 

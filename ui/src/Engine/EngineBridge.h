@@ -78,14 +78,18 @@ public:
     LoopRegion getLoopRegionAt(int index) const;
     LoopRegion getLoopRegionById(const juce::String& id) const;
     bool setLoopRegionPosition(const juce::String& id, double startBeat, double endBeat);
+    bool updateLoopRegion(const juce::String& id, double start, double end);
     bool renameLoopRegion(const juce::String& id, const juce::String& newName);
     bool setLoopRegionEnabled(const juce::String& id, bool enabled);
     juce::String getActiveLoopRegionId() const;
     bool setActiveLoopRegion(const juce::String& id);
     bool isLoopingEnabled() const;
     void setLoopingEnabled(bool enabled);
-    bool shouldLoopAtBeat(double beat) const;  // Returns true if playback should rewind
+    double shouldLoopAtBeat(double beat) const;  // Returns loop point or -1.0
     bool getLoopBoundaries(double beat, double& outStart, double& outEnd) const;  // Returns true if in loop
+    double getLoopStart();
+    double getLoopEnd();
+    std::vector<LoopRegion> getAllLoopRegions();
 
     // Time Signature (Phase 10.4)
     struct TimeSignature {
@@ -261,6 +265,37 @@ public:
     bool movePluginInChain(int trackIndex, int fromSlot, int toSlot);
     bool setPluginBypass(int trackIndex, int slotIndex, bool bypassed);
     bool getPluginBypass(int trackIndex, int slotIndex);
+
+    // Arrangement View (Phase 10.5)
+    struct ArrangementClipInfo {
+        uint64_t id = 0;
+        uint32_t trackIndex = 0;
+        double startBeat = 0.0;
+        double durationBeats = 4.0;
+        juce::String name;
+        bool isAudio = false;
+        
+        bool isValid() const { return id != 0; }
+        double endBeat() const { return startBeat + durationBeats; }
+    };
+    
+    void initArrangement(uint32_t trackCount);
+    void resetArrangement();
+    uint32_t getArrangementTrackCount();
+    ArrangementClipInfo addMidiClipToArrangement(uint32_t trackIndex, double startBeat, const juce::String& name, double durationBars);
+    ArrangementClipInfo addAudioClipToArrangement(uint32_t trackIndex, double startBeat, const juce::String& name, double durationBars, const juce::String& filePath);
+    bool removeClipFromArrangement(uint32_t trackIndex, uint64_t clipId);
+    bool moveClipInArrangement(uint32_t fromTrack, uint64_t clipId, uint32_t toTrack, double newStart);
+    bool resizeClipInArrangement(uint32_t trackIndex, uint64_t clipId, double newDuration);
+    uint32_t getArrangementClipCount(uint32_t trackIndex);
+    uint32_t getArrangementTotalClipCount();
+    std::vector<ArrangementClipInfo> getAllArrangementClips(uint32_t trackIndex);
+    ArrangementClipInfo getArrangementClipById(uint32_t trackIndex, uint64_t clipId);
+    double getArrangementTotalDuration();
+    bool canMoveClipTo(uint32_t trackIndex, uint64_t clipId, double newStart, double duration);
+    std::vector<uint64_t> getArrangementClipsInRange(uint32_t trackIndex, double startBeat, double endBeat);
+    uint64_t getArrangementClipAtBeat(uint32_t trackIndex, double beat);
+    std::vector<uint64_t> getActiveArrangementClips(double beat);
 
     // Audio callbacks (called from audio thread)
     void getMeterLevels(std::vector<float>& levels); // Per-channel dB levels

@@ -28,6 +28,9 @@ juce_add_gui_app(OpenDAW
 target_sources(OpenDAW PRIVATE
     src/Main.cpp
     src/MainComponent.cpp
+    src/Arrangement/ArrangementClipComponent.cpp
+    src/Arrangement/ArrangementTrack.cpp
+    src/Arrangement/ClipEditorDialog.cpp
     src/Audio/AudioEngineComponent.cpp
     src/Project/ProjectManager.cpp
     src/SessionView/ClipSlotComponent.cpp
@@ -35,6 +38,9 @@ target_sources(OpenDAW PRIVATE
     src/SessionView/SceneLaunchComponent.cpp
     src/SessionView/SessionGridComponent.cpp
     src/Transport/TransportBar.cpp
+    src/Transport/TempoAutomationTrack.cpp
+    src/Transport/TimeSignatureTrack.cpp
+    src/Transport/LoopMarkersComponent.cpp
     src/Mixer/ChannelStrip.cpp
     src/Mixer/LevelMeterComponent.cpp
     src/Mixer/MixerPanel.cpp

@@ -1,7 +1,7 @@
 //! Project file format and serialization
 //!
 //! OpenDAW uses a `.opendaw` directory structure:
-//! ```
+//! ```text
 //! Project.opendaw/
 //! |-- project.json      # Tracks, scenes, tempo, settings
 //! |-- audio/            # Referenced audio files (copied)

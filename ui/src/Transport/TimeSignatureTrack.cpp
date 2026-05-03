@@ -1,5 +1,5 @@
 #include "TimeSignatureTrack.h"
-#include "EngineBridge.h"
+#include "../Engine/EngineBridge.h"
 
 TimeSignatureTrack::TimeSignatureTrack()
 {
@@ -230,67 +230,126 @@ juce::PopupMenu TimeSignatureTrack::createChangeContextMenu(const TimeSignatureC
 
 void TimeSignatureTrack::openEditDialog(const TimeSignatureChange& change)
 {
-    juce::AlertWindow::showAsync(
-        juce::MessageBoxOptions()
-            .withIconType(juce::AlertWindow::QuestionIcon)
-            .withTitle("Edit Time Signature")
-            .withMessage("Enter time signature (e.g., 3/4, 6/8):")
-            .withButton("OK")
-            .withButton("Cancel")
-            .withInputField("Signature", change.toString()),
-        [this, &change](int result, const juce::String& newSig) {
-            if (result == 1 && !newSig.isEmpty())
-            {
-                // Parse signature string (e.g., "3/4", "6/8")
-                auto parts = newSig.split('/');
-                if (parts.size() == 2)
-                {
-                    int num = parts[0].getIntValue();
-                    int den = parts[1].getIntValue();
+    // JUCE 7 async dialog with input field for editing time signature
+    auto options = juce::MessageBoxOptions()
+        .withIconType(juce::AlertWindow::QuestionIcon)
+        .withTitle("Edit Time Signature")
+        .withMessage("Enter new time signature (e.g., 4/4, 3/4, 6/8):")
+        .withButton("OK")
+        .withButton("Cancel")
+        .withAssociatedComponent(this);
 
-                    if (num >= 1 && num <= 32 && den >= 1 && den <= 32)
-                    {
-                        if (onChangeModified)
-                            onChangeModified(change.bar,
-                                           static_cast<uint8_t>(num),
-                                           static_cast<uint8_t>(den));
-                    }
-                }
+    juce::AlertWindow::showAsync(options, [this, change](int result) {
+        if (result == 1) // OK button
+        {
+            // For JUCE 7, we need to use a different approach with input fields
+            // Using AlertWindow directly with runModalLoop for input capability
+            showEditAlertWithInput(change);
+        }
+    });
+}
+
+void TimeSignatureTrack::showEditAlertWithInput(const TimeSignatureChange& change)
+{
+    auto alert = std::make_unique<juce::AlertWindow>(
+        "Edit Time Signature",
+        "Enter new time signature for bar " + juce::String(change.bar) + ":",
+        juce::AlertWindow::QuestionIcon, this);
+
+    alert->addTextEditor("timeSig", change.toString(), "Time Signature:");
+    alert->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    alert->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+    auto callback = [this, change, alert = alert.get()](int result) mutable {
+        if (result == 1)
+        {
+            juce::String input = alert->getTextEditorContents("timeSig").trim();
+            
+            uint8_t newNum = 0, newDenom = 0;
+            if (parseTimeSignature(input, newNum, newDenom))
+            {
+                if (onChangeModified)
+                    onChangeModified(change.bar, newNum, newDenom);
+            }
+            else
+            {
+                // Show error
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::AlertWindow::WarningIcon,
+                    "Invalid Time Signature",
+                    "Please enter a valid time signature like '4/4', '3/4', or '6/8'.",
+                    "OK", this);
             }
         }
-    );
+    };
+
+    alert->enterModalState(true, juce::ModalCallbackFunction::create(callback));
+    alert.release();
+}
+
+bool TimeSignatureTrack::parseTimeSignature(const juce::String& input, uint8_t& numerator, uint8_t& denominator)
+{
+    juce::String trimmed = input.trim();
+    
+    // Handle formats like "4/4", "3 / 4", "6/8"
+    if (trimmed.contains("/"))
+    {
+        auto parts = juce::StringArray::fromTokens(trimmed, "/", "");
+        if (parts.size() == 2)
+        {
+            int num = parts[0].trim().getIntValue();
+            int denom = parts[1].trim().getIntValue();
+            
+            // Validate reasonable time signature values
+            if (num >= 1 && num <= 32 && denom >= 1 && denom <= 64)
+            {
+                numerator = static_cast<uint8_t>(num);
+                denominator = static_cast<uint8_t>(denom);
+                return true;
+            }
+        }
+    }
+    
+    return false;
 }
 
 void TimeSignatureTrack::openAddDialog(uint32_t bar)
 {
-    juce::AlertWindow::showAsync(
-        juce::MessageBoxOptions()
-            .withIconType(juce::AlertWindow::QuestionIcon)
-            .withTitle("Add Time Signature Change")
-            .withMessage("Add time signature at bar " + juce::String(bar) + ":")
-            .withButton("Add")
-            .withButton("Cancel")
-            .withInputField("Signature", "4/4"),
-        [this, bar](int result, const juce::String& sig) {
-            if (result == 1 && !sig.isEmpty())
-            {
-                // Parse signature string
-                auto parts = sig.split('/');
-                if (parts.size() == 2)
-                {
-                    int num = parts[0].getIntValue();
-                    int den = parts[1].getIntValue();
+    // JUCE async dialog for adding new time signature
+    auto alert = std::make_unique<juce::AlertWindow>(
+        "Add Time Signature",
+        "Enter time signature for bar " + juce::String(bar) + ":",
+        juce::AlertWindow::QuestionIcon, this);
 
-                    if (num >= 1 && num <= 32 && den >= 1 && den <= 32)
-                    {
-                        addTimeSignatureChange(bar,
-                                            static_cast<uint8_t>(num),
-                                            static_cast<uint8_t>(den));
-                    }
-                }
+    alert->addTextEditor("timeSig", "4/4", "Time Signature:");
+    alert->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    alert->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+    auto callback = [this, bar, alert = alert.get()](int result) mutable {
+        if (result == 1)
+        {
+            juce::String input = alert->getTextEditorContents("timeSig").trim();
+            
+            uint8_t newNum = 0, newDenom = 0;
+            if (parseTimeSignature(input, newNum, newDenom))
+            {
+                if (onChangeAdded)
+                    onChangeAdded(bar, newNum, newDenom);
+            }
+            else
+            {
+                // Show error
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::AlertWindow::WarningIcon,
+                    "Invalid Time Signature",
+                    "Please enter a valid time signature like '4/4', '3/4', or '6/8'.",
+                    "OK", this);
             }
         }
-    );
+    };
+
+    alert->enterModalState(true, juce::ModalCallbackFunction::create(callback));
+    alert.release();
 }
 
 float TimeSignatureTrack::barToX(uint32_t bar) const

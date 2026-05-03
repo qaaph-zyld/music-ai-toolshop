@@ -22,6 +22,7 @@ PluginBrowserComponent::PluginBrowserComponent()
     pluginTable.setColour(juce::ListBox::outlineColourId, juce::Colours::grey);
     pluginTable.setOutlineThickness(1);
     pluginTable.setMultipleSelectionEnabled(false);
+    pluginTable.addMouseListener(this, false);  // Add mouse listener for drag and double-click
 
     // Add columns
     pluginTable.getHeader().addColumn("Name", NameColumn, 150, 80, 300, juce::TableHeaderComponent::defaultFlags);
@@ -199,6 +200,38 @@ juce::String PluginBrowserComponent::formatToString(int format) const
         case 1: return "AU";
         case 2: return "Internal";
         default: return "Unknown";
+    }
+}
+
+// ============================================================================
+// Mouse events (for table drag and double-click)
+// ============================================================================
+
+void PluginBrowserComponent::mouseDrag(const juce::MouseEvent& event)
+{
+    // Check if the event originated from the table
+    if (event.eventComponent != &pluginTable)
+        return;
+
+    auto rowIndex = pluginTable.getRowContainingPosition(event.getPosition().x, event.getPosition().y);
+    if (rowIndex >= 0 && rowIndex < static_cast<int>(filteredPlugins.size()))
+    {
+        startDrag(rowIndex);
+    }
+}
+
+void PluginBrowserComponent::mouseDoubleClick(const juce::MouseEvent& event)
+{
+    // Check if the event originated from the table
+    if (event.eventComponent != &pluginTable)
+        return;
+
+    auto rowIndex = pluginTable.getRowContainingPosition(event.getPosition().x, event.getPosition().y);
+    if (rowIndex >= 0 && rowIndex < static_cast<int>(filteredPlugins.size()))
+    {
+        // Trigger callback with selected plugin
+        if (onPluginSelected)
+            onPluginSelected(filteredPlugins[rowIndex]);
     }
 }
 

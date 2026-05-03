@@ -22,8 +22,10 @@ juce::PopupMenu MainMenuBarModel::getMenuForIndex(int menuIndex, const juce::Str
     if (menuIndex == 0)
         return createFileMenu();
     else if (menuIndex == 1)
-        return createViewMenu();
+        return createEditMenu();
     else if (menuIndex == 2)
+        return createViewMenu();
+    else if (menuIndex == 3)
         return createToolsMenu();
 
     return {};
@@ -49,7 +51,15 @@ juce::PopupMenu MainMenuBarModel::createViewMenu()
 {
     juce::PopupMenu menu;
     menu.addItem(viewSunoBrowser, "Suno Library");
-    menu.addItem(viewPluginBrowser, "Plugin Browser", true, false, juce::KeyPress('P', juce::ModifierKeys::ctrlModifier | juce::ModifierKeys::shiftModifier, 0));
+    menu.addItem(viewPluginBrowser, "Plugin Browser");
+    menu.addItem(viewArrangement, "Arrangement View");
+    return menu;
+}
+
+juce::PopupMenu MainMenuBarModel::createEditMenu()
+{
+    juce::PopupMenu menu;
+    menu.addItem(editDuplicateClip, "Duplicate Clip\tCtrl+D");
     return menu;
 }
 
@@ -98,9 +108,17 @@ void MainMenuBarModel::menuItemSelected(int menuItemID, int topLevelMenuIndex)
             if (onTogglePluginBrowser)
                 onTogglePluginBrowser();
             break;
+        case viewArrangement:
+            if (onToggleArrangementView)
+                onToggleArrangementView();
+            break;
         case toolsGeneratePattern:
             if (onGeneratePattern)
                 onGeneratePattern();
+            break;
+        case editDuplicateClip:
+            if (onDuplicateClip)
+                onDuplicateClip();
             break;
         default:
             break;
@@ -176,6 +194,12 @@ MainComponent::MainComponent()
     addAndMakeVisible(sessionGrid.get());
     std::cout << "MainComponent: SessionGrid created" << std::endl;
 
+    std::cout << "MainComponent: Creating ArrangementTrack..." << std::endl;
+    arrangementTrack = std::make_unique<ArrangementTrack>();
+    arrangementTrack->setVisible(false);  // Hidden by default (Session View is primary)
+    addAndMakeVisible(arrangementTrack.get());
+    std::cout << "MainComponent: ArrangementTrack created" << std::endl;
+
     std::cout << "MainComponent: Creating MixerPanel..." << std::endl;
     mixerPanel = std::make_unique<MixerPanel>(8);
     addAndMakeVisible(mixerPanel.get());
@@ -235,6 +259,27 @@ MainComponent::MainComponent()
         }
     };
 
+    menuBarModel->onToggleArrangementView = [this]() {
+        if (arrangementTrack && sessionGrid)
+        {
+            showingArrangementView = !showingArrangementView;
+            arrangementTrack->setVisible(showingArrangementView);
+            sessionGrid->setVisible(!showingArrangementView);
+            
+            // Initialize arrangement on first show
+            if (showingArrangementView)
+            {
+                auto& engine = EngineBridge::getInstance();
+                engine.initArrangement(8);
+                
+                // Sync playhead position
+                arrangementTrack->setPlayheadPosition(engine.getCurrentBeat());
+            }
+            
+            resized();
+        }
+    };
+
     // Wire up File menu - Export Audio
     menuBarModel->onExportAudio = [this]() {
         auto dialog = std::make_unique<ExportDialog>(this);
@@ -246,6 +291,29 @@ MainComponent::MainComponent()
             );
         };
         dialog.release();
+    };
+
+    // Wire up Edit menu - Duplicate Clip
+    menuBarModel->onDuplicateClip = [this]() {
+        auto& engine = EngineBridge::getInstance();
+        
+        // Get selected clip from session grid (track 0, scene 0 for now)
+        int fromTrack = 0;
+        int fromScene = 0;
+        int toTrack = 0;
+        int toScene = 1;  // Duplicate to next scene
+        
+        if (engine.duplicateMidiClip(fromTrack, fromScene, toTrack, toScene))
+        {
+            // Update UI to show duplicated clip
+            sessionGrid->setClip(toTrack, toScene, "Duplicated Clip", juce::Colours::green);
+            std::cout << "MainComponent: Clip duplicated from (" << fromTrack << "," << fromScene 
+                      << ") to (" << toTrack << "," << toScene << ")" << std::endl;
+        }
+        else
+        {
+            std::cerr << "MainComponent: Failed to duplicate clip" << std::endl;
+        }
     };
 
     // Wire up Tools menu - Phase 8.3
@@ -482,6 +550,167 @@ MainComponent::MainComponent()
         refreshTempoBreakpoints();
     }
 
+    // Wire up ArrangementTrack callbacks - Phase 10.5
+    auto refreshArrangementClips = [this]() {
+        auto& engine = EngineBridge::getInstance();
+        
+        arrangementTrack->clearAllClips();
+        
+        uint32_t trackCount = engine.getArrangementTrackCount();
+        for (uint32_t trackIdx = 0; trackIdx < trackCount; ++trackIdx)
+        {
+            auto clips = engine.getAllArrangementClips(trackIdx);
+            for (const auto& clip : clips)
+            {
+                ArrangementClipInfo info;
+                info.id = clip.id;
+                info.trackIndex = clip.trackIndex;
+                info.startBeat = clip.startBeat;
+                info.durationBeats = clip.durationBeats;
+                info.name = juce::String(clip.name);
+                info.isAudio = clip.isAudio;
+                arrangementTrack->addClip(info);
+            }
+        }
+    };
+    
+    arrangementTrack->onClipAdded = [this, refreshArrangementClips](int trackIdx, double startBeat, const juce::String& name, bool isAudio) {
+        auto& engine = EngineBridge::getInstance();
+        
+        if (isAudio)
+        {
+            engine.addAudioClipToArrangement(trackIdx, startBeat, name, 4.0, "");
+        }
+        else
+        {
+            engine.addMidiClipToArrangement(trackIdx, startBeat, name, 4.0);
+        }
+        refreshArrangementClips();
+    };
+    
+    arrangementTrack->onClipRemoved = [this, refreshArrangementClips](uint64_t clipId) {
+        auto& engine = EngineBridge::getInstance();
+        
+        // Find which track contains this clip
+        uint32_t trackCount = engine.getArrangementTrackCount();
+        for (uint32_t trackIdx = 0; trackIdx < trackCount; ++trackIdx)
+        {
+            auto clips = engine.getAllArrangementClips(trackIdx);
+            for (const auto& clip : clips)
+            {
+                if (clip.id == clipId)
+                {
+                    engine.removeClipFromArrangement(trackIdx, clipId);
+                    refreshArrangementClips();
+                    return;
+                }
+            }
+        }
+    };
+    
+    arrangementTrack->onClipMoved = [this, refreshArrangementClips](uint64_t clipId, int newTrackIdx, double newStartBeat) {
+        auto& engine = EngineBridge::getInstance();
+        
+        // Find current track and move clip
+        uint32_t trackCount = engine.getArrangementTrackCount();
+        for (uint32_t trackIdx = 0; trackIdx < trackCount; ++trackIdx)
+        {
+            auto clips = engine.getAllArrangementClips(trackIdx);
+            for (const auto& clip : clips)
+            {
+                if (clip.id == clipId)
+                {
+                    engine.moveClipInArrangement(trackIdx, clipId, newTrackIdx, newStartBeat);
+                    refreshArrangementClips();
+                    return;
+                }
+            }
+        }
+    };
+    
+    arrangementTrack->onClipResized = [this, refreshArrangementClips](uint64_t clipId, double newDuration) {
+        auto& engine = EngineBridge::getInstance();
+        
+        // Find which track contains this clip
+        uint32_t trackCount = engine.getArrangementTrackCount();
+        for (uint32_t trackIdx = 0; trackIdx < trackCount; ++trackIdx)
+        {
+            auto clips = engine.getAllArrangementClips(trackIdx);
+            for (const auto& clip : clips)
+            {
+                if (clip.id == clipId)
+                {
+                    engine.resizeClipInArrangement(trackIdx, clipId, newDuration);
+                    refreshArrangementClips();
+                    return;
+                }
+            }
+        }
+    };
+    
+    arrangementTrack->onClipSelected = [this](uint64_t clipId) {
+        (void)clipId;
+        // Handle clip selection - could show clip info or properties
+    };
+    
+    arrangementTrack->onClipDoubleClicked = [this](uint64_t clipId) {
+        // Find the clip info
+        auto& engine = EngineBridge::getInstance();
+        uint32_t trackCount = engine.getArrangementTrackCount();
+        EngineBridge::ArrangementClipInfo clipInfo;
+        bool found = false;
+        
+        for (uint32_t trackIdx = 0; trackIdx < trackCount && !found; ++trackIdx)
+        {
+            auto clips = engine.getAllArrangementClips(trackIdx);
+            for (const auto& clip : clips)
+            {
+                if (clip.id == clipId)
+                {
+                    clipInfo = clip;
+                    found = true;
+                    break;
+                }
+            }
+        }
+        
+        if (found)
+        {
+            auto dialog = std::make_unique<ClipEditorDialog>(this, clipInfo);
+            dialog->onClipEdited = [this, clipId](const juce::String& newName, juce::Colour newColor, bool isAudio) {
+                (void)newColor;
+                (void)isAudio;
+                // TODO: Update clip name in engine via EngineBridge
+                std::cout << "Clip " << (int64_t)clipId << " renamed to: " << newName.toStdString() << std::endl;
+            };
+            dialog.release();  // Dialog self-destructs when closed
+        }
+    };
+    
+    arrangementTrack->onEmptyAreaDoubleClicked = [this, refreshArrangementClips](double beat, int trackIdx) {
+        // Add a MIDI clip at the clicked position
+        auto& engine = EngineBridge::getInstance();
+        engine.addMidiClipToArrangement(trackIdx, beat, "New Clip", 4.0);
+        refreshArrangementClips();
+    };
+    
+    // Session H: Wire up session clip dropped callback
+    arrangementTrack->onSessionClipDropped = [this, refreshArrangementClips](int sourceTrack, int sourceScene, int targetTrack, double targetBeat) {
+        auto& engine = EngineBridge::getInstance();
+        
+        // Create a clip in the arrangement based on session clip
+        // Use session grid clip name if available
+        juce::String clipName = "Session Clip " + juce::String(sourceTrack + 1) + "." + juce::String(sourceScene + 1);
+        
+        // Add as MIDI clip for now (could be enhanced to detect audio clips)
+        engine.addMidiClipToArrangement(targetTrack, targetBeat, clipName, 4.0);
+        
+        std::cout << "Session clip dropped: track " << sourceTrack << " scene " << sourceScene 
+                  << " -> arrangement track " << targetTrack << " beat " << targetBeat << std::endl;
+        
+        refreshArrangementClips();
+    };
+
     // Wire up import callback - Phase 8.5 (Complete with audio loading)
     sunoBrowser->onTrackImported = [this](const juce::String& trackId, int track, int scene, const juce::String& audioFilePath) {
         juce::Colour clipColor = juce::Colours::orange;
@@ -623,6 +852,16 @@ bool MainComponent::keyPressed(const juce::KeyPress& key)
         if (projectManager)
         {
             projectManager->saveProjectAs(this);
+            return true;
+        }
+    }
+
+    // Ctrl+D - Duplicate Clip
+    if (key == juce::KeyPress('d', juce::ModifierKeys::ctrlModifier, 0))
+    {
+        if (menuBarModel->onDuplicateClip)
+        {
+            menuBarModel->onDuplicateClip();
             return true;
         }
     }

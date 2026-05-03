@@ -5,9 +5,9 @@
 //!
 //! ## Usage
 //!
-//! ```rust
-//! use daw_engine::profiler::{profile_scope, plot_value, frame_mark};
-//!
+//! ```rust,ignore
+//! // Macros are available at crate root when tracy feature enabled
+//! # use daw_engine::*;
 //! fn process_audio() {
 //!     profile_scope!("audio_process");
 //!     

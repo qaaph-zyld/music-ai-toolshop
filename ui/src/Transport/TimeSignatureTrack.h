@@ -72,6 +72,10 @@ private:
     void openEditDialog(const TimeSignatureChange& change);
     void openAddDialog(uint32_t bar);
 
+    // Dialog helpers
+    void showEditAlertWithInput(const TimeSignatureChange& change);
+    bool parseTimeSignature(const juce::String& input, uint8_t& numerator, uint8_t& denominator);
+
     // Coordinate conversions
     float barToX(uint32_t bar) const;
     uint32_t xToBar(float x) const;

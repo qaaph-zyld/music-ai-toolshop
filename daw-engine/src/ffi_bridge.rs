@@ -129,6 +129,13 @@ pub struct DawEngine {
     command_sender: Sender<EngineCommand>,
 }
 
+impl DawEngine {
+    /// Get access to the session view (for internal crate use)
+    pub(crate) fn session(&self) -> &Arc<Mutex<SessionView>> {
+        &self._session
+    }
+}
+
 /// Commands sent from UI to engine
 #[derive(Debug, Clone)]
 pub enum EngineCommand {
