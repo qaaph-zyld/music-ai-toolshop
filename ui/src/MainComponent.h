@@ -53,6 +53,7 @@ public:
     std::function<void()> onGeneratePattern;
     std::function<void()> onExportAudio;
     std::function<void()> onDuplicateClip;
+    std::function<void()> onVocalCleanup;
 
 private:
     juce::PopupMenu createFileMenu();
@@ -74,6 +75,7 @@ private:
         viewArrangement = 2003,
         viewMenu = 2000,
         toolsGeneratePattern = 3001,
+        toolsVocalCleanup = 3002,
         toolsMenu = 3000,
         editDuplicateClip = 4001,
         editMenu = 4000
@@ -122,9 +124,9 @@ private:
     std::unique_ptr<PluginBrowserComponent> pluginBrowser;
     
     // Onboarding (Session Z)
-    std::unique_ptr<class WelcomeDialog> welcomeDialog;
-    std::unique_ptr<class AudioTestDialog> audioTestDialog;
-    std::unique_ptr<class TutorialOverlay> tutorialOverlay;
+    std::unique_ptr<OpenDAW::WelcomeDialog> welcomeDialog;
+    std::unique_ptr<OpenDAW::AudioTestDialog> audioTestDialog;
+    std::unique_ptr<OpenDAW::TutorialOverlay> tutorialOverlay;
     
     // View state
     bool showingArrangementView = false;

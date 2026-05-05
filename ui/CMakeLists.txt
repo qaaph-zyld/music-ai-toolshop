@@ -54,6 +54,13 @@ target_sources(OpenDAW PRIVATE
     src/PatternGen/PatternGeneratorDialog.cpp
     src/PluginBrowser/PluginBrowserComponent.cpp
     src/PluginChain/PluginChainDialog.cpp
+    src/Onboarding/WelcomeDialog.cpp
+    src/Onboarding/AudioTestDialog.cpp
+    src/Onboarding/TutorialOverlay.cpp
+    src/Onboarding/OnboardingComponent.cpp
+    src/Settings/SettingsManager.cpp
+    src/Project/DemoProjectLoader.cpp
+    src/Tools/VocalCleanupDialog.cpp
 )
 
 # Include directories

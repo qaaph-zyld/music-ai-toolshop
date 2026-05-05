@@ -65,6 +65,8 @@ pub mod api_server;
 pub mod musicgen;
 pub mod stem_separation;
 pub mod mmm;
+pub mod vocal_cleanup;
+pub mod vocal_cleanup_ffi;
 
 // === FFI Layer (Rust → C++ JUCE) ===
 pub mod ffi_bridge;
@@ -119,3 +121,5 @@ pub use api_server::start_server;
 pub use profiler::{Profiler, CpuUsageTracker};
 pub use profiler_config::{ProfilerConfig, init_from_env};
 pub use performance_analysis::{PerformanceAnalyzer, PerformanceMetrics, PerformanceReport, TimingCollector, BaselineMeasurements};
+pub use vocal_cleanup::{VocalCleanupProcessor, VocalCleanupSettings, VocalCleanupResult, VocalCleanupError};
+pub use vocal_cleanup_ffi::{VocalCleanupSettingsFFI, VocalCleanupResultFFI, vocal_cleanup_is_available, vocal_cleanup_process, vocal_cleanup_preview, vocal_cleanup_settings_default};

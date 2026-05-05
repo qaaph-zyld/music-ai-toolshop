@@ -1,8 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OpenDAW Windows Installer
+  
+  Build with: build-installer.ps1
+  
+  Variables expected:
+    $(var.SourceDir)     - Directory containing staged files
+    $(var.UIBuildDir)    - Directory containing OpenDAW.exe
+    $(var.EngineBuildDir) - Directory containing daw_engine.dll
+    $(var.VCRedistDir)   - Directory containing vc_redist.x64.exe
+-->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product Id="*" 
            Name="OpenDAW" 
-           Version="1.0.0" 
+           Version="$(var.ProductVersion)" 
            Manufacturer="OpenDAW Team" 
            UpgradeCode="12345678-1234-1234-1234-123456789012">
     
@@ -26,7 +37,7 @@
       <Directory Id="ProgramFiles64Folder">
         <Directory Id="INSTALLFOLDER" Name="OpenDAW">
           <Component Id="MainExecutable" Guid="*">
-            <File Source="$(var.UIBuildDir)\OpenDAW.exe" KeyPath="yes">
+            <File Source="$(var.SourceDir)\OpenDAW.exe" KeyPath="yes">
               <Shortcut Id="StartMenuShortcut" 
                         Directory="ApplicationProgramsFolder" 
                         Name="OpenDAW" 
@@ -44,7 +55,7 @@
           
           <!-- Rust engine DLL -->
           <Component Id="RustEngine" Guid="*">
-            <File Source="$(var.EngineBuildDir)\daw_engine.dll" />
+            <File Source="$(var.SourceDir)\daw_engine.dll" />
           </Component>
           
           <!-- AI modules -->
@@ -99,19 +110,19 @@
       </Custom>
     </InstallExecuteSequence>
 
-    <!-- Icon -->
-    <Icon Id="OpenDAWIcon.exe" SourceFile="$(var.UIBuildDir)\OpenDAW.exe" />
+    <!-- Icon (extracted from main executable) -->
+    <Icon Id="OpenDAWIcon.exe" SourceFile="$(var.SourceDir)\OpenDAW.exe" />
 
     <!-- UI -->
     <UIRef Id="WixUI_InstallDir" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     
-    <!-- License -->
-    <WixVariable Id="WixUILicenseRtf" Value="$(var.SourceDir)\installer\windows\LICENSE.rtf" />
+    <!-- License (optional - will use default if not found) -->
+    <!-- <WixVariable Id="WixUILicenseRtf" Value="$(var.SourceDir)\LICENSE.rtf" /> -->
     
-    <!-- Banner images -->
-    <WixVariable Id="WixUIBannerBmp" Value="$(var.SourceDir)\installer\windows\banner.bmp" />
-    <WixVariable Id="WixUIDialogBmp" Value="$(var.SourceDir)\installer\windows\dialog.bmp" />
+    <!-- Banner images (optional - will use defaults if not found) -->
+    <!-- <WixVariable Id="WixUIBannerBmp" Value="$(var.SourceDir)\banner.bmp" /> -->
+    <!-- <WixVariable Id="WixUIDialogBmp" Value="$(var.SourceDir)\dialog.bmp" /> -->
 
   </Product>
 </Wix>

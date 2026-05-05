@@ -1,5 +1,6 @@
 #include "MainComponent.h"
 #include "Engine/EngineBridge.h"
+#include "Tools/VocalCleanupDialog.h"
 
 // ============================================================================
 // MainMenuBarModel Implementation
@@ -67,6 +68,7 @@ juce::PopupMenu MainMenuBarModel::createToolsMenu()
 {
     juce::PopupMenu menu;
     menu.addItem(toolsGeneratePattern, "Generate Pattern...");
+    menu.addItem(toolsVocalCleanup, "Vocal Cleanup...");
     return menu;
 }
 
@@ -115,6 +117,10 @@ void MainMenuBarModel::menuItemSelected(int menuItemID, int topLevelMenuIndex)
         case toolsGeneratePattern:
             if (onGeneratePattern)
                 onGeneratePattern();
+            break;
+        case toolsVocalCleanup:
+            if (onVocalCleanup)
+                onVocalCleanup();
             break;
         case editDuplicateClip:
             if (onDuplicateClip)
@@ -342,6 +348,13 @@ MainComponent::MainComponent()
             (void)pattern; // TODO: Store actual MIDI notes in clip
         };
         // Dialog will self-delete when closed
+        dialog.release();
+    };
+
+    // Wire up Tools menu - Vocal Cleanup
+    menuBarModel->onVocalCleanup = [this]() {
+        auto& engine = EngineBridge::getInstance();
+        auto dialog = std::make_unique<VocalCleanupDialog>(engine);
         dialog.release();
     };
 

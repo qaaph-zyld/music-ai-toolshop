@@ -2,10 +2,10 @@
 
 #include <juce_core/juce_core.h>
 
-namespace OpenDAW {
-
-// Forward declaration
+// Forward declaration - MainComponent is in global namespace
 class MainComponent;
+
+namespace OpenDAW {
 
 /**
  * Loads a demo project with pre-configured clips, patterns,
@@ -15,7 +15,7 @@ class DemoProjectLoader
 {
 public:
     /** Load demo project into MainComponent */
-    static bool loadDemoProject(MainComponent* mainComponent);
+    static bool loadDemoProject(::MainComponent* mainComponent);
     
     /** Check if demo project is available */
     static bool isDemoProjectAvailable();
@@ -25,7 +25,7 @@ public:
 
 private:
     static void createDemoProjectFiles();
-    static void setupDemoClips(MainComponent* mainComponent);
+    static void setupDemoClips(::MainComponent* mainComponent);
     static void setupDemoMixer();
 };
 

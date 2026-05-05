@@ -4,7 +4,7 @@
 
 namespace OpenDAW {
 
-bool DemoProjectLoader::loadDemoProject(MainComponent* mainComponent)
+bool DemoProjectLoader::loadDemoProject(::MainComponent* mainComponent)
 {
     if (mainComponent == nullptr)
         return false;
@@ -47,7 +47,7 @@ juce::File DemoProjectLoader::getDemoProjectPath()
     return appDataDir.getChildFile("demo_project.opendaw");
 }
 
-void DemoProjectLoader::setupDemoClips(MainComponent* mainComponent)
+void DemoProjectLoader::setupDemoClips(::MainComponent* mainComponent)
 {
     auto& engine = EngineBridge::getInstance();
     
