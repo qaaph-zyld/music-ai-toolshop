@@ -10,6 +10,7 @@ use std::f32::consts::PI;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
 
 fn main() {
     println!("OpenDAW Audio E2E Test");
@@ -21,17 +22,26 @@ fn main() {
     
     match device {
         Some(device) => {
-            println!("✓ Audio output device found: {:?}", device.name());
-            
+            let device_name: String = device.name().unwrap_or_else(|_| "Unknown".to_string());
+            println!("✓ Audio output device found: {}", device_name);
+
             // Get default output config
-            let config = device.default_output_config();
-            println!("✓ Default output config: {:?}", config);
-            
-            match config.sample_format() {
-                cpal::SampleFormat::F32 => run_test::<f32>(&device, &config.into()),
-                cpal::SampleFormat::I16 => run_test::<i16>(&device, &config.into()),
-                cpal::SampleFormat::U16 => run_test::<u16>(&device, &config.into()),
-                _ => println!("✗ Unsupported sample format: {:?}", config.sample_format()),
+            let config_result = device.default_output_config();
+            match config_result {
+                Ok(config) => {
+                    println!("✓ Default output config: {:?}", config);
+
+                    match config.sample_format() {
+                        cpal::SampleFormat::F32 => run_test::<f32>(&device, &config.into()),
+                        cpal::SampleFormat::I16 => run_test::<i16>(&device, &config.into()),
+                        cpal::SampleFormat::U16 => run_test::<u16>(&device, &config.into()),
+                        _ => println!("✗ Unsupported sample format: {:?}", config.sample_format()),
+                    }
+                }
+                Err(e) => {
+                    println!("✗ Failed to get default output config: {}", e);
+                    std::process::exit(1);
+                }
             }
         }
         None => {
@@ -42,51 +52,52 @@ fn main() {
     }
 }
 
-fn run_test<T: cpal::Sample>(device: &cpal::Device, config: &cpal::StreamConfig) {
+fn run_test<T: cpal::Sample + cpal::SizedSample + cpal::FromSample<f32>>(device: &cpal::Device, config: &cpal::StreamConfig) {
     let sample_rate = config.sample_rate.0 as f32;
     let channels = config.channels as usize;
     let freq = 440.0f32; // A4 note
     let duration_secs = 1.0f32;
     let total_samples = (sample_rate * duration_secs) as usize;
-    
+
     println!("\nTest Configuration:");
     println!("  Sample rate: {} Hz", sample_rate);
     println!("  Channels: {}", channels);
     println!("  Frequency: {} Hz (A4 note)", freq);
     println!("  Duration: {} second", duration_secs);
     println!("\nPlaying sine wave... Listen for a 440Hz tone.\n");
-    
+
     let sample_clock = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let sample_clock_clone = Arc::clone(&sample_clock);
     let finished = Arc::new(AtomicBool::new(false));
     let finished_clone = Arc::clone(&finished);
-    
+
     let mut next_value = move || {
         let sample_idx = sample_clock_clone.fetch_add(1, Ordering::Relaxed);
-        
+
         if sample_idx >= total_samples * channels {
             finished_clone.store(true, Ordering::Relaxed);
             return 0.0f32;
         }
-        
+
         let t = sample_idx as f32 / sample_rate;
         (t * freq * 2.0 * PI).sin() * 0.5 // 50% amplitude to avoid clipping
     };
-    
+
     let err_fn = |err| eprintln!("Audio stream error: {}", err);
-    
-    let stream = device.build_output_stream(
+
+    let stream_result = device.build_output_stream(
         config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
             for sample in data.iter_mut() {
-                *sample = T::from::<f32>(&next_value());
+                let value = next_value();
+                *sample = T::from_sample(value);
             }
         },
         err_fn,
         None,
     );
     
-    match stream {
+    match stream_result {
         Ok(stream) => {
             match stream.play() {
                 Ok(_) => {
