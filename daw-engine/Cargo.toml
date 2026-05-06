@@ -8,7 +8,7 @@ license = "MIT"
 
 [lib]
 name = "daw_engine"
-crate-type = ["cdylib", "lib"]
+crate-type = ["cdylib", "staticlib", "lib"]
 
 [dependencies]
 cpal = "0.15"

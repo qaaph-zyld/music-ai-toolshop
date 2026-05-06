@@ -13,7 +13,7 @@ OnboardingComponent::OnboardingComponent()
         "Your open-source digital audio workstation\nwith AI-powered features.");
     descriptionLabel->setFont(juce::Font(14.0f));
     descriptionLabel->setJustificationType(juce::Justification::centred);
-    descriptionLabel->setMultiLine(true);
+    // JUCE 7.0.9: setMultiLine removed, labels handle newlines naturally
     addAndMakeVisible(*descriptionLabel);
 
     // Primary button (Next/Continue/Finish)
@@ -34,7 +34,7 @@ OnboardingComponent::OnboardingComponent()
     addAndMakeVisible(*skipButton);
 
     // Progress bar
-    progressBar = std::make_unique<juce::ProgressBar>(progress);
+    progressBar = std::make_unique<juce::ProgressBar>(progressValue); // JUCE 7.0.9: Reference to double value
     progressBar->setVisible(false);
     addAndMakeVisible(*progressBar);
 
@@ -285,8 +285,7 @@ void OnboardingComponent::showTutorialStep(int step)
     progressBar->setVisible(true);
     
     // Update progress
-    double progress = (step + 1.0) / totalTutorialSteps;
-    progressBar->setValue(progress);
+    progressValue = (step + 1.0) / totalTutorialSteps; // JUCE 7.0.9: Update referenced value
 }
 
 void OnboardingComponent::runAudioEngineTest()

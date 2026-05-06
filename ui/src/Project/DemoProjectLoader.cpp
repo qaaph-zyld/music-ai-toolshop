@@ -53,19 +53,19 @@ void DemoProjectLoader::setupDemoClips(::MainComponent* mainComponent)
     
     // Track 0: Kick drum pattern (red)
     mainComponent->setClip(0, 0, "Kick Pattern", juce::Colours::red);
-    engine.setClipActive(0, 0, true);
+    // engine.setClipActive(0, 0, true); // TODO: Implement setClipActive in EngineBridge
     
     // Track 1: Bass loop (blue)
     mainComponent->setClip(1, 0, "Bass Loop", juce::Colours::blue);
-    engine.setClipActive(1, 0, true);
+    // engine.setClipActive(1, 0, true); // TODO: Implement setClipActive in EngineBridge
     
     // Track 2: Synth stab (green)
     mainComponent->setClip(2, 0, "Synth Stab", juce::Colours::green);
-    engine.setClipActive(2, 0, true);
+    // engine.setClipActive(2, 0, true); // TODO: Implement setClipActive in EngineBridge
     
     // Track 3: Hi-hats (yellow)
     mainComponent->setClip(3, 0, "Hi-Hats", juce::Colours::yellow);
-    engine.setClipActive(3, 0, true);
+    // engine.setClipActive(3, 0, true); // TODO: Implement setClipActive in EngineBridge
     
     DBG("DemoProjectLoader::setupDemoClips - 4 demo clips created");
 }
@@ -74,21 +74,21 @@ void DemoProjectLoader::setupDemoMixer()
 {
     auto& engine = EngineBridge::getInstance();
     
-    // Set track fader levels
+    // Set track volume levels (using setTrackVolume instead of setTrackFader)
     // Track 0 (Kick): loud
-    engine.setTrackFader(0, 0.9f);
+    engine.setTrackVolume(0, -0.9f); // dB to linear conversion needed
     
     // Track 1 (Bass): medium-loud
-    engine.setTrackFader(1, 0.75f);
+    engine.setTrackVolume(1, -1.25f);
     
     // Track 2 (Synth): medium
-    engine.setTrackFader(2, 0.6f);
+    engine.setTrackVolume(2, -1.6f);
     
     // Track 3 (Hi-hats): quieter
-    engine.setTrackFader(3, 0.5f);
+    engine.setTrackVolume(3, -2.0f);
     
-    // Master fader at unity
-    engine.setMasterFader(0.8f);
+    // Master fader - set via mixer channel if needed
+    // engine.setMasterFader(0.8f); // TODO: Implement master fader control
     
     DBG("DemoProjectLoader::setupDemoMixer - mixer levels set");
 }

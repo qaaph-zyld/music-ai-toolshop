@@ -23,10 +23,11 @@ juce::var SettingsManager::loadSettings()
     auto json = file.loadFileAsString();
     auto result = juce::JSON::parse(json);
     
-    if (result.wasOk())
-        return result.getResult();
+    // JUCE 7.0.9: JSON::parse returns var directly, not a Result object
+    if (result.isVoid() || result.isUndefined())
+        return juce::var(new juce::DynamicObject());
     
-    return juce::var(new juce::DynamicObject());
+    return result;
 }
 
 void SettingsManager::saveSettings(const juce::var& settings)

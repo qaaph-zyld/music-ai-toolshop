@@ -95,28 +95,25 @@ target_link_libraries(OpenDAW PRIVATE
 
 # Link Rust DAW Engine library
 # The Rust library is built separately with: cargo build --release
-# Using cdylib (.dll.lib) for Windows DLL with proper symbol exports
-set(DAW_ENGINE_LIB_DLL "${CMAKE_CURRENT_SOURCE_DIR}/../daw-engine/target/release/daw_engine.dll.lib")
-if(EXISTS ${DAW_ENGINE_LIB_DLL})
-    target_link_libraries(OpenDAW PRIVATE ${DAW_ENGINE_LIB_DLL})
-    message(STATUS "Linked Rust DAW Engine (DLL): ${DAW_ENGINE_LIB_DLL}")
-    
-    # Copy DLL to output directory for runtime
-    add_custom_command(TARGET OpenDAW POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/../daw-engine/target/release/daw_engine.dll"
-        $<TARGET_FILE_DIR:OpenDAW>
-    )
+# Using staticlib for direct linking (avoids DLL import library issues)
+set(DAW_ENGINE_STATIC_LIB "${CMAKE_CURRENT_SOURCE_DIR}/../daw-engine/target/release/daw_engine.lib")
+if(EXISTS ${DAW_ENGINE_STATIC_LIB})
+    target_link_libraries(OpenDAW PRIVATE ${DAW_ENGINE_STATIC_LIB})
+    message(STATUS "Linked Rust DAW Engine (static): ${DAW_ENGINE_STATIC_LIB}")
 else()
-    message(WARNING "Rust DAW Engine DLL import library not found. Build with: cd ../daw-engine && cargo build --release")
+    message(WARNING "Rust DAW Engine static library not found. Build with: cd ../daw-engine && cargo build --release")
 endif()
 
 # Windows system libraries (required for PropVariantToInt64, VariantToDouble, etc.)
+# Also required for Rust staticlib dependencies (userenv, ntdll, windowsapp)
 if(WIN32)
     target_link_libraries(OpenDAW PRIVATE
         Propsys.lib
         Ole32.lib
         OleAut32.lib
+        Userenv.lib
+        Ntdll.lib
+        WindowsApp.lib
     )
     message(STATUS "Linked Windows system libraries for FFI compatibility")
 endif()

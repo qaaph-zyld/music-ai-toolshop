@@ -200,13 +200,17 @@ void VocalCleanupDialog::VocalCleanupComponent::buttonClicked(juce::Button* butt
         juce::FileChooser chooser("Select audio file...",
                                   juce::File(),
                                   "*.wav;*.mp3;*.flac;*.aiff");
-        if (chooser.browseForFileToOpen()) {
-            auto file = chooser.getResult();
-            currentFilePath = file.getFullPathName();
-            filePathLabel.setText(file.getFileName(), juce::dontSendNotification);
-            statusLabel.setText("File selected: " + file.getFileName(), juce::dontSendNotification);
-            statusLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-        }
+        // JUCE 7.0.9: Use launchAsync instead of browseForFileToOpen
+        chooser.launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this](const juce::FileChooser& fc) {
+                if (fc.getResults().size() > 0) {
+                    auto file = fc.getResult();
+                    currentFilePath = file.getFullPathName();
+                    filePathLabel.setText(file.getFileName(), juce::dontSendNotification);
+                    statusLabel.setText("File selected: " + file.getFileName(), juce::dontSendNotification);
+                    statusLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+                }
+            });
     }
     else if (button == &previewButton) {
         previewVocalCleanup();
@@ -277,35 +281,22 @@ void VocalCleanupDialog::VocalCleanupComponent::processVocalCleanup()
     juce::FileChooser chooser("Save cleaned vocal...",
                               inputFile.getParentDirectory().getChildFile(suggestedName),
                               "*.wav");
-    if (!chooser.browseForFileToSave(true)) {
-        return;
-    }
+    // JUCE 7.0.9: Use launchAsync instead of browseForFileToSave
+    chooser.launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
+        [this, inputFile](const juce::FileChooser& fc) {
+            if (fc.getResults().size() > 0) {
+                juce::String outputPath = fc.getResult().getFullPathName();
 
-    juce::String outputPath = chooser.getResult().getFullPathName();
+                statusLabel.setText("Processing...", juce::dontSendNotification);
+                statusLabel.setColour(juce::Label::textColourId, juce::Colours::yellow);
 
-    statusLabel.setText("Processing...", juce::dontSendNotification);
-    statusLabel.setColour(juce::Label::textColourId, juce::Colours::yellow);
-
-    // Build settings
-    VocalCleanupSettingsFFI settings;
-    settings.silence_threshold_db = (float)silenceThresholdSlider.getValue();
-    settings.silence_min_duration = (float)silenceMinDurationSlider.getValue();
-    settings.gap_compress_ratio = (float)gapCompressRatioSlider.getValue();
-    settings.crossfade_ms = (float)crossfadeMsSlider.getValue();
-    settings.breath_sensitivity = (float)breathSensitivitySlider.getValue();
-
-    // Call FFI
-    VocalCleanupResultFFI result;
-    int ret = vocal_cleanup_process(currentFilePath.toRawUTF8(), outputPath.toRawUTF8(), &settings, &result);
-
-    if (ret == 0 && result.success) {
-        juce::String msg = juce::String("Success! Removed ") +
-                          juce::String(result.time_removed, 2) + "s. " +
-                          "Output: " + juce::File(outputPath).getFileName();
-        statusLabel.setText(msg, juce::dontSendNotification);
-        statusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
-    } else {
-        statusLabel.setText("Processing failed (error code: " + juce::String(ret) + ")", juce::dontSendNotification);
-        statusLabel.setColour(juce::Label::textColourId, juce::Colours::red);
-    }
+                // Build settings
+                VocalCleanupSettingsFFI settings;
+                settings.silence_threshold_db = (float)silenceThresholdSlider.getValue();
+                settings.silence_min_duration = (float)silenceMinDurationSlider.getValue();
+                settings.gap_compress_ratio = (float)gapCompressRatioSlider.getValue();
+                settings.crossfade_ms = (float)crossfadeMsSlider.getValue();
+                settings.breath_sensitivity = (float)breathSensitivitySlider.getValue();
+            }
+        });
 }

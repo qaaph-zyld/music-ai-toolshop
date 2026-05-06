@@ -1,7 +1,8 @@
 #pragma once
 
-#include <JuceHeader.h>
-#include "EngineBridge/EngineBridge.h"
+#include <juce_gui_basics/juce_gui_basics.h>
+#include <juce_audio_devices/juce_audio_devices.h>
+#include "../Engine/EngineBridge.h"
 
 /**
  * OnboardingComponent - First-launch experience
@@ -46,6 +47,9 @@ private:
     Screen currentScreen = Screen::Welcome;
     int tutorialStep = 0;
     static constexpr int totalTutorialSteps = 5;
+
+    // Progress bar value (JUCE 7.0.9: ProgressBar references this double)
+    double progressValue = 0.0;
 
     // UI Components
     std::unique_ptr<juce::Label> titleLabel;

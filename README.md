@@ -1,13 +1,11 @@
-# OpenDAW Audio Engine
+# OpenDAW - Library + Full DAW
 
-**Production-ready Rust audio engine for music production applications**
+**Production-ready Rust audio engine library with complete JUCE C++ UI**
 
-OpenDAW is a high-performance, memory-safe Rust audio engine designed for integration into music production software. With 600+ passing tests and verified audio output, it provides a solid foundation for:
+OpenDAW is a high-performance, memory-safe Rust audio engine designed for integration into music production software, now with a fully functional JUCE-based C++ UI. With 600+ passing tests and verified audio output, it provides:
 
-- VST/AU plugin development
-- Python scripting interfaces
-- WebAssembly browser-based tools
-- Custom DAW implementations
+- **As a Library:** VST/AU plugin development, Python scripting, WebAssembly tools, custom DAWs
+- **As a Full DAW:** Complete JUCE C++ UI with transport controls, mixer, arrangement view, and AI integrations
 
 ## Quick Start
 
@@ -40,8 +38,11 @@ session.launch_scene(0);
 │  Mixer │ SamplePlayer │ Transport │ Session      │
 │  MIDI │ ClipPlayer │ Realtime Queue │ Export     │
 ├──────────────────────────────────────────────────┤
-│          FFI Bridge (cdylib DLL)                 │
+│          FFI Bridge (staticlib)                  │
 │  C-compatible API for C++, Python, etc.         │
+├──────────────────────────────────────────────────┤
+│         JUCE C++ UI (Active)                     │
+│  Transport │ Mixer │ Arrangement │ AI Tools      │
 ├──────────────────────────────────────────────────┤
 │         Integration Examples                     │
 │  Python bindings │ VST plugin │ WebAssembly     │
@@ -54,16 +55,22 @@ session.launch_scene(0);
 06-opendaw/
 ├── daw-engine/              # Rust audio engine library
 │   ├── src/                 # Core engine, FFI, AI bridges
-│   │   ├── future/          # 53 quarantined stub modules (archived)
-│   │   └── ...
 │   ├── tests/               # 600+ passing tests
 │   ├── examples/            # Integration examples
 │   │   ├── audio_e2e_test.rs
 │   │   ├── python_integration_example.py
 │   │   └── vst_plugin_integration_example.rs
 │   └── LIBRARY_API.md       # Complete API documentation
-├── ui/                      # JUCE C++ UI (archived - not maintained)
-│   └── src/                 # 73 C++ source files
+├── ui/                      # JUCE C++ UI (Active - Built Successfully)
+│   ├── src/                 # 73 C++ source files
+│   │   ├── Transport/       # Transport controls, loop markers
+│   │   ├── Mixer/           # Channel strips, level meters
+│   │   ├── Arrangement/     # Timeline, clip editing
+│   │   ├── SessionView/     # Clip grid, scene launching
+│   │   ├── Engine/          # FFI bridge to Rust engine
+│   │   └── Tools/           # Vocal cleanup, stem extraction
+│   ├── CMakeLists.txt       # CMake build configuration
+│   └── build/               # Visual Studio build output
 ├── ai_modules/              # Python AI integrations
 │   ├── suno_library/        # SQLite track browser
 │   ├── stem_extractor/      # Demucs wrapper
@@ -76,17 +83,33 @@ session.launch_scene(0);
 
 ## Quick Start
 
+### As a Library
 ```bash
 # Build and test the audio engine
 cd daw-engine
 cargo test --lib    # 600 tests passing
-cargo build --release  # Produces daw_engine.dll
+cargo build --release  # Produces daw_engine.lib (staticlib)
 
 # Run audio E2E test
 cargo run --example audio_e2e_test  # Plays 440Hz tone
 
 # See library API documentation
 cat LIBRARY_API.md
+```
+
+### As a Full DAW (C++ UI)
+```bash
+# Build the Rust engine (staticlib for linking)
+cd daw-engine
+cargo build --release
+
+# Build the C++ UI (requires Visual Studio Build Tools 2022)
+cd ../ui
+cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Debug
+
+# Run the application
+./build/OpenDAW_artefacts/Debug/OpenDAW.exe
 ```
 
 ## Verified Status (2026-05-06)
@@ -97,6 +120,9 @@ cat LIBRARY_API.md
 | Audio E2E | **PASSED** - 440Hz through full stack | ✅ |
 | Export | **PASSED** - WAV export (2 tests) | ✅ |
 | Clip Launch | **PASSED** - Programmatic (4 tests) | ✅ |
+| C++ UI Build | **PASSED** - JUCE 7.0.9 + Visual Studio 2022 | ✅ |
+| C++ UI Launch | **PASSED** - Application starts successfully | ✅ |
+| Transport Controls | **PASSED** - Play/Stop/Record available | ✅ |
 | Compiler warnings | 21 (0 errors) | ✅ |
 | Active Rust modules | ~40 | ✅ |
 
@@ -104,12 +130,21 @@ See `CURRENT_STATE.md` for detailed component status.
 
 ## Features
 
+### Audio Engine (Rust)
 - **Memory Safety:** Rust's ownership model prevents buffer overflows and data races
 - **Real-time Safe:** Lock-free SPSC queues for audio thread communication
 - **Cross-platform:** Windows, macOS, Linux support via CPAL
 - **Well-tested:** 600+ unit and integration tests
 - **Verified:** Audio output, export, and clip launching all verified end-to-end
 - **Performance:** Tracy profiler integration for optimization
+
+### C++ UI (JUCE)
+- **Transport Controls:** Play, Stop, Record with real-time feedback
+- **Mixer:** 8-track mixer with level meters, mute/solo, pan, and volume
+- **Session View:** Clip grid for scene-based launching
+- **Arrangement View:** Timeline with clip editing, drag/resize, and loop markers
+- **AI Tools:** Integrated Suno library, stem extraction, pattern generator
+- **Onboarding:** First-launch tutorial and audio engine test
 
 ## Performance
 
