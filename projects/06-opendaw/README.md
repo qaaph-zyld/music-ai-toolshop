@@ -1,5 +1,20 @@
 # OpenDAW
 
+> **STATUS: ARCHIVED (2026-05-07).** Active development is paused. The
+> AI-tooling work has moved to [`projects/07-reaper-integration/`](../07-reaper-integration/),
+> which drives the existing `music-ai-toolshop` adapters from inside
+> Reaper instead of building a from-scratch DAW. See
+> [`../../docs/06-opendaw-postmortem.md`](../../docs/06-opendaw-postmortem.md)
+> for the rationale and the (large) gap between the previous handoff
+> documents and the actually-committed code.
+>
+> The source below is kept for reference and as an engineering exercise.
+> It does not build out of the box (the `daw-engine/build.rs` is missing
+> dependencies and references third-party FFI directories that were
+> never committed; the JUCE UI lists 18 source files of which only one
+> exists). Rust unit-test count is ~50, not the 858 reported in the
+> Phase 9.x handoff.
+
 Custom AI-Powered Digital Audio Workstation with native desktop performance, integrating ACE-Step AI generation and stem extraction.
 
 ## Overview
