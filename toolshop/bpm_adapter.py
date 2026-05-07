@@ -41,9 +41,10 @@ def analyze_track(path: Path) -> Dict[str, Any]:
     y, sr = librosa.load(str(path), sr=22050, mono=True)
     duration = librosa.get_duration(y=y, sr=sr)
 
-    # BPM
+    # librosa >= 0.10 returns tempo as a 1-element ndarray rather than a
+    # Python scalar, so float(tempo) raises TypeError. Coerce defensively.
     tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-    bpm = float(tempo)
+    bpm = float(np.atleast_1d(tempo)[0])
 
     # Key estimation via chroma
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr)

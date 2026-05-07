@@ -10,16 +10,19 @@ def mock_librosa():
     with patch("toolshop.bpm_adapter.librosa") as mock_lib, patch(
         "toolshop.bpm_adapter.np"
     ) as mock_np:
-        # Setup basic librosa mock returns
+        # Setup basic librosa mock returns. Modern librosa returns tempo as a
+        # 1-element ndarray, so we mirror that shape here; the adapter coerces
+        # via np.atleast_1d(...)[0].
         mock_lib.load.return_value = (MagicMock(), 22050)
         mock_lib.get_duration.return_value = 120.5
-        mock_lib.beat.beat_track.return_value = (120.0, None)
+        mock_lib.beat.beat_track.return_value = ([120.0], None)
 
         # Setup chroma feature mock
         mock_chroma = MagicMock()
         mock_lib.feature.chroma_cqt.return_value = mock_chroma
 
-        # Mock numpy mean and argmax
+        # Mock numpy helpers used by the adapter.
+        mock_np.atleast_1d.side_effect = lambda x: x
         mock_np.mean.return_value = [
             0.8
         ] * 12  # Return array of floats > 0.5 for major mode
