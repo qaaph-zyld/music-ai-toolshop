@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2026-06-19) — Music AI Toolshop Unified Web Launcher
+- **New umbrella repo web dashboard** (`music_ai_toolshop/`)
+  - Windows EXE `MusicAIToolshop.exe` that auto-starts a Flask server and opens the browser
+  - System tray launcher with restart/exit controls
+  - Single dashboard exposing the six phase tools from the unified execution plan
+  - SSE streaming for long-running ML tool progress
+  - File-based tool wrappers: stem extraction, vocal restoration, CLAP reference matching, Whisper vocal QC
+  - Placeholder cards for real-time preview tools (Neutone, master bus) that live in the open_DAW desktop app
+  - Sibling repo resolver for `mastering_tool/` and `open_DAW/` via env vars or default layout
+  - Tests: `music_ai_toolshop/tests/test_paths.py`, `music_ai_toolshop/tests/test_smoke.py`
+  - Build scripts: `build_exe.py`, `build.bat`, `run.bat`, `setup_dev.py`
+- **Bug fix**: `open_DAW/ai_modules/stem_extractor/cli.py` used `Optional` without importing it; replaced with `list[str] | None`
+
 ### Added (2026-04-24) — AI Module Test Coverage
 - **musicgen tests**: 6 tests covering `MusicGenBridge` subprocess wrapper, `MusicGenGenerator` instantiation, CLI interface, and error handling
 - **production_analyzer tests**: 8 tests covering `ChainClassifier`, `BatchAnalyzer`, `AudioFingerprint` dataclass, `FeatureVector`, and graceful degradation without sklearn

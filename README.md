@@ -7,6 +7,14 @@ OpenDAW is a high-performance, memory-safe Rust audio engine designed for integr
 - **As a Library:** VST/AU plugin development, Python scripting, WebAssembly tools, custom DAWs
 - **As a Full DAW:** Complete JUCE C++ UI with transport controls, mixer, arrangement view, and AI integrations
 
+## Music AI Toolshop
+
+The umbrella repo now includes a unified Windows web launcher for the production toolkit:
+
+- Run `music_ai_toolshop/build.bat` to build `MusicAIToolshop.exe`
+- Double-click the EXE to open a browser dashboard for stem extraction, vocal restoration, CLAP reference matching, vocal QC, and open_DAW preview links
+- See `music_ai_toolshop/README.md` for details
+
 ## Quick Start
 
 ```toml

@@ -30,6 +30,11 @@ Thumbs.db
 /test_output.log
 /test_exports.ps1
 
+# Music AI Toolshop
+/MusicAIToolshop.exe
+music_ai_toolshop/build/
+music_ai_toolshop/dist/
+
 # Node
 node_modules/
 
