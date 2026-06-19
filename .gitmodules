@@ -1,0 +1,8 @@
+[submodule "mastering_tool"]
+	path = mastering_tool
+	url = https://github.com/qaaph-zyld/mastering_tool
+	branch = claude/wonderful-johnson-h6xj4d
+[submodule "open_DAW"]
+	path = open_DAW
+	url = https://github.com/qaaph-zyld/open_DAW
+	branch = claude/wonderful-johnson-h6xj4d
