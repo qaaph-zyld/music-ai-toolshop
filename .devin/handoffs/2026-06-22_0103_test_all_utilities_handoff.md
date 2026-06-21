@@ -82,6 +82,20 @@ project: music-ai-toolshop umbrella / open_DAW / mastering_tool
 - `d:\Project\open_DAW\docs\PLUGINS.md`
 - `d:\Project\HANDOFF.md` (previous handoff from 2026-06-19)
 
+## Uncommitted changes from the lost session
+
+The umbrella repo has uncommitted changes that were created before the crash. **Do not commit them during testing** — verify them first.
+
+- `d:\Project\music_ai_toolshop\server.py` — Flask dashboard (modified)
+- `d:\Project\music_ai_toolshop\wrappers\clap_match.py` — CLAP wrapper (modified)
+- `d:\Project\music_ai_toolshop\wrappers\stem_extractor.py` — stem extractor wrapper (modified)
+- `d:\Project\music_ai_toolshop\wrappers\vocal_qc.py` — vocal QC wrapper (modified)
+- `d:\Project\music_ai_toolshop\requirements-ml.txt` — untracked
+- `d:\Project\HANDOFF.md` — previous handoff (modified)
+- `d:\Project\mastering_tool` and `d:\Project\open_DAW` submodules — modified (verify hash before trusting)
+
+Test these as part of the dashboard integration only after the underlying CLI tools are proven green.
+
 ## Exit condition
 
 Stop when the user confirms the full test matrix is green or when a blocker is found and escalated as a GitHub issue.
