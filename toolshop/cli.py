@@ -19,6 +19,7 @@ from . import yt_scraper_adapter
 from . import yt_summarizer_adapter
 from . import reverse_engineering_adapter
 from . import voice_effects_adapter
+from mastering_tool.tools.vocal_doctor import diagnose_and_recommend
 from . import stem_extractor_adapter
 from . import cleaning_pipeline_adapter
 
@@ -300,6 +301,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--output-dir", type=Path, default=None, help="Output directory for JSON export"
     )
 
+    # voice doctor <file> [--emit-chain out.yaml]
+    voice_doctor_parser = voice_subparsers.add_parser(
+        "doctor", help="Vocal Doctor: diagnose and recommend a processing chain"
+    )
+    voice_doctor_parser.add_argument(
+        "file", type=Path, help="Path to vocal stem (WAV recommended)"
+    )
+    voice_doctor_parser.add_argument(
+        "--emit-chain", type=Path, default=None, help="Write recommended chain YAML to this path"
+    )
+    voice_doctor_parser.add_argument(
+        "--json", action="store_true", help="Output diagnosis and recommendations as JSON"
+    )
+
     # =========================================================================
     # STEM EXTRACTOR COMMANDS
     # =========================================================================
@@ -470,6 +485,42 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _print_doctor_summary(result: dict) -> None:
+    """Print a human-readable summary of the Vocal Doctor result."""
+    diagnosis = result["diagnosis"]
+    print("\n" + "=" * 60)
+    print("  VOCAL DOCTOR REPORT")
+    print("=" * 60)
+    print(f"  File:     {diagnosis.get('filename', diagnosis.get('file'))}")
+    print(f"  Duration: {diagnosis.get('duration_seconds')}s")
+    print(
+        f"  Voice:    {'Detected' if diagnosis.get('voice_detected') else 'Not detected'}"
+    )
+    if diagnosis.get("fundamental_frequency_hz"):
+        print(f"  F0:       {diagnosis['fundamental_frequency_hz']}Hz")
+
+    metrics = diagnosis.get("metrics", {})
+    loudness = metrics.get("loudness", {})
+    if loudness.get("integrated_lufs") is not None:
+        print(f"  LUFS:     {loudness['integrated_lufs']:.1f}")
+    if loudness.get("loudness_range") is not None:
+        print(f"  LRA:      {loudness['loudness_range']:.1f} dB")
+
+    print("\n  Recommendations:")
+    print("  " + "-" * 56)
+    for r in result.get("recommendations", []):
+        conf = r.get("confidence", 0)
+        bar = "#" * int(conf * 20)
+        print(f"  [{conf:.0%}] {bar:<20} {r['rule']}")
+        print(f"        Problem: {r['problem']}")
+        print(f"        Action:  {r['chain_action']}")
+        for ev in r.get("evidence", [])[:2]:
+            print(f"        > {ev}")
+        print()
+
+    print("=" * 60)
+
+
 def main(argv: Optional[Sequence[str]] = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -634,6 +685,16 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 print(json.dumps(result, indent=2, default=str))
             else:
                 voice_effects_adapter.print_voice_summary(result)
+        elif args.voice_command == "doctor":
+            result = diagnose_and_recommend(args.file)
+            if args.emit_chain:
+                chain = result["chain"]
+                from mastering_tool.tools.chain_dsl.schema import Chain
+                Chain.from_dict(chain).to_yaml(args.emit_chain)
+            if args.json:
+                print(json.dumps(result, indent=2, default=str))
+            else:
+                _print_doctor_summary(result)
         else:
             parser.error("Unknown 'voice' subcommand.")
 

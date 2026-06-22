@@ -1,0 +1,755 @@
+{
+  "project": "Serbian/Bosnian Tech-House/Pop Lyrics Research",
+  "collection_date": "2026-06-22",
+  "song_count": 10,
+  "aggregate": {
+    "total_lines": 396,
+    "total_tokens": 2253,
+    "avg_type_token_ratio": 0.381,
+    "avg_english_ratio": 0.1
+  },
+  "songs": [
+    {
+      "id": 1,
+      "artist": "Angellina",
+      "title": "Origami",
+      "line_count": 29,
+      "token_count": 180,
+      "unique_token_count": 53,
+      "type_token_ratio": 0.294,
+      "avg_line_length": 6.21,
+      "english_word_ratio": 0.094,
+      "top_words": [
+        [
+          "savij",
+          27
+        ],
+        [
+          "moje",
+          16
+        ],
+        [
+          "telo",
+          16
+        ],
+        [
+          "mi",
+          11
+        ],
+        [
+          "to",
+          9
+        ],
+        [
+          "radi",
+          9
+        ],
+        [
+          "u",
+          8
+        ],
+        [
+          "yeah",
+          8
+        ],
+        [
+          "origami",
+          6
+        ],
+        [
+          "je",
+          4
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Savij moje telo, savij, to mi radi",
+          4
+        ],
+        [
+          "Savij moje telo, savij origami",
+          4
+        ],
+        [
+          "Savij moje telo ti, samo to mi radi",
+          3
+        ],
+        [
+          "Sekunde brojim, čekam poziv, u-yeah",
+          2
+        ],
+        [
+          "Parfem jak je kô eksploziv, u-yeah",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 2,
+      "artist": "Angellina",
+      "title": "Lanac",
+      "line_count": 44,
+      "token_count": 233,
+      "unique_token_count": 85,
+      "type_token_ratio": 0.365,
+      "avg_line_length": 5.3,
+      "english_word_ratio": 0.047,
+      "top_words": [
+        [
+          "samo",
+          10
+        ],
+        [
+          "da",
+          9
+        ],
+        [
+          "mi",
+          8
+        ],
+        [
+          "lanac",
+          7
+        ],
+        [
+          "se",
+          7
+        ],
+        [
+          "nije",
+          6
+        ],
+        [
+          "gotovo",
+          6
+        ],
+        [
+          "ledeno",
+          6
+        ],
+        [
+          "je",
+          6
+        ],
+        [
+          "zar",
+          6
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Sklonite mi suze, nije gotovo",
+          3
+        ],
+        [
+          "Lanac kiti me zlatom jer ledeno je ledeno",
+          3
+        ],
+        [
+          "Lanac samo da malo se vežemo i stežemo",
+          3
+        ],
+        [
+          "Vreme leti zauvek mi padamo",
+          3
+        ],
+        [
+          "Svi smo tu i noći ove",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 3,
+      "artist": "Mimi Mercedez",
+      "title": "Turbo žurka",
+      "line_count": 52,
+      "token_count": 243,
+      "unique_token_count": 94,
+      "type_token_ratio": 0.387,
+      "avg_line_length": 4.67,
+      "english_word_ratio": 0.3,
+      "top_words": [
+        [
+          "da",
+          18
+        ],
+        [
+          "yes",
+          15
+        ],
+        [
+          "kiss",
+          15
+        ],
+        [
+          "mwah",
+          15
+        ],
+        [
+          "je",
+          13
+        ],
+        [
+          "nije",
+          8
+        ],
+        [
+          "i",
+          8
+        ],
+        [
+          "hey",
+          8
+        ],
+        [
+          "ovde",
+          7
+        ],
+        [
+          "nego",
+          6
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Nije yes, yes, yes",
+          3
+        ],
+        [
+          "Nego da, da, da",
+          3
+        ],
+        [
+          "Nije kiss, kiss, kiss",
+          3
+        ],
+        [
+          "Nego mwah, mwah, mwah",
+          3
+        ],
+        [
+          "Ovo je turbo žurka",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 4,
+      "artist": "Saša Baša i Virtual Ritual",
+      "title": "Elektroljubav",
+      "line_count": 40,
+      "token_count": 212,
+      "unique_token_count": 123,
+      "type_token_ratio": 0.58,
+      "avg_line_length": 5.3,
+      "english_word_ratio": 0.08,
+      "top_words": [
+        [
+          "ja",
+          11
+        ],
+        [
+          "i",
+          8
+        ],
+        [
+          "tehno",
+          8
+        ],
+        [
+          "sam",
+          6
+        ],
+        [
+          "iz",
+          6
+        ],
+        [
+          "o",
+          5
+        ],
+        [
+          "glas",
+          5
+        ],
+        [
+          "računara",
+          5
+        ],
+        [
+          "se",
+          4
+        ],
+        [
+          "u",
+          4
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Ja sam glas iz računara",
+          5
+        ],
+        [
+          "Moje lice sa ekrana",
+          3
+        ],
+        [
+          "Moderna tehnologija",
+          3
+        ],
+        [
+          "Z generacija",
+          2
+        ],
+        [
+          "Elektroljubav, elektroljubav",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 5,
+      "artist": "Iskaz",
+      "title": "Trendseter",
+      "line_count": 41,
+      "token_count": 222,
+      "unique_token_count": 105,
+      "type_token_ratio": 0.473,
+      "avg_line_length": 5.41,
+      "english_word_ratio": 0.212,
+      "top_words": [
+        [
+          "bam",
+          36
+        ],
+        [
+          "da",
+          13
+        ],
+        [
+          "treba",
+          8
+        ],
+        [
+          "nam",
+          7
+        ],
+        [
+          "šta",
+          6
+        ],
+        [
+          "se",
+          5
+        ],
+        [
+          "to",
+          4
+        ],
+        [
+          "bude",
+          4
+        ],
+        [
+          "hej",
+          3
+        ],
+        [
+          "ho",
+          3
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Bam, bam, bam, bam - Do kraja sveta",
+          3
+        ],
+        [
+          "Bam, bam, bam, bam - Cela planeta",
+          3
+        ],
+        [
+          "Bam, bam, bam, bam - Kome da smeta",
+          3
+        ],
+        [
+          "Da i Balkan jednom bude trendseter",
+          3
+        ]
+      ]
+    },
+    {
+      "id": 6,
+      "artist": "Marko Bošnjak x Iva Lorens",
+      "title": "Asfalt",
+      "line_count": 37,
+      "token_count": 171,
+      "unique_token_count": 69,
+      "type_token_ratio": 0.404,
+      "avg_line_length": 4.62,
+      "english_word_ratio": 0.058,
+      "top_words": [
+        [
+          "nema",
+          20
+        ],
+        [
+          "me",
+          11
+        ],
+        [
+          "kad",
+          10
+        ],
+        [
+          "tu",
+          10
+        ],
+        [
+          "gori",
+          9
+        ],
+        [
+          "gazim",
+          7
+        ],
+        [
+          "za",
+          7
+        ],
+        [
+          "mnom",
+          7
+        ],
+        [
+          "put",
+          7
+        ],
+        [
+          "padaju",
+          7
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Gazim, za mnom gori put,",
+          7
+        ],
+        [
+          "Padaju kad prođem tu",
+          7
+        ],
+        [
+          "Nema, nema, nema me",
+          6
+        ],
+        [
+          "Kako sad?",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 7,
+      "artist": "Angellina",
+      "title": "Biram te",
+      "line_count": 32,
+      "token_count": 182,
+      "unique_token_count": 57,
+      "type_token_ratio": 0.313,
+      "avg_line_length": 5.69,
+      "english_word_ratio": 0.016,
+      "top_words": [
+        [
+          "ne",
+          18
+        ],
+        [
+          "mi",
+          12
+        ],
+        [
+          "te",
+          9
+        ],
+        [
+          "tebe",
+          8
+        ],
+        [
+          "nek",
+          8
+        ],
+        [
+          "skloni",
+          8
+        ],
+        [
+          "vreme",
+          8
+        ],
+        [
+          "sam",
+          8
+        ],
+        [
+          "sve",
+          8
+        ],
+        [
+          "treba",
+          5
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Ne treba mi, ne trebaš mi,",
+          3
+        ],
+        [
+          "Nek' te skloni vreme, nek' te skloni vreme, ej",
+          3
+        ],
+        [
+          "Sve znala sam bez tebe",
+          3
+        ],
+        [
+          "Noćima sam sanjala da odlaziš od mene,",
+          2
+        ],
+        [
+          "Neka mi oduzmu sve,",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 8,
+      "artist": "Angellina x Brut",
+      "title": "Dijamanti",
+      "line_count": 42,
+      "token_count": 342,
+      "unique_token_count": 121,
+      "type_token_ratio": 0.354,
+      "avg_line_length": 8.14,
+      "english_word_ratio": 0.094,
+      "top_words": [
+        [
+          "da",
+          18
+        ],
+        [
+          "na",
+          18
+        ],
+        [
+          "mi",
+          14
+        ],
+        [
+          "meni",
+          14
+        ],
+        [
+          "u",
+          13
+        ],
+        [
+          "dijamanti",
+          12
+        ],
+        [
+          "još",
+          12
+        ],
+        [
+          "je",
+          9
+        ],
+        [
+          "i",
+          8
+        ],
+        [
+          "se",
+          8
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Na meni dijamanti, da ima šta da zavoli (Na meni dijamanti)",
+          4
+        ],
+        [
+          "Još sam u minus fazi, još mi se traži đavoli (Uuu)",
+          4
+        ],
+        [
+          "Noćas mi dođi u bundi",
+          2
+        ],
+        [
+          "Kao da živim u tundri",
+          2
+        ],
+        [
+          "Sve što ti nudim mi uzmi",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 9,
+      "artist": "Angellina",
+      "title": "Malo je",
+      "line_count": 31,
+      "token_count": 244,
+      "unique_token_count": 88,
+      "type_token_ratio": 0.361,
+      "avg_line_length": 7.87,
+      "english_word_ratio": 0.074,
+      "top_words": [
+        [
+          "i",
+          17
+        ],
+        [
+          "je",
+          15
+        ],
+        [
+          "sve",
+          11
+        ],
+        [
+          "da",
+          10
+        ],
+        [
+          "ne",
+          7
+        ],
+        [
+          "me",
+          6
+        ],
+        [
+          "te",
+          6
+        ],
+        [
+          "ako",
+          6
+        ],
+        [
+          "noćas",
+          6
+        ],
+        [
+          "od",
+          6
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Ako noćas ne legnem, tvoje ruke dotaknem",
+          3
+        ],
+        [
+          "Vodi me, čak i da je put do pakla",
+          3
+        ],
+        [
+          "Ako noćas pustim te, anđele od nevolje",
+          3
+        ],
+        [
+          "Uzmi sve, s tobom je i dno od stakla",
+          3
+        ],
+        [
+          "I sve što imam, malo je",
+          3
+        ]
+      ]
+    },
+    {
+      "id": 10,
+      "artist": "Sara Jo",
+      "title": "Muškarčina",
+      "line_count": 48,
+      "token_count": 224,
+      "unique_token_count": 63,
+      "type_token_ratio": 0.281,
+      "avg_line_length": 4.67,
+      "english_word_ratio": 0.022,
+      "top_words": [
+        [
+          "bruji",
+          24
+        ],
+        [
+          "hoće",
+          22
+        ],
+        [
+          "je",
+          17
+        ],
+        [
+          "samo",
+          13
+        ],
+        [
+          "čaršija",
+          12
+        ],
+        [
+          "noć",
+          7
+        ],
+        [
+          "me",
+          7
+        ],
+        [
+          "i",
+          6
+        ],
+        [
+          "tako",
+          6
+        ],
+        [
+          "znaš",
+          6
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Bruji, bruji čaršija",
+          10
+        ],
+        [
+          "I tako samo samo znaš ti",
+          6
+        ],
+        [
+          "Hoće, hoće, hoće, hoće",
+          4
+        ],
+        [
+          "To je ona moja muškarčina",
+          3
+        ],
+        [
+          "Ama ljubi me nemamo vremena",
+          3
+        ]
+      ]
+    }
+  ]
+}

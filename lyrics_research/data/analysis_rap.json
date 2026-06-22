@@ -1,0 +1,763 @@
+{
+  "project": "Serbian/Bosnian Hip-Hop/Drill Lyrics Research",
+  "collection_date": "2026-06-22",
+  "song_count": 10,
+  "aggregate": {
+    "total_lines": 448,
+    "total_tokens": 2601,
+    "avg_type_token_ratio": 0.418,
+    "avg_english_ratio": 0.088
+  },
+  "songs": [
+    {
+      "id": 1,
+      "artist": "Hurricane",
+      "title": "Favorito",
+      "line_count": 33,
+      "token_count": 192,
+      "unique_token_count": 68,
+      "type_token_ratio": 0.354,
+      "avg_line_length": 5.82,
+      "english_word_ratio": 0.016,
+      "top_words": [
+        [
+          "ito",
+          14
+        ],
+        [
+          "si",
+          10
+        ],
+        [
+          "moj",
+          9
+        ],
+        [
+          "malo",
+          8
+        ],
+        [
+          "favorito",
+          7
+        ],
+        [
+          "nervni",
+          6
+        ],
+        [
+          "sistem",
+          6
+        ],
+        [
+          "pomeraš",
+          6
+        ],
+        [
+          "ti",
+          5
+        ],
+        [
+          "se",
+          5
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Moj si favorito, ito, ito",
+          7
+        ],
+        [
+          "Nervni sistem pomeraš",
+          6
+        ],
+        [
+          "Tebi sve se oprašta",
+          3
+        ],
+        [
+          "Volim te, ali, samo smanji bar malo doživljaj",
+          3
+        ],
+        [
+          "Stani malo, biće ti žao kad ljubav oteraš",
+          3
+        ]
+      ]
+    },
+    {
+      "id": 2,
+      "artist": "Breskvica",
+      "title": "Sama",
+      "line_count": 44,
+      "token_count": 212,
+      "unique_token_count": 78,
+      "type_token_ratio": 0.368,
+      "avg_line_length": 4.82,
+      "english_word_ratio": 0.222,
+      "top_words": [
+        [
+          "pola",
+          15
+        ],
+        [
+          "me",
+          8
+        ],
+        [
+          "da",
+          8
+        ],
+        [
+          "u",
+          7
+        ],
+        [
+          "a",
+          6
+        ],
+        [
+          "na",
+          6
+        ],
+        [
+          "zna",
+          6
+        ],
+        [
+          "sama",
+          5
+        ],
+        [
+          "noći",
+          5
+        ],
+        [
+          "dana",
+          5
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Sama, u pola noći, pola dana",
+          5
+        ],
+        [
+          "A traži me pola grada",
+          5
+        ],
+        [
+          "Louis (Vuitton), Fendi, prava dama",
+          5
+        ],
+        [
+          "Đavo na ramenu mi spava",
+          5
+        ],
+        [
+          "Život zna da bude drama",
+          5
+        ]
+      ]
+    },
+    {
+      "id": 3,
+      "artist": "Senidah",
+      "title": "Mišići",
+      "line_count": 48,
+      "token_count": 271,
+      "unique_token_count": 78,
+      "type_token_ratio": 0.288,
+      "avg_line_length": 5.65,
+      "english_word_ratio": 0.155,
+      "top_words": [
+        [
+          "da",
+          25
+        ],
+        [
+          "ti",
+          14
+        ],
+        [
+          "me",
+          12
+        ],
+        [
+          "dam",
+          10
+        ],
+        [
+          "i",
+          9
+        ],
+        [
+          "ja",
+          8
+        ],
+        [
+          "plešem",
+          8
+        ],
+        [
+          "kada",
+          7
+        ],
+        [
+          "mi",
+          6
+        ],
+        [
+          "se",
+          6
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Ja plešem, plešem",
+          4
+        ],
+        [
+          "Da ti dam, da ti dam",
+          4
+        ],
+        [
+          "Treba mi jebeni magic",
+          3
+        ],
+        [
+          "Lažeš ko jebeni playback",
+          3
+        ],
+        [
+          "Ostaću kući u crveno obučena",
+          3
+        ]
+      ]
+    },
+    {
+      "id": 4,
+      "artist": "Jala Brat x Buba Corelli",
+      "title": "Bebi",
+      "line_count": 52,
+      "token_count": 331,
+      "unique_token_count": 167,
+      "type_token_ratio": 0.505,
+      "avg_line_length": 6.37,
+      "english_word_ratio": 0.033,
+      "top_words": [
+        [
+          "e",
+          14
+        ],
+        [
+          "je",
+          13
+        ],
+        [
+          "to",
+          10
+        ],
+        [
+          "o",
+          10
+        ],
+        [
+          "bi",
+          10
+        ],
+        [
+          "ne",
+          9
+        ],
+        [
+          "a",
+          9
+        ],
+        [
+          "i",
+          8
+        ],
+        [
+          "na",
+          6
+        ],
+        [
+          "ti",
+          6
+        ]
+      ],
+      "hook_lines": [
+        [
+          "A ti bi u moj trezor",
+          2
+        ],
+        [
+          "A ja se ne bi' vez'o",
+          2
+        ],
+        [
+          "A ti bi na moj prijesto",
+          2
+        ],
+        [
+          "I radila bi to često",
+          2
+        ],
+        [
+          "REF. I sve što želi je Gucci enterijer, e",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 5,
+      "artist": "Buba Corelli",
+      "title": "Balenciaga",
+      "line_count": 28,
+      "token_count": 243,
+      "unique_token_count": 124,
+      "type_token_ratio": 0.51,
+      "avg_line_length": 8.68,
+      "english_word_ratio": 0.021,
+      "top_words": [
+        [
+          "na",
+          10
+        ],
+        [
+          "je",
+          8
+        ],
+        [
+          "nju",
+          8
+        ],
+        [
+          "ko",
+          7
+        ],
+        [
+          "ja",
+          5
+        ],
+        [
+          "ti",
+          4
+        ],
+        [
+          "ee",
+          4
+        ],
+        [
+          "jedva",
+          4
+        ],
+        [
+          "stoji",
+          4
+        ],
+        [
+          "nogama",
+          4
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Jedva stoji na nogama, sinoc mjesala alkohol je sa drogama",
+          4
+        ],
+        [
+          "Čitav klub navija za nju, pun mjesec ja ko vuk zavijam na nju",
+          4
+        ],
+        [
+          "Po 5 dana, nocima ne spava, nema osjecanja jee",
+          2
+        ],
+        [
+          "Pogled ko led hladan",
+          2
+        ],
+        [
+          "Iza tamnih stakala, Balenciaga dzala ee",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 6,
+      "artist": "Sajsi MC",
+      "title": "Nadrkano hodanje",
+      "line_count": 45,
+      "token_count": 302,
+      "unique_token_count": 156,
+      "type_token_ratio": 0.517,
+      "avg_line_length": 6.71,
+      "english_word_ratio": 0.076,
+      "top_words": [
+        [
+          "u",
+          11
+        ],
+        [
+          "se",
+          10
+        ],
+        [
+          "sa",
+          9
+        ],
+        [
+          "i",
+          7
+        ],
+        [
+          "nadrkano",
+          7
+        ],
+        [
+          "hodanje",
+          7
+        ],
+        [
+          "gazim",
+          7
+        ],
+        [
+          "limenke",
+          7
+        ],
+        [
+          "izlazim",
+          7
+        ],
+        [
+          "žurke",
+          7
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Nadrkano hodanje, gazim limenke Red bula",
+          4
+        ],
+        [
+          "Izlazim sa žurke u stilu, ja fensi, ti nula",
+          3
+        ],
+        [
+          "Nadrkano hodanje, gazim limenke, sve puca",
+          3
+        ],
+        [
+          "Izlazim sa žurke u stilu, nestala vam struja",
+          3
+        ],
+        [
+          "Kada spremam se za šou, treba nešto da me digne",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 7,
+      "artist": "Voyage x Nucci",
+      "title": "Balkan",
+      "line_count": 42,
+      "token_count": 262,
+      "unique_token_count": 109,
+      "type_token_ratio": 0.416,
+      "avg_line_length": 6.24,
+      "english_word_ratio": 0.134,
+      "top_words": [
+        [
+          "ave",
+          18
+        ],
+        [
+          "a",
+          13
+        ],
+        [
+          "sam",
+          11
+        ],
+        [
+          "mi",
+          10
+        ],
+        [
+          "sve",
+          9
+        ],
+        [
+          "joj",
+          9
+        ],
+        [
+          "da",
+          9
+        ],
+        [
+          "balkan",
+          8
+        ],
+        [
+          "na",
+          7
+        ],
+        [
+          "daje",
+          6
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Ave, ave, a Balkan daje sve",
+          6
+        ],
+        [
+          "Ave, ave, a pije, ne staje",
+          3
+        ],
+        [
+          "Tu sam rođen, ali morô sam da nestanem",
+          3
+        ],
+        [
+          "A majko, morô sam da nestanem",
+          3
+        ],
+        [
+          "(Woo-woo)",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 8,
+      "artist": "Maya Berović",
+      "title": "Neka stvar",
+      "line_count": 67,
+      "token_count": 298,
+      "unique_token_count": 75,
+      "type_token_ratio": 0.252,
+      "avg_line_length": 4.45,
+      "english_word_ratio": 0.081,
+      "top_words": [
+        [
+          "je",
+          24
+        ],
+        [
+          "u",
+          20
+        ],
+        [
+          "redu",
+          20
+        ],
+        [
+          "bebo",
+          13
+        ],
+        [
+          "ko",
+          12
+        ],
+        [
+          "nije",
+          12
+        ],
+        [
+          "nikad",
+          11
+        ],
+        [
+          "srce",
+          9
+        ],
+        [
+          "i",
+          8
+        ],
+        [
+          "ova",
+          8
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Ova mala u redu je",
+          8
+        ],
+        [
+          "Njeno srce u redu je",
+          5
+        ],
+        [
+          "Samo sam luda",
+          4
+        ],
+        [
+          "Ko nikad pre, ko nikad pre",
+          4
+        ],
+        [
+          "I kada nije, i kada nije",
+          3
+        ]
+      ]
+    },
+    {
+      "id": 9,
+      "artist": "Edita",
+      "title": "Dilema",
+      "line_count": 45,
+      "token_count": 210,
+      "unique_token_count": 114,
+      "type_token_ratio": 0.543,
+      "avg_line_length": 4.67,
+      "english_word_ratio": 0.033,
+      "top_words": [
+        [
+          "mi",
+          9
+        ],
+        [
+          "nas",
+          7
+        ],
+        [
+          "smo",
+          6
+        ],
+        [
+          "čeka",
+          6
+        ],
+        [
+          "ta",
+          5
+        ],
+        [
+          "dilema",
+          5
+        ],
+        [
+          "o",
+          4
+        ],
+        [
+          "nema",
+          4
+        ],
+        [
+          "si",
+          4
+        ],
+        [
+          "šta",
+          4
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Mi smo ta dilema",
+          5
+        ],
+        [
+          "Glavna tabo tema, a o nama ništa nema",
+          2
+        ],
+        [
+          "Taxi čeka spreman",
+          2
+        ],
+        [
+          "Stakla zatamnjena, vozi nas gde svetla nema",
+          2
+        ],
+        [
+          "Moj si deo trena",
+          2
+        ]
+      ]
+    },
+    {
+      "id": 10,
+      "artist": "Nucci",
+      "title": "Vroom",
+      "line_count": 44,
+      "token_count": 280,
+      "unique_token_count": 120,
+      "type_token_ratio": 0.429,
+      "avg_line_length": 6.36,
+      "english_word_ratio": 0.114,
+      "top_words": [
+        [
+          "kad",
+          16
+        ],
+        [
+          "je",
+          15
+        ],
+        [
+          "opije",
+          13
+        ],
+        [
+          "vroom",
+          12
+        ],
+        [
+          "da",
+          12
+        ],
+        [
+          "glumi",
+          9
+        ],
+        [
+          "me",
+          8
+        ],
+        [
+          "stena",
+          8
+        ],
+        [
+          "i",
+          7
+        ],
+        [
+          "sava",
+          6
+        ]
+      ],
+      "hook_lines": [
+        [
+          "Vroom, kad me opije, glumi da je stena",
+          8
+        ],
+        [
+          "Vroom, kad se opije nestane i trema",
+          4
+        ],
+        [
+          "Kukove uvije kad krene Makarena",
+          4
+        ],
+        [
+          "En-den-dini-sava-raka-tini",
+          4
+        ],
+        [
+          "Nisi prava dama, džabe piješ taj Martini",
+          2
+        ]
+      ]
+    }
+  ]
+}
