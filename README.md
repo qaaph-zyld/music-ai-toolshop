@@ -5,7 +5,7 @@ CLI toolshop to orchestrate music AI tools (self-contained):
 - **Suno** – library listing, batch analysis, and text export (external sync optional)
 - **BPM/Key Analysis** – detect tempo and musical key using librosa
 - **YouTube** – search, metadata, download, summarize for Suno prompts
-- **Track Reverse Engineering** – basic structure analysis (BPM, key, spectral features)
+- **Track Reverse Engineering** – advanced structure analysis (BPM, key, chords, notes, effects, instruments, source separation)
 - **Voice Effects Detection** – identify vocal processing (reverb, pitch shift, compression, auto-tune, etc.)
 - **Stem Extraction** – separate instrumentals, main vocals, and backing vocals
 - **Audio Cleaning** – remove pauses, breaths, coughs, clicks, and align to beat grid
@@ -130,6 +130,18 @@ Best of lofi hip hop 2021 ✨ [beats to relax/study to] | Tags: lofi, chill beat
 toolshop track analyze song.wav
 toolshop track analyze song.wav --summary
 toolshop track analyze song.wav --export-json --output-dir ./results
+
+# Advanced analysis using the external wav_reverse_engineer backend
+toolshop track analyze song.wav --chords --notes --effects --instruments --separation hpss
+
+# Batch analyze a directory of audio files
+toolshop track batch ./tracks --recursive --output batch_analysis.json
+
+# Download and analyze a YouTube video
+toolshop track yt-analyze <url> --output-dir ./yt --keep-audio
+
+# Generate visualizations
+toolshop track visualize song.wav --output-dir ./plots
 ```
 
 **Example output:**
@@ -354,7 +366,7 @@ toolshop/
 ├── bpm_adapter.py                # librosa-based BPM/key analysis
 ├── yt_scraper_adapter.py         # yt-dlp library integration
 ├── yt_summarizer_adapter.py      # Suno prompt generation
-├── reverse_engineering_adapter.py # Pure librosa-based track analysis
+├── reverse_engineering_adapter.py # wav_reverse_engineer wrapper with librosa fallback
 ├── voice_effects_adapter.py      # Voice effects detection (12 detectors)
 ├── stem_extractor_adapter.py     # Stem separation (instrumentals/vocals)
 ├── cleaning_stages.py          # Audio cleaning pipeline stages
@@ -366,7 +378,7 @@ toolshop/
 - **Required:** Python 3.10+
 - **Audio analysis:** `librosa`, `numpy`, `scipy`
 - **YouTube tools:** `yt-dlp`
-- **Track reverse engineering:** Pure librosa-based (no external repos required)
+- **Track reverse engineering:** `wav_reverse_engineer` (cloned sub-project) with librosa fallback
 - **Voice effects (core):** `librosa`, `numpy`, `scipy`, `parselmouth`, `soundfile`
 - **Voice effects (full):** Above + `crepe`, `tensorflow` (neural pitch detection)
 

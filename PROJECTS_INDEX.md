@@ -8,7 +8,7 @@
 | 02 | ace-step | ✅ Active | AI music generation with ACE-Step |
 | 03 | lyrics-writer | ⏳ Planned | AI lyrics generation tools |
 | 04 | stem-extractor | ⏳ Planned | Audio source separation |
-| 05 | track-reverse-engineering | ⏳ Planned | Production technique analysis |
+| 05 | track-reverse-engineering | ✅ Active | Integrated wav_reverse_engineer production analysis |
 
 ## Directory Structure
 
@@ -22,5 +22,6 @@ Each project follows dev_framework principles:
 
 - [01-suno-library](./projects/01-suno-library/) - Extracted Suno collection
 - [02-ace-step](./projects/02-ace-step/) - Music generation
+- [05-track-reverse-engineering](./projects/05-track-reverse-engineering/) - Track reverse engineering integration
 - [docs/superpowers/specs](./docs/superpowers/specs/) - Design documents
 - [docs/superpowers/plans](./docs/superpowers/plans/) - Implementation plans

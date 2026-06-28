@@ -269,7 +269,131 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run instrument recognition (if available)",
     )
     track_analyze_parser.add_argument(
+        "--chords", action="store_true", help="Run chord detection (if available)"
+    )
+    track_analyze_parser.add_argument(
+        "--notes", action="store_true", help="Run note transcription (if available)"
+    )
+    track_analyze_parser.add_argument(
+        "--separation",
+        choices=["hpss"],
+        default=None,
+        help="Source separation backend (hpss only in this integration)",
+    )
+    track_analyze_parser.add_argument(
+        "--backend",
+        choices=["advanced", "basic"],
+        default="advanced",
+        help="Analysis backend to use (advanced uses wav_reverse_engineer)",
+    )
+    track_analyze_parser.add_argument(
         "--summary", action="store_true", help="Print human-readable summary"
+    )
+
+    # track batch <dir>
+    track_batch_parser = track_subparsers.add_parser(
+        "batch", help="Batch analyze multiple audio files in a directory"
+    )
+    track_batch_parser.add_argument(
+        "directory", type=Path, help="Directory containing audio files"
+    )
+    track_batch_parser.add_argument(
+        "--ext",
+        default="wav,mp3,flac",
+        help="Comma-separated list of audio extensions to include",
+    )
+    track_batch_parser.add_argument(
+        "--recursive", action="store_true", help="Scan subdirectories recursively"
+    )
+    track_batch_parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("batch_analysis.json"),
+        help="Output JSON file for aggregated results",
+    )
+    track_batch_parser.add_argument(
+        "--effects", action="store_true", help="Run effects analysis"
+    )
+    track_batch_parser.add_argument(
+        "--instruments", action="store_true", help="Run instrument recognition"
+    )
+    track_batch_parser.add_argument(
+        "--chords", action="store_true", help="Run chord detection"
+    )
+    track_batch_parser.add_argument(
+        "--notes", action="store_true", help="Run note transcription"
+    )
+    track_batch_parser.add_argument(
+        "--separation",
+        choices=["hpss"],
+        default=None,
+        help="Source separation backend",
+    )
+    track_batch_parser.add_argument(
+        "--backend",
+        choices=["advanced", "basic"],
+        default="advanced",
+        help="Analysis backend",
+    )
+
+    # track yt-analyze <url>
+    track_yt_parser = track_subparsers.add_parser(
+        "yt-analyze", help="Download a YouTube video and analyze its audio"
+    )
+    track_yt_parser.add_argument("url", type=str, help="YouTube URL or video ID")
+    track_yt_parser.add_argument(
+        "--output-dir", type=Path, default=Path("yt_downloads"), help="Directory for downloaded audio"
+    )
+    track_yt_parser.add_argument(
+        "--keep-audio", action="store_true", help="Keep the downloaded audio file after analysis"
+    )
+    track_yt_parser.add_argument(
+        "--export-json", action="store_true", help="Export results to JSON file"
+    )
+    track_yt_parser.add_argument(
+        "--effects", action="store_true", help="Run effects analysis"
+    )
+    track_yt_parser.add_argument(
+        "--instruments", action="store_true", help="Run instrument recognition"
+    )
+    track_yt_parser.add_argument(
+        "--chords", action="store_true", help="Run chord detection"
+    )
+    track_yt_parser.add_argument(
+        "--notes", action="store_true", help="Run note transcription"
+    )
+    track_yt_parser.add_argument(
+        "--separation",
+        choices=["hpss"],
+        default=None,
+        help="Source separation backend",
+    )
+    track_yt_parser.add_argument(
+        "--backend",
+        choices=["advanced", "basic"],
+        default="advanced",
+        help="Analysis backend",
+    )
+    track_yt_parser.add_argument(
+        "--summary", action="store_true", help="Print human-readable summary"
+    )
+
+    # track visualize <file>
+    track_viz_parser = track_subparsers.add_parser(
+        "visualize", help="Generate visualizations for a track"
+    )
+    track_viz_parser.add_argument("file", type=Path, help="Path to audio file")
+    track_viz_parser.add_argument(
+        "--output-dir", type=Path, default=Path("track_visuals"), help="Directory for plots"
+    )
+    track_viz_parser.add_argument(
+        "--waveform", action="store_true", help="Render waveform plot"
+    )
+    track_viz_parser.add_argument(
+        "--spectrogram", action="store_true", help="Render spectrogram plot"
+    )
+    track_viz_parser.add_argument(
+        "--mel", action="store_true", help="Render mel spectrogram plot"
     )
 
     # =========================================================================
@@ -663,11 +787,116 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 output_dir=args.output_dir,
                 effects=args.effects,
                 instruments=args.instruments,
+                chords=args.chords,
+                notes=args.notes,
+                separation=args.separation,
+                backend=args.backend,
             )
             if args.summary:
                 reverse_engineering_adapter.print_summary(result)
             else:
                 print(json.dumps(result, indent=2, default=str))
+
+        elif args.track_command == "batch":
+            extensions = [e.strip().lstrip(".") for e in args.ext.split(",")]
+            files = []
+            if args.recursive:
+                for ext in extensions:
+                    files.extend(args.directory.rglob(f"*.{ext}"))
+            else:
+                for ext in extensions:
+                    files.extend(args.directory.glob(f"*.{ext}"))
+            files = sorted(files)
+
+            if not files:
+                parser.error(
+                    f"No audio files found in {args.directory} with extensions {extensions}"
+                )
+
+            results = []
+            for audio_path in files:
+                try:
+                    result = reverse_engineering_adapter.analyze_track(
+                        path=audio_path,
+                        effects=args.effects,
+                        instruments=args.instruments,
+                        chords=args.chords,
+                        notes=args.notes,
+                        separation=args.separation,
+                        backend=args.backend,
+                    )
+                    results.append(result)
+                except Exception as exc:
+                    results.append({"file": str(audio_path), "error": str(exc)})
+
+            batch_report = {
+                "directory": str(args.directory),
+                "files_analyzed": len(results),
+                "results": results,
+            }
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            with args.output.open("w", encoding="utf-8") as f:
+                json.dump(batch_report, f, indent=2, default=str)
+            print(f"Batch analysis saved to {args.output} ({len(results)} tracks)")
+
+        elif args.track_command == "yt-analyze":
+            audio_path = yt_scraper_adapter.download_audio(args.url, args.output_dir)
+            try:
+                result = reverse_engineering_adapter.analyze_track(
+                    path=audio_path,
+                    export_json=args.export_json,
+                    output_dir=args.output_dir,
+                    effects=args.effects,
+                    instruments=args.instruments,
+                    chords=args.chords,
+                    notes=args.notes,
+                    separation=args.separation,
+                    backend=args.backend,
+                )
+                if args.summary:
+                    reverse_engineering_adapter.print_summary(result)
+                else:
+                    print(json.dumps(result, indent=2, default=str))
+            finally:
+                if not args.keep_audio and audio_path.exists():
+                    audio_path.unlink()
+
+        elif args.track_command == "visualize":
+            try:
+                from wav_reverse_engineer.audio_analyzer.audio_processor import AudioProcessor
+                from wav_reverse_engineer.audio_analyzer.visualizer import AudioVisualizer
+            except Exception as exc:
+                parser.error(
+                    f"Visualization requires the wav_reverse_engineer package: {exc}"
+                )
+
+            audio, sr = AudioProcessor.load_audio(str(args.file), target_sr=22050, mono=True)
+            args.output_dir.mkdir(parents=True, exist_ok=True)
+            stem = args.file.stem
+
+            selected = args.waveform or args.spectrogram or args.mel
+            if args.waveform or not selected:
+                output = args.output_dir / f"{stem}_waveform.png"
+                AudioVisualizer.plot_waveform(
+                    audio, sr, title=f"{args.file.name} - Waveform",
+                    output_path=str(output), show=False,
+                )
+                print(f"Waveform saved to {output}")
+            if args.spectrogram or not selected:
+                output = args.output_dir / f"{stem}_spectrogram.png"
+                AudioVisualizer.plot_spectrogram(
+                    audio, sr, title=f"{args.file.name} - Spectrogram",
+                    output_path=str(output), show=False,
+                )
+                print(f"Spectrogram saved to {output}")
+            if args.mel or not selected:
+                output = args.output_dir / f"{stem}_mel_spectrogram.png"
+                AudioVisualizer.plot_mel_spectrogram(
+                    audio, sr, title=f"{args.file.name} - Mel Spectrogram",
+                    output_path=str(output), show=False,
+                )
+                print(f"Mel spectrogram saved to {output}")
+
         else:
             parser.error("Unknown 'track' subcommand.")
 
