@@ -12,3 +12,4 @@ venv/
 
 # Output data (WAV library, lyrics, etc.) - kept private
 projects/
+results/

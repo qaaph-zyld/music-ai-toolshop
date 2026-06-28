@@ -37,6 +37,13 @@ except Exception:
     separate_hpss = None
 
 
+def _to_scalar(x):
+    """Convert a numpy scalar/array or Python scalar to a plain Python scalar."""
+    if hasattr(x, "item"):
+        x = x.item()
+    return x
+
+
 def _basic_analysis(path: Path) -> Dict[str, Any]:
     """Fallback basic analysis using librosa directly."""
     try:
@@ -52,21 +59,23 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
 
     # BPM
     tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
+    tempo = _to_scalar(tempo)
+    beat_count = len(beat_frames) if hasattr(beat_frames, "__len__") else int(_to_scalar(beat_frames))
 
     # Key
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
     chroma_mean = np.mean(chroma, axis=1)
-    key_idx = int(np.argmax(chroma_mean))
+    key_idx = int(_to_scalar(np.argmax(chroma_mean)))
     keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
     # Spectral features
-    spectral_centroid = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
-    spectral_bandwidth = float(np.mean(librosa.feature.spectral_bandwidth(y=y, sr=sr)))
+    spectral_centroid = float(_to_scalar(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))))
+    spectral_bandwidth = float(_to_scalar(np.mean(librosa.feature.spectral_bandwidth(y=y, sr=sr))))
 
     # Harmonic/percussive ratio
     y_harm, y_perc = librosa.effects.hpss(y)
-    harm_energy = float(np.mean(y_harm**2))
-    perc_energy = float(np.mean(y_perc**2))
+    harm_energy = float(_to_scalar(np.mean(y_harm**2)))
+    perc_energy = float(_to_scalar(np.mean(y_perc**2)))
     harmonic_ratio = harm_energy / (harm_energy + perc_energy + 1e-10)
 
     return {
@@ -74,7 +83,7 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
         "duration_seconds": round(duration, 2),
         "sample_rate": sr,
         "bpm": round(float(tempo), 2),
-        "beat_count": len(beat_frames),
+        "beat_count": beat_count,
         "key": keys[key_idx],
         "mode": "major" if chroma_mean[key_idx] > 0.5 else "minor",
         "spectral_centroid": round(spectral_centroid, 2),
