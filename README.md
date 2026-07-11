@@ -1,5 +1,7 @@
 # music-ai-toolshop
 
+![CI](https://github.com/qaaph-zyld/music-ai-toolshop/actions/workflows/ci.yml/badge.svg)
+
 CLI toolshop to orchestrate music AI tools (self-contained):
 
 - **Suno** – library listing, batch analysis, and text export (external sync optional)
