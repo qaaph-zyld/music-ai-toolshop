@@ -1,5 +1,40 @@
 # Changelog
 
+### CrhymeTV Reverse-Engineering Batch Pipeline
+**Timestamp:** 2026-06-28
+**Action Type:** Implementation
+**Previous State:** PapaPedro pilot validated the reverse-engineering pipeline on 3 hand-picked beats; no generic batch runner existed.
+**Current State:** Generic, resumable, chunked batch runner applied to the CrhymeTV catalogue with per-track recipes and catalogue generation.
+
+#### Changes Made:
+- Created `run_reverse_engineering_batch.py` — generic batch runner with `--input-dir`, `--output-dir`, `--limit`, `--offset`, `--chunk-size`, `--use-gpu`, `--high-quality`, and `--no-resume`.
+- Added resume-safe `batch_status.json` that is flushed after every track and tracks the last completed index.
+- Created `run_crhymetv_batch.ps1` — PowerShell runner that performs an environment check and starts the full CPU-fast batch.
+- Created `run_crhymetv_chunk.ps1` — helper to run a single chunk manually for parallelization or resuming a specific chunk.
+- Created `run_crhymetv_smoke_test.ps1` — smoke test on 3 tracks to validate the pipeline before a full run.
+- Created `generate_crhymetv_catalogue.py` — generates `catalogue.csv`, `catalogue.md`, and `suno_prompts.md` from `batch_status.json`.
+- Kept the PapaPedro pilot (`run_papapedro_pilot.py` / `.ps1`) intact for reference.
+
+#### Files Affected:
+- **NEW:** `run_reverse_engineering_batch.py`
+- **NEW:** `run_crhymetv_batch.ps1`
+- **NEW:** `run_crhymetv_chunk.ps1`
+- **NEW:** `run_crhymetv_smoke_test.ps1`
+- **NEW:** `generate_crhymetv_catalogue.py`
+- **MODIFIED:** `toolshop/reverse_engineering_adapter.py` — `_to_scalar()` helper used to coerce numpy scalars for librosa 0.11 / numpy 2.x
+- **MODIFIED:** `projects/05-track-reverse-engineering/track_reverse_engineering/wav_reverse_engineer/audio_analyzer/feature_extractor.py` — robust scalar coercion for tempo
+
+#### Runtime Notes:
+- Discovered 222 MP3 files in `Tools\yt_extractor\downloads\CrhymeTV` (more than the handoff's 181 estimate; the full batch runs on all 222).
+- Smoke test completed 3 tracks in ~36 minutes on CPU fast mode (~12 min/track).
+- Full batch is resumable via `batch_status.json`; if interrupted, re-run `run_crhymetv_batch.ps1` to resume.
+
+#### Next Actions Required:
+- Allow the full batch to complete; re-run `generate_crhymetv_catalogue.py` afterwards to refresh the catalogue files.
+- Optional: filter non-music items (snippets, trailers, vlogs) by duration or filename keyword if a narrower catalogue is desired.
+
+---
+
 ### Answer #XXX - Audio Cleaning Pipeline Implementation
 **Timestamp:** 2026-03-25 17:30
 **Action Type:** Implementation
