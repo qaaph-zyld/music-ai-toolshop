@@ -10,8 +10,14 @@ Subcommands:
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Optional, Sequence
+
+# Allow the mastering_tool git submodule to be imported when running from a checkout.
+_repo_root = Path(__file__).resolve().parent.parent
+if (_repo_root / "mastering_tool").is_dir() and str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
 
 from . import suno_adapter
 from . import bpm_adapter
