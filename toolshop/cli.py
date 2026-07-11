@@ -28,6 +28,7 @@ from . import voice_effects_adapter
 from mastering_tool.tools.vocal_doctor import diagnose_and_recommend
 from . import stem_extractor_adapter
 from . import cleaning_pipeline_adapter
+from . import doctor as doctor_module
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -612,6 +613,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output file path for config template",
     )
 
+    # =========================================================================
+    # DOCTOR
+    # =========================================================================
+    doctor_parser = subparsers.add_parser(
+        "doctor", help="Check environment and dependencies"
+    )
+    doctor_parser.add_argument(
+        "--json", type=Path, default=None, help="Write JSON report to this file"
+    )
+
     return parser
 
 
@@ -1145,6 +1156,14 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             )
         else:
             parser.error("Unknown 'clean' subcommand.")
+
+    # =========================================================================
+    # DOCTOR
+    # =========================================================================
+    elif args.command == "doctor":
+        code = doctor_module.main(["--json", str(args.json)] if args.json else [])
+        if code != 0:
+            raise SystemExit(code)
 
     else:
         parser.error(f"Unknown command: {args.command}")
