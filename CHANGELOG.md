@@ -1,5 +1,43 @@
 # Changelog
 
+### Phase 0 — Take Control (Repo + Environment Hygiene)
+**Timestamp:** 2026-07-11
+**Action Type:** Implementation
+**Previous State:** CrhymeTV batch 140/222 complete, uncommitted batch toolchain, Python 3.13 global, stale docs, duplicate projects, broken submodule config.
+**Current State:** Clean git state, pinned Python 3.11 venv, `toolshop doctor`, honest docs, CrhymeTV batch resumed.
+
+#### Changes Made:
+- Committed the reverse-engineering batch toolchain and roadmap docs.
+- Extended `.gitignore` for session archives, logs, coverage, and audio/stem data dirs.
+- Moved personal audio (`Distro Kidea/`) and generated stems (`Stemmeca_alatkka/`) to `D:\MusicData\toolshop\`.
+- Archived root `Mastering_Toolshop` sibling; canonical copy remains the `mastering_tool` submodule.
+- Removed vendored `Voicebox/` fork from the repo.
+- Repaired submodule config: added `.gitmodules` for `mastering_tool`; dropped phantom `MAirina_Tucc/rimer-sr` gitlink.
+- Installed Python 3.11 and created repo `.venv`; committed `requirements.lock.txt`.
+- Added `stems` optional-dependency group (`audio-separator`, `onnxruntime`, `demucs`, `soundfile`).
+- Added `toolshop doctor` command to verify Python, ffmpeg, packages, disk space, and model cache.
+- Updated `README.md`, `PROJECTS_INDEX.md` to match reality.
+- Launched the 82-track remaining CrhymeTV batch (`run_crhymetv_batch.ps1`) to complete overnight.
+
+#### Files Affected:
+- **NEW:** `.gitmodules`
+- **NEW:** `requirements.lock.txt`
+- **NEW:** `toolshop/doctor.py`
+- **NEW:** `tests/test_doctor.py`
+- **MODIFIED:** `.gitignore`
+- **MODIFIED:** `pyproject.toml`
+- **MODIFIED:** `toolshop/cli.py`
+- **MODIFIED:** `README.md`
+- **MODIFIED:** `PROJECTS_INDEX.md`
+- **MODIFIED:** `CHANGELOG.md`
+
+#### Runtime Notes:
+- `toolshop doctor` reports PASS on Python 3.11, ffmpeg, all extras, and 252 GB free on D:.
+- CrhymeTV batch resumable via `results/crhymetv_re/batch_status.json` (140/222 at start).
+- Batch launched in background; catalogue regeneration (`generate_crhymetv_catalogue.py`) follows completion.
+
+---
+
 ### CrhymeTV Reverse-Engineering Batch Pipeline
 **Timestamp:** 2026-06-28
 **Action Type:** Implementation

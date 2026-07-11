@@ -12,25 +12,43 @@ CLI toolshop to orchestrate music AI tools (self-contained):
 
 ## Installation
 
+Requires **Python 3.11** (3.13 is not supported by several audio-ML packages).
+
 ```bash
-pip install -e .
-pip install librosa numpy yt-dlp  # Optional dependencies
+# Create a Python 3.11 venv first
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -e ".[audio,youtube,voice,cleaning,track,stems]"
 ```
 
 Or install with optional dependency groups:
 
 ```bash
-pip install -e ".[all]"        # Everything
+pip install -e ".[all]"        # Core groups (audio, youtube, voice, cleaning, track)
 pip install -e ".[audio]"      # librosa + numpy + scipy for BPM/key
 pip install -e ".[youtube]"    # yt-dlp for YouTube tools
 pip install -e ".[voice]"      # Voice effects detection (parselmouth + librosa)
 pip install -e ".[voice-full]" # Voice + crepe neural pitch (requires tensorflow)
-pip install -e ".[stems]"      # Stem extraction (audio-separator)
+pip install -e ".[stems]"      # Stem extraction (audio-separator + demucs)
+pip install -e ".[cleaning]"   # Audio cleaning pipeline
+pip install -e ".[track]"      # Reverse engineering analysis
 ```
+
+## Hardware profile
+
+This repo is developed on a **CPU-only** Windows 10 machine:
+
+- CPU-only inference is the default; modern CUDA/DirectML require a newer GPU.
+- Measured: ~12 min/track for the full reverse-engineering pipeline in fast mode.
+- FLAC output is the default for stems to save disk.
+
+Run `toolshop doctor` after install to verify Python version, ffmpeg, packages, disk space, and the model-cache directory.
 
 ## Quick Start
 
 ```bash
+# Verify environment after install
+toolshop doctor
+
 # Analyze a local audio file
 toolshop analyze bpm-key song.wav
 
@@ -46,6 +64,10 @@ toolshop voice analyze recording.wav
 # Extract stems from an audio file
 toolshop stem extract song.wav
 ```
+
+## Data boundary
+
+Audio inputs and generated outputs (stems, batches, personal libraries) live outside this repository. Default data root is `D:\MusicData\toolshop\`; override with the `TOOLSHOP_DATA_DIR` environment variable.
 
 ---
 
@@ -220,8 +242,8 @@ toolshop voice analyze recording.wav --export-json --output-dir ./results
 toolshop stem extract song.wav
 toolshop stem extract song.wav --output-dir ./stems
 
-# Use CPU instead of GPU (slower but no VRAM required)
-toolshop stem extract song.wav --cpu
+# Default is CPU-only; --gpu warns on unsupported hardware
+toolshop stem extract song.wav --gpu
 
 # Use fast mode (MDX-Net models) instead of high quality (Roformer)
 toolshop stem extract song.wav --fast
@@ -231,20 +253,22 @@ toolshop stem extract song.wav --json
 ```
 
 **Requirements:**
-- `audio-separator` package (install with: `pip install audio-separator`)
-- Optional: GPU with CUDA support for faster processing
+- Install with `pip install -e ".[stems]"` (audio-separator + demucs).
+- CPU inference is the default; modern GPUs require a supported NVIDIA card.
 
 **Extracted stems:**
 - Instrumental (no vocals)
 - Main vocals (lead vocal)
 - Backing vocals (harmonies, ad-libs)
 
+**Known issue:** fast mode has a filename-mapping bug where `backing_vocals` can be `None`. This is fixed in Phase 1 (`toolshop stems` v1.0).
+
 **Example output:**
 ```
 ✓ Extracted stems from song.wav
   Output directory: ./separated_tracks
   Quality mode: high
-  GPU used: True
+  Device: cpu
   instrumental: song_Instrumental.wav
   main_vocals: song_Main_Vocals.wav
   backing_vocals: song_Backing_Vocals.wav
@@ -362,6 +386,7 @@ print(f"Time removed: {summary['stage_reports'][1].get('time_removed', 0):.2f}s"
 ```
 toolshop/
 ├── cli.py                        # CLI entrypoint
+├── doctor.py                     # Environment health-check diagnostics
 ├── suno_adapter.py               # Suno tools (list/analyze/export; sync stub)
 ├── bpm_adapter.py                # librosa-based BPM/key analysis
 ├── yt_scraper_adapter.py         # yt-dlp library integration
@@ -375,12 +400,14 @@ toolshop/
 
 ## Dependencies
 
-- **Required:** Python 3.10+
+- **Required:** Python 3.11
 - **Audio analysis:** `librosa`, `numpy`, `scipy`
 - **YouTube tools:** `yt-dlp`
+- **Stems:** `audio-separator`, `onnxruntime`, `demucs`, `soundfile`
 - **Track reverse engineering:** `wav_reverse_engineer` (cloned sub-project) with librosa fallback
 - **Voice effects (core):** `librosa`, `numpy`, `scipy`, `parselmouth`, `soundfile`
 - **Voice effects (full):** Above + `crepe`, `tensorflow` (neural pitch detection)
+- **Cleaning:** `librosa`, `numpy`, `scipy`, `soundfile`, `pyyaml`
 
 ## License
 
