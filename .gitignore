@@ -13,3 +13,19 @@ venv/
 # Output data (WAV library, lyrics, etc.) - kept private
 projects/
 results/
+
+# Session/scratch artifacts
+.session_archive/
+*.session_archive/
+*.log
+*.err
+.coverage
+.pytest_cache/
+output.json
+output.txt
+
+# Personal audio / generated stems (moved to TOOLSHOP_DATA_DIR)
+Distro Kidea/
+Stemmeca_alatkka/separated_stems/
+Stemmeca_alatkka/toolshop_stems*/
+Voicebox/
