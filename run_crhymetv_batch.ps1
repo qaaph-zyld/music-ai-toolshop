@@ -82,9 +82,25 @@ $batchProc = Start-Process -FilePath $Python -ArgumentList $BatchArgs -NoNewWind
     -RedirectStandardOutput $LogFile -RedirectStandardError (Join-Path $ResultsDir "batch.err")
 $exitCode = $batchProc.ExitCode
 Write-Log "Batch script finished with exit code $exitCode."
+
+if ($exitCode -eq 0) {
+    Write-Log "Regenerating catalogue from batch_status.json..."
+    $CatalogueArgs = @(
+        "d:\Projects\Music-AI-Toolshop\generate_crhymetv_catalogue.py",
+        "--status-file", (Join-Path $ResultsDir "batch_status.json"),
+        "--output-dir", $ResultsDir
+    )
+    $catProc = Start-Process -FilePath $Python -ArgumentList $CatalogueArgs -NoNewWindow -Wait -PassThru `
+        -RedirectStandardOutput (Join-Path $ResultsDir "catalogue.log") `
+        -RedirectStandardError (Join-Path $ResultsDir "catalogue.err")
+    Write-Log "Catalogue generation finished with exit code $($catProc.ExitCode)."
+}
+
 Write-Log "All done. Check these files next:"
 Write-Log "  - $ResultsDir\env_check.json"
 Write-Log "  - $ResultsDir\batch_status.json"
 Write-Log "  - $ResultsDir\per_track\*\recipe.md"
+Write-Log "  - $ResultsDir\catalogue.csv"
+Write-Log "  - $ResultsDir\catalogue.md"
 Write-Log "  - $LogFile"
 exit $exitCode

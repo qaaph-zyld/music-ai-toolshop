@@ -29,6 +29,7 @@ Distro Kidea/
 Stemmeca_alatkka/separated_stems/
 Stemmeca_alatkka/toolshop_stems*/
 Voicebox/
+toolshop_data/
 
 # Separate live subproject (nested git repo, not part of core package)
 open_DAW/

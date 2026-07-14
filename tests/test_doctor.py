@@ -85,10 +85,23 @@ def test_disk_ok_not_enough_space(monkeypatch):
 
 def test_model_cache_ok(tmp_path, monkeypatch):
     cache = tmp_path / "models"
+    cache.mkdir()
+    for name in doctor.stem_models.expected_model_files():
+        (cache / name).touch()
     monkeypatch.setenv("TOOLSHOP_MODEL_DIR", str(cache))
     result = doctor._model_cache_ok()
     assert result["ok"] is True
     assert result["path"] == str(cache)
+    assert result["missing"] == []
+
+
+def test_model_cache_missing(tmp_path, monkeypatch):
+    cache = tmp_path / "models"
+    cache.mkdir()
+    monkeypatch.setenv("TOOLSHOP_MODEL_DIR", str(cache))
+    result = doctor._model_cache_ok()
+    assert result["ok"] is False
+    assert result["missing"]
 
 
 def test_run_checks_aggregates_ok():

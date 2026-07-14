@@ -1,5 +1,50 @@
 # Changelog
 
+### Phase 1 — Stem Tool v1.0
+**Timestamp:** 2026-07-14
+**Action Type:** Implementation
+**Previous State:** Legacy stem extraction used hardcoded model filenames and brittle substring guessing for output mapping; no model registry, no unified `stems` command, no Demucs backend, no model cache diagnostics.
+**Current State:** Registry-driven, test-backed stem extraction with unified CLI, resumable batching, Demucs adapter, and environment-aware doctor checks.
+
+#### Changes Made:
+- Created `toolshop/stem_models.py` registry with `StemModel`/`Preset` dataclasses, canonical output patterns, and quality tiers.
+- Rewrote `toolshop/stem_extractor_adapter.py` to resolve output filenames via explicit registry patterns and added `extract_stems_preset()` for preset-driven separation; legacy `extract_stems()` API preserved.
+- Added `toolshop/batch.py` — resumable, UTF-8-safe batch runner shared by the stem command and existing CrhymeTV batch.
+- Added `toolshop/stems_cli.py` and `toolshop stems` CLI — single-file and directory modes, `--preset`, `--device`, `--format`, `--limit`, `--offset`, `--no-resume`, and `--list-models`.
+- Added `toolshop/demucs_adapter.py` with Python API first and subprocess CLI fallback for `4stem`/`6stem` presets.
+- Extended `toolshop doctor` to report missing/orphaned model cache files against the registry.
+- Added test coverage: `test_stem_models.py`, `test_stem_extractor_adapter.py`, `test_batch.py`, `test_cli_stems.py`, `test_demucs_adapter.py`.
+- Bumped version to `0.4.0`.
+
+#### Files Affected:
+- **NEW:** `toolshop/stem_models.py`
+- **NEW:** `toolshop/batch.py`
+- **NEW:** `toolshop/stems_cli.py`
+- **NEW:** `toolshop/demucs_adapter.py`
+- **NEW:** `tests/test_stem_models.py`
+- **NEW:** `tests/test_batch.py`
+- **NEW:** `tests/test_cli_stems.py`
+- **NEW:** `tests/test_demucs_adapter.py`
+- **MODIFIED:** `toolshop/stem_extractor_adapter.py`
+- **MODIFIED:** `toolshop/cli.py`
+- **MODIFIED:** `toolshop/doctor.py`
+- **MODIFIED:** `tests/test_doctor.py`
+- **MODIFIED:** `pyproject.toml`
+- **MODIFIED:** `CHANGELOG.md`
+
+#### Commands:
+- `toolshop stems --list-models`
+- `toolshop stems input.wav --preset karaoke --device cpu`
+- `toolshop stems input_dir/ --preset full-vocals --limit 10 --offset 5`
+- `toolshop doctor`
+
+#### Next Actions Required:
+- Run `toolshop stems` smoke test on a real file to confirm end-to-end timing and output naming.
+- Populate/refresh model cache and confirm `toolshop doctor` model cache PASS.
+- Complete CrhymeTV batch and regenerate catalogue.
+
+---
+
 ### Phase 0 — Take Control (Repo + Environment Hygiene)
 **Timestamp:** 2026-07-11
 **Action Type:** Implementation

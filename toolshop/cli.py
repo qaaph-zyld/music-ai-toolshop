@@ -485,6 +485,85 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # =========================================================================
+    # STEMS (v1 unified command)
+    # =========================================================================
+    stems_parser = subparsers.add_parser(
+        "stems",
+        help="Unified stem extraction: any wav/mp3 (or folder) in, stems out",
+    )
+    stems_parser.add_argument(
+        "path",
+        type=Path,
+        help="Audio file or directory to process",
+    )
+    stems_parser.add_argument(
+        "--preset",
+        type=str,
+        default="karaoke",
+        choices=["karaoke", "vocals-hq", "full-vocals", "full-vocals-hq", "4stem", "6stem"],
+        help="Separation preset (default: karaoke)",
+    )
+    stems_parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Output directory (default: <TOOLSHOP_DATA_DIR>/stems/<preset>/<slug>)",
+    )
+    stems_parser.add_argument(
+        "--data-root",
+        type=Path,
+        default=None,
+        help="Data root used when --out is not provided",
+    )
+    stems_parser.add_argument(
+        "--format",
+        type=str,
+        default=None,
+        choices=["flac", "wav"],
+        help="Output format (default: flac for stems, wav for legacy stem extract)",
+    )
+    stems_parser.add_argument(
+        "--device",
+        type=str,
+        default="cpu",
+        choices=["cpu", "gpu"],
+        help="Device for inference (default: cpu)",
+    )
+    stems_parser.add_argument(
+        "--model-file-dir",
+        type=Path,
+        default=None,
+        help="Directory for downloaded separation models",
+    )
+    stems_parser.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="Maximum tracks to process in batch mode (0 = all)",
+    )
+    stems_parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="Number of tracks to skip in batch mode",
+    )
+    stems_parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="Ignore existing batch_status.json and reprocess all files",
+    )
+    stems_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results as JSON",
+    )
+    stems_parser.add_argument(
+        "--list-models",
+        action="store_true",
+        help="List available presets and models, then exit",
+    )
+
+    # =========================================================================
     # CLEANING COMMANDS
     # =========================================================================
     clean_parser = subparsers.add_parser(
@@ -967,6 +1046,16 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                         print(f"  {stem_type}: {Path(stem_file).name}")
         else:
             parser.error("Unknown 'stem' subcommand.")
+
+    # =========================================================================
+    # STEMS (v1 unified command)
+    # =========================================================================
+    elif args.command == "stems":
+        from . import stems_cli
+
+        code = stems_cli.run(args)
+        if code != 0:
+            raise SystemExit(code)
 
     # =========================================================================
     # CLEANING COMMANDS

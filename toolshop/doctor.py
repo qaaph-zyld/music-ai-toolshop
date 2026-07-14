@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from . import stem_models
+
 
 EXPECTED_PYTHON = (3, 11)
 
@@ -104,10 +106,14 @@ def _disk_ok(drive: str = "D:") -> dict[str, Any]:
 def _model_cache_ok() -> dict[str, Any]:
     cache_root = Path(os.environ.get("TOOLSHOP_MODEL_DIR", Path.home() / ".cache" / "toolshop-models"))
     cache_root.mkdir(parents=True, exist_ok=True)
+    status = stem_models.check_model_cache(cache_root)
     return {
         "check": "model_cache",
-        "path": str(cache_root),
-        "ok": cache_root.exists() and cache_root.is_dir(),
+        "path": status["path"],
+        "ok": status["complete"],
+        "present": len(status["present"]),
+        "missing": status["missing"],
+        "orphans": status["orphans"],
     }
 
 
@@ -143,6 +149,10 @@ def print_report(report: dict[str, Any]) -> None:
             detail = f" ({check['free_gb']} GB free on {check['drive']})"
         elif "path" in check and check.get("path"):
             detail = f" ({check['path']})"
+        if "missing" in check and check["missing"]:
+            detail += f" missing={check['missing']}"
+        if "orphans" in check and check["orphans"]:
+            detail += f" orphans={check['orphans']}"
         print(f"[{status}] {check['check']}{detail}")
     print("-" * 50)
     print(f"Overall: {'PASS' if report['ok'] else 'FAIL'}")

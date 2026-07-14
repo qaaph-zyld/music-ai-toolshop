@@ -9,7 +9,7 @@ CLI toolshop to orchestrate music AI tools (self-contained):
 - **YouTube** – search, metadata, download, summarize for Suno prompts
 - **Track Reverse Engineering** – advanced structure analysis (BPM, key, chords, notes, effects, instruments, source separation)
 - **Voice Effects Detection** – identify vocal processing (reverb, pitch shift, compression, auto-tune, etc.)
-- **Stem Extraction** – separate instrumentals, main vocals, and backing vocals
+- **Stem Extraction** – separate instrumentals, main/backing vocals, and Demucs 4/6-stems with a unified, resumable command
 - **Audio Cleaning** – remove pauses, breaths, coughs, clicks, and align to beat grid
 
 ## Installation
@@ -63,8 +63,20 @@ toolshop suno analyze --root path/to/suno_library
 # Detect voice effects on an audio file
 toolshop voice analyze recording.wav
 
-# Extract stems from an audio file
-toolshop stem extract song.wav
+# List available stem presets and models
+toolshop stems --list-models
+
+# Extract stems from an audio file (karaoke = 2-stem fast)
+toolshop stems song.wav --preset karaoke --device cpu
+
+# High-quality vocals separation
+toolshop stems song.wav --preset full-vocals --device cpu
+
+# Demucs 4-stem separation
+toolshop stems song.wav --preset 4stem --device cpu
+
+# Batch process a folder, resumable
+toolshop stems ./songs --preset karaoke --limit 10 --offset 5
 ```
 
 ## Data boundary
@@ -237,43 +249,58 @@ toolshop voice analyze recording.wav --export-json --output-dir ./results
         Params: estimated_semitones=+3.0
 ```
 
-### Stem Extraction (`toolshop stem`)
+### Stem Extraction (`toolshop stems`)
+
+Unified, resumable stem separation supporting both audio-separator models and Demucs.
 
 ```bash
-# Extract instrumentals, main vocals, and backing vocals
-toolshop stem extract song.wav
-toolshop stem extract song.wav --output-dir ./stems
+# List available presets and registered models
+toolshop stems --list-models
 
-# Default is CPU-only; --gpu warns on unsupported hardware
-toolshop stem extract song.wav --gpu
+# Extract stems from a single file
+toolshop stems song.wav --preset karaoke --device cpu
+toolshop stems song.wav --preset full-vocals --device cpu --format flac
 
-# Use fast mode (MDX-Net models) instead of high quality (Roformer)
-toolshop stem extract song.wav --fast
+# Demucs 4-stem or 6-stem
+toolshop stems song.wav --preset 4stem --device cpu
+toolshop stems song.wav --preset 6stem --device cpu
+
+# Batch process a directory, resumable by default
+toolshop stems ./songs --preset karaoke --limit 10 --offset 5
+
+# Reprocess everything, ignoring a previous batch_status.json
+toolshop stems ./songs --preset karaoke --no-resume
 
 # JSON output for programmatic use
-toolshop stem extract song.wav --json
+toolshop stems song.wav --preset karaoke --json
 ```
+
+**Presets:**
+| preset | description | backend |
+|--------|-------------|---------|
+| `karaoke` | Fast 2-stem: instrumental + main vocals | audio-separator (MDX-Net) |
+| `vocals-hq` | HQ 2-stem: instrumental + main vocals | audio-separator (BS-Roformer) |
+| `full-vocals` | Fast 3-stem: instrumental + main + backing vocals | audio-separator (2-pass) |
+| `full-vocals-hq` | HQ 3-stem: instrumental + main + backing vocals | audio-separator (2-pass) |
+| `4stem` | Drums, bass, other, vocals | demucs |
+| `6stem` | Drums, bass, other, vocals, guitar, piano | demucs |
 
 **Requirements:**
 - Install with `pip install -e ".[stems]"` (audio-separator + demucs).
-- CPU inference is the default; modern GPUs require a supported NVIDIA card.
+- CPU inference is the default; `--device gpu` warns/falls back on the unsupported GT 640.
+- Outputs are written to `<TOOLSHOP_DATA_DIR>/stems/<preset>/<slug>/` unless `--out` is provided.
 
-**Extracted stems:**
-- Instrumental (no vocals)
-- Main vocals (lead vocal)
-- Backing vocals (harmonies, ad-libs)
-
-**Known issue:** fast mode has a filename-mapping bug where `backing_vocals` can be `None`. This is fixed in Phase 1 (`toolshop stems` v1.0).
+**Output:** each run produces the selected stem files plus a `manifest.json` containing source hash, models used, device, and version.
 
 **Example output:**
 ```
-✓ Extracted stems from song.wav
-  Output directory: ./separated_tracks
-  Quality mode: high
-  Device: cpu
-  instrumental: song_Instrumental.wav
-  main_vocals: song_Main_Vocals.wav
-  backing_vocals: song_Backing_Vocals.wav
+Extracted stems from song.wav
+  Preset: karaoke
+  Output: D:\MusicData\toolshop\stems\karaoke\song_abc123
+  Format: flac
+  GPU: False
+  instrumental: song_Instrumental.flac
+  main_vocals: song_Vocals.flac
 ```
 
 ---
