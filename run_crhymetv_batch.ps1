@@ -9,6 +9,13 @@ $env:PYTHONIOENCODING = "utf-8"
 $ResultsDir = "d:\Projects\Music-AI-Toolshop\results\crhymetv_re"
 $InputDir = "d:\Projects\Tools\yt_extractor\downloads\CrhymeTV"
 $VenvPython = "d:\Projects\Music-AI-Toolshop\.venv\Scripts\python.exe"
+$AdvancedBackendPath = "d:\Projects\Music-AI-Toolshop\projects\05-track-reverse-engineering\track_reverse_engineering"
+
+# Belt-and-braces PYTHONPATH so wav_reverse_engineer is importable even if the .pth file is missing.
+$env:PYTHONPATH = "$AdvancedBackendPath;$env:PYTHONPATH"
+
+# H1-M1: stems are CPU-prohibitive; run analyze-only for the backlog.
+$NoStems = $true
 $Python = if (Test-Path $VenvPython) { $VenvPython } else { (Get-Command python).Source }
 
 New-Item -ItemType Directory -Path $ResultsDir -Force | Out-Null
@@ -76,8 +83,14 @@ $BatchArgs = @(
     "d:\Projects\Music-AI-Toolshop\run_reverse_engineering_batch.py",
     "--input-dir", $InputDir,
     "--output-dir", $ResultsDir,
-    "--chunk-size", 30
+    "--chunk-size", 30,
+    "--require-advanced",
+    "--max-duration", 300
 )
+if ($NoStems) {
+    $BatchArgs += "--no-stems"
+    Write-Log "Mode: analyze-only (--no-stems); require advanced backend; skip files >300s"
+}
 $batchProc = Start-Process -FilePath $Python -ArgumentList $BatchArgs -NoNewWindow -Wait -PassThru `
     -RedirectStandardOutput $LogFile -RedirectStandardError (Join-Path $ResultsDir "batch.err")
 $exitCode = $batchProc.ExitCode
@@ -87,8 +100,7 @@ if ($exitCode -eq 0) {
     Write-Log "Regenerating catalogue from batch_status.json..."
     $CatalogueArgs = @(
         "d:\Projects\Music-AI-Toolshop\generate_crhymetv_catalogue.py",
-        "--status-file", (Join-Path $ResultsDir "batch_status.json"),
-        "--output-dir", $ResultsDir
+        "--results-dir", $ResultsDir
     )
     $catProc = Start-Process -FilePath $Python -ArgumentList $CatalogueArgs -NoNewWindow -Wait -PassThru `
         -RedirectStandardOutput (Join-Path $ResultsDir "catalogue.log") `

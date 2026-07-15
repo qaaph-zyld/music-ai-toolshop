@@ -112,12 +112,20 @@ def generate_csv(rows: List[Dict[str, Any]], csv_path: Path) -> None:
             writer.writerow({k: row.get(k, "") for k in fieldnames})
 
 
-def generate_markdown(rows: List[Dict[str, Any]], md_path: Path) -> None:
+def generate_markdown(
+    rows: List[Dict[str, Any]],
+    md_path: Path,
+    skipped_rows: Optional[List[Dict[str, Any]]] = None,
+) -> None:
+    skipped_rows = skipped_rows or []
+    total = len(rows) + len(skipped_rows)
     lines = [
         "# CrhymeTV Reverse-Engineering Catalogue",
         "",
         f"Generated: {datetime.now().isoformat()}",
-        f"Tracks: {len(rows)}",
+        f"Tracks: {total}",
+        f"Completed: {len(rows)}",
+        f"Skipped (long): {len(skipped_rows)}",
         "",
         "## Stats",
     ]
@@ -164,6 +172,11 @@ def generate_markdown(rows: List[Dict[str, Any]], md_path: Path) -> None:
         lines.append(f"- **Recipe:** {r.get('recipe_path', '')}")
         lines.append("")
 
+    if skipped_rows:
+        lines += ["", "## Skipped (long files)", ""]
+        for r in skipped_rows:
+            lines.append(f"- `{r.get('source_file', '')}` — {r.get('duration_seconds', '')}s")
+
     md_path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -203,11 +216,21 @@ def main() -> int:
     tracks = status.get("tracks", [])
 
     rows: List[Dict[str, Any]] = []
+    skipped_rows: List[Dict[str, Any]] = []
     for t in tracks:
-        if t.get("status") != "completed":
-            continue
         source = Path(t.get("source", ""))
         meta = parse_filename(source.name)
+        if t.get("status") == "skipped_long":
+            skipped_rows.append({
+                "source_file": str(source),
+                "date": meta.get("date", ""),
+                "artist": meta.get("artist", ""),
+                "title": meta.get("title", ""),
+                "duration_seconds": t.get("duration_seconds", ""),
+            })
+            continue
+        if t.get("status") != "completed":
+            continue
         analysis = safe_read_json(Path(t.get("analysis_json"))) or {}
         voice = safe_read_json(Path(t.get("voice_json"))) or {}
 
@@ -241,12 +264,13 @@ def main() -> int:
 
     # Sort by date, then artist
     rows.sort(key=lambda r: (r.get("date") or "", r.get("artist") or ""))
+    skipped_rows.sort(key=lambda r: (r.get("date") or "", r.get("artist") or ""))
 
     generate_csv(rows, results_dir / "catalogue.csv")
-    generate_markdown(rows, results_dir / "catalogue.md")
+    generate_markdown(rows, results_dir / "catalogue.md", skipped_rows=skipped_rows)
     generate_suno_prompts(rows, results_dir / "suno_prompts.md")
 
-    print(f"Generated catalogue for {len(rows)} completed tracks:")
+    print(f"Generated catalogue for {len(rows)} completed tracks ({len(skipped_rows)} skipped long):")
     print(f"  - {results_dir / 'catalogue.csv'}")
     print(f"  - {results_dir / 'catalogue.md'}")
     print(f"  - {results_dir / 'suno_prompts.md'}")

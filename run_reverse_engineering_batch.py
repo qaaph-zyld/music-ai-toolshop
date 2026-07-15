@@ -21,6 +21,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import librosa
+
 
 def _norm_path(path: Any) -> str:
     """Return a case-insensitive, NFC-normalized path string for comparison."""
@@ -51,6 +53,15 @@ def safe_slug(name: str) -> str:
         id_part = "unknown"
     slug = re.sub(r"[^a-zA-Z0-9_]+", "_", base).strip("_")
     return f"{slug[:50]}_{id_part}"
+
+
+def probe_duration(path: Path) -> Optional[float]:
+    """Return audio duration in seconds without loading the full signal."""
+    try:
+        return float(librosa.get_duration(path=str(path)))
+    except Exception as exc:
+        print(f"WARNING: could not probe duration for {path}: {exc}", file=sys.stderr)
+        return None
 
 
 def discover_tracks(input_dir: Path, limit: int = 0, offset: int = 0) -> List[Path]:
@@ -137,12 +148,15 @@ def write_recipe(
                 md.append(f"  - {e.get('reason')}")
 
     md += ["", "## Stems"]
-    stem_paths = stems.get("stems", {}) if isinstance(stems, dict) else {}
-    if isinstance(stem_paths, dict):
-        for k, v in stem_paths.items():
-            md.append(f"- **{k}:** `{v}`")
+    if isinstance(stems, dict) and stems.get("skipped"):
+        md.append("*Skipped: analyze-only pass; run `toolshop stems <file>` later.*")
     else:
-        md.append(str(stems))
+        stem_paths = stems.get("stems", {}) if isinstance(stems, dict) else {}
+        if isinstance(stem_paths, dict):
+            for k, v in stem_paths.items():
+                md.append(f"- **{k}:** `{v}`")
+        else:
+            md.append(str(stems))
 
     md += [
         "",
@@ -167,8 +181,9 @@ def process_track(
     use_gpu: bool,
     high_quality: bool,
     adapters: Any,
+    no_stems: bool = False,
 ) -> Dict[str, Any]:
-    """Run the full reverse-engineering pipeline on one track."""
+    """Run the reverse-engineering pipeline on one track, optionally skipping stems."""
     reverse_engineering_adapter = adapters.reverse_engineering_adapter
     stem_extractor_adapter = adapters.stem_extractor_adapter
     voice_effects_adapter = adapters.voice_effects_adapter
@@ -209,20 +224,24 @@ def process_track(
         "instruments": [i.get("label") for i in analysis.get("instruments", [])[:5]],
     }
 
-    print(f"Extracting stems {track_out.name}...")
-    stems = stem_extractor_adapter.extract_stems(
-        track_path,
-        output_dir=track_out / "stems",
-        use_gpu=use_gpu,
-        high_quality=high_quality,
-    )
-    # Normalize relative stem paths to absolute
-    if isinstance(stems, dict):
-        stem_paths = stems.get("stems", {})
-        if isinstance(stem_paths, dict):
-            for k, v in stem_paths.items():
-                if v and not Path(v).is_absolute():
-                    stem_paths[k] = str(track_out / "stems" / v)
+    if no_stems:
+        print(f"Skipping stems for {track_out.name} (--no-stems).")
+        stems: Dict[str, Any] = {"skipped": True}
+    else:
+        print(f"Extracting stems {track_out.name}...")
+        stems = stem_extractor_adapter.extract_stems(
+            track_path,
+            output_dir=track_out / "stems",
+            use_gpu=use_gpu,
+            high_quality=high_quality,
+        )
+        # Normalize relative stem paths to absolute
+        if isinstance(stems, dict):
+            stem_paths = stems.get("stems", {})
+            if isinstance(stem_paths, dict):
+                for k, v in stem_paths.items():
+                    if v and not Path(v).is_absolute():
+                        stem_paths[k] = str(track_out / "stems" / v)
     track_info["stems"] = stems
 
     print(f"Analyzing voice/effects {track_out.name}...")
@@ -308,6 +327,22 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Ignore existing batch_status.json and start fresh.",
     )
+    parser.add_argument(
+        "--no-stems",
+        action="store_true",
+        help="Skip stem extraction; analyze-only pass.",
+    )
+    parser.add_argument(
+        "--require-advanced",
+        action="store_true",
+        help="Fail fast if the wav_reverse_engineer advanced backend is not available.",
+    )
+    parser.add_argument(
+        "--max-duration",
+        type=int,
+        default=0,
+        help="Skip tracks longer than this many seconds (0 = off). Record status as skipped_long.",
+    )
     return parser.parse_args()
 
 
@@ -354,6 +389,13 @@ def main() -> int:
         print("IMPORT_FAILED", file=sys.stderr)
         return 1
 
+    if args.require_advanced and not adapters.reverse_engineering_adapter._WAV_RE_AVAILABLE:
+        msg = "Advanced backend (wav_reverse_engineer) is required but not available."
+        status["errors"].append(msg)
+        save_status(status, output_dir)
+        print(f"ERROR: {msg}", file=sys.stderr)
+        return 1
+
     # Build a lookup of existing completed tracks by source path for resume
     status["tracks"] = status.get("tracks", [])
     completed_by_source = {
@@ -367,6 +409,31 @@ def main() -> int:
             print(f"[{idx + 1}/{len(all_tracks)}] SKIPPED (already completed): {track_path.name}")
             sys.stdout.flush()
             continue
+
+        if args.max_duration > 0:
+            duration = probe_duration(track_path)
+            if duration is not None and duration > args.max_duration:
+                print(
+                    f"[{idx + 1}/{len(all_tracks)}] SKIPPED_LONG ({duration:.0f}s > {args.max_duration}s): {track_path.name}",
+                    file=sys.stderr,
+                )
+                sys.stderr.flush()
+                track_info = {
+                    "source": str(track_path),
+                    "slug": safe_slug(track_path.name),
+                    "out_dir": str(output_dir / "per_track" / safe_slug(track_path.name)),
+                    "status": "skipped_long",
+                    "duration_seconds": duration,
+                    "analysis_json": None,
+                    "voice_json": None,
+                    "stems": None,
+                    "recipe_md": None,
+                    "error": None,
+                }
+                status["tracks"] = [t for t in status["tracks"] if _norm_path(t.get("source")) != _norm_path(track_path)]
+                status["tracks"].append(track_info)
+                save_status(status, output_dir)
+                continue
 
         chunk_num = (idx // chunk_size) + 1
         total_chunks = max(1, (len(all_tracks) + chunk_size - 1) // chunk_size)
@@ -389,7 +456,10 @@ def main() -> int:
         # Remove any prior entry for this source to avoid duplicates on resume
         status["tracks"] = [t for t in status["tracks"] if _norm_path(t.get("source")) != _norm_path(track_path)]
         try:
-            track_info = process_track(track_path, track_out, args.use_gpu, args.high_quality, adapters)
+            track_info = process_track(
+                track_path, track_out, args.use_gpu, args.high_quality, adapters,
+                no_stems=args.no_stems,
+            )
             status["last_completed_index"] = idx
         except Exception as e:
             track_info["status"] = "failed"
