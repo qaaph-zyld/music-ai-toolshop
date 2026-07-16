@@ -1,0 +1,180 @@
+"""Tests for toolshop.lyricsdb — schema, label parser, loader, dedup."""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+from pathlib import Path
+
+import pytest
+
+from toolshop.lyricsdb import (
+    parse_section_label,
+    normalize_text,
+    build_database,
+    DEFAULT_DB_PATH,
+)
+
+FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "lyrics_min"
+
+
+# ── Section label parser ──────────────────────────────────────────────
+
+@pytest.mark.parametrize("label,expected_type,expected_num,expected_performers", [
+    ("Refren", "refren", None, []),
+    ("Refren: Peki & Jala Brat", "refren", None, ["Peki", "Jala Brat"]),
+    ("Strofa 1", "strofa", 1, []),
+    ("Strofa 2: Jala Brat", "strofa", 2, ["Jala Brat"]),
+    ("Strofa 3: Peki & Jala Brat", "strofa", 3, ["Peki", "Jala Brat"]),
+    ("Chorus", "refren", None, []),
+    ("Verse 1", "strofa", 1, []),
+    ("Verse 2: Coby", "strofa", 2, ["Coby"]),
+    ("Pre-Chorus", "prerefren", None, []),
+    ("Bridge", "bridge", None, []),
+    ("Intro", "intro", None, []),
+    ("Outro", "outro", None, []),
+    ("Hook", "hook", None, []),
+    ("Hook: Buba Corelli", "hook", None, ["Buba Corelli"]),
+    ("Unknown Section", "other", None, []),
+    ("", "other", None, []),
+])
+def test_parse_section_label(label, expected_type, expected_num, expected_performers):
+    result = parse_section_label(label)
+    assert result.type == expected_type
+    assert result.type_number == expected_num
+    assert result.performers == expected_performers
+
+
+# ── Text normalization ────────────────────────────────────────────────
+
+def test_normalize_text_basic():
+    assert normalize_text("Hello World") == "hello world"
+
+
+def test_normalize_text_cyrillic():
+    # Cyrillic text should be transliterated to Latin
+    result = normalize_text("прст је реч")
+    assert "п" not in result  # no Cyrillic chars remain
+    # cyrtranslit Serbian produces diacritics (č, ć, š, ž, đ) — that's fine
+    assert result == "prst je reč"
+
+
+def test_normalize_text_already_latin():
+    # Already-Latin text should just be lowercased
+    assert normalize_text("Zna se ko je Peka") == "zna se ko je peka"
+
+
+def test_normalize_text_empty():
+    assert normalize_text("") == ""
+
+
+# ── Loader / build_database ───────────────────────────────────────────
+
+@pytest.fixture
+def tmp_db(tmp_path):
+    return tmp_path / "test_lyrics.db"
+
+
+def test_build_database_ingest(tmp_db):
+    """Build DB from fixture corpus and verify counts."""
+    summary = build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+
+    # 3 files on disk, but alpha appears in 2 folders → dedup to 2 unique songs
+    assert summary["songs_ingested"] == 2
+    assert summary["duplicates_dropped"] == 1
+    assert summary["songs_skipped"] == 0
+
+
+def test_build_database_tables_exist(tmp_db):
+    build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    conn = sqlite3.connect(tmp_db)
+    cursor = conn.cursor()
+
+    for table in ("songs", "sections", "lines"):
+        cursor.execute(f"SELECT count(*) FROM {table}")
+        assert cursor.fetchone()[0] > 0, f"Table {table} is empty"
+
+    conn.close()
+
+
+def test_build_database_sections_count(tmp_db):
+    summary = build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    # Alpha has 3 sections, Beta has 2 sections → 5 total (dedup removes one alpha)
+    assert summary["sections_ingested"] == 5
+
+
+def test_build_database_lines_have_syllables(tmp_db):
+    """Every line must have a non-null syllable_count."""
+    build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    conn = sqlite3.connect(tmp_db)
+    cursor = conn.cursor()
+    cursor.execute("SELECT count(*) FROM lines WHERE syllable_count IS NULL")
+    null_count = cursor.fetchone()[0]
+    assert null_count == 0, f"{null_count} lines have NULL syllable_count"
+    conn.close()
+
+
+def test_build_database_dedup_log(tmp_db):
+    summary = build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    assert len(summary["dedup_log"]) == 1
+    dropped = summary["dedup_log"][0]
+    assert "Test Song Alpha" in dropped["title"]
+    assert "Fake Artist" in dropped["primary_artist"]
+
+
+def test_build_database_cyrillic_normalized(tmp_db):
+    """Cyrillic song text must be transliterated in text_norm."""
+    build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    conn = sqlite3.connect(tmp_db)
+    cursor = conn.cursor()
+    cursor.execute("SELECT text_norm FROM lines WHERE text_raw LIKE '%прст%'")
+    rows = cursor.fetchall()
+    assert len(rows) > 0, "No lines with Cyrillic text found"
+    for (text_norm,) in rows:
+        assert "п" not in text_norm, f"Cyrillic chars remain in normalized text: {text_norm}"
+    conn.close()
+
+
+def test_build_database_performers_parsed(tmp_db):
+    """Section performers should be stored as JSON array."""
+    build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    conn = sqlite3.connect(tmp_db)
+    cursor = conn.cursor()
+    cursor.execute("SELECT performers FROM sections WHERE label_raw LIKE '%Buddy%'")
+    rows = cursor.fetchall()
+    assert len(rows) > 0
+    performers = json.loads(rows[0][0])
+    assert "Buddy" in performers
+    conn.close()
+
+
+def test_build_database_idempotent(tmp_db):
+    """Running build_database twice should produce the same counts (full rebuild)."""
+    s1 = build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    s2 = build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    assert s1["songs_ingested"] == s2["songs_ingested"]
+    assert s1["sections_ingested"] == s2["sections_ingested"]
+
+
+def test_build_database_corpus_column(tmp_db):
+    """songs.corpus column must default to 'genius-pro'."""
+    build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    conn = sqlite3.connect(tmp_db)
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT corpus FROM songs")
+    corpora = [r[0] for r in cursor.fetchall()]
+    assert corpora == ["genius-pro"]
+    conn.close()
+
+
+def test_build_database_section_types(tmp_db):
+    """Section type normalization should map both Serbian and English labels."""
+    build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    conn = sqlite3.connect(tmp_db)
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT type FROM sections ORDER BY type")
+    types = [r[0] for r in cursor.fetchall()]
+    # Alpha has refren, strofa; Beta has strofa, refren
+    assert "refren" in types
+    assert "strofa" in types
+    conn.close()

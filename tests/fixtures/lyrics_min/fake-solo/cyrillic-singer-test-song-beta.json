@@ -1,0 +1,12 @@
+{
+  "title": "Test Song Beta",
+  "artist": "Cyrillic Singer",
+  "url": "https://genius.com/Cyrillic-singer-test-song-beta-lyrics",
+  "language": "",
+  "raw_lyrics": "[Strofa 1]\nпрст је реч\nврт је леп\n\n[Refren]\nсрце куца брзо",
+  "clean_lyrics": "прст је реч\nврт је леп\n\nсрце куца брзо",
+  "sections": [
+    {"label": "Strofa 1", "content": "прст је реч\nврт је леп"},
+    {"label": "Refren", "content": "срце куца брзо"}
+  ]
+}

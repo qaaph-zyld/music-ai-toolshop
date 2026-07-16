@@ -1,0 +1,13 @@
+{
+  "title": "Test Song Alpha",
+  "artist": "Fake Artist",
+  "url": "https://genius.com/Fake-artist-test-song-alpha-lyrics",
+  "language": "",
+  "raw_lyrics": "[Refren: Fake Artist & Buddy]\nTest line one here\nTest line two here\n\n[Strofa 1]\nWalking down the street tonight\nMoney cash and everything\n\n[Strofa 2: Buddy]\nAnother verse for the song\nWords are flowing all night long",
+  "clean_lyrics": "Test line one here\nTest line two here\n\nWalking down the street tonight\nMoney cash and everything\n\nAnother verse for the song\nWords are flowing all night long",
+  "sections": [
+    {"label": "Refren: Fake Artist & Buddy", "content": "Test line one here\nTest line two here"},
+    {"label": "Strofa 1", "content": "Walking down the street tonight\nMoney cash and everything"},
+    {"label": "Strofa 2: Buddy", "content": "Another verse for the song\nWords are flowing all night long"}
+  ]
+}

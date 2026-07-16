@@ -1,0 +1,35 @@
+[
+  {
+    "title": "Test Song Alpha",
+    "primary_artist": "Fake Artist",
+    "featured_artists": ["Buddy"],
+    "category": "fake-solo",
+    "url": "https://genius.com/Fake-artist-test-song-alpha-lyrics",
+    "status": "completed",
+    "file": "tests/fixtures/lyrics_min/fake-solo/fake-artist-test-song-alpha.json",
+    "json_path": "tests/fixtures/lyrics_min/fake-solo/fake-artist-test-song-alpha.json",
+    "txt_path": "tests/fixtures/lyrics_min/fake-solo/fake-artist-test-song-alpha.txt"
+  },
+  {
+    "title": "Test Song Beta",
+    "primary_artist": "Cyrillic Singer",
+    "featured_artists": [],
+    "category": "fake-solo",
+    "url": "https://genius.com/Cyrillic-singer-test-song-beta-lyrics",
+    "status": "completed",
+    "file": "tests/fixtures/lyrics_min/fake-solo/cyrillic-singer-test-song-beta.json",
+    "json_path": "tests/fixtures/lyrics_min/fake-solo/cyrillic-singer-test-song-beta.json",
+    "txt_path": "tests/fixtures/lyrics_min/fake-solo/cyrillic-singer-test-song-beta.txt"
+  },
+  {
+    "title": "Test Song Alpha",
+    "primary_artist": "Fake Artist",
+    "featured_artists": ["Buddy"],
+    "category": "other-cat",
+    "url": "https://genius.com/Fake-artist-test-song-alpha-lyrics",
+    "status": "completed",
+    "file": "tests/fixtures/lyrics_min/other-cat/fake-artist-test-song-alpha.json",
+    "json_path": "tests/fixtures/lyrics_min/other-cat/fake-artist-test-song-alpha.json",
+    "txt_path": "tests/fixtures/lyrics_min/other-cat/fake-artist-test-song-alpha.txt"
+  }
+]
