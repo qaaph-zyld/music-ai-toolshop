@@ -1,5 +1,70 @@
 # Changelog
 
+### Answer #014 - H1-M1c-FINAL: Consolidation (data boundary, extractor fixes, resume fix, submodule hygiene)
+**Timestamp:** 2026-07-17 00:40
+**Action Type:** Consolidation / Bug fixes
+**Previous State:** Genius lyrics extraction succeeded (415 songs, 775 files) but data lived inside the repo (`lyrics_output/`); index had duplicate entries (trio: 3 entries for same song); `file` field missing from index; batch resume logic didn't skip `skipped_long` entries or preserve out-of-slice entries on subset runs; `mastering_tool` submodule had 70+ uncommitted CRLF/path fixes; 3 junk files tracked in repo.
+
+**Current State:** Lyrics corpus moved to `D:\MusicData\toolshop\lyrics\genius\` (775 files). Index rebuilt from disk: 385 unique songs (1 duplicate), `file` field populated, reconciliation math documented. Batch resume logic fixed: `skipped_long` skipped on resume, out-of-slice entries preserved, failed tracks retried when targeted. Submodule committed (`aebcf76`) and pushed. Junk files removed. `.gitignore` updated. CI pipeline ready for first real run.
+
+#### Changes Made:
+- **MOVED:** `lyrics_output/` → `D:\MusicData\toolshop\lyrics\genius\` (775 files including `_index.json`, `_summary.md`, `_dedup_log.json`)
+- **NEW:** `rebuild_index()` in `extract_artists.py` — disk-only index rebuild with dedup by normalized (title, primary_artist), `file` field population, reconciliation summary
+- **NEW:** `--rebuild` CLI flag for `extract_artists.py`
+- **NEW:** `tests/test_rebuild_index.py` — 8 tests covering dedup, file field, summary, reconciliation
+- **FIXED:** `toolshop/batch.py` — `skipped_long` now skipped on resume; `load_or_create_status` no longer resets on `total_tracks` mismatch (enables subset runs); failed entries retried when targeted
+- **FIXED:** `run_reverse_engineering_batch.py` — same `skipped_long` skip-on-resume logic
+- **NEW:** 3 tests in `test_batch.py` for resume logic (skipped_long skip, subset preservation, failed retry)
+- **UPDATED:** `extract_artists.py` default outdir → `TOOLSHOP_DATA_DIR`-aware path (`D:\MusicData\toolshop\lyrics\genius`)
+- **UPDATED:** `.gitignore` — added `lyrics_output/`, `Genious_lyrics_extractor/samples/`, `Genious_lyrics_extractor/.env`, `pytest_tail.txt`
+- **UPDATED:** `Genious_lyrics_extractor/README.md` — categorization rules documented, rebuild instructions added
+- **DELETED:** `output.json`, `output.txt` (stale generated junk), `pytest_tail.txt`
+- **SUBMODULE:** `mastering_tool` committed (`aebcf76`) on `claude/wonderful-johnson-h6xj4d`: LF normalization + post-move path fixes
+- **UPDATED:** `PROJECTS_INDEX.md` — added Genius lyrics lane
+
+#### Reconciliation:
+- 386 JSON files on disk → 385 unique songs (1 duplicate: O.D.D.D. in both trio and solo folders)
+- 385 × 2 (JSON+TXT) + 3 metadata = 773 expected; 775 actual; remainder = 2 files from 1 duplicate song
+
+#### Files Affected:
+- **NEW:** `Genious_lyrics_extractor/extract_artists.py` (rebuild_index, --rebuild flag, outdir fix)
+- **NEW:** `tests/test_rebuild_index.py`
+- **MODIFIED:** `toolshop/batch.py`
+- **MODIFIED:** `run_reverse_engineering_batch.py`
+- **MODIFIED:** `tests/test_batch.py`
+- **MODIFIED:** `.gitignore`
+- **MODIFIED:** `CHANGELOG.md`
+- **MODIFIED:** `PROJECTS_INDEX.md`
+- **MODIFIED:** `mastering_tool` (submodule pointer)
+- **DELETED:** `output.json`, `output.txt`, `pytest_tail.txt`
+
+#### Remaining Debt:
+- 10 pre-existing numpy/librosa test failures in `test_cleaning_pipeline.py` (unrelated to this work)
+- Submodule branch normalization: merge `claude/wonderful-johnson-h6xj4d` onto `main` (deferred)
+
+---
+
+### Answer #013 - H1-M1: CrhymeTV analyze-only batch 140/222 → launched to 222/222
+**Timestamp:** 2026-07-15 21:49
+**Action Type:** Modification / Batch orchestration
+**Previous State:** CrhymeTV reverse-engineering batch had 140/222 tracks completed with stems; remaining 82 tracks were CPU-prohibitive for stem separation, and the PowerShell runner's catalogue regeneration step used `--status-file`/`--output-dir` arguments that `generate_crhymetv_catalogue.py` no longer accepted.
+
+**Current State:** Fixed `run_crhymetv_batch.ps1` to pass `--results-dir`. Verified the generator against current data (140 completed tracks). pytest green for the batch runner. Smoke-tested analyze-only mode on 2 tracks. Launched the full backlog as a detached, resume-safe analyze-only batch; live log shows `[141/222]` processing.
+
+#### Changes Made:
+- **MODIFIED:** `run_crhymetv_batch.ps1` – catalogue step now passes `--results-dir $ResultsDir` instead of `--status-file`/`--output-dir`.
+- **VERIFIED:** `generate_crhymetv_catalogue.py --results-dir results\crhymetv_re` exits 0 and prints `Generated catalogue for 140 completed tracks`.
+- **VERIFIED:** `tests/test_run_reverse_engineering_batch.py` passes (2/2); smoke run with `--no-stems --limit 2` produced `recipe.md`, `*_analysis.json`, `*_voice_analysis.json`, no `stems/` directory, and a sensible "stems skipped" rendering.
+- **LAUNCHED:** Detached full batch via `Start-Process powershell -ArgumentList '-File','d:\Projects\Music-AI-Toolshop\run_crhymetv_batch.ps1'`.
+
+#### Technical Decisions:
+- Keep the batch resume-safe: do not pass `--no-resume`; existing 140 completed entries are skipped and the remaining 82 run analyze-only.
+- Smoke run used a separate `results\smoke_nostems` dir to avoid touching the production `batch_status.json`.
+- Analyze-only timing measured at ~4.8 min/track on this CPU; 82 remaining tracks ≈ 6.5 h, resume-safe via `--offset`/`--limit` status JSON.
+
+#### Next Actions Required:
+- Monitor detached batch to completion (completed == 222, errors empty), then confirm catalogue auto-regeneration produces `catalogue.md` with `Tracks: 222`.
+
 ### Phase 1 — Stem Tool v1.0
 **Timestamp:** 2026-07-14
 **Action Type:** Implementation
