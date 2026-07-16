@@ -99,3 +99,108 @@ def test_run_batch_records_failure(tmp_path):
 
     assert status["tracks"][0]["status"] == "failed"
     assert "boom" in status["tracks"][0]["error"]
+
+
+def test_run_batch_skips_skipped_long_on_resume(tmp_path):
+    """skipped_long entries are skipped on resume, like completed."""
+    (tmp_path / "a.wav").touch()
+    (tmp_path / "b.wav").touch()
+
+    status_path = tmp_path / "out" / "batch_status.json"
+    status_path.parent.mkdir(parents=True)
+    status_path.write_text(
+        '{"input_dir":"' + str(tmp_path).replace("\\", "/") + '"'
+        ',"total_tracks":2,"tracks":[{"source":"' + str(tmp_path / "a.wav").replace("\\", "/") + '"'
+        ',"slug":"a_unknown","status":"skipped_long","duration_seconds":999}],"errors":[],"last_completed_index":0}',
+        encoding="utf-8",
+    )
+
+    calls = []
+
+    def process(path: Path) -> dict:
+        calls.append(path.name)
+        return {"status": "completed"}
+
+    batch.run_batch(
+        files=[tmp_path / "a.wav", tmp_path / "b.wav"],
+        output_dir=tmp_path / "out",
+        process=process,
+        status_path=status_path,
+    )
+
+    assert calls == ["b.wav"]
+
+
+def test_run_batch_preserves_outside_slice_entries(tmp_path):
+    """Entries for tracks outside the current --offset/--limit slice persist untouched."""
+    for name in ["a.wav", "b.wav", "c.wav", "d.wav"]:
+        (tmp_path / name).touch()
+
+    status_path = tmp_path / "out" / "batch_status.json"
+    status_path.parent.mkdir(parents=True)
+
+    # Pre-existing status has entries for a (failed) and d (skipped_long)
+    status_path.write_text(
+        '{"input_dir":"' + str(tmp_path).replace("\\", "/") + '"'
+        ',"total_tracks":4,"tracks":['
+        '{"source":"' + str(tmp_path / "a.wav").replace("\\", "/") + '","slug":"a_unknown","status":"failed","error":"boom"},'
+        '{"source":"' + str(tmp_path / "d.wav").replace("\\", "/") + '","slug":"d_unknown","status":"skipped_long"}'
+        '],"errors":[],"last_completed_index":-1}',
+        encoding="utf-8",
+    )
+
+    calls = []
+
+    def process(path: Path) -> dict:
+        calls.append(path.name)
+        return {"status": "completed"}
+
+    # Run only b and c (offset=1, limit=2)
+    status = batch.run_batch(
+        files=[tmp_path / "b.wav", tmp_path / "c.wav"],
+        output_dir=tmp_path / "out",
+        process=process,
+        status_path=status_path,
+        offset=1,
+    )
+
+    # b and c were processed
+    assert calls == ["b.wav", "c.wav"]
+
+    # a (failed) and d (skipped_long) entries are still in status, untouched
+    sources = {batch._norm_path(t["source"]): t for t in status["tracks"]}
+    assert batch._norm_path(tmp_path / "a.wav") in sources
+    assert sources[batch._norm_path(tmp_path / "a.wav")]["status"] == "failed"
+    assert batch._norm_path(tmp_path / "d.wav") in sources
+    assert sources[batch._norm_path(tmp_path / "d.wav")]["status"] == "skipped_long"
+
+
+def test_run_batch_retries_failed_when_targeted(tmp_path):
+    """Failed tracks ARE retried when targeted in a subsequent run."""
+    (tmp_path / "a.wav").touch()
+
+    status_path = tmp_path / "out" / "batch_status.json"
+    status_path.parent.mkdir(parents=True)
+    status_path.write_text(
+        '{"input_dir":"' + str(tmp_path).replace("\\", "/") + '"'
+        ',"total_tracks":1,"tracks":[{"source":"' + str(tmp_path / "a.wav").replace("\\", "/") + '"'
+        ',"slug":"a_unknown","status":"failed","error":"boom"}],"errors":[],"last_completed_index":-1}',
+        encoding="utf-8",
+    )
+
+    calls = []
+
+    def process(path: Path) -> dict:
+        calls.append(path.name)
+        return {"status": "completed"}
+
+    status = batch.run_batch(
+        files=[tmp_path / "a.wav"],
+        output_dir=tmp_path / "out",
+        process=process,
+        status_path=status_path,
+    )
+
+    # a.wav was reprocessed (not skipped)
+    assert calls == ["a.wav"]
+    assert status["tracks"][0]["status"] == "completed"

@@ -396,17 +396,19 @@ def main() -> int:
         print(f"ERROR: {msg}", file=sys.stderr)
         return 1
 
-    # Build a lookup of existing completed tracks by source path for resume
+    # Build a lookup of existing completed/skipped_long tracks by source path for resume
     status["tracks"] = status.get("tracks", [])
-    completed_by_source = {
-        _norm_path(t.get("source")): t for t in status["tracks"] if t.get("status") == "completed"
+    skip_statuses = {"completed", "skipped_long"}
+    skip_by_source = {
+        _norm_path(t.get("source")): t for t in status["tracks"] if t.get("status") in skip_statuses
     }
-    completed_tracks = list(completed_by_source.values())
+    completed_tracks = [t for t in status["tracks"] if t.get("status") == "completed"]
 
     started_at = datetime.now()
     for idx, track_path in enumerate(target_tracks, start=args.offset):
-        if _norm_path(track_path) in completed_by_source:
-            print(f"[{idx + 1}/{len(all_tracks)}] SKIPPED (already completed): {track_path.name}")
+        if _norm_path(track_path) in skip_by_source:
+            skip_status = skip_by_source[_norm_path(track_path)]["status"]
+            print(f"[{idx + 1}/{len(all_tracks)}] SKIPPED ({skip_status}): {track_path.name}")
             sys.stdout.flush()
             continue
 

@@ -70,12 +70,11 @@ def load_or_create_status(status_path: Path, input_dir: Path, total: int) -> Dic
     if status_path.exists():
         try:
             status = json.loads(status_path.read_text(encoding="utf-8"))
-            if (
-                _norm_path(status.get("input_dir")) == _norm_path(input_dir)
-                and status.get("total_tracks") == total
-            ):
+            if _norm_path(status.get("input_dir")) == _norm_path(input_dir):
                 status.setdefault("tracks", [])
                 status.setdefault("errors", [])
+                # Update total_tracks if it changed (e.g. new files added to input_dir)
+                status["total_tracks"] = total
                 return status
         except Exception as exc:
             logging.warning("Could not read existing status (%s); starting fresh.", exc)
@@ -131,16 +130,18 @@ def run_batch(
     input_dir = files[0].parent if files else output_dir
     status = load_or_create_status(status_path, input_dir, total)
 
-    completed_by_source = {
+    # Skip both completed and skipped_long on resume; failed entries are retried.
+    skip_statuses = {"completed", "skipped_long"} if resume else set()
+    skip_by_source = {
         _norm_path(t.get("source")): t
         for t in status.get("tracks", [])
-        if t.get("status") == "completed"
+        if t.get("status") in skip_statuses
     }
 
     for idx, file_path in enumerate(files, start=offset):
         norm_source = _norm_path(file_path)
-        if resume and norm_source in completed_by_source:
-            print(f"[{idx + 1}/{total}] SKIPPED (already completed): {file_path.name}")
+        if norm_source in skip_by_source:
+            print(f"[{idx + 1}/{total}] SKIPPED ({skip_by_source[norm_source]['status']}): {file_path.name}")
             sys.stdout.flush()
             continue
 
