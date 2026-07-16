@@ -24,8 +24,8 @@ from toolshop.syllables import count_syllables, count_line
     ("ruka", 2),
     ("noce", 2),  # no diacritics
     # Three+ vowels
-    ("patrone", 3),
-    ("diskoteka", 4),
+    ("babone", 3),  # 3 vowels: a, o, e
+    ("kamineto", 4),  # 4 vowels: a, i, e, o
     ("fantazije", 4),
     ("ljubav", 2),
     # Syllabic-r cases (r with no adjacent vowel)
@@ -76,8 +76,8 @@ def test_count_line_simple() -> None:
 
 
 def test_count_line_mixed() -> None:
-    # "znas se ko je peka" → 1+1+1+1+2 = 6
-    assert count_line("znas se ko je peka") == 6
+    # fake(2: a,e) test(1: e) words(1: o) here(2: e,e) = 6
+    assert count_line("fake test words here") == 6
 
 
 def test_count_line_empty() -> None:
@@ -85,9 +85,8 @@ def test_count_line_empty() -> None:
 
 
 def test_count_line_with_punctuation() -> None:
-    # "Zna se ko je Peka, lomi se diskoteka"
-    # Zna(1) se(1) ko(1) je(1) Peka(2) lomi(2) se(1) diskoteka(4) = 13
-    assert count_line("Zna se ko je Peka, lomi se diskoteka") == 13
+    # Test(1) fake(2) words(1) here(2) counting(3: o,u,i) all(1) the(1) sounds(2: o,u) = 13
+    assert count_line("Test fake words here, counting all the sounds") == 13
 
 
 def test_count_line_cyrillic_not_handled_here() -> None:

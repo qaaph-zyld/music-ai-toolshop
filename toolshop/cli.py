@@ -766,6 +766,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="Save analysis report as JSON to this path",
     )
 
+    # lyrics build-db [--root PATH] [--db PATH]
+    lyrics_build_db_parser = lyrics_subparsers.add_parser(
+        "build-db", help="Build lyrics SQLite database from Genius corpus"
+    )
+    lyrics_build_db_parser.add_argument(
+        "--root",
+        type=Path,
+        default=None,
+        help="Corpus root directory (default: D:\\MusicData\\toolshop\\lyrics\\genius)",
+    )
+    lyrics_build_db_parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+    )
+
+    # lyrics stats [--artist NAME] [--json] [--db PATH]
+    lyrics_stats_parser = lyrics_subparsers.add_parser(
+        "stats", help="Show per-artist lyrics statistics from the database"
+    )
+    lyrics_stats_parser.add_argument(
+        "--artist", type=str, default=None, help="Filter to a specific artist"
+    )
+    lyrics_stats_parser.add_argument(
+        "--json", action="store_true", help="Output as JSON instead of table"
+    )
+    lyrics_stats_parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+    )
+
     return parser
 
 
@@ -1363,6 +1397,62 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             if args.report:
                 lyrics_analyzer_mod.save_report(stats, args.report)
                 print(f"\n  Report saved to: {args.report}")
+
+        elif args.lyrics_command == "build-db":
+            from toolshop.lyricsdb import build_database, DEFAULT_DB_PATH
+            root = args.root or Path(r"D:\MusicData\toolshop\lyrics\genius")
+            db_path = args.db or DEFAULT_DB_PATH
+            print(f"Building lyrics database...")
+            print(f"  Corpus root: {root}")
+            print(f"  Database:     {db_path}")
+            summary = build_database(root=root, db_path=db_path)
+            print(f"\nDone. Songs: {summary['songs_ingested']}, "
+                  f"Sections: {summary['sections_ingested']}, "
+                  f"Lines: {summary['lines_ingested']}, "
+                  f"Duplicates dropped: {summary['duplicates_dropped']}")
+
+        elif args.lyrics_command == "stats":
+            import json as json_mod
+            import sqlite3
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.lyrics_metrics import (
+                get_artist_stats, get_top_words_for_artist,
+                get_section_type_distribution, get_syllable_distribution,
+            )
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            conn = sqlite3.connect(db_path)
+            artists = get_artist_stats(conn, artist=args.artist)
+            if args.json:
+                print(json_mod.dumps(artists, indent=2, ensure_ascii=False))
+            else:
+                if not artists:
+                    print(f"No data found for artist: {args.artist}")
+                    conn.close()
+                    return
+                print(f"\n{'Artist':<25} {'Songs':>5} {'Avg W':>7} {'TTR':>6} "
+                      f"{'Avg L':>6} {'Syl/L':>6} {'HookR':>6} {'Eng%':>6}")
+                print("-" * 80)
+                for a in artists:
+                    print(f"{a['primary_artist']:<25} {a['song_count']:>5} "
+                          f"{a['avg_total_words']:>7.1f} {a['avg_ttr']:>6.4f} "
+                          f"{a['avg_line_count']:>6.1f} {a['avg_syllables_per_line']:>6.2f} "
+                          f"{a['avg_hook_repetition_ratio']:>6.4f} {a['avg_english_loanword_rate']:>6.4f}")
+                if not args.artist:
+                    print(f"\nSection type distribution:")
+                    for s in get_section_type_distribution(conn):
+                        print(f"  {s['type']:<15} {s['count']}")
+                    print(f"\nSyllables/line distribution:")
+                    for s in get_syllable_distribution(conn):
+                        print(f"  {s['bucket']:<8} {s['count']}")
+                else:
+                    print(f"\nTop 20 words for {args.artist}:")
+                    for word, count in get_top_words_for_artist(conn, args.artist, 20):
+                        print(f"  {word:>15s}  {count}")
+            conn.close()
 
         else:
             parser.error("Unknown 'lyrics' subcommand.")

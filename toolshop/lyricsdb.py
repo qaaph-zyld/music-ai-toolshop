@@ -128,11 +128,13 @@ def normalize_text(text: str) -> str:
 # ── Normalization key for dedup ───────────────────────────────────────
 
 def _dedup_key(title: str, primary_artist: str) -> Tuple[str, str]:
-    """Normalized (title, primary_artist) for dedup."""
-    return (
-        normalize_text(title).strip(),
-        normalize_text(primary_artist).strip(),
-    )
+    """Normalized (title, primary_artist) for dedup.
+
+    Strips non-alphanumeric chars so "Dandara*" matches "Dandara".
+    """
+    norm_title = re.sub(r"[^a-z0-9]", "", normalize_text(title))
+    norm_artist = re.sub(r"[^a-z0-9]", "", normalize_text(primary_artist))
+    return (norm_title, norm_artist)
 
 
 # ── Schema ────────────────────────────────────────────────────────────
@@ -415,8 +417,15 @@ def build_database(
     cursor = conn.execute("SELECT count(*) FROM lines")
     lines_ingested = cursor.fetchone()[0]
 
+    # Populate song_metrics table and create artist views
+    from toolshop.lyrics_metrics import populate_song_metrics, create_artist_views
+    metrics_count = populate_song_metrics(conn)
+    create_artist_views(conn)
+
     conn.commit()
     conn.close()
+
+    print(f"  Metrics computed for {metrics_count} songs")
 
     summary = {
         "songs_ingested": songs_ingested,
