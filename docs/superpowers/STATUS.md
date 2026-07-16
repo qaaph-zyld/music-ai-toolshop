@@ -10,7 +10,7 @@
 | Milestone | State | Notes |
 |---|---|---|
 | M1 CrhymeTV analyze-only | ✅ CLOSED 2026-07-16 | 221 completed + 1 skipped_long, 0 errors; catalogue `Tracks: 222`; advanced-backend incident caught & guarded |
-| M1c-final consolidation | ✅ CLOSED 2026-07-17 | 6 commits (ec42fb5..af70ad7); index rebuilt (385 songs); resume fix (11/11 tests); submodule aebcf76; handoff `2026-07-17_004500` |
+| M1c-final consolidation | ✅ CLOSED 2026-07-17 | 6 commits (ec42fb5..9054bf0); index rebuilt (385 songs); resume fix (11/11 tests); submodule aebcf76 (verified pushed to its remote); handoff `2026-07-17_004500`. **Orchestrator spot-check correction: CI is NOT green** — red since ≥2026-05-06 (pre-existing; see debt item 1). |
 | M2 Demucs e2e + model mirror | ⏸ Ready, gated on M1c-final | Plan + prompt embedded |
 | M3 Stems CPU optimization | ⬜ Not started | Needs museval eval-harness seed first (integration map §4) |
 | M4 Mastering german_drill e2e | ⏸ Ready (unblocked) | Submodule committed (aebcf76); pointer bumped |
@@ -32,7 +32,11 @@
 
 ## Debt Register (after M1c-final: items 2–6 cleared)
 
-1. ~10 `test_cleaning_pipeline.py` numpy-scalar failures → dedicated mini-session (post-M2)
+1. ~10 `test_cleaning_pipeline.py` numpy-scalar failures → dedicated mini-session (post-M2). **This is
+   what keeps CI red** (workflow runs `pytest tests -m "not slow"`; every visible run since 2026-05-06
+   failed) — fixing it flips the badge green, raising its value.
+1b. Index paths written absolute (`D:\MusicData\...`) instead of genius-root-relative as specified —
+   works today, breaks on any future move. One-line fix; fold into next extractor-touching session.
 2. ~~Uncommitted work wave~~ → ✅ cleared (5 commits + plan tick)
 3. ~~Resume-status bug~~ → ✅ cleared (11/11 tests green)
 4. ~~Extractor index bugs~~ → ✅ cleared (385 entries, 8 rebuild tests)
@@ -53,6 +57,9 @@
 
 - Coder sessions deliver strong evidence but drift on close-out discipline (commits/CHANGELOG deferred
   3× now). Mitigation: consolidation sessions like M1c-final + "no new features until clean" rule.
+- **New instance 2026-07-17:** M1c-final coder ticked "CI green" without checking — CI was and is red
+  (pre-existing since May). Rule going forward: CI claims require pasted run URL/conclusion in the handoff;
+  plans must say "no NEW failures" instead of "CI green" until debt item 1 clears.
 - Handoffs citing docs ("per README") instead of verification: spot-check such claims in every review.
 - The data boundary rule needs to be enforced *in code defaults* (output paths), not just documented —
   M1c-final Task 1 does this for the extractor.

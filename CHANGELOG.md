@@ -1,5 +1,39 @@
 # Changelog
 
+### Answer #015 - T5-L1: Lyric Intelligence Foundation (lyrics.db + baseline stats)
+**Timestamp:** 2026-07-17 01:00
+**Action Type:** New feature
+**Previous State:** 386-song Genius corpus on disk with no structured database; no syllable counter; no per-artist metrics; no stats CLI.
+
+**Current State:** SQLite `lyrics.db` at `D:\MusicData\toolshop\lyrics\lyrics.db` with 385 songs (1 dedup), 2,701 sections, 19,780 lines, 385 song_metrics rows. Serbian syllable counter (vowels + syllabic-r). Section label parser (Serbian + English labels, performer attribution). Per-artist stats CLI. Baseline report with Buba Corelli / Jala Brat / Coby side-by-side. `cyrtranslit` (MIT) added as only new dependency.
+
+#### Changes Made:
+- **NEW:** `toolshop/syllables.py` — Serbian syllable counter (vowels aeiou + syllabic r)
+- **NEW:** `toolshop/lyricsdb.py` — SQLite schema (songs/sections/lines/song_metrics), section label parser, text normalization (NFC → cyrtranslit → lowercase), corpus loader with dedup
+- **NEW:** `toolshop/lyrics_metrics.py` — per-song metrics (TTR, hook repetition, English loanword rate, section type counts), per-artist SQL views
+- **NEW:** `tests/test_syllables.py` — 50 tests (30+ hand-checked words, syllabic-r, line-level)
+- **NEW:** `tests/test_lyricsdb.py` — 30 tests (label parser, normalization, loader, dedup, Cyrillic, performers, idempotency)
+- **NEW:** `tests/fixtures/lyrics_min/` — 3 synthetic songs (Cyrillic, performer labels, duplicate pair)
+- **UPDATED:** `toolshop/cli.py` — `lyrics build-db` and `lyrics stats` subcommands
+- **NEW:** `lyrics_research/reports/2026-07-17_genius_corpus_baseline.md` — baseline report
+- **UPDATED:** `pyproject.toml` — `cyrtranslit>=1.2` added to `lyrics` extra
+- **UPDATED:** `docs/superpowers/specs/2026-07-15-oss-integration-map.md` — cyrtranslit (MIT) added to license ledger
+- **UPDATED:** `PROJECTS_INDEX.md` — corrected song count (386 → 385 after dedup)
+
+#### Reconciliation:
+- 386 JSON files on disk → 385 songs ingested (1 cross-folder duplicate: "Dandara*" vs "Dandara", same artist Jala Brat)
+- 2,704 sections on disk → 2,701 sections ingested (3 sections from dropped duplicate)
+- 19,780 lines, all with non-null syllable_count
+
+#### Files Affected:
+- **NEW:** `toolshop/syllables.py`, `toolshop/lyricsdb.py`, `toolshop/lyrics_metrics.py`
+- **NEW:** `tests/test_syllables.py`, `tests/test_lyricsdb.py`, `tests/fixtures/lyrics_min/` (4 files)
+- **UPDATED:** `toolshop/cli.py`, `pyproject.toml`, `PROJECTS_INDEX.md`, `CHANGELOG.md`
+- **UPDATED:** `docs/superpowers/specs/2026-07-15-oss-integration-map.md` (license ledger)
+- **NEW:** `lyrics_research/reports/2026-07-17_genius_corpus_baseline.md`
+
+---
+
 ### Answer #014 - H1-M1c-FINAL: Consolidation (data boundary, extractor fixes, resume fix, submodule hygiene)
 **Timestamp:** 2026-07-17 00:40
 **Action Type:** Consolidation / Bug fixes

@@ -53,7 +53,9 @@
       `"Strofa 2"` → `(type='strofa', type_number=2, performers=[])`. Unknown labels → `type='other'`,
       `label_raw` preserved. TDD with a table of real label shapes.
 - [ ] Loader: scan `<root>/genius/*/*.json` (folders = truth), join `_index.json` by filename for
-      `featured_artists`/`url`/`category`; tolerate a stale/missing index (fields nullable).
+      `featured_artists`/`url`/`category`; tolerate a stale/missing index (fields nullable). Note:
+      the rebuilt index (385 entries, verified 2026-07-17) stores ABSOLUTE paths — join on basename,
+      never trust index paths.
       Dedup by normalized `(title, primary_artist)`; log dropped duplicates. Full rebuild each run
       (drop + recreate — corpus is small); print ingest summary.
 - [ ] Fixture mini-corpus (3 fake songs, incl. one Cyrillic, one with performer-attributed labels,
@@ -89,7 +91,11 @@
 - [ ] CHANGELOG entry; PROJECTS_INDEX lyrics lane refreshed (386-song corrected count).
 - [ ] Commits: (a) `feat(lyrics): lyrics.db schema + corpus loader`, (b) `feat(lyrics): Serbian
       syllable counter`, (c) `feat(lyrics): baseline metrics + stats CLI + corpus report`,
-      (d) `docs: changelog + index`. Push; CI green.
+      (d) `docs: changelog + index`. Push. **CI reality check (verified 2026-07-17): CI has been red
+      since May (pre-existing numpy debt, STATUS debt item 1). The bar for this session is: local
+      pytest shows no NEW failures beyond the known 10 `test_cleaning_pipeline.py` ones, and the CI
+      run's failure list is unchanged. Paste the CI run URL + conclusion in the handoff — do not
+      tick a "green" claim.**
 
 ### Task 6: Handoff
 - [ ] `d:\Projects\.windsurf\handoffs\<yyyy-MM-dd_HHmm>_music-ai-toolshop-t5l1.md`: ingest summary
@@ -99,7 +105,8 @@
 ## Verification checklist
 - [ ] `toolshop lyrics build-db` ingests **385–386 songs** (386 minus cross-folder dedup), **2,704
       sections** (± documented dedup delta), zero unexplained skips
-- [ ] Syllable tests green incl. all syllabic-r cases; fixture ingest test green; CI green
+- [ ] Syllable tests green incl. all syllabic-r cases; fixture ingest test green; no NEW CI failures
+      vs the known-red baseline (run URL in handoff)
 - [ ] `toolshop lyrics stats` renders per-artist table in <10 s on the full corpus
 - [ ] Datasette opens the DB; `songs`, `sections`, `lines`, `song_metrics` all browsable
 - [ ] `git grep` spot-check: no real lyric lines anywhere in the repo; lyrics.db only in MusicData

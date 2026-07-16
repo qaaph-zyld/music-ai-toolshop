@@ -107,7 +107,7 @@
 
 ## 6. License Ledger (personal use: all fine; matters only if we distribute)
 - **GPL-family (flag):** matchering (GPLv3) · pedalboard (GPLv3, JUCE/VST3 SDK) · phonemizer + espeak-ng (GPLv3) · Chordino/Vamp (GPL) · Panako (AGPLv3) · chromaprint fpcalc (LGPL; AcoustID service free for non-commercial)
-- **Permissive:** demucs (MIT) · audio-separator (MIT — *individual UVR/Roformer model weights carry their own terms; check per model if ever commercial*) · basic-pitch (Apache-2.0) · faster-whisper (MIT) · whisperX (BSD) · DeepFilterNet (MIT/Apache dual) · CLAP (Apache-2.0 code; check checkpoint cards) · beat_this (MIT-style; verify) · DuckDB (MIT) · Datasette (Apache-2.0) · sqlite-vec (MIT/Apache) · museval/mir_eval (MIT) · umap/hdbscan (BSD) · noisereduce (MIT) · panns-inference (MIT)
+- **Permissive:** demucs (MIT) · audio-separator (MIT — *individual UVR/Roformer model weights carry their own terms; check per model if ever commercial*) · basic-pitch (Apache-2.0) · faster-whisper (MIT) · whisperX (BSD) · DeepFilterNet (MIT/Apache dual) · CLAP (Apache-2.0 code; check checkpoint cards) · beat_this (MIT-style; verify) · DuckDB (MIT) · Datasette (Apache-2.0) · sqlite-vec (MIT/Apache) · museval/mir_eval (MIT) · umap/hdbscan (BSD) · noisereduce (MIT) · panns-inference (MIT) · cyrtranslit (MIT)
 - Rule: record exact license + model-card terms in the registry entry at adoption time; "verify on adoption" for anything marked above.
 
 ## 7. Risks
