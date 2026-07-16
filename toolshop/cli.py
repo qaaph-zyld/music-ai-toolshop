@@ -702,6 +702,70 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", type=Path, default=None, help="Write JSON report to this file"
     )
 
+    # =========================================================================
+    # LYRICS (Genius) COMMANDS
+    # =========================================================================
+    lyrics_parser = subparsers.add_parser(
+        "lyrics", help="Genius lyrics fetch, search, and analysis tools"
+    )
+    lyrics_subparsers = lyrics_parser.add_subparsers(dest="lyrics_command")
+    lyrics_subparsers.required = True
+
+    # lyrics fetch --url <url>
+    lyrics_fetch_parser = lyrics_subparsers.add_parser(
+        "fetch", help="Fetch lyrics from a Genius song page URL"
+    )
+    lyrics_fetch_parser.add_argument(
+        "--url", type=str, required=True, help="Genius song page URL"
+    )
+    lyrics_fetch_parser.add_argument(
+        "--outdir",
+        type=Path,
+        default=Path("lyrics_output"),
+        help="Output directory for JSON + TXT files (default: lyrics_output)",
+    )
+    lyrics_fetch_parser.add_argument(
+        "--strip-sections",
+        action="store_true",
+        help="Remove [Chorus], [Verse 1], etc. from clean lyrics",
+    )
+
+    # lyrics search --title "Song" --artist "Artist"
+    lyrics_search_parser = lyrics_subparsers.add_parser(
+        "search", help="Search Genius for a song and fetch its lyrics"
+    )
+    lyrics_search_parser.add_argument(
+        "--title", type=str, required=True, help="Song title"
+    )
+    lyrics_search_parser.add_argument(
+        "--artist", type=str, default="", help="Artist name (improves match)"
+    )
+    lyrics_search_parser.add_argument(
+        "--outdir",
+        type=Path,
+        default=Path("lyrics_output"),
+        help="Output directory for JSON + TXT files (default: lyrics_output)",
+    )
+    lyrics_search_parser.add_argument(
+        "--strip-sections",
+        action="store_true",
+        help="Remove [Chorus], [Verse 1], etc. from clean lyrics",
+    )
+
+    # lyrics analyze --input <json>
+    lyrics_analyze_parser = lyrics_subparsers.add_parser(
+        "analyze", help="Analyze a previously fetched lyrics JSON file"
+    )
+    lyrics_analyze_parser.add_argument(
+        "--input", type=Path, required=True, help="Path to lyrics JSON file"
+    )
+    lyrics_analyze_parser.add_argument(
+        "--report",
+        type=Path,
+        default=None,
+        help="Save analysis report as JSON to this path",
+    )
+
     return parser
 
 
@@ -1253,6 +1317,55 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         code = doctor_module.main(["--json", str(args.json)] if args.json else [])
         if code != 0:
             raise SystemExit(code)
+
+    # =========================================================================
+    # LYRICS (Genius)
+    # =========================================================================
+    elif args.command == "lyrics":
+        from . import genius_adapter
+        from . import lyrics_analyzer as lyrics_analyzer_mod
+
+        if args.lyrics_command == "fetch":
+            print(f"Fetching lyrics from {args.url}...")
+            client = genius_adapter.GeniusClient()
+            lyrics_data = client.fetch_lyrics(
+                url=args.url,
+                strip_section_labels=args.strip_sections,
+            )
+            json_path, txt_path = genius_adapter.save_lyrics(lyrics_data, args.outdir)
+            print(f"\n✓ Lyrics fetched:")
+            print(f"  Title:   {lyrics_data['title']}")
+            print(f"  Artist:  {lyrics_data['artist']}")
+            print(f"  Lines:   {lyrics_data['clean_lyrics'].count(chr(10)) + 1}")
+            print(f"  JSON:    {json_path}")
+            print(f"  TXT:     {txt_path}")
+
+        elif args.lyrics_command == "search":
+            print(f"Searching Genius for '{args.title}' by '{args.artist}'...")
+            client = genius_adapter.GeniusClient()
+            result = client.search_song(args.title, args.artist)
+            print(f"Found: {result.title} — {result.artist} ({result.url})")
+            lyrics_data = client.fetch_lyrics(
+                url=result.url,
+                strip_section_labels=args.strip_sections,
+            )
+            json_path, txt_path = genius_adapter.save_lyrics(lyrics_data, args.outdir)
+            print(f"\n✓ Lyrics fetched:")
+            print(f"  Title:   {lyrics_data['title']}")
+            print(f"  Artist:  {lyrics_data['artist']}")
+            print(f"  Lines:   {lyrics_data['clean_lyrics'].count(chr(10)) + 1}")
+            print(f"  JSON:    {json_path}")
+            print(f"  TXT:     {txt_path}")
+
+        elif args.lyrics_command == "analyze":
+            stats = lyrics_analyzer_mod.analyze_file(args.input)
+            lyrics_analyzer_mod.print_report(stats)
+            if args.report:
+                lyrics_analyzer_mod.save_report(stats, args.report)
+                print(f"\n  Report saved to: {args.report}")
+
+        else:
+            parser.error("Unknown 'lyrics' subcommand.")
 
     else:
         parser.error(f"Unknown command: {args.command}")
