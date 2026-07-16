@@ -31,5 +31,11 @@ Stemmeca_alatkka/toolshop_stems*/
 Voicebox/
 toolshop_data/
 
+# Lyrics data (moved to D:\MusicData\toolshop\lyrics\genius\)
+lyrics_output/
+Genious_lyrics_extractor/samples/
+Genious_lyrics_extractor/.env
+pytest_tail.txt
+
 # Separate live subproject (nested git repo, not part of core package)
 open_DAW/
