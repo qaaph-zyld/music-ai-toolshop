@@ -45,6 +45,86 @@ def test_parse_section_label(label, expected_type, expected_num, expected_perfor
     assert result.performers == expected_performers
 
 
+# ── Expanded label parser tests (T5-L2) ───────────────────────────────
+
+@pytest.mark.parametrize("label,expected_type,expected_num,expected_performers", [
+    # Serbian synonyms for known types
+    ("Pred-Refren", "prerefren", None, []),
+    ("Predrefren", "prerefren", None, []),
+    ("Pred-refren", "prerefren", None, []),
+    ("Predrefren: Jala Brat", "prerefren", None, ["Jala Brat"]),
+    ("Pred-Refren: Jala Brat & Buba Corelli", "prerefren", None, ["Jala Brat", "Buba Corelli"]),
+    ("Post-Refren", "postrefren", None, []),
+    ("Postrefren", "postrefren", None, []),
+    ("Post-refren", "postrefren", None, []),
+    ("Post-Refren: Jala Brat", "postrefren", None, ["Jala Brat"]),
+    ("Post-Chorus", "postrefren", None, []),
+    ("Post-Hook", "postrefren", None, []),
+    ("Post-Hook: Sajfer", "postrefren", None, ["Sajfer"]),
+    ("Uvod", "intro", None, []),
+    ("Uvod: Jala Brat", "intro", None, ["Jala Brat"]),
+    ("Uvod: Buba Corelli", "intro", None, ["Buba Corelli"]),
+    ("Završetak", "outro", None, []),
+    ("Završetak: Buba Corelli", "outro", None, ["Buba Corelli"]),
+    ("Završetak: Jala Brat & Buba Corelli", "outro", None, ["Jala Brat", "Buba Corelli"]),
+    ("Prelaz", "bridge", None, []),
+    ("Prelaz: Jala Brat", "bridge", None, ["Jala Brat"]),
+    ("Prijelaz: Buba Corelli", "bridge", None, ["Buba Corelli"]),
+    ("Most", "bridge", None, []),
+    ("Most: Jala Brat", "bridge", None, ["Jala Brat"]),
+    ("Refrain", "refren", None, []),
+    ("Refrain: Jala Brat", "refren", None, ["Jala Brat"]),
+    ("Pre-Hook", "prerefren", None, []),
+    ("Pre-Hook: Buba Corelli", "prerefren", None, ["Buba Corelli"]),
+    # New section types
+    ("Izgovoreno", "spoken", None, []),
+    ("Instrumentalna pauza", "instrumental", None, []),
+    ("Tekst iz isječka", "interlude", None, []),
+    ("Improvizacija: Coby", "spoken", None, ["Coby"]),
+    # Trailing colon with empty performers
+    ("Refren:", "refren", None, []),
+    ("Strofa 1:", "strofa", 1, []),
+    ("Strofa 2:", "strofa", 2, []),
+    # Dash separator instead of colon
+    ("Refren - Jala Brat", "refren", None, ["Jala Brat"]),
+    ("Strofa 4 - Voke", "strofa", 4, ["Voke"]),
+    ("Intro - Njota Njole", "intro", None, ["Njota Njole"]),
+    # Reversed format: "Artist:Type"
+    ("Buba Corelli:Refren", "refren", None, ["Buba Corelli"]),
+    ("Buba Corelli:Strofa 1", "strofa", 1, ["Buba Corelli"]),
+    ("Buba Corelli:Prelaz", "bridge", None, ["Buba Corelli"]),
+    ("Jala: Vers", "strofa", None, ["Jala"]),
+    # Typos
+    ("Brigde: Coby", "bridge", None, ["Coby"]),
+    ("Post-Refern: Jala", "postrefren", None, ["Jala"]),
+    ("Stofa 4: Shtela", "strofa", 4, ["Shtela"]),
+    ("Stofa 1: Mayer", "strofa", 1, ["Mayer"]),
+    # Compound labels with slash
+    ("Refrain/Refren: Ghetto Phénomène", "refren", None, ["Ghetto Phénomène"]),
+    ("Strofa 1/Couplet 1: Jala Brat", "strofa", 1, ["Jala Brat"]),
+    ("Couplet 4/Strofa 4: Jala Brat", "strofa", 4, ["Jala Brat"]),
+    # Part N (verse equivalent)
+    ("Part 2: RAF Camora", "strofa", 2, ["RAF Camora"]),
+    ("Part 1: Jasko", "strofa", 1, ["Jasko"]),
+    # Intro/Uvod compound
+    ("Intro/Uvod", "intro", None, []),
+    # Chorus Variation
+    ("Chorus Variation", "refren", None, []),
+    ("Pre-Chorus Variation: Severina", "prerefren", None, ["Severina"]),
+    # Genuinely unknown → stays other
+    ("Tekst pjesme \"Hakimi\"", "other", None, []),
+    ("Songtext zu „Ferrari 488\"", "other", None, []),
+    ("?", "other", None, []),
+    ("Mayer", "other", None, []),
+    ("...", "other", None, []),
+])
+def test_parse_section_label_expanded(label, expected_type, expected_num, expected_performers):
+    result = parse_section_label(label)
+    assert result.type == expected_type, f"Label '{label}': expected {expected_type}, got {result.type}"
+    assert result.type_number == expected_num, f"Label '{label}': expected num {expected_num}, got {result.type_number}"
+    assert result.performers == expected_performers, f"Label '{label}': expected {expected_performers}, got {result.performers}"
+
+
 # ── Text normalization ────────────────────────────────────────────────
 
 def test_normalize_text_basic():

@@ -31,30 +31,70 @@ CORPUS_TAG = "genius-pro"
 
 # Section type mapping (English → Serbian canonical, plus Serbian canonicals).
 _TYPE_MAP: Dict[str, str] = {
+    # Refren / chorus
     "refren": "refren",
     "chorus": "refren",
+    "refrain": "refren",
+    "ref": "refren",
+    # Strofa / verse
     "strofa": "strofa",
     "verse": "strofa",
     "couplet": "strofa",
+    "vers": "strofa",
+    "part": "strofa",
+    "stofa": "strofa",  # typo
+    # Bridge
     "bridge": "bridge",
+    "brigde": "bridge",  # typo
+    "prelaz": "bridge",
+    "prijelaz": "bridge",
+    "most": "bridge",
+    # Intro
     "intro": "intro",
+    "uvod": "intro",
+    # Outro
     "outro": "outro",
+    "završetak": "outro",
+    # Prerefren
     "prerefren": "prerefren",
+    "predrefren": "prerefren",
+    "pred-refren": "prerefren",
+    "pred-refren": "prerefren",
     "pre-chorus": "prerefren",
     "pre-refren": "prerefren",
+    "pre-hook": "prerefren",
+    # Postrefren (new)
+    "postrefren": "postrefren",
+    "post-refren": "postrefren",
+    "post-refren": "postrefren",
+    "post-refern": "postrefren",  # typo
+    "post-chorus": "postrefren",
+    "post-hook": "postrefren",
+    # Hook
     "hook": "hook",
+    # Spoken (new)
+    "izgovoreno": "spoken",
+    "improvizacija": "spoken",
+    # Instrumental (new — multi-word, handled separately)
+    # Interlude (new — multi-word, handled separately)
 }
 
-_VALID_TYPES = frozenset(_TYPE_MAP.values())
+_VALID_TYPES = frozenset(
+    set(_TYPE_MAP.values()) | {"instrumental", "interlude"}
+)
+
+# Multi-word type phrases (checked before single-word parsing).
+# Listed longest-first to avoid prefix collisions.
+_MULTIWORD_TYPE_MAP: List[Tuple[str, str]] = [
+    ("instrumentalna pauza", "instrumental"),
+    ("tekst iz isječka", "interlude"),
+]
 
 
 # ── Section label parser ──────────────────────────────────────────────
 
-# Matches "Strofa 3", "Verse 1", "Chorus", "Refren: Peki & Jala Brat"
-_LABEL_RE = re.compile(
-    r"^(?P<type_word>[A-Za-z-]+)\s*(?P<num>\d+)?\s*(?::\s*(?P<performers>.+))?$",
-    re.IGNORECASE,
-)
+# Matches the type-word portion: "Strofa", "Pre-Chorus", "Pred-Refren", etc.
+_TYPE_WORD_RE = re.compile(r"^(?P<type_word>[A-Za-z\u00C0-\u024F-]+)\s*(?P<num>\d+)?", re.IGNORECASE)
 
 
 @dataclass
@@ -66,35 +106,104 @@ class ParsedLabel:
     performers: List[str] = field(default_factory=list)
 
 
+def _split_performers(text: str) -> List[str]:
+    """Split performer text on '&', ',', 'and'."""
+    if not text or not text.strip():
+        return []
+    parts = re.split(r"[&,]", text)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _parse_standard_label(text: str) -> ParsedLabel:
+    """Parse a standard label: 'Type', 'Type N', 'Type: Performers',
+    'Type N: Performers', 'Type - Performers', 'Type N - Performers',
+    'Type:', 'Type N:'.
+    """
+    if not text or not text.strip():
+        return ParsedLabel(type="other", type_number=None, performers=[])
+
+    text = text.strip()
+    performers: List[str] = []
+    remainder = text
+
+    # Check for colon separator first (handles trailing colon too).
+    if ":" in text:
+        parts = text.split(":", 1)
+        remainder = parts[0].strip()
+        performer_text = parts[1].strip()
+        if performer_text:
+            performers = _split_performers(performer_text)
+    # Check for " - " separator (not hyphenated type words like "Pre-Chorus").
+    elif " - " in text:
+        parts = text.split(" - ", 1)
+        remainder = parts[0].strip()
+        performer_text = parts[1].strip()
+        if performer_text:
+            performers = _split_performers(performer_text)
+
+    # Extract type word and optional number from remainder.
+    m = _TYPE_WORD_RE.match(remainder)
+    if not m:
+        return ParsedLabel(type="other", type_number=None, performers=performers)
+
+    type_word = m.group("type_word").lower()
+    type_number = int(m.group("num")) if m.group("num") else None
+    section_type = _TYPE_MAP.get(type_word, "other")
+
+    return ParsedLabel(type=section_type, type_number=type_number, performers=performers)
+
+
 def parse_section_label(label: str) -> ParsedLabel:
     """Parse a section label into type, number, and performers.
 
-    Examples:
-        "Refren" → ParsedLabel(type='refren', type_number=None, performers=[])
-        "Strofa 2: Jala Brat" → ParsedLabel(type='strofa', type_number=2, performers=['Jala Brat'])
-        "Refren: Peki & Jala Brat" → ParsedLabel(type='refren', type_number=None, performers=['Peki', 'Jala Brat'])
-        "Verse 1" → ParsedLabel(type='strofa', type_number=1, performers=[])
+    Handles standard format ("Strofa 2: Jala Brat"), reversed format
+    ("Buba Corelli:Refren"), slash compounds ("Refrain/Refren: Performer"),
+    dash separator ("Refren - Jala Brat"), trailing colon ("Refren:"),
+    multi-word types ("Instrumentalna pauza"), and common typos.
     """
     if not label or not label.strip():
         return ParsedLabel(type="other", type_number=None, performers=[])
 
-    m = _LABEL_RE.match(label.strip())
-    if not m:
-        return ParsedLabel(type="other", type_number=None, performers=[])
+    text = label.strip()
+    text_lower = text.lower()
 
-    type_word = m.group("type_word").lower()
-    type_number = int(m.group("num")) if m.group("num") else None
-    raw_performers = m.group("performers")
+    # 1. Multi-word type phrases (checked first, longest match).
+    for phrase, section_type in _MULTIWORD_TYPE_MAP:
+        if text_lower.startswith(phrase):
+            rest = text[len(phrase):].strip()
+            performers: List[str] = []
+            if rest.startswith(":"):
+                performers = _split_performers(rest[1:].strip())
+            elif rest.startswith(" - "):
+                performers = _split_performers(rest[3:].strip())
+            return ParsedLabel(type=section_type, type_number=None, performers=performers)
 
-    section_type = _TYPE_MAP.get(type_word, "other")
+    # 2. Slash compound: "Type1/Type2: performers" — take first known type.
+    if "/" in text:
+        slash_parts = text.split("/", 1)
+        first_result = _parse_standard_label(slash_parts[0].strip())
+        if first_result.type != "other":
+            # Extract performers from after the slash (may contain colon).
+            after_slash = slash_parts[1].strip()
+            if ":" in after_slash:
+                performer_text = after_slash.split(":", 1)[1].strip()
+                first_result.performers = _split_performers(performer_text)
+            return first_result
 
-    performers: List[str] = []
-    if raw_performers:
-        # Split on "&" and "," — clean up whitespace.
-        parts = re.split(r"[&,]", raw_performers)
-        performers = [p.strip() for p in parts if p.strip()]
+    # 3. Reversed format: "Artist:Type" or "Artist:Type N".
+    if ":" in text:
+        colon_parts = text.split(":", 1)
+        left = colon_parts[0].strip()
+        right = colon_parts[1].strip()
+        if right:
+            right_result = _parse_standard_label(right)
+            left_result = _parse_standard_label(left)
+            if right_result.type != "other" and left_result.type == "other":
+                right_result.performers = [left]
+                return right_result
 
-    return ParsedLabel(type=section_type, type_number=type_number, performers=performers)
+    # 4. Standard parsing.
+    return _parse_standard_label(text)
 
 
 # ── Text normalization ────────────────────────────────────────────────
