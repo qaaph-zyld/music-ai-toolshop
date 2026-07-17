@@ -112,11 +112,18 @@ def test_parse_section_label(label, expected_type, expected_num, expected_perfor
     ("Chorus Variation", "refren", None, []),
     ("Pre-Chorus Variation: Severina", "prerefren", None, ["Severina"]),
     # Genuinely unknown → stays other
-    ("Tekst pjesme \"Hakimi\"", "other", None, []),
-    ("Songtext zu „Ferrari 488\"", "other", None, []),
+    ("...", "other", None, []),
+    # Song-title placeholder labels → classified as 'tekst' (not 'other')
+    ("Tekst pjesme \"Hakimi\"", "tekst", None, []),
+    ("Songtext zu „Ferrari 488\"", "tekst", None, []),
     ("?", "other", None, []),
     ("Mayer", "other", None, []),
     ("...", "other", None, []),
+    # ASCII-folded variants (diacritics stripped in source, map keys are folded)
+    ("Zavrsetak", "outro", None, []),
+    ("Zavrsetak: Buba Corelli", "outro", None, ["Buba Corelli"]),
+    ("Predrefren", "prerefren", None, []),
+    ("Postrefren", "postrefren", None, []),
 ])
 def test_parse_section_label_expanded(label, expected_type, expected_num, expected_performers):
     result = parse_section_label(label)
@@ -132,11 +139,11 @@ def test_normalize_text_basic():
 
 
 def test_normalize_text_cyrillic():
-    # Cyrillic text should be transliterated to Latin
+    # Cyrillic text should be transliterated to Latin and ASCII-folded
     result = normalize_text("прст је реч")
     assert "п" not in result  # no Cyrillic chars remain
-    # cyrtranslit Serbian produces diacritics (č, ć, š, ž, đ) — that's fine
-    assert result == "prst je reč"
+    # ASCII-fold strips diacritics: č→c, ć→c, š→s, ž→z, đ→dj
+    assert result == "prst je rec"
 
 
 def test_normalize_text_already_latin():
@@ -146,6 +153,23 @@ def test_normalize_text_already_latin():
 
 def test_normalize_text_empty():
     assert normalize_text("") == ""
+
+
+def test_normalize_text_cyrillic_latin_unify():
+    # Regression: Cyrillic and diacritic-stripped Latin must produce identical text_norm.
+    # This is the core defect fix — without ASCII-fold, Cyrillic "Изаћи ћу" → "izaći ću"
+    # while Latin "Izaci cu" → "izaci cu", corrupting TTR/rhyme matching.
+    cyrillic = normalize_text("Изаћи ћу")
+    latin = normalize_text("Izaci cu")
+    assert cyrillic == latin, f"Cyrillic '{cyrillic}' != Latin '{latin}'"
+    assert cyrillic == "izaci cu"
+
+
+def test_normalize_text_diacritic_folding():
+    # Latin text WITH diacritics should also be folded to match stripped corpus.
+    assert normalize_text("izaći ću") == "izaci cu"
+    assert normalize_text("čšž") == "csz"
+    assert normalize_text("đ") == "dj"
 
 
 # ── Loader / build_database ───────────────────────────────────────────
@@ -257,4 +281,19 @@ def test_build_database_section_types(tmp_db):
     # Alpha has refren, strofa; Beta has strofa, refren
     assert "refren" in types
     assert "strofa" in types
+    conn.close()
+
+
+def test_build_database_role_and_cohort(tmp_db):
+    """songs table must have role, target_artist, genre_cohort columns populated."""
+    build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    conn = sqlite3.connect(tmp_db)
+    cursor = conn.cursor()
+    cursor.execute("SELECT role, target_artist, genre_cohort FROM songs")
+    rows = cursor.fetchall()
+    assert len(rows) > 0
+    for role, target_artist, genre_cohort in rows:
+        assert role is not None
+        assert target_artist is not None
+        # genre_cohort may be NULL for non-target artists
     conn.close()

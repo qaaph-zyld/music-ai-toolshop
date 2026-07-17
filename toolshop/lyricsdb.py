@@ -29,7 +29,42 @@ DEFAULT_DB_PATH = _DEFAULT_DATA_DIR / _DB_SUBDIR / _DB_FILENAME
 
 CORPUS_TAG = "genius-pro"
 
+# ── Genre cohort mapping ──────────────────────────────────────────────
+# User decision 2026-07-17: two explicit genre cohorts.
+# Corona/Indodjija are NULL (unconfirmed — decide by ear).
+# Featured-folder primaries (Amna, Tanja Savic, ...) are non-target → NULL.
+COHORT_MAP: Dict[str, str] = {
+    "Buba Corelli": "drill_trap",
+    "Jala Brat": "drill_trap",
+    "Coby": "drill_trap",
+    "Nikolija": "pop",
+    "Senidah": "pop",
+    "Relja": "pop",
+    # Corona, Indodjija: NULL (unconfirmed)
+}
+
+
+def _derive_role_and_target(category: str) -> Tuple[str, str]:
+    """Derive (role, target_artist) from the category folder name.
+
+    - 'buba-solo' → ('solo', 'buba')
+    - 'corona-featured' → ('featured', 'corona')
+    - 'jala-buba-duo' → ('solo', 'jala-buba')
+    - 'jala-buba-coby-trio' → ('solo', 'jala-buba-coby')
+    """
+    if category.endswith("-featured"):
+        return ("featured", category[:-len("-featured")])
+    if category.endswith("-solo"):
+        return ("solo", category[:-len("-solo")])
+    if category.endswith("-duo"):
+        return ("solo", category[:-len("-duo")])
+    if category.endswith("-trio"):
+        return ("solo", category[:-len("-trio")])
+    return ("solo", category)
+
 # Section type mapping (English → Serbian canonical, plus Serbian canonicals).
+# All keys are ASCII-folded (no diacritics) so both diacritic and non-diacritic
+# source labels match.  _normalize_type_word() folds before lookup.
 _TYPE_MAP: Dict[str, str] = {
     # Refren / chorus
     "refren": "refren",
@@ -54,40 +89,70 @@ _TYPE_MAP: Dict[str, str] = {
     "uvod": "intro",
     # Outro
     "outro": "outro",
-    "završetak": "outro",
+    "zavrsetak": "outro",  # folded from završetak
     # Prerefren
     "prerefren": "prerefren",
     "predrefren": "prerefren",
     "pred-refren": "prerefren",
-    "pred-refren": "prerefren",
     "pre-chorus": "prerefren",
     "pre-refren": "prerefren",
     "pre-hook": "prerefren",
-    # Postrefren (new)
+    # Postrefren
     "postrefren": "postrefren",
-    "post-refren": "postrefren",
     "post-refren": "postrefren",
     "post-refern": "postrefren",  # typo
     "post-chorus": "postrefren",
     "post-hook": "postrefren",
     # Hook
     "hook": "hook",
-    # Spoken (new)
+    # Spoken
     "izgovoreno": "spoken",
     "improvizacija": "spoken",
-    # Instrumental (new — multi-word, handled separately)
-    # Interlude (new — multi-word, handled separately)
+    # Spanish variants
+    "coro": "refren",
+    "verso": "strofa",
+    "post-coro": "postrefren",
+    "pre-coro": "prerefren",
+    "puente": "bridge",
+    # Croatian variants
+    "pripjev": "refren",
+    "pripev": "refren",
+    # French variants
+    "pre-refrain": "prerefren",
+    # English interlude
+    "interlude": "interlude",
+    # Serbian variants
+    "zavrsnica": "outro",
+    "pauza": "instrumental",
+    "netekstualni": "instrumental",
+    # EDM
+    "drop": "hook",
+    # Serbian ordinal numbers (prvi, drugi, treci, ...) → strofa
+    "prvi": "strofa",
+    "drugi": "strofa",
+    "treci": "strofa",
+    "cetvrti": "strofa",
+    "peti": "strofa",
+    "sesti": "strofa",
+    "sedmi": "strofa",
+    "osmi": "strofa",
+    "deveti": "strofa",
+    "deseti": "strofa",
+    # Instrumental (multi-word, handled separately)
+    # Interlude (multi-word, handled separately)
 }
 
 _VALID_TYPES = frozenset(
-    set(_TYPE_MAP.values()) | {"instrumental", "interlude"}
+    set(_TYPE_MAP.values()) | {"instrumental", "interlude", "tekst"}
 )
 
 # Multi-word type phrases (checked before single-word parsing).
-# Listed longest-first to avoid prefix collisions.
+# Listed longest-first to avoid prefix collisions.  Phrases are ASCII-folded.
 _MULTIWORD_TYPE_MAP: List[Tuple[str, str]] = [
     ("instrumentalna pauza", "instrumental"),
-    ("tekst iz isječka", "interlude"),
+    ("netekstualni vokali", "instrumental"),
+    ("tekst iz isjecka", "interlude"),  # folded from isječka
+    ("tekst iz isecka", "interlude"),   # variant spelling
 ]
 
 
@@ -104,6 +169,15 @@ class ParsedLabel:
     type: str
     type_number: Optional[int]
     performers: List[str] = field(default_factory=list)
+
+
+def _normalize_type_word(word: str) -> str:
+    """ASCII-fold + lowercase a type word for _TYPE_MAP lookup.
+
+    Folds diacritics (č→c, ć→c, š→s, ž→z, đ→dj) so that both diacritic
+    and non-diacritic source labels match the same map key.
+    """
+    return _ascii_fold(word).lower()
 
 
 def _split_performers(text: str) -> List[str]:
@@ -142,11 +216,22 @@ def _parse_standard_label(text: str) -> ParsedLabel:
             performers = _split_performers(performer_text)
 
     # Extract type word and optional number from remainder.
+    # Handle "N. Type" format (e.g., "2. Strofa") by reordering to "Type N".
+    dot_prefix = re.match(r"^(\d+)\.\s*(.+)", remainder)
+    if dot_prefix:
+        num = int(dot_prefix.group(1))
+        remainder = dot_prefix.group(2)
+        m = _TYPE_WORD_RE.match(remainder)
+        if m:
+            type_word = _normalize_type_word(m.group("type_word"))
+            section_type = _TYPE_MAP.get(type_word, "other")
+            return ParsedLabel(type=section_type, type_number=num, performers=performers)
+
     m = _TYPE_WORD_RE.match(remainder)
     if not m:
         return ParsedLabel(type="other", type_number=None, performers=performers)
 
-    type_word = m.group("type_word").lower()
+    type_word = _normalize_type_word(m.group("type_word"))
     type_number = int(m.group("num")) if m.group("num") else None
     section_type = _TYPE_MAP.get(type_word, "other")
 
@@ -165,11 +250,21 @@ def parse_section_label(label: str) -> ParsedLabel:
         return ParsedLabel(type="other", type_number=None, performers=[])
 
     text = label.strip()
-    text_lower = text.lower()
+
+    # 0. Song-title placeholder labels (Tekst pesme, Songtext, Paroles, Lyrics, etc.)
+    # These are Genius labels for non-structured lyrics — not real section types.
+    text_folded = _ascii_fold(text).lower()
+    _SONG_TITLE_PREFIXES = (
+        "tekst pesme", "tekst pjesme", "teksti", "tekste",
+        "songtext", "paroles", "lyrics",
+    )
+    for prefix in _SONG_TITLE_PREFIXES:
+        if text_folded.startswith(prefix):
+            return ParsedLabel(type="tekst", type_number=None, performers=[])
 
     # 1. Multi-word type phrases (checked first, longest match).
     for phrase, section_type in _MULTIWORD_TYPE_MAP:
-        if text_lower.startswith(phrase):
+        if text_folded.startswith(phrase):
             rest = text[len(phrase):].strip()
             performers: List[str] = []
             if rest.startswith(":"):
@@ -210,15 +305,31 @@ def parse_section_label(label: str) -> ParsedLabel:
 
 _CYRILLIC_RE = re.compile(r"[А-Яа-я Ёё]")
 
+# ASCII-fold: strip Serbian diacritics so Cyrillic and Latin sources unify.
+# cyrtranslit emits č, ć, š, ž, đ; the Latin corpus is already diacritic-stripped.
+_ASCII_FOLD_MAP = str.maketrans({
+    "č": "c", "Č": "c",
+    "ć": "c", "Ć": "c",
+    "š": "s", "Š": "s",
+    "ž": "z", "Ž": "z",
+    "đ": "dj", "Đ": "dj",
+})
+
 
 def _has_cyrillic(text: str) -> bool:
     return bool(_CYRILLIC_RE.search(text))
 
 
+def _ascii_fold(text: str) -> str:
+    """Strip Serbian diacritics down to ASCII (č→c, ć→c, š→s, ž→z, đ→dj)."""
+    return text.translate(_ASCII_FOLD_MAP)
+
+
 def normalize_text(text: str) -> str:
-    """Normalize text: NFC → cyrtranslit (if Cyrillic) → lowercase.
+    """Normalize text: NFC → cyrtranslit (if Cyrillic) → ASCII-fold → lowercase.
 
     ``text_raw`` is kept verbatim; this function produces ``text_norm``.
+    Both Cyrillic and diacritic-free Latin sources converge to the same form.
     """
     if not text:
         return ""
@@ -230,6 +341,9 @@ def normalize_text(text: str) -> str:
     if _has_cyrillic(result):
         import cyrtranslit
         result = cyrtranslit.to_latin(result, "sr")
+
+    # ASCII-fold diacritics so both scripts unify DOWN
+    result = _ascii_fold(result)
 
     return result.lower()
 
@@ -259,7 +373,10 @@ CREATE TABLE IF NOT EXISTS songs (
     url              TEXT,
     language         TEXT,
     source_path      TEXT,
-    ingested_at      TEXT    NOT NULL
+    ingested_at      TEXT    NOT NULL,
+    role             TEXT,   -- 'solo' or 'featured' (from folder suffix)
+    target_artist    TEXT,   -- folder's artist (NOT primary_artist for featured)
+    genre_cohort     TEXT    -- 'drill_trap', 'pop', or NULL (unconfirmed/non-target)
 );
 
 CREATE TABLE IF NOT EXISTS sections (
@@ -342,6 +459,84 @@ def _load_index(root: Path) -> Dict[str, Dict[str, Any]]:
     return result
 
 
+def build_unified_index(root: Path) -> Dict[str, Any]:
+    """Scan all category folders and build a unified _index.json from disk.
+
+    Replaces the fragmented batch indices with a single unified index.
+    Deduplicates by normalized (title, primary_artist).  Writes:
+    - ``_index.json``: unified index with relative paths
+    - ``_dedup_log.json``: log of dropped duplicates
+
+    Returns a summary dict with counts.
+    """
+    song_files = _scan_song_files(root)
+
+    seen_keys: Dict[Tuple[str, str], str] = {}
+    dedup_log: List[Dict[str, str]] = []
+    index: List[Dict[str, Any]] = []
+    duplicates_dropped = 0
+    songs_skipped = 0
+
+    for category, json_file in song_files:
+        try:
+            with json_file.open("r", encoding="utf-8") as f:
+                song_data = json.load(f)
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"  SKIP (parse error): {json_file} — {exc}")
+            songs_skipped += 1
+            continue
+
+        title = song_data.get("title", "")
+        primary_artist = song_data.get("primary_artist", song_data.get("artist", ""))
+        featured_artists = song_data.get("featured_artists", [])
+        url = song_data.get("url", "")
+        genius_song_id = song_data.get("genius_song_id")
+
+        key = _dedup_key(title, primary_artist)
+        if key in seen_keys:
+            duplicates_dropped += 1
+            dedup_log.append({
+                "title": title,
+                "primary_artist": primary_artist,
+                "source_path": str(json_file),
+                "duplicate_of": seen_keys[key],
+            })
+            continue
+
+        rel_path = json_file.relative_to(root).as_posix()
+        seen_keys[key] = rel_path
+
+        index.append({
+            "genius_song_id": genius_song_id,
+            "title": title,
+            "primary_artist": primary_artist,
+            "featured_artists": featured_artists,
+            "category": category,
+            "url": url,
+            "status": "completed",
+            "json_path": rel_path,
+        })
+
+    # Write unified index
+    index_path = root / "_index.json"
+    with index_path.open("w", encoding="utf-8") as f:
+        json.dump(index, f, indent=2, ensure_ascii=False)
+    print(f"  Unified index: {index_path} ({len(index)} entries)")
+
+    # Write dedup log
+    dedup_path = root / "_dedup_log.json"
+    with dedup_path.open("w", encoding="utf-8") as f:
+        json.dump(dedup_log, f, indent=2, ensure_ascii=False)
+    print(f"  Dedup log: {dedup_path} ({duplicates_dropped} duplicates)")
+
+    return {
+        "unique_songs": len(index),
+        "duplicates_dropped": duplicates_dropped,
+        "songs_skipped": songs_skipped,
+        "dedup_log": dedup_log,
+    }
+
+
 def _scan_song_files(root: Path) -> List[Tuple[str, Path]]:
     """Scan <root>/<category>/*.json (excluding _* files). Returns (category, path) tuples."""
     songs: List[Tuple[str, Path]] = []
@@ -383,10 +578,21 @@ def _insert_song(
 
     language = song_data.get("language", "")
 
+    role, target_artist = _derive_role_and_target(category)
+    genre_cohort = COHORT_MAP.get(primary_artist)
+    if genre_cohort is None and role == "solo":
+        # Fallback: check if any known artist name appears in primary_artist
+        # (handles duo/trio categories like "Jala Brat & Buba Corelli")
+        for known_artist, cohort in COHORT_MAP.items():
+            if known_artist.lower() in primary_artist.lower():
+                genre_cohort = cohort
+                break
+
     cursor = conn.execute(
         """INSERT INTO songs (corpus, category, title, primary_artist,
-           featured_artists, url, language, source_path, ingested_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           featured_artists, url, language, source_path, ingested_at,
+           role, target_artist, genre_cohort)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             CORPUS_TAG,
             category,
@@ -397,6 +603,9 @@ def _insert_song(
             language,
             source_path,
             ingested_at,
+            role,
+            target_artist,
+            genre_cohort,
         ),
     )
     return cursor.lastrowid
@@ -474,7 +683,11 @@ def build_database(
 
     ingested_at = datetime.now(timezone.utc).isoformat()
 
-    # Load index for metadata join
+    # Build unified index from disk (replaces fragmented batch indices)
+    print("  Building unified index from disk...")
+    index_summary = build_unified_index(root)
+
+    # Load unified index for metadata join
     index = _load_index(root)
 
     # Scan song files
