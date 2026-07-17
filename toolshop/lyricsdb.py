@@ -301,6 +301,20 @@ CREATE INDEX IF NOT EXISTS idx_sections_song ON sections(song_id);
 CREATE INDEX IF NOT EXISTS idx_lines_section ON lines(section_id);
 CREATE INDEX IF NOT EXISTS idx_songs_artist ON songs(primary_artist);
 CREATE INDEX IF NOT EXISTS idx_song_metrics_song ON song_metrics(song_id);
+
+CREATE TABLE IF NOT EXISTS line_rhymes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    song_id         INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+    line_id         INTEGER NOT NULL REFERENCES lines(id) ON DELETE CASCADE,
+    rhyme_group     INTEGER NOT NULL,
+    rhyme_type      TEXT    NOT NULL,
+    vowel_skeleton  TEXT    NOT NULL,
+    match_length    INTEGER NOT NULL,
+    position        TEXT    NOT NULL DEFAULT 'end'
+);
+
+CREATE INDEX IF NOT EXISTS idx_line_rhymes_song ON line_rhymes(song_id);
+CREATE INDEX IF NOT EXISTS idx_line_rhymes_line ON line_rhymes(line_id);
 """
 
 
@@ -530,6 +544,13 @@ def build_database(
     from toolshop.lyrics_metrics import populate_song_metrics, create_artist_views
     metrics_count = populate_song_metrics(conn)
     create_artist_views(conn)
+
+    # Populate line_rhymes table
+    from toolshop.rhyme_miner import populate_rhymes
+    rhyme_count = 0
+    for row in conn.execute("SELECT id FROM songs"):
+        rhyme_count += populate_rhymes(conn, row[0])
+    print(f"  Rhymes computed: {rhyme_count} rhyme rows across {songs_ingested} songs")
 
     conn.commit()
     conn.close()

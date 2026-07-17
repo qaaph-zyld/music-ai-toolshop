@@ -800,6 +800,63 @@ def build_parser() -> argparse.ArgumentParser:
         help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
     )
 
+    # lyrics rhymes [--artist NAME] [--song ID] [--json] [--db PATH]
+    lyrics_rhymes_parser = lyrics_subparsers.add_parser(
+        "rhymes", help="Show rhyme analysis from the database"
+    )
+    lyrics_rhymes_parser.add_argument(
+        "--artist", type=str, default=None, help="Filter to a specific artist"
+    )
+    lyrics_rhymes_parser.add_argument(
+        "--song", type=int, default=None, help="Filter to a specific song ID"
+    )
+    lyrics_rhymes_parser.add_argument(
+        "--json", action="store_true", help="Output as JSON instead of table"
+    )
+    lyrics_rhymes_parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+    )
+
+    # lyrics flow [--artist NAME] [--song ID] [--json] [--db PATH]
+    lyrics_flow_parser = lyrics_subparsers.add_parser(
+        "flow", help="Show flow analysis (syllable density, patterns) from the database"
+    )
+    lyrics_flow_parser.add_argument(
+        "--artist", type=str, default=None, help="Filter to a specific artist"
+    )
+    lyrics_flow_parser.add_argument(
+        "--song", type=int, default=None, help="Filter to a specific song ID"
+    )
+    lyrics_flow_parser.add_argument(
+        "--json", action="store_true", help="Output as JSON instead of table"
+    )
+    lyrics_flow_parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+    )
+
+    # lyrics collab [--artist NAME] [--json] [--db PATH]
+    lyrics_collab_parser = lyrics_subparsers.add_parser(
+        "collab", help="Show cross-artist collaboration analysis"
+    )
+    lyrics_collab_parser.add_argument(
+        "--artist", type=str, default=None, help="Filter to a specific artist"
+    )
+    lyrics_collab_parser.add_argument(
+        "--json", action="store_true", help="Output as JSON instead of table"
+    )
+    lyrics_collab_parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+    )
+
     return parser
 
 
@@ -1452,6 +1509,110 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                     print(f"\nTop 20 words for {args.artist}:")
                     for word, count in get_top_words_for_artist(conn, args.artist, 20):
                         print(f"  {word:>15s}  {count}")
+            conn.close()
+
+        elif args.lyrics_command == "rhymes":
+            import json as json_mod
+            import sqlite3
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.rhyme_miner import get_artist_rhyme_stats
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            conn = sqlite3.connect(db_path)
+            stats = get_artist_rhyme_stats(conn, artist=args.artist)
+            if args.json:
+                print(json_mod.dumps(stats, indent=2, ensure_ascii=False))
+            else:
+                if not stats:
+                    print(f"No rhyme data found for artist: {args.artist}")
+                    conn.close()
+                    return
+                print(f"\n{'Artist':<25} {'Songs':>5} {'Rhyme Lines':>12} "
+                      f"{'Avg Match':>10} {'Multi-Syl':>10}")
+                print("-" * 70)
+                for s in stats:
+                    print(f"{s['primary_artist']:<25} {s['songs_with_rhymes']:>5} "
+                          f"{s['total_rhyme_lines']:>12} {s['avg_match_length']:>10.2f} "
+                          f"{s['multisyllabic_count']:>10}")
+            conn.close()
+
+        elif args.lyrics_command == "flow":
+            import json as json_mod
+            import sqlite3
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.flow_analyzer import artist_flow_summary, flow_profile
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            conn = sqlite3.connect(db_path)
+            if args.song:
+                profile = flow_profile(conn, args.song)
+                if args.json:
+                    print(json_mod.dumps(profile, indent=2, ensure_ascii=False))
+                else:
+                    print(f"\nFlow Profile for Song ID {args.song}")
+                    print(f"  Title: {profile.get('title', '?')}")
+                    print(f"  Artist: {profile.get('artist', '?')}")
+                    print(f"  Avg syllables/line: {profile.get('avg_syllables_per_line', 0):.2f}")
+                    print(f"  Syllable density: {profile.get('syllable_density', 0):.4f}")
+                    print(f"  Speed variation (CV): {profile.get('speed_variation', 0):.4f}")
+                    print(f"  Pattern: {profile.get('pattern', 'unknown')}")
+                    print(f"  Sections:")
+                    for sec in profile.get("sections", []):
+                        print(f"    {sec['type']:<15} syl/line={sec['avg_syllables']:.2f}  "
+                              f"lines={sec['line_count']}")
+            else:
+                stats = artist_flow_summary(conn, artist=args.artist)
+                if args.json:
+                    print(json_mod.dumps(stats, indent=2, ensure_ascii=False))
+                else:
+                    if not stats:
+                        print(f"No flow data found for artist: {args.artist}")
+                        conn.close()
+                        return
+                    print(f"\n{'Artist':<25} {'Songs':>5} {'Avg Syl/L':>10} "
+                          f"{'Density':>10} {'SpeedVar':>10} {'Pattern':>10}")
+                    print("-" * 75)
+                    for s in stats:
+                        print(f"{s['primary_artist']:<25} {s['song_count']:>5} "
+                              f"{s['avg_syllables_per_line']:>10.2f} "
+                              f"{s['avg_density']:>10.4f} "
+                              f"{s['avg_speed_variation']:>10.4f} "
+                              f"{s['dominant_pattern']:>10}")
+            conn.close()
+
+        elif args.lyrics_command == "collab":
+            import json as json_mod
+            import sqlite3
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.collab_analysis import artist_collab_summary
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            conn = sqlite3.connect(db_path)
+            stats = artist_collab_summary(conn, artist=args.artist)
+            if args.json:
+                print(json_mod.dumps(stats, indent=2, ensure_ascii=False))
+            else:
+                if not stats:
+                    print("No collaboration data found.")
+                    conn.close()
+                    return
+                print(f"\n{'Artist':<25} {'Collab Songs':>12} {'Solo Songs':>10} "
+                      f"{'Avg Syl/L':>10} {'Avg TTR':>10}")
+                print("-" * 70)
+                for s in stats:
+                    print(f"{s['primary_artist']:<25} {s['collab_song_count']:>12} "
+                          f"{s['solo_song_count']:>10} "
+                          f"{s.get('avg_syllables_per_line', 0):>10.2f} "
+                          f"{s.get('avg_ttr', 0):>10.4f}")
             conn.close()
 
         else:
