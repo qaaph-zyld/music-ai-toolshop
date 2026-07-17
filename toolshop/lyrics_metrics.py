@@ -258,3 +258,51 @@ def get_syllable_distribution(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
            ORDER BY bucket"""
     )
     return [{"bucket": r[0], "count": r[1]} for r in cursor.fetchall()]
+
+
+def get_cohort_stats(conn: sqlite3.Connection, cohort: str) -> List[Dict[str, Any]]:
+    """Return per-artist stats filtered by genre cohort, excluding featured songs.
+
+    Args:
+        cohort: 'drill_trap' or 'pop'
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT
+            s.primary_artist,
+            s.genre_cohort,
+            count(*) AS song_count,
+            round(avg(m.total_words), 1) AS avg_total_words,
+            round(avg(m.unique_words), 1) AS avg_unique_words,
+            round(avg(m.ttr), 4) AS avg_ttr,
+            round(avg(m.line_count), 1) AS avg_line_count,
+            round(avg(m.avg_words_per_line), 2) AS avg_words_per_line,
+            round(avg(m.avg_syllables_per_line), 2) AS avg_syllables_per_line,
+            round(avg(m.hook_repetition_max), 2) AS avg_hook_repetition_max,
+            round(avg(m.hook_repetition_ratio), 4) AS avg_hook_repetition_ratio,
+            round(avg(m.english_loanword_rate), 4) AS avg_english_loanword_rate
+        FROM songs s
+        JOIN song_metrics m ON s.id = m.song_id
+        WHERE s.corpus = 'genius-pro'
+          AND s.genre_cohort = ?
+          AND s.role = 'solo'
+        GROUP BY s.primary_artist
+        ORDER BY song_count DESC""",
+        (cohort,),
+    )
+    columns = [desc[0] for desc in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+
+def get_corpus_inventory(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
+    """Return per-folder inventory: category, role, count, genre_cohort."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT category, role, genre_cohort, count(*) AS song_count
+           FROM songs
+           WHERE corpus = 'genius-pro'
+           GROUP BY category, role, genre_cohort
+           ORDER BY category"""
+    )
+    columns = [desc[0] for desc in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]

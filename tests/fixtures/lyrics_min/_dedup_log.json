@@ -1,0 +1,8 @@
+[
+  {
+    "title": "Test Song Alpha",
+    "primary_artist": "Fake Artist",
+    "source_path": "d:\\Projects\\Music-AI-Toolshop\\tests\\fixtures\\lyrics_min\\other-cat\\fake-artist-test-song-alpha.json",
+    "duplicate_of": "fake-solo/fake-artist-test-song-alpha.json"
+  }
+]

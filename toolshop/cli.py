@@ -791,6 +791,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--artist", type=str, default=None, help="Filter to a specific artist"
     )
     lyrics_stats_parser.add_argument(
+        "--cohort", type=str, default=None,
+        choices=["drill_trap", "pop"],
+        help="Filter to a genre cohort (drill_trap or pop), excluding featured songs",
+    )
+    lyrics_stats_parser.add_argument(
         "--json", action="store_true", help="Output as JSON instead of table"
     )
     lyrics_stats_parser.add_argument(
@@ -1475,6 +1480,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             from toolshop.lyrics_metrics import (
                 get_artist_stats, get_top_words_for_artist,
                 get_section_type_distribution, get_syllable_distribution,
+                get_cohort_stats,
             )
             db_path = args.db or DEFAULT_DB_PATH
             if not db_path.exists():
@@ -1482,34 +1488,54 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 print("Run 'toolshop lyrics build-db' first.")
                 return
             conn = sqlite3.connect(db_path)
-            artists = get_artist_stats(conn, artist=args.artist)
-            if args.json:
-                print(json_mod.dumps(artists, indent=2, ensure_ascii=False))
-            else:
-                if not artists:
-                    print(f"No data found for artist: {args.artist}")
-                    conn.close()
-                    return
-                print(f"\n{'Artist':<25} {'Songs':>5} {'Avg W':>7} {'TTR':>6} "
-                      f"{'Avg L':>6} {'Syl/L':>6} {'HookR':>6} {'Eng%':>6}")
-                print("-" * 80)
-                for a in artists:
-                    print(f"{a['primary_artist']:<25} {a['song_count']:>5} "
-                          f"{a['avg_total_words']:>7.1f} {a['avg_ttr']:>6.4f} "
-                          f"{a['avg_line_count']:>6.1f} {a['avg_syllables_per_line']:>6.2f} "
-                          f"{a['avg_hook_repetition_ratio']:>6.4f} {a['avg_english_loanword_rate']:>6.4f}")
-                if not args.artist:
-                    print(f"\nSection type distribution:")
-                    for s in get_section_type_distribution(conn):
-                        print(f"  {s['type']:<15} {s['count']}")
-                    print(f"\nSyllables/line distribution:")
-                    for s in get_syllable_distribution(conn):
-                        print(f"  {s['bucket']:<8} {s['count']}")
+            if args.cohort:
+                artists = get_cohort_stats(conn, args.cohort)
+                if args.json:
+                    print(json_mod.dumps(artists, indent=2, ensure_ascii=False))
                 else:
-                    print(f"\nTop 20 words for {args.artist}:")
-                    for word, count in get_top_words_for_artist(conn, args.artist, 20):
-                        print(f"  {word:>15s}  {count}")
-            conn.close()
+                    if not artists:
+                        print(f"No data found for cohort: {args.cohort}")
+                        conn.close()
+                        return
+                    print(f"\nCohort: {args.cohort} (featured songs excluded)")
+                    print(f"\n{'Artist':<25} {'Songs':>5} {'Avg W':>7} {'TTR':>6} "
+                          f"{'Avg L':>6} {'Syl/L':>6} {'HookR':>6} {'Eng%':>6}")
+                    print("-" * 80)
+                    for a in artists:
+                        print(f"{a['primary_artist']:<25} {a['song_count']:>5} "
+                              f"{a['avg_total_words']:>7.1f} {a['avg_ttr']:>6.4f} "
+                              f"{a['avg_line_count']:>6.1f} {a['avg_syllables_per_line']:>6.2f} "
+                              f"{a['avg_hook_repetition_ratio']:>6.4f} {a['avg_english_loanword_rate']:>6.4f}")
+                conn.close()
+            else:
+                artists = get_artist_stats(conn, artist=args.artist)
+                if args.json:
+                    print(json_mod.dumps(artists, indent=2, ensure_ascii=False))
+                else:
+                    if not artists:
+                        print(f"No data found for artist: {args.artist}")
+                        conn.close()
+                        return
+                    print(f"\n{'Artist':<25} {'Songs':>5} {'Avg W':>7} {'TTR':>6} "
+                          f"{'Avg L':>6} {'Syl/L':>6} {'HookR':>6} {'Eng%':>6}")
+                    print("-" * 80)
+                    for a in artists:
+                        print(f"{a['primary_artist']:<25} {a['song_count']:>5} "
+                              f"{a['avg_total_words']:>7.1f} {a['avg_ttr']:>6.4f} "
+                              f"{a['avg_line_count']:>6.1f} {a['avg_syllables_per_line']:>6.2f} "
+                              f"{a['avg_hook_repetition_ratio']:>6.4f} {a['avg_english_loanword_rate']:>6.4f}")
+                    if not args.artist:
+                        print(f"\nSection type distribution:")
+                        for s in get_section_type_distribution(conn):
+                            print(f"  {s['type']:<15} {s['count']}")
+                        print(f"\nSyllables/line distribution:")
+                        for s in get_syllable_distribution(conn):
+                            print(f"  {s['bucket']:<8} {s['count']}")
+                    else:
+                        print(f"\nTop 20 words for {args.artist}:")
+                        for word, count in get_top_words_for_artist(conn, args.artist, 20):
+                            print(f"  {word:>15s}  {count}")
+                conn.close()
 
         elif args.lyrics_command == "rhymes":
             import json as json_mod
