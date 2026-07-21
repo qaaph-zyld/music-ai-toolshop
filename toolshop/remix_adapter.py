@@ -268,6 +268,116 @@ def _slice_by_onsets(audio: np.ndarray, sr: int) -> List[Tuple[np.ndarray, int, 
     return segments
 
 
+def _load_sections(path: Path) -> List[Dict[str, Any]]:
+    """Load section boundaries from a JSON file.
+
+    Accepts ``sections`` at top level or nested under ``structure.sections``.
+    Each entry must have ``label`` (str), ``start`` (float), ``end`` (float).
+    Invalid entries are skipped with a warning.
+
+    Returns a list of dicts sorted by ``start``.
+    Raises ``ValueError`` if no valid sections are found.
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    raw_sections = data.get("sections")
+    if raw_sections is None:
+        structure = data.get("structure")
+        if isinstance(structure, dict):
+            raw_sections = structure.get("sections")
+    if raw_sections is None:
+        raise ValueError(f"No 'sections' key found in {path}")
+
+    cleaned: List[Dict[str, Any]] = []
+    for i, entry in enumerate(raw_sections):
+        try:
+            label = str(entry["label"])
+            start = float(entry["start"])
+            end = float(entry["end"])
+        except (KeyError, TypeError, ValueError):
+            logging.warning("Skipping invalid section #%d in %s: %r", i, path, entry)
+            continue
+        if end <= start:
+            logging.warning(
+                "Skipping section #%d (%r): end <= start (%.3f <= %.3f)",
+                i, label, end, start,
+            )
+            continue
+        cleaned.append({"label": label, "start": start, "end": end})
+
+    if not cleaned:
+        raise ValueError(f"No valid sections in {path}")
+
+    cleaned.sort(key=lambda s: s["start"])
+    return cleaned
+
+
+def _snap_to_nearest_beat(sample: int, beat_samples: np.ndarray) -> int:
+    """Snap a sample index to the nearest value in *beat_samples*."""
+    if beat_samples is None or len(beat_samples) == 0:
+        return sample
+    diffs = np.abs(beat_samples - sample)
+    return int(beat_samples[int(np.argmin(diffs))])
+
+
+def _slice_by_sections(
+    audio: np.ndarray,
+    sr: int,
+    sections: List[Dict[str, Any]],
+    beat_samples: Optional[np.ndarray] = None,
+    snap_to_beats: bool = True,
+    sub_slice_beats: Optional[int] = None,
+) -> List[Tuple[np.ndarray, int, int, str, int]]:
+    """Slice audio by section boundaries.
+
+    Returns a list of ``(segment, start_sample, end_sample, label, n_within_section)``.
+    """
+    total = len(audio)
+    result: List[Tuple[np.ndarray, int, int, str, int]] = []
+
+    for section in sections:
+        start_s = int(section["start"] * sr)
+        end_s = int(section["end"] * sr)
+        start_s = max(0, min(start_s, total))
+        end_s = max(0, min(end_s, total))
+        label = section["label"]
+
+        if snap_to_beats and beat_samples is not None and len(beat_samples):
+            start_s = _snap_to_nearest_beat(start_s, beat_samples)
+            end_s = _snap_to_nearest_beat(end_s, beat_samples)
+
+        if end_s <= start_s:
+            continue
+
+        if sub_slice_beats and beat_samples is not None and len(beat_samples):
+            beats_inside = [
+                int(b) for b in beat_samples
+                if start_s <= int(b) < end_s
+            ]
+            if not beats_inside:
+                result.append((audio[start_s:end_s], start_s, end_s, label, 1))
+                continue
+
+            cut_points = [start_s]
+            for i, b in enumerate(beats_inside):
+                if (i + 1) % sub_slice_beats == 0:
+                    cut_points.append(b)
+            if cut_points[-1] != end_s:
+                cut_points.append(end_s)
+
+            n = 1
+            for i in range(len(cut_points) - 1):
+                seg_start = cut_points[i]
+                seg_end = cut_points[i + 1]
+                if seg_end <= seg_start:
+                    continue
+                result.append((audio[seg_start:seg_end], seg_start, seg_end, label, n))
+                n += 1
+        else:
+            result.append((audio[start_s:end_s], start_s, end_s, label, 1))
+
+    return result
+
+
 def _stretch_segment(
     segment: np.ndarray,
     sr: int,
