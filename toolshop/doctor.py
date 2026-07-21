@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from . import stem_models
+from . import backup as backup_module
 
 
 EXPECTED_PYTHON = (3, 11)
@@ -118,12 +119,19 @@ def _model_cache_ok() -> dict[str, Any]:
     }
 
 
+def _backup_ok() -> dict[str, Any]:
+    """Check whether a recent valid backup exists."""
+    target = Path(os.environ.get("TOOLSHOP_BACKUP_DIR", r"C:\Backups\toolshop"))
+    return backup_module.check_backup(target=target)
+
+
 def run_checks() -> dict[str, Any]:
     results = [
         _python_version_ok(),
         _ffmpeg_ok(),
         _disk_ok(),
         _model_cache_ok(),
+        _backup_ok(),
     ]
     for extra in EXTRAS:
         results.append(_packages_ok(extra))
@@ -154,6 +162,14 @@ def print_report(report: dict[str, Any]) -> None:
             detail += f" missing={check['missing']}"
         if "orphans" in check and check["orphans"]:
             detail += f" orphans={check['orphans']}"
+        if check["check"] == "backup":
+            reason = check.get("reason", "")
+            age = check.get("age_days")
+            fc = check.get("file_count", 0)
+            detail = f" (target={check.get('target', '?')}, files={fc}"
+            if age is not None:
+                detail += f", age={age}d"
+            detail += f", verified={check.get('verified', False)}, reason={reason})"
         print(f"[{status}] {check['check']}{detail}")
     print("-" * 50)
     print(f"Overall: {'PASS' if report['ok'] else 'FAIL'}")

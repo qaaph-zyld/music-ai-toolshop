@@ -8,6 +8,13 @@ import soundfile as sf
 import librosa
 
 
+def _scalar_tempo(tempo: Any) -> float:
+    """Extract a Python float from a librosa tempo value (numpy 2.0 compat)."""
+    if hasattr(tempo, "item"):
+        return float(tempo.item())
+    return float(tempo)
+
+
 @dataclass
 class StageResult:
     """Result from a pipeline stage."""
@@ -51,6 +58,7 @@ class PreprocessingStage:
 
         # Detect BPM and key
         tempo, beat_frames = librosa.beat.beat_track(y=audio, sr=sr)
+        tempo = _scalar_tempo(tempo)
 
         # Key detection (chromagram-based)
         chromagram = librosa.feature.chroma_stft(y=audio, sr=sr)
@@ -735,6 +743,7 @@ class BeatAlignmentStage:
 
         # Detect beats
         tempo, beat_frames = librosa.beat.beat_track(y=audio, sr=sr)
+        tempo = _scalar_tempo(tempo)
         beat_times = librosa.frames_to_time(beat_frames, sr=sr)
 
         # Calculate tempo curve (drift over time)

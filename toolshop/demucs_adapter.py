@@ -126,10 +126,10 @@ def separate(
     Returns:
         Result dict matching the adapter contract used by `stems_cli`.
     """
-    _check_demucs()
     model = stem_models.get_model(model_id)
     if model.backend != "demucs":
         raise ValueError(f"Model {model_id} is not a demucs backend")
+    _check_demucs()
 
     output_dir = output_dir or Path("separated_tracks") / model_id
     output_dir.mkdir(parents=True, exist_ok=True)
