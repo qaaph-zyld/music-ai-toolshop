@@ -31,7 +31,7 @@ CORPUS_TAG = "genius-pro"
 
 # ── Genre cohort mapping ──────────────────────────────────────────────
 # User decision 2026-07-17: two explicit genre cohorts.
-# Corona/Indodjija are NULL (unconfirmed — decide by ear).
+# Corona/Indodjija confirmed drill_trap by ear 2026-07-21.
 # Featured-folder primaries (Amna, Tanja Savic, ...) are non-target → NULL.
 COHORT_MAP: Dict[str, str] = {
     "Buba Corelli": "drill_trap",
@@ -40,7 +40,9 @@ COHORT_MAP: Dict[str, str] = {
     "Nikolija": "pop",
     "Senidah": "pop",
     "Relja": "pop",
-    # Corona, Indodjija: NULL (unconfirmed)
+    "Corona": "drill_trap",
+    "Indodjija": "drill_trap",
+    "Indođija": "drill_trap",
 }
 
 
@@ -432,6 +434,18 @@ CREATE TABLE IF NOT EXISTS line_rhymes (
 
 CREATE INDEX IF NOT EXISTS idx_line_rhymes_song ON line_rhymes(song_id);
 CREATE INDEX IF NOT EXISTS idx_line_rhymes_line ON line_rhymes(line_id);
+
+CREATE TABLE IF NOT EXISTS song_rhyme_metrics (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    song_id               INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+    rhyme_factor          REAL,
+    pct_multis            REAL,
+    internal_rhyme_rate   REAL,
+    dominant_scheme       TEXT,
+    top_vowel_pairs       TEXT  -- JSON array of [skeleton, count] pairs
+);
+
+CREATE INDEX IF NOT EXISTS idx_song_rhyme_metrics_song ON song_rhyme_metrics(song_id);
 """
 
 
