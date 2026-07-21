@@ -6,15 +6,18 @@
 > (no gap report, no rimer/scorer) — those consume this.**
 
 ## PRECONDITION (verify first — STOP if unmet)
-- `git status` clean and **Phase 0 committed + pushed** (backup.py, doctor.py, numpy fix, skip-guards
-  were uncommitted at last review). If they are still uncommitted, commit/push them FIRST (CHANGELOG
-  **#019** — #018 is taken by the Sample Forge series) or STOP and report.
+- **Phase 0 is DONE, committed + pushed** (verified 2026-07-22: commits `27cfa35` + reconcile `e293323`;
+  origin 0/0). Its CHANGELOG entry is **#019** (renumbered from the earlier #018 collision with the
+  Sample Forge series, which keeps #018). So the CHANGELOG through HEAD is: #016 Sample Forge, #017 L2.1,
+  #018 T7.1 Sample Forge, #019 Phase 0. **L3 gets CHANGELOG #020.** Confirm `git status` is clean before
+  starting; if the tree is dirty with unrelated work, STOP and report.
 - lyrics.db present at `D:\MusicData\toolshop\lyrics\lyrics.db` (742 songs / 5,493 sections / 36,572
   lines / song_metrics + song_rhyme_metrics + line_rhymes — verified 2026-07-21).
 
 ## Verified facts (2026-07-22)
-- Tables: `songs, sections(type,type_number,label_raw,performers), lines(text_raw,text_norm,
-  syllable_count), song_metrics, song_rhyme_metrics, line_rhymes` + view `v_artist_stats`.
+- Tables in `lyricsdb.py:367-449`: `songs, sections(type,type_number,label_raw,performers),
+  lines(text_raw,text_norm,syllable_count), song_metrics, song_rhyme_metrics, line_rhymes`.
+  View `v_artist_stats` is in `lyrics_metrics.py:166` (`_ARTIST_VIEW_SQL`), not `lyricsdb.py`.
 - Section text = `lines.text_norm` for a `section_id`, ordered by `lines.ordinal`.
 - Cohorts live on `songs.genre_cohort` ∈ {drill_trap(387 solo), pop(214 solo), NULL}; `role` ∈
   {solo, featured}. **Baselines use solo + a cohort; featured excluded** (same rule as L1.1/L2.1).
@@ -22,7 +25,9 @@
 - CPU-only box (GT 640 unusable for ML) — everything here runs CPU; torch CPU wheel. See
   [[pc-hardware-constraints]].
 - CLI pattern to extend: `toolshop lyrics <sub>` argparse subparsers in `cli.py:807`
-  (`build-db`, `stats --cohort`, `rhymes`), all with a `--db` default to the MusicData path.
+  (`build-db`, `stats --cohort`, `rhymes`, `flow`, `collab`), all with a `--db` default to the
+  MusicData path. Dispatch block is `cli.py:1520-1750`. New `annotate`/`lexicon`/`themes`
+  subcommands follow the same subparser + dispatch pattern.
 
 ## Key design decision — which text feeds CLASSLA (name it, don't paper over it)
 `text_norm` is ASCII-folded (č→c, đ→dj) → good for embeddings, **bad for CLASSLA** (its sr model expects
@@ -34,8 +39,13 @@ not a bug. Embeddings (BERTopic) use `text_norm` (MiniLM is diacritic-robust).
 
 ## Dependencies (new `lyrics-nlp` extra — keep base `lyrics` light)
 - `pyproject.toml`: add extra `lyrics-nlp = ["classla", "bertopic", "sentence-transformers",
-  "umap-learn", "hdbscan"]`. Do NOT add to `lyrics` (build-db/stats/rhymes must stay installable without
-  the heavy stack; CI installs `[audio,lyrics]` only). License-ledger entry per dep (integration-map policy).
+  "umap-learn", "hdbscan", "torch"]`. Do NOT add to `lyrics` (build-db/stats/rhymes must stay
+  installable without the heavy stack; CI installs `[audio,lyrics]` only). License-ledger entry per dep
+  (integration-map policy).
+- **torch CPU wheel:** `sentence-transformers` pulls torch transitively, but pip resolves the default
+  CUDA wheel (~2.5 GB) on Windows. Install with:
+  `pip install torch --index-url https://download.pytorch.org/whl/cpu`
+  before installing the `lyrics-nlp` extra, or document this in the one-time setup instructions.
 - Model/cache dirs (CLASSLA sr model ~few-hundred-MB; MiniLM ~90 MB) go to
   `D:\MusicData\toolshop\models\` (env `TOOLSHOP_DATA_DIR`-aware), **never the repo**. Document the
   one-time download.
@@ -45,16 +55,20 @@ not a bug. Embeddings (BERTopic) use `text_norm` (MiniLM is diacritic-robust).
 ## Task 1 — Schema for annotation + themes (`toolshop/lyricsdb.py`, TDD on schema/inserts)
 Add tables (idempotent CREATE; wiped+rebuilt by the L3 commands, not by build-db):
 - `tokens(id, line_id, ordinal, form, lemma, upos, feats, is_oov)` — CLASSLA per-token.
-- `entities(id, song_id, section_id, text, ner_type)` — NER (brands/places/persons).
+- `entities(id, song_id, section_id, line_id, text, ner_type)` — NER (brands/places/persons).
+  `line_id` REFERENCES `lines(id)` ON DELETE CASCADE — NER spans are per-line (CLASSLA runs per-line),
+  so line provenance must be preserved.
 - `slang_terms(id, form, lemma, freq, drill_freq, pop_freq, distinctiveness, is_oov)` — mined lexicon.
 - `topics(topic_id, label, top_terms JSON, size, exemplar_section_id)` — BERTopic topics.
 - `section_topics(section_id, topic_id, probability)` — per-section assignment.
 Indexes on the FKs. TDD: a synthetic 2-song fixture inserts/reads back cleanly.
 
 ## Task 2 — CLASSLA annotation (`toolshop/annotate.py` + `toolshop lyrics annotate`)
-- `toolshop lyrics annotate [--db PATH] [--resume] [--limit N]`: run CLASSLA (sr, non-standard) over
-  each line's `text_raw`; populate `tokens` (lemma/upos/feats) and `entities` (NER). **Resumable** —
-  skip lines already annotated (heaviest CPU job so far; time-box, checkpoint per song).
+- `toolshop lyrics annotate [--db PATH] [--resume] [--limit N]`: run
+  `classla.Pipeline('sr', type='nonstandard')` over each line's `text_raw`; populate `tokens`
+  (lemma/upos/feats) and `entities` (NER). The `nonstandard` pipeline type handles internet text
+  spelling — critical for diacritic-stripped Latin. **Resumable** — skip lines already annotated
+  (heaviest CPU job so far; time-box, checkpoint per song).
 - Lazy-import classla inside the function (guarded). Print coverage summary (lines annotated, token
   count, %OOV, entity count).
 - TDD: the line→CLASSLA-input adapter and the token-row builder (mock CLASSLA output); the live model
@@ -93,14 +107,16 @@ The whole point is contrast. The report MUST show, with numbers:
    ceiling is visible).
 
 ## Task 6 — Deps, docs, commits, handoff
-- License-ledger entries: classla, bertopic, sentence-transformers, umap-learn, hdbscan.
-- CHANGELOG (next # after Phase 0's #019); PROJECTS_INDEX; STATUS T5 lane → L3 done, L4 next.
+- License-ledger entries: classla, bertopic, sentence-transformers, umap-learn, hdbscan, torch.
+- CHANGELOG **#020** (last used is #019 = Phase 0); PROJECTS_INDEX; STATUS T5 lane → L3 done, L4 next.
 - Commits: (a) `feat(lyrics): annotation/themes schema`, (b) `feat(lyrics): CLASSLA annotate + entities`,
   (c) `feat(lyrics): slang lexicon (OOV + cohort distinctiveness)`, (d) `feat(lyrics): BERTopic themes
   + cohort mix`, (e) `docs: report + changelog + ledger`. Push.
-- **CI reality:** account is billing-locked → Actions don't run; gate on LOCAL `pytest -m "not slow"`
-  (baseline 349 passed / 0 failed as of 2026-07-21). NLP tests skip-guarded → no new failures. Put the
-  local pytest tail in the handoff; do NOT claim "CI green".
+- **CI reality:** account is billing-locked → Actions don't run; gate on LOCAL `pytest -m "not slow"`.
+  **The invariant is 0 failed.** Passed/skipped counts vary by which optional extras are installed in the
+  venv (observed 349–383 passed, 1–10 skipped, always 0 failed) — do NOT treat a specific passed count as
+  the bar; the bar is "0 failed, and NLP tests skip when `lyrics-nlp` is absent." Put the local pytest
+  tail in the handoff; do NOT claim "CI green".
 - Handoff `d:\Projects\.windsurf\handoffs\<ts>_music-ai-toolshop-t5l3.md`: token/entity/topic counts,
   annotation coverage (Cyrillic vs Latin), the drill-vs-pop theme + slang discrimination evidence,
   runtime, commit hashes, local pytest tail, deviations.
@@ -110,7 +126,7 @@ The whole point is contrast. The report MUST show, with numbers:
 - [ ] `annotate` resumable; coverage reported per source-script (ceiling visible)
 - [ ] **Themes discriminate drill vs pop; slang distinctive lists non-empty** (the exit gate)
 - [ ] Heavy deps in `lyrics-nlp` extra only; models in MusicData not repo; license-ledger updated
-- [ ] Local pytest: no NEW failures vs 349/0 baseline (NLP tests skip when deps absent)
+- [ ] Local pytest: 0 failed (passed count varies by installed extras; NLP tests skip when deps absent)
 - [ ] Report is statistics-only (no lyric dumps); repo clean + pushed
 
 ---
@@ -128,13 +144,17 @@ FRAMEWORK BOOTSTRAP (v11) — Execute in order:
 7. After completion, run `python scripts/session_end.py --status completed --duration <min> --helpful <skill>`.
 
 MY TASK: Execute D:\Projects\Music-AI-Toolshop\docs\superpowers\plans\2026-07-22-t5l3-language-themes.md
-exactly as written. PRECONDITION: confirm git status is clean and Phase 0 (backup/doctor/numpy/skip-guards)
-is committed+pushed — if not, commit it (CHANGELOG #019) or STOP and report. Hard rules: lyrics.db + models
+exactly as written. PRECONDITION: Phase 0 is already committed+pushed (27cfa35/e293323, verified); just
+confirm git status is clean before starting, else STOP and report. Last CHANGELOG number is #019 (Phase 0)
+— L3 gets CHANGELOG #020. Hard rules: lyrics.db + models
 + all derived data in D:\MusicData, never the repo; heavy NLP deps go in a NEW `lyrics-nlp` extra (not
-base `lyrics`); NLP tests skip-guarded so they stay out of CI; reports statistics-only (no lyric dumps);
-no re-fetch from Genius; NO L4/L5 work. Feed CLASSLA `text_raw` (document the diacritic-stripped-Latin
-accuracy ceiling — do not attempt diacritic restoration). CI is billing-locked → gate on LOCAL pytest
-(baseline 349 passed / 0 failed), never claim CI green. The session is NOT done until the report shows,
+base `lyrics`); install torch CPU wheel first (`pip install torch --index-url
+https://download.pytorch.org/whl/cpu`); NLP tests skip-guarded so they stay out of CI; reports
+statistics-only (no lyric dumps); no re-fetch from Genius; NO L4/L5 work. Feed CLASSLA `text_raw` via
+`classla.Pipeline('sr', type='nonstandard')` (document the diacritic-stripped-Latin accuracy ceiling
+— do not attempt diacritic restoration). CI is billing-locked → gate on LOCAL pytest; the invariant is
+0 failed (passed count varies by installed extras), never claim CI green. The session is NOT done until the
+report shows,
 with numbers, that themes AND slang DISCRIMINATE drill_trap vs pop (flat/identical topic mixes = not done).
 
 WHEN DONE — REPORT BACK: create d:\Projects\.windsurf\handoffs\<yyyy-MM-dd_HHmm>_music-ai-toolshop-t5l3.md
