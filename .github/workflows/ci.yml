@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[audio]"
+          pip install -e ".[audio,lyrics]"
           pip install pytest
 
       - name: Run unit tests (no slow/integration tests)
