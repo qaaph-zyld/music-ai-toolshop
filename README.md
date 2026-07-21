@@ -402,6 +402,38 @@ toolshop remix ./songs --mode sample --output-dir D:\MusicData\toolshop\samples 
 - `--fx` supports `reverb`, `delay`, `gain`, `compressor`, `distortion`.
 - Output defaults to `D:\MusicData\toolshop\remixes` or `D:\MusicData\toolshop\samples`.
 
+#### Section-aware Sample Forge
+
+Slice a track by externally-provided song sections (JSON) instead of generic beat/onset
+chopping. Each sample is labeled by section and named `<key>_<bpm>_<section>_<n>.<ext>`.
+
+**JSON schema:**
+
+```json
+{
+  "sections": [
+    {"label": "intro", "start": 0.0, "end": 8.0},
+    {"label": "verse", "start": 8.0, "end": 24.0},
+    {"label": "chorus", "start": 24.0, "end": 40.0}
+  ]
+}
+```
+
+**Example:**
+
+```bash
+toolshop remix song.wav --mode sample --sections sections.json --output ./pack
+toolshop remix song.wav --mode sample --sections sections.json --sub-slice-beats 4 --no-beat-snap
+```
+
+- `--sections` — path to JSON file with section boundaries (requires `--mode sample`).
+- `--sub-slice-beats N` — sub-slice each section every N beats (requires `--sections`).
+- `--no-beat-snap` — disable snapping section boundaries to the nearest beat grid point.
+- Sample filenames follow the pattern `A_120_chorus_01.flac` (key, BPM, section, index).
+- The manifest includes a `"section"` field for each sample.
+- **Automatic section detection is deferred** to a future H2 structure detector. For now,
+  sections must be provided externally (e.g. from a manual annotation or third-party tool).
+
 ---
 
 ## Python API
