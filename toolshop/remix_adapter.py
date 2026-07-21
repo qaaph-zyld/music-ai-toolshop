@@ -569,6 +569,9 @@ def create_remix(
     stems_dir: Optional[Path] = None,
     stem_name: Optional[str] = None,
     crossfade_ms: float = 12.0,
+    sections: Optional[List[Dict[str, Any]]] = None,
+    sub_slice_beats: Optional[int] = None,
+    snap_to_beats: bool = True,
     **stretch_kwargs: Any,
 ) -> RemixResult:
     """Create a remix or sample pack from an audio file.
@@ -647,7 +650,18 @@ def create_remix(
         final = _crossfade_concat(processed, sr, crossfade_ms=crossfade_ms)
         final = _apply_fx(final, sr, fx_chain)  # apply overall FX once more
     elif mode == "sample":
-        if segment_beats <= 1:
+        if sections is not None:
+            beat_audio = audio if audio.ndim == 1 else np.mean(audio, axis=0)
+            detected_bpm, beat_samples = _detect_beats(beat_audio, sr)
+            if src_bpm is None or src_bpm <= 0:
+                src_bpm = detected_bpm
+            raw_segments = _slice_by_sections(
+                audio, sr, sections,
+                beat_samples=beat_samples,
+                snap_to_beats=snap_to_beats,
+                sub_slice_beats=sub_slice_beats,
+            )
+        elif segment_beats <= 1:
             raw_segments = _slice_by_onsets(audio, sr)
         else:
             detected_bpm, beat_samples = _detect_beats(audio, sr)
@@ -659,12 +673,18 @@ def create_remix(
         output_dir = Path(output_path)
         output_dir.mkdir(parents=True, exist_ok=True)
         samples: List[Dict[str, Any]] = []
-        for idx, seg_info in enumerate(raw_segments):
-            if segment_beats <= 1:
+        label_counters: Dict[str, int] = {}
+        for seg_info in raw_segments:
+            if sections is not None:
+                seg, start, end, label, n_within = seg_info
+                beats = None
+            elif segment_beats <= 1:
                 seg, start, end = seg_info
+                label = "oneshot"
                 beats = 1
             else:
                 seg, start, end, beats = seg_info
+                label = "loop"
             seg = _stretch_segment(
                 seg,
                 sr,
@@ -677,11 +697,16 @@ def create_remix(
             seg = _apply_fx(seg, sr, fx_chain)
             start_time = float(start) / sr
             end_time = float(end) / sr
+            if sections is not None:
+                n_val = n_within
+            else:
+                label_counters[label] = label_counters.get(label, 0) + 1
+                n_val = label_counters[label]
             name = _sample_name(
-                idx,
                 src_key,
-                int(round(src_bpm)),
-                start_time,
+                src_bpm,
+                label,
+                n_val,
                 output_format,
             )
             file_path = output_dir / name
@@ -690,11 +715,12 @@ def create_remix(
                 {
                     "file": str(file_path),
                     "name": name,
+                    "section": label,
                     "start_seconds": round(start_time, 3),
                     "end_seconds": round(end_time, 3),
                     "source_bpm": round(src_bpm, 2),
                     "source_key": src_key,
-                    "beats": beats if segment_beats > 1 else None,
+                    "beats": beats if (segment_beats > 1 and sections is None) else None,
                 }
             )
         manifest = _sample_manifest(
@@ -762,15 +788,16 @@ def create_remix(
 
 
 def _sample_name(
-    idx: int,
     key: str,
-    bpm: int,
-    start_time: float,
+    bpm: float,
+    section: str,
+    n: int,
     output_format: str,
 ) -> str:
     ext = ".wav" if output_format.lower() == "wav" else ".flac"
     safe_key = key.replace("#", "sh").replace("b", "f")
-    return f"{safe_key}_{bpm}bps_{idx:04d}_{start_time:.3f}s{ext}"
+    safe_section = re.sub(r"[^a-z0-9]+", "", section.lower()) or "loop"
+    return f"{safe_key}_{int(round(bpm))}_{safe_section}_{n:02d}{ext}"
 
 
 def _remix_manifest(

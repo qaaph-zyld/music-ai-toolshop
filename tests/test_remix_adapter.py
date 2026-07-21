@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import importlib.util
+
 import numpy as np
 import pytest
 from pathlib import Path
 
 from toolshop import remix_adapter
 
-pytest.importorskip("numpy")
-
-_pedalboard = pytest.importorskip("pedalboard", reason="[remix] extra not installed")
-_librosa = pytest.importorskip("librosa", reason="[remix] extra not installed")
-_soundfile = pytest.importorskip("soundfile", reason="[remix] extra not installed")
+_HAS_REMIX_DEPS = all(
+    importlib.util.find_spec(pkg) is not None
+    for pkg in ("pedalboard", "librosa", "soundfile")
+)
+_skip_no_remix = pytest.mark.skipif(
+    not _HAS_REMIX_DEPS, reason="[remix] extra not installed"
+)
 
 
 def _sine_wave(duration: float, sr: int = 22050, freq: float = 440.0) -> np.ndarray:
@@ -41,7 +45,8 @@ def test_semitone_diff_minimal():
     assert remix_adapter._semitone_diff("G", "G") == 0
 
 
-def test_load_audio_truncates(tmp_path):  # requires [remix]
+@_skip_no_remix
+def test_load_audio_truncates(tmp_path):
     audio = _sine_wave(6.0)
     wav = tmp_path / "long.wav"
     _write_wav(wav, audio)
@@ -55,7 +60,8 @@ def test_load_audio_truncates(tmp_path):  # requires [remix]
     assert len(loaded) == int(sr * 2.0)
 
 
-def test_load_audio_no_truncation(tmp_path):  # requires [remix]
+@_skip_no_remix
+def test_load_audio_no_truncation(tmp_path):
     audio = _sine_wave(1.0)
     wav = tmp_path / "short.wav"
     _write_wav(wav, audio)
@@ -77,7 +83,8 @@ def test_slice_by_beats():
     assert end - start == 22050
 
 
-def test_slice_by_onsets(tmp_path):  # requires [remix]
+@_skip_no_remix
+def test_slice_by_onsets(tmp_path):
     audio = _sine_wave(2.0)
     wav = tmp_path / "onsets.wav"
     _write_wav(wav, audio)
@@ -86,7 +93,8 @@ def test_slice_by_onsets(tmp_path):  # requires [remix]
     assert isinstance(segments, list)
 
 
-def test_stretch_segment_no_change():  # requires [remix]
+@_skip_no_remix
+def test_stretch_segment_no_change():
     segment = _sine_wave(0.5)
     out = remix_adapter._stretch_segment(
         segment, 22050, src_bpm=120.0, dst_bpm=None, src_key="C", dst_key=None
@@ -95,7 +103,8 @@ def test_stretch_segment_no_change():  # requires [remix]
     np.testing.assert_allclose(out, segment, atol=1e-6)
 
 
-def test_apply_fx_reverb_shape():  # requires [remix]
+@_skip_no_remix
+def test_apply_fx_reverb_shape():
     segment = _sine_wave(0.5)
     out = remix_adapter._apply_fx(segment, 22050, ["reverb"])
     assert out.shape == segment.shape
@@ -109,7 +118,8 @@ def test_crossfade_concat():
     assert len(out) >= expected_min
 
 
-def test_create_remix_smoke(tmp_path):  # requires [remix]
+@_skip_no_remix
+def test_create_remix_smoke(tmp_path):
     audio = _sine_wave(2.0)
     src = tmp_path / "src.wav"
     _write_wav(src, audio)
@@ -127,7 +137,8 @@ def test_create_remix_smoke(tmp_path):  # requires [remix]
     assert result.duration_seconds <= 2.0
 
 
-def test_create_samples_smoke(tmp_path):  # requires [remix]
+@_skip_no_remix
+def test_create_samples_smoke(tmp_path):
     audio = _sine_wave(2.0)
     src = tmp_path / "src.wav"
     _write_wav(src, audio)
@@ -143,6 +154,51 @@ def test_create_samples_smoke(tmp_path):  # requires [remix]
     assert out_dir.is_dir()
     assert result.manifest_path and result.manifest_path.exists()
     assert len(result.samples) >= 1
+    assert "section" in result.samples[0]
+    assert result.samples[0]["section"] == "oneshot"
+
+
+def test_sample_name_format():
+    name = remix_adapter._sample_name("A", 120.0, "chorus", 1, "flac")
+    assert name == "A_120_chorus_01.flac"
+    name = remix_adapter._sample_name("F#", 140.6, "oneshot", 3, "wav")
+    assert name == "Fsh_141_oneshot_03.wav"
+    name = remix_adapter._sample_name("Bb", 90.0, "intro riser", 1, "flac")
+    assert name == "Bf_90_introriser_01.flac"
+
+
+@_skip_no_remix
+def test_create_samples_with_sections(tmp_path):
+    audio = _sine_wave(6.0)
+    src = tmp_path / "src.wav"
+    _write_wav(src, audio)
+    out_dir = tmp_path / "samples"
+
+    sections = [
+        {"label": "intro", "start": 0.0, "end": 2.0},
+        {"label": "verse", "start": 2.0, "end": 4.0},
+        {"label": "chorus", "start": 4.0, "end": 6.0},
+    ]
+
+    result = remix_adapter.create_remix(
+        src,
+        out_dir,
+        mode="sample",
+        sections=sections,
+        snap_to_beats=False,
+        max_duration=240.0,
+    )
+    assert out_dir.is_dir()
+    assert result.manifest_path and result.manifest_path.exists()
+    assert len(result.samples) == 3
+    labels = [s["section"] for s in result.samples]
+    assert labels == ["intro", "verse", "chorus"]
+    for s in result.samples:
+        assert "section" in s
+    names = [s["name"] for s in result.samples]
+    assert any("_intro_01" in n for n in names)
+    assert any("_verse_01" in n for n in names)
+    assert any("_chorus_01" in n for n in names)
 
 
 def test_load_sections_valid(tmp_path):
