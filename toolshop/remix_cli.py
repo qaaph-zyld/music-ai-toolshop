@@ -74,6 +74,12 @@ def _process_one(input_path: Path, args: Any) -> Dict[str, Any]:
     if target_bpm is not None and target_bpm <= 0:
         raise ValueError("target-bpm must be positive")
 
+    sections = None
+    if getattr(args, "sections", None):
+        if mode != "sample":
+            raise ValueError("--sections requires --mode sample")
+        sections = remix_adapter._load_sections(Path(args.sections))
+
     result = remix_adapter.create_remix(
         input_path=input_path,
         output_path=output_path,
@@ -89,6 +95,9 @@ def _process_one(input_path: Path, args: Any) -> Dict[str, Any]:
         stems_dir=args.stems_dir,
         stem_name=args.stem,
         crossfade_ms=args.crossfade_ms,
+        sections=sections,
+        sub_slice_beats=getattr(args, "sub_slice_beats", None),
+        snap_to_beats=not getattr(args, "no_beat_snap", False),
     )
     return {
         "status": "completed",

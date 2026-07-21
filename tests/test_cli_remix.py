@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import importlib.util
 
 import numpy as np
 import pytest
@@ -12,6 +15,14 @@ import soundfile as sf
 
 from toolshop import remix_cli
 from toolshop.cli import build_parser
+
+_HAS_REMIX_DEPS = all(
+    importlib.util.find_spec(pkg) is not None
+    for pkg in ("pedalboard", "librosa", "soundfile")
+)
+_skip_no_remix = pytest.mark.skipif(
+    not _HAS_REMIX_DEPS, reason="[remix] extra not installed"
+)
 
 
 def _sine_wave(duration: float, sr: int = 22050) -> np.ndarray:
@@ -67,6 +78,7 @@ def test_remix_parser_fx():
     assert args.fx == ["reverb", "delay"]
 
 
+@_skip_no_remix
 def test_remix_run_single_file(mock_create_remix, tmp_path):
     audio = _sine_wave(0.5)
     wav = tmp_path / "src.wav"
@@ -80,6 +92,7 @@ def test_remix_run_single_file(mock_create_remix, tmp_path):
     mock_create_remix.assert_called_once()
 
 
+@_skip_no_remix
 def test_remix_run_batch_no_files(tmp_path):
     parser = build_parser()
     empty_dir = tmp_path / "empty"
@@ -111,3 +124,75 @@ def test_resolve_output_path_sample_dir(tmp_path):
 
     result = remix_cli._resolve_output_path(tmp_path / "My Song.wav", Args())
     assert result == tmp_path / "pack"
+
+
+def test_remix_parser_sections_flags():
+    parser = build_parser()
+    args = parser.parse_args([
+        "remix", "song.wav", "--mode", "sample",
+        "--sections", "sections.json",
+        "--sub-slice-beats", "4",
+        "--no-beat-snap",
+    ])
+    assert args.sections == Path("sections.json")
+    assert args.sub_slice_beats == 4
+    assert args.no_beat_snap is True
+
+
+def test_remix_parser_sections_defaults():
+    parser = build_parser()
+    args = parser.parse_args(["remix", "song.wav", "--mode", "sample"])
+    assert args.sections is None
+    assert args.sub_slice_beats is None
+    assert args.no_beat_snap is False
+
+
+@_skip_no_remix
+def test_cli_sections_requires_sample_mode(tmp_path):
+    audio = _sine_wave(0.5)
+    wav = tmp_path / "src.wav"
+    _write_wav(wav, audio)
+    sections_file = tmp_path / "sections.json"
+    sections_file.write_text('{"sections": [{"label": "intro", "start": 0.0, "end": 0.5}]}')
+
+    parser = build_parser()
+    args = parser.parse_args([
+        "remix", str(wav), "--mode", "remix",
+        "--sections", str(sections_file),
+        "--output", str(tmp_path / "out.wav"),
+    ])
+    with pytest.raises(ValueError, match="--sections requires --mode sample"):
+        remix_cli.run(args)
+
+
+@_skip_no_remix
+def test_cli_sections_run(tmp_path):
+    audio = _sine_wave(6.0)
+    wav = tmp_path / "src.wav"
+    _write_wav(wav, audio)
+    sections_file = tmp_path / "sections.json"
+    sections_file.write_text(json.dumps({
+        "sections": [
+            {"label": "intro", "start": 0.0, "end": 2.0},
+            {"label": "chorus", "start": 2.0, "end": 4.0},
+            {"label": "outro", "start": 4.0, "end": 6.0},
+        ]
+    }))
+    out_dir = tmp_path / "pack"
+
+    parser = build_parser()
+    args = parser.parse_args([
+        "remix", str(wav), "--mode", "sample",
+        "--sections", str(sections_file),
+        "--no-beat-snap",
+        "--output", str(out_dir),
+    ])
+    assert remix_cli.run(args) == 0
+    manifest = out_dir / "manifest.json"
+    assert manifest.exists()
+    data = json.loads(manifest.read_text())
+    assert "samples" in data
+    labels = [s["section"] for s in data["samples"]]
+    assert "intro" in labels
+    assert "chorus" in labels
+    assert "outro" in labels

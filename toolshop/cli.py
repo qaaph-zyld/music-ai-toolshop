@@ -773,6 +773,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-resume", action="store_true", help="Ignore existing batch_status.json"
     )
     remix_parser.add_argument(
+        "--sections", type=Path, default=None,
+        help="Path to JSON file with section boundaries (requires --mode sample)",
+    )
+    remix_parser.add_argument(
+        "--sub-slice-beats", type=int, default=None,
+        help="Sub-slice each section every N beats (requires --sections)",
+    )
+    remix_parser.add_argument(
+        "--no-beat-snap", action="store_true",
+        help="Disable snapping section boundaries to nearest beat (requires --sections)",
+    )
+    remix_parser.add_argument(
         "--json", action="store_true", help="Output results as JSON"
     )
 
