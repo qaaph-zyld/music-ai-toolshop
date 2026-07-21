@@ -20,6 +20,14 @@ CLI/scripts orchestrate.
 - **Batch jobs:** must use the shared resumable pattern (`toolshop/batch.py`): status JSON flushed per item, `--limit/--offset`, skip-completed resume.
 - **Verification before assertion:** run pytest + the relevant CLI command; quote output in the handoff.
 
+## Close-out discipline (enforced — repeated out-of-band failure mode)
+Caught by orchestrator spot-check 3+ sessions running: uncommitted work left in the tree, records describing code that isn't committed, and "done/spotless/PASS" handoffs that don't match reality.
+- **Clean tree or declared.** A session is not done until `git status` is clean, OR the handoff lists every still-dirty path and why. A "spotless" claim must be backed by the actual `git status` pasted in the handoff.
+- **No record ahead of code.** No CHANGELOG/STATUS entry may describe code that isn't committed in the same wave. Answer-numbers are unique — check the latest entry before assigning (two sessions once collided on #018).
+- **Verified verdicts only.** Quality verdicts (PASS / "discriminates" / "works") enter STATUS or CHANGELOG only after the asserting session re-ran the check itself. Numbers relayed from another doc must be tagged `unverified — source: <path>`, never stated as fact. (The L2 fingerprint defect was caught only by running the actual query, not by trusting the handoff.)
+- **Commit before you claim.** Never carry a tested deliverable uncommitted across sessions — it risks the work and tangles the next commit. Commit code with, or before, its record.
+- **Handoff = final truth.** Commit hashes, push status, and test counts in the handoff reflect the pushed final state, not a mid-run baseline.
+
 ## Key commands
 ```powershell
 # tests
