@@ -13,6 +13,9 @@ import numpy as np
 import pytest
 import soundfile as sf
 
+pytest.importorskip("pedalboard", reason="[remix] extra not installed")
+pytest.importorskip("librosa", reason="[remix] extra not installed")
+
 from toolshop import remix_cli
 from toolshop.cli import build_parser
 

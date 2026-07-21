@@ -8,6 +8,9 @@ import numpy as np
 import pytest
 from pathlib import Path
 
+pytest.importorskip("pedalboard", reason="[remix] extra not installed")
+pytest.importorskip("librosa", reason="[remix] extra not installed")
+
 from toolshop import remix_adapter
 
 _HAS_REMIX_DEPS = all(
