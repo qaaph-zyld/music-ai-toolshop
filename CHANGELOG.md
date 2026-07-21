@@ -1,5 +1,53 @@
 # Changelog
 
+### Answer #017 - T5-L2.1: Rhyme Persistence Fix + Cohort Reclassification
+**Timestamp:** 2026-07-21 23:30
+**Action Type:** Bug fix + data update
+**Previous State:** `populate_rhymes` stored only `match_length=2` end rhymes (34,598 rows). No internal rhymes persisted. No per-song rhyme metrics. Corona/Indodjija were NULL cohort.
+
+**Current State:** `populate_rhymes` now persists true longest match length for end rhymes, internal rhymes, and per-song metrics (`rhyme_factor`, `pct_multis`, `internal_rhyme_rate`, `dominant_scheme`, `top_vowel_pairs`) in new `song_rhyme_metrics` table. 159,171 rhyme rows across 742 songs. 78,489 rows (49.3%) have `match_length >= 3`. Corona + Indođija reclassified to `drill_trap` (solo count: 286 → 387). CI installs `[lyrics]` extra.
+
+#### Changes Made:
+- **FIXED:** `toolshop/rhyme_miner.py` - `populate_rhymes` now iterates match lengths from longest down to 2, persists internal rhymes, computes and stores per-song metrics.
+- **ADDED:** `get_artist_rhyme_fingerprints()` helper for validation reports.
+- **FIXED:** `get_artist_rhyme_stats` `multisyllabic_count` now counts end-rhyme rows only.
+- **UPDATED:** `toolshop/lyricsdb.py` - Added `song_rhyme_metrics` table to schema. `COHORT_MAP` updated: Corona/Indodjija/Indođija → `drill_trap`.
+- **ADDED:** `tests/fixtures/lyrics_min/multi-solo/multi-test.json` - Synthetic fixture with 4-syllable end rhymes and internal rhymes.
+- **ADDED:** `test_populate_rhymes_persists_multis_and_internal` in `tests/test_rhyme_miner.py`.
+- **UPDATED:** `tests/test_lyricsdb.py` - Adjusted fixture counts for new multi-test song (3 songs, 7 sections).
+- **UPDATED:** `.github/workflows/ci.yml` - Install `.[audio,lyrics]` so lyrics tests run in CI.
+- **ADDED:** `lyrics_research/reports/2026-07-21_rhyme_fingerprints.md` - Statistics-only fingerprint report.
+
+#### Verification:
+- `python -m pytest tests/test_rhyme_miner.py tests/test_lyricsdb.py -v -k "not espeak"` -> 136 passed, 1 deselected, 0 failures.
+- DB rebuild: 742 songs, 159,171 rhyme rows, 742 song_rhyme_metrics rows.
+- drill_trap solo = 387. pop solo = 214.
+- Match length distribution: 2→80,682 | 3→34,688 | 4→15,052 | 5+→28,749.
+- Rhyme types: end=33,309 | internal=125,862.
+
+---
+
+### Answer #016 - T7: Sample Forge / `toolshop remix`
+**Timestamp:** 2026-07-21 22:00
+**Action Type:** New feature
+**Previous State:** No sample or remix creation in toolshop; T7 Sample Forge existed only on the roadmap.
+
+**Current State:** `toolshop remix` shipped with two modes: `remix` (tempo/key/FX-matched single output) and `sample` (beat/onset-sliced sample pack). Supports 4-minute input truncation, batch processing with resume, reuse of `toolshop stems` outputs, and JSON manifests. Backed by `pedalboard` (Rubber Band time-stretch/pitch-shift) and `librosa`.
+
+#### Changes Made:
+- **NEW:** `toolshop/remix_adapter.py` - load, slice, tempo/key match, FX, render, manifest.
+- **NEW:** `toolshop/remix_cli.py` - `toolshop remix` dispatch and batching.
+- **NEW:** `tests/test_remix_adapter.py`, `tests/test_cli_remix.py` - 18 tests covering key parsing, slicing, stretch/FX, smoke runs, CLI parser.
+- **UPDATED:** `toolshop/cli.py` - `remix` subparser and dispatch.
+- **UPDATED:** `pyproject.toml` - `remix` optional extra; `pedalboard>=0.9` added to `all`.
+- **UPDATED:** `toolshop/doctor.py` - `remix` extra health check.
+- **UPDATED:** `README.md`, `docs/superpowers/specs/2026-07-15-oss-integration-map.md`, `PROJECTS_INDEX.md`.
+
+#### Verification:
+- `D:\Projects\Music-AI-Toolshop\.venv\Scripts\python.exe -m pytest tests/test_remix_adapter.py tests/test_cli_remix.py -q` -> 18 passed, 6 warnings.
+
+---
+
 ### Answer #015 - T5-L1: Lyric Intelligence Foundation (lyrics.db + baseline stats)
 **Timestamp:** 2026-07-17 01:00
 **Action Type:** New feature

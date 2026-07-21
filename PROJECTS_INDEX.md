@@ -10,7 +10,8 @@
 | 04 | stem-extractor | ✅ Active | Shipped in `toolshop` core (`toolshop stem extract`) |
 | 05 | track-reverse-engineering | ✅ Active | Integrated wav_reverse_engineer production analysis |
 | 06 | open-daw | 🟡 Long horizon | Rust/C++ DAW engine; AI modules stubbed |
-| 07 | genius-lyrics | ✅ Active | 385-song corpus at D:\MusicData\toolshop\lyrics\genius\ + lyrics.db (SQLite, stats CLI) |
+| 07 | genius-lyrics | ✅ Active | 742-song corpus at D:\MusicData\toolshop\lyrics\genius\ + lyrics.db (SQLite, stats CLI, rhyme fingerprints, drill_trap solo=387) |
+| 08 | sample-forge | ✅ Active | `toolshop remix` - tempo/key-matched remixes and sample packs (T7) |
 | - | mastering_tool | ✅ Active | Git submodule: LUFS, reference, vocal doctor, chain DSL |
 | - | Voicebox | 🟡 External | Vendored fork removed; re-clone when GPU gate opens |
 | - | MAirina_Tucc | 🟡 Separate | Serbian rhyme tool + React UI |

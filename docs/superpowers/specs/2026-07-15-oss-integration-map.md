@@ -79,7 +79,7 @@
 ### T7 Sample Forge
 | Tech | Verdict | Notes |
 |---|---|---|
-| **pedalboard** (Spotify) | ➕ INTEGRATE | Offline FX chains in Python **+ VST3 hosting** (free VSTs: Vital, TDR Nova, Valhalla Supermassive…) **+ built-in Rubber Band time-stretch/pitch-shift** — covers stretching to target BPM, creative processing, and headless vocal-chain rendering in one GPLv3 package |
+| **pedalboard** (Spotify) | ✅ ADOPTED | In use via `toolshop remix` for Rubber Band time-stretch/pitch-shift and offline FX chains. VST3 hosting available for future expansion. GPLv3; recorded in license ledger. |
 | librosa onsets + own slicing/naming logic | 🔨 BUILD | Section loops + one-shots from stems; core of the tool |
 | aubio | ❌ SKIP | Stale wheels; librosa covers onsets |
 
@@ -106,7 +106,7 @@
 - **H4 (Surfaces/Frontier):** allin1 HQ structure (stem-cache reuse) · Panako sample detection · UMAP/HDBSCAN library map · watchdog watch-folders · sqlite-vec if scale demands · Streamlit dashboard (per G2)
 
 ## 6. License Ledger (personal use: all fine; matters only if we distribute)
-- **GPL-family (flag):** matchering (GPLv3) · pedalboard (GPLv3, JUCE/VST3 SDK) · phonemizer + espeak-ng (GPLv3) · Chordino/Vamp (GPL) · Panako (AGPLv3) · chromaprint fpcalc (LGPL; AcoustID service free for non-commercial)
+- **GPL-family (flag):** matchering (GPLv3) · pedalboard (GPLv3, JUCE/VST3 SDK) · phonemizer + espeak-ng (GPLv3) · Chordino/Vamp (GPL) · Panako (AGPLv3) · chromaprint fpcalc (LGPL; AcoustID service free for non-commercial) · datasette (Apache-2.0; dev-only browsing, not a runtime dependency)
 - **Permissive:** demucs (MIT) · audio-separator (MIT — *individual UVR/Roformer model weights carry their own terms; check per model if ever commercial*) · basic-pitch (Apache-2.0) · faster-whisper (MIT) · whisperX (BSD) · DeepFilterNet (MIT/Apache dual) · CLAP (Apache-2.0 code; check checkpoint cards) · beat_this (MIT-style; verify) · DuckDB (MIT) · Datasette (Apache-2.0) · sqlite-vec (MIT/Apache) · museval/mir_eval (MIT) · umap/hdbscan (BSD) · noisereduce (MIT) · panns-inference (MIT) · cyrtranslit (MIT)
 - Rule: record exact license + model-card terms in the registry entry at adoption time; "verify on adoption" for anything marked above.
 
