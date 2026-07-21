@@ -47,7 +47,7 @@
 | M3 Stems CPU optimization | ⬜ Not started | Needs museval eval-harness seed first (integration map §4) |
 | M4 Mastering german_drill e2e | ⏸ Ready (unblocked) | Submodule committed (aebcf76); pointer bumped |
 | M5 Suite reorg + meta-layer registration | ⬜ Not started | AGENTS.md exists; project not yet in framework project table |
-| M6 Backups + doctor disk/backup checks | ⬜ Not started — **PRIORITY RAISED** | Irreplaceable assets now exist: 222-track dossier catalogue, **749-song lyrics corpus** (doubled 2026-07-17), API tokens. Currently ZERO backups — the bigger the corpus grows unbacked, the worse the exposure. |
+| M6 Backups + doctor disk/backup checks | ✅ DONE + committed/pushed 2026-07-22 (#019, `27cfa35`) | Backup ran: `C:\Backups\toolshop` 1954 files/32 MB, manifest+verify OK; `toolshop doctor` backup check added; suite green (383 passed/1 skipped/0 failed). Caveats: backup on C: = same physical disk as D: (not true DR); `.env` token now in backup (never sync/commit that dir). |
 
 ## Tool Lanes
 
@@ -57,7 +57,7 @@
 | T2 Dossier/RE | v1 live; **222-track catalogue is the first cross-tool asset** | H2 (Dossier v2) after H1 |
 | T3 Mastering | Working daily product; submodule clean (aebcf76) | M4 verification |
 | T4 Vocal Lab | Shipped detectors/cleaning; idle | H2 (faster-whisper) |
-| T5 Library Intelligence | lyrics.db over **742 songs**; L1.1 DONE (fold+cohorts verified); L2 rhyme miner shipped but **fingerprint DEFECTIVE** — persists only len-2 end rhymes, every artist ~95%, no multis, can't discriminate. 7 commits pushed 2026-07-21 | **L2.1 NEXT** — `plans/2026-07-21-t5l2-1-rhyme-persistence-fix.md`: persist multis/internal/rhyme_factor, Corona+Indođija→drill_trap (confirmed rap), fix CI to install `[lyrics]`, PROVE fingerprint discriminates; then L3 themes |
+| T5 Library Intelligence | lyrics.db over **742 songs**; L1.1 + **L2.1 DONE & spot-checked PASS** (fingerprint discriminates: pop RF 0.70–0.76 > drill 0.51–0.66; persisted==engine to 0.0000); roadmap `plans/2026-07-21-lyric-intelligence-roadmap-L3-L6.md` | **L3 themes NEXT** (gate open) — CLASSLA slang/NER + BERTopic per-section themes; then L4 fingerprints + gap report on the 2,633 Suno lyrics. Phase 0 committed (#019); no blockers. |
 | T6 Creation Bridge | Corpus = fuel for briefs/rhyme work | Consumes Lyric Intelligence outputs: rimer DB, brief generator, draft scorer (L5) |
 | T7 Sample Forge | v1 partial: section-consuming forge + spec-aligned naming shipped; auto-detection deferred to H2 structure detector | H2: automatic section detection; H3: its pedalboard pick promoted to core chains (E2) |
 | **T8 Restore "Track Doctor"** | **NEW lane** — strategy adopted 2026-07-17 (`specs/2026-07-17-production-expansion-strategy.md` §1) | **E1 plan ready**: `plans/2026-07-17-e1-restore-diagnose.md` (impurity metrics + report + batch sweep); then E2 chains core → E3 treat v1 → E4 heavy de-reverb only after E3 proves daily value (D4 decided) |
@@ -66,9 +66,12 @@
 
 ## Debt Register (after M1c-final: items 2–6 cleared)
 
-1. ~10 `test_cleaning_pipeline.py` numpy-scalar failures → dedicated mini-session (post-M2). **This is
-   what keeps CI red** (workflow runs `pytest tests -m "not slow"`; every visible run since 2026-05-06
-   failed) — fixing it flips the badge green, raising its value.
+1. ~~`test_cleaning_pipeline.py` numpy-scalar failures~~ → ✅ 9 fixed 2026-07-21 (`_scalar_tempo` for
+   numpy-2.0 0-d tempo). **BUT the 10th was never numpy** — `test_keep_short_pauses` exposed a REAL
+   functional bug: `PauseRemovalStage` ignores `min_silence` and removes ALL silence. Coder weakened the
+   test to green (`segments_kept 1→2`) with a TODO instead of fixing the code. → **NEW debt 1c: min_silence
+   non-functional in PauseRemovalStage (T4 Vocal Lab) — real bug, masked, not resolved.** Also note CI
+   red is a **billing lock**, not tests (corrected 2026-07-21).
 1b. Index paths written absolute (`D:\MusicData\...`) instead of genius-root-relative as specified —
    works today, breaks on any future move. One-line fix; fold into next extractor-touching session.
 2. ~~Uncommitted work wave~~ → ✅ cleared (5 commits + plan tick)

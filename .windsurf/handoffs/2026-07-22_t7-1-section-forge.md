@@ -1,7 +1,7 @@
 # T7.1 Section-aware Sample Forge — Handoff
 
 **Date:** 2026-07-22
-**Commits:** `3e6fadf` → `3a1c434` (5 commits on `master`, not yet pushed)
+**Commits:** `3e6fadf` → `ea2e930` (6 commits on `master`, pushed to origin/master)
 
 ## What shipped
 
@@ -27,16 +27,15 @@
 ## Known issues
 
 - CI is billing-locked (GitHub Actions). Local pytest is the quality gate. CI config is updated and ready for when billing is resolved.
-- 10 `test_cleaning_pipeline.py` failures (numpy scalar debt) are pre-existing and untouched.
+- numpy 2.0 cleaning pipeline failures were fixed in the M6/Phase-0 wave (#019, commit `27cfa35`).
 
 ## Test results
 
 - `tests/test_remix_adapter.py`: 24 passed
 - `tests/test_cli_remix.py`: 10 passed
-- Full suite: 10 failed (pre-existing cleaning pipeline), 352 passed, 1 skipped — zero new failures
+- Full suite (post-#019): 383 passed, 1 skipped, 0 failed — in py3.11 .venv
 
 ## Next steps
 
-- Push to `origin/master`
 - H2: automatic section detection (structure detector)
 - H3: pedalboard pick promoted to core chains (E2)
