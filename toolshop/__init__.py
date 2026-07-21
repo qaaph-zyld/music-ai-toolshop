@@ -6,6 +6,7 @@ from . import reverse_engineering_adapter
 from . import genius_adapter
 from . import genius_parser
 from . import lyrics_analyzer
+from . import remix_adapter
 
 __all__ = [
     "cli",
@@ -16,4 +17,5 @@ __all__ = [
     "genius_adapter",
     "genius_parser",
     "lyrics_analyzer",
+    "remix_adapter",
 ]

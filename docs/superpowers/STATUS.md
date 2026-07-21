@@ -1,14 +1,41 @@
 # Toolshop Portfolio Status Board
 
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`.
-> **Last review: 2026-07-17 late (T5-L2 landed + PRODUCTION EXPANSION adopted)** — T5-L2 executed out of
+> **Last review: 2026-07-21 late (T5-L2.1 spot-check — PASS).** Rhyme fingerprint fix verified on disk:
+> persisted `song_rhyme_metrics.rhyme_factor` matches the engine to **0.0000** (24-song sample); multis
+> now persisted (159,171 line_rhymes; match_length up to 29; 125,862 internal); Corona+Indођija→drill_trap
+> (solo 387). **Fingerprint discriminates:** pop cluster RF 0.70–0.76 (Nikolija/Senidah/Relja) sits above
+> drill 0.51–0.66 (Coby/Jala/Corona/Indођija/Buba). The earlier Jala<Buba "target" was a biased 15-song
+> sample — full-catalog Buba 0.51 < Jala 0.57 is correct; coder was right. **Two record corrections:**
+> (1) CI is **billing-locked** (GitHub account), not test-red — Actions have not run since the lock; the
+> "no-new-CI-failures" bar is moot until billing clears; gate on LOCAL pytest instead. (2) True local
+> baseline is **19 failed / 343 passed**, not "10 numpy" — the extra 9 are pre-existing NON-lyrics:
+> ~8 `MissingDependencyError` (remix/pedalboard `.[remix]` not installed → tests should skip-guard, they
+> fail instead) + 1 demucs. **Zero lyrics failures.** L3 (themes) gate is now OPEN. Multi-phase roadmap:
+> `plans/2026-07-21-lyric-intelligence-roadmap-L3-L6.md`.
+>
+> **Prior review: 2026-07-21 (T5-L1.1 spot-check — CORRECTS the 07-17 entry below)** — L1.1 DID run
+> (commits 7ec54d4/fa3fcd6/ad00bc3): **defect-1 fold IS applied** (0 diacritics / 0 Cyrillic left in
+> text_norm bar 1 homoglyph; nećemo→necemo, leđa→ledja), **genre-cohort schema IS added** (drill_trap
+> 286 / pop 214 / NULL 198; featured 44 excluded), `other` 38%→**0.9%**, 742 songs, no new test failures.
+> So the "L1.1 residual still open" claim just below is STALE — do not redo it. **NEW CRITICAL FINDING:
+> the L2 rhyme fingerprint is defective** — `line_rhymes` is 34,598 rows of ONLY match_length=2 end
+> rhymes; multis/internal/rhyme_factor/scheme are computed in code but NEVER persisted, so every artist
+> saturates at ~95% rhyme rate and the fingerprint CANNOT discriminate. L2 is NOT review-cleared; fix
+> populate_rhymes before any fingerprint/gap-report work. **7 commits still UNPUSHED (zero backup).**
+> ⚠️ Multiple out-of-band sessions (L2, flow analyzer, a whole T8/T9 strategy pack) are outrunning
+> review and rewriting this board — recommend a freeze: push, reconcile board to verified reality,
+> then resume. Original 07-17 entry (for history, PARTLY STALE):
+> — T5-L2 executed out of
 > band while the L1.1 plan sat unstarted: it ABSORBED part of L1.1 (parser fix 1030→292 "other"; rebuild
 > over 742 songs/7 dups) and delivered rhyme miner (34,598 rows), flow analyzer v1, collab CLI, Datasette
-> (evidence strong: 191 passed). **L1.1 residual still open:** defect 1 (Cyrillic ASCII-fold) NOT fixed,
-> genre-cohort schema NOT added, index still absolute-path (debt 1b) — and L2's rhyme/token rows were
-> computed on the un-unified text_norm, so revalidate/recompute after the fold lands. New strategy pack:
+> (evidence strong: 191 passed). New strategy pack:
 > `specs/2026-07-17-production-expansion-strategy.md` (T8 Restore "Track Doctor", chains core, T9 Session
 > Bridge; AI-plugins reframed offline; DAW decision-gated). First plan ready: `plans/2026-07-17-e1-restore-diagnose.md`.
+> **Gates D1–D4 RESOLVED same evening:** D1 = Ableton Live 12 native target (.als writer; FL 21 via
+> universal pack; open_DAW parked, E5 pack = its future session format) · D2 = M6 first (plan ready:
+> `plans/2026-07-17-h1m6-backups-data-governance.md`; D: is a 2010 laptop HDD — urgency real) ·
+> D3 = plugin park confirmed · D4 = E4 waits for post-E3 review.
 
 ## H1 Milestone Board
 
@@ -30,12 +57,12 @@
 | T2 Dossier/RE | v1 live; **222-track catalogue is the first cross-tool asset** | H2 (Dossier v2) after H1 |
 | T3 Mastering | Working daily product; submodule clean (aebcf76) | M4 verification |
 | T4 Vocal Lab | Shipped detectors/cleaning; idle | H2 (faster-whisper) |
-| T5 Library Intelligence | lyrics.db rebuilt over **742 songs** by T5-L2 (+ rhyme/flow/collab CLIs, Datasette); **L1.1 residual open**: Cyrillic fold defect, cohort schema, relative index; rhyme rows need revalidation after fold | **L1.1-residual NEXT (lyrics lane)** — execute remaining tasks of `plans/2026-07-17-t5l1-1-corpus-expansion-rebuild.md` + commit/push L2 leftovers + recompute affected rhyme rows; then L3 (see L2 handoff) |
+| T5 Library Intelligence | lyrics.db over **742 songs**; L1.1 DONE (fold+cohorts verified); L2 rhyme miner shipped but **fingerprint DEFECTIVE** — persists only len-2 end rhymes, every artist ~95%, no multis, can't discriminate. 7 commits pushed 2026-07-21 | **L2.1 NEXT** — `plans/2026-07-21-t5l2-1-rhyme-persistence-fix.md`: persist multis/internal/rhyme_factor, Corona+Indođija→drill_trap (confirmed rap), fix CI to install `[lyrics]`, PROVE fingerprint discriminates; then L3 themes |
 | T6 Creation Bridge | Corpus = fuel for briefs/rhyme work | Consumes Lyric Intelligence outputs: rimer DB, brief generator, draft scorer (L5) |
 | T7 Sample Forge | — | H3; its pedalboard pick is promoted to core chains (E2) |
-| **T8 Restore "Track Doctor"** | **NEW lane** — strategy adopted 2026-07-17 (`specs/2026-07-17-production-expansion-strategy.md` §1) | **E1 plan ready**: `plans/2026-07-17-e1-restore-diagnose.md` (impurity metrics + report + batch sweep); then E2 chains core → E3 treat v1 → E4 heavy de-reverb [D4] |
-| **T9 Session Bridge** | **NEW thin lane** — dossier → DAW-ready session (universal pack first) | E5 universal export after E1–E3; E6 native writer gated on **[D1] which DAW?**; delivers parked open_DAW's "session template" promise without unparking it |
-| Parked | open_DAW, Voicebox, ACE-Step local, **real-time plugin authoring [D3]** | No investment (roadmap §6 + expansion spec §4/§6) |
+| **T8 Restore "Track Doctor"** | **NEW lane** — strategy adopted 2026-07-17 (`specs/2026-07-17-production-expansion-strategy.md` §1) | **E1 plan ready**: `plans/2026-07-17-e1-restore-diagnose.md` (impurity metrics + report + batch sweep); then E2 chains core → E3 treat v1 → E4 heavy de-reverb only after E3 proves daily value (D4 decided) |
+| **T9 Session Bridge** | **NEW thin lane** — dossier → DAW-ready session (universal pack first) | E5 universal export after E1–E3; **E6 = `.als` template writer for the user's Ableton Live 12** (D1 decided; FL 21 served by universal pack; AbletonOSC optional later) |
+| Parked | open_DAW (own Rust/JUCE/Python DAW build — E5 pack designed as its future session-import format), Voicebox, ACE-Step local, **real-time plugin authoring (D3 confirmed)** | No investment (roadmap §6 + expansion spec §4/§6) |
 
 ## Debt Register (after M1c-final: items 2–6 cleared)
 
@@ -62,7 +89,8 @@
 
 1. **T5-L1.1-residual** (lyrics lane, other session): Cyrillic fold + cohort schema + relative index +
    commit/push L2 leftovers + rhyme-row revalidation (debt 8/9/10/11)
-2. **M6 backups** (small session; NOW ALSO covers lyrics.db + line_rhymes — corpus assets keep growing at ZERO backups)
+2. **M6 backups** (CONFIRMED NEXT production session, plan ready: `plans/2026-07-17-h1m6-backups-data-governance.md` —
+   Tier-1 D→C cross-disk works today; D: is a 2010 laptop HDD (ST9640423AS); zero backups of any corpus asset)
 3. **E1 restore diagnose** (production lane opener — plan ready: `plans/2026-07-17-e1-restore-diagnose.md`)
 4. **E2 chains core** (pedalboard adapter + YAML chains) · then **E3 restore treat v1** (presets + before/after)
 5. **M2** Demucs/models · **M4** mastering e2e (independent, any evening)

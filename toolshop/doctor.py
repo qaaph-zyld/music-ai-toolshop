@@ -22,6 +22,7 @@ EXTRAS = {
     "cleaning": ["librosa", "numpy", "scipy", "soundfile", "yaml"],
     "stems": ["audio_separator", "onnxruntime", "soundfile", "demucs"],
     "track": ["librosa", "numpy", "scipy", "yt_dlp", "matplotlib", "soundfile", "pydub", "pyloudnorm", "yaml"],
+    "remix": ["pedalboard", "librosa", "numpy", "scipy", "soundfile"],
 }
 
 

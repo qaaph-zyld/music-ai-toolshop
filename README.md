@@ -77,6 +77,12 @@ toolshop stems song.wav --preset 4stem --device cpu
 
 # Batch process a folder, resumable
 toolshop stems ./songs --preset karaoke --limit 10 --offset 5
+
+# Create a remix at a target BPM/key
+toolshop remix song.wav --target-bpm 95 --target-key Gm --output remix.wav
+
+# Extract a sample pack from a track
+toolshop remix song.wav --mode sample --segment-beats 4 --output-dir ./samples
 ```
 
 ## Data boundary
@@ -370,6 +376,34 @@ stages:
 
 ---
 
+### Remix / Sample Forge (`toolshop remix`)
+
+Create tempo/key-matched remixes or sliced sample packs from any audio up to 4 minutes.
+Uses `pedalboard` (Rubber Band) for high-quality time-stretch and pitch-shift, plus `librosa`
+for beat/onset slicing.
+
+```bash
+# Remix a track to a target BPM/key with FX
+toolshop remix song.wav --target-bpm 95 --target-key Gm --fx reverb delay --output remix.wav
+
+# Extract a sample pack from a full mix
+toolshop remix song.wav --mode sample --output-dir ./samples
+
+# Remix using a stem from a toolshop stems output directory
+toolshop remix song.wav --stems-dir ./stems/karaoke/my_song_unknown --target-bpm 90
+
+# Batch sample extraction
+toolshop remix ./songs --mode sample --output-dir D:\MusicData\toolshop\samples --limit 10
+```
+
+- Inputs longer than `--max-duration` seconds (default: 240) are truncated with a warning.
+- `--mode remix` writes one output file and a manifest.
+- `--mode sample` writes a directory of samples and a manifest.
+- `--fx` supports `reverb`, `delay`, `gain`, `compressor`, `distortion`.
+- Output defaults to `D:\MusicData\toolshop\remixes` or `D:\MusicData\toolshop\samples`.
+
+---
+
 ## Python API
 
 All adapters can be imported directly:
@@ -406,6 +440,18 @@ summary = pipeline.process("input.wav", "cleaned_output.wav")
 print(f"Breaths detected: {summary['stage_reports'][2].get('breaths_detected', 0)}")
 print(f"Events removed: {summary['stage_reports'][3].get('events_detected', 0)}")
 print(f"Time removed: {summary['stage_reports'][1].get('time_removed', 0):.2f}s")
+
+# Remix / sample creation
+from toolshop import remix_adapter
+
+result = remix_adapter.create_remix(
+    Path("song.wav"),
+    Path("remix.wav"),
+    target_bpm=95.0,
+    target_key="Gm",
+    fx_chain=["reverb"],
+)
+print(f"Remix: {result.output_file} ({result.bpm:.2f} BPM, key {result.key})")
 ```
 
 ---

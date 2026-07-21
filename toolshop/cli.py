@@ -6,6 +6,7 @@ Subcommands:
     yt        - YouTube search, info, summarize, download
     track     - Track reverse engineering / structure analysis
     clean     - Audio cleaning and track preparation tools
+    remix     - Create tempo/key-matched remixes or sample packs
 """
 
 import argparse
@@ -29,6 +30,7 @@ from mastering_tool.tools.vocal_doctor import diagnose_and_recommend
 from . import stem_extractor_adapter
 from . import cleaning_pipeline_adapter
 from . import doctor as doctor_module
+from . import remix_cli
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -690,6 +692,88 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         required=True,
         help="Output file path for config template",
+    )
+
+    # =========================================================================
+    # REMIX / SAMPLE FORGE COMMANDS
+    # =========================================================================
+    remix_parser = subparsers.add_parser(
+        "remix", help="Create tempo/key-matched remixes or sample packs"
+    )
+    remix_parser.add_argument(
+        "path", type=Path, help="Audio file or directory to process"
+    )
+    remix_parser.add_argument(
+        "--mode",
+        type=str,
+        default="remix",
+        choices=["remix", "sample"],
+        help="Operation mode: remix (single output) or sample (sample pack)",
+    )
+    remix_parser.add_argument(
+        "--target-bpm", type=float, default=None, help="Target BPM"
+    )
+    remix_parser.add_argument(
+        "--target-key", type=str, default=None, help="Target key (e.g. Gm, A# major)"
+    )
+    remix_parser.add_argument(
+        "--fx",
+        nargs="*",
+        choices=["reverb", "delay", "gain", "compressor", "distortion"],
+        default=[],
+        help="FX chain to apply (space or comma separated)",
+    )
+    remix_parser.add_argument(
+        "--output", "-o", type=Path, default=None, help="Output file or directory"
+    )
+    remix_parser.add_argument(
+        "--output-dir", type=Path, default=None, help="Batch output root directory"
+    )
+    remix_parser.add_argument(
+        "--format",
+        type=str,
+        default=None,
+        choices=["wav", "flac"],
+        help="Output format (wav for remix, flac for sample by default)",
+    )
+    remix_parser.add_argument(
+        "--max-duration",
+        type=float,
+        default=240.0,
+        help="Maximum input duration in seconds (default: 240)",
+    )
+    remix_parser.add_argument(
+        "--segment-beats",
+        type=int,
+        default=4,
+        help="Beats per segment for remix/loop slicing (default: 4; use 1 for onset-based samples)",
+    )
+    remix_parser.add_argument(
+        "--source-bpm", type=float, default=None, help="Override source BPM"
+    )
+    remix_parser.add_argument(
+        "--source-key", type=str, default=None, help="Override source key"
+    )
+    remix_parser.add_argument(
+        "--stems-dir", type=Path, default=None, help="Use a stem from a toolshop stems output directory"
+    )
+    remix_parser.add_argument(
+        "--stem", type=str, default=None, help="Stem name to use from --stems-dir"
+    )
+    remix_parser.add_argument(
+        "--crossfade-ms", type=float, default=12.0, help="Crossfade length in ms (default: 12)"
+    )
+    remix_parser.add_argument(
+        "--limit", type=int, default=0, help="Max files in batch mode (0 = all)"
+    )
+    remix_parser.add_argument(
+        "--offset", type=int, default=0, help="Files to skip in batch mode"
+    )
+    remix_parser.add_argument(
+        "--no-resume", action="store_true", help="Ignore existing batch_status.json"
+    )
+    remix_parser.add_argument(
+        "--json", action="store_true", help="Output results as JSON"
     )
 
     # =========================================================================
@@ -1405,6 +1489,14 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             )
         else:
             parser.error("Unknown 'clean' subcommand.")
+
+    # =========================================================================
+    # REMIX / SAMPLE FORGE
+    # =========================================================================
+    elif args.command == "remix":
+        code = remix_cli.run(args)
+        if code != 0:
+            raise SystemExit(code)
 
     # =========================================================================
     # DOCTOR
