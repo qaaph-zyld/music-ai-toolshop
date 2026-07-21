@@ -1,0 +1,12 @@
+{
+  "title": "Multi Test Song",
+  "artist": "Multi Artist",
+  "url": "https://genius.com/Multi-artist-multi-test-song-lyrics",
+  "language": "",
+  "raw_lyrics": "[Strofa 1]\nbabone kamineto\nbabone kamineto\nnovac popac zdravo\n\n[Refren]\nbabone kamineto\nbabone kamineto",
+  "clean_lyrics": "babone kamineto\nbabone kamineto\nnovac popac zdravo\n\nbabone kamineto\nbabone kamineto",
+  "sections": [
+    {"label": "Strofa 1", "content": "babone kamineto\nbabone kamineto\nnovac popac zdravo"},
+    {"label": "Refren", "content": "babone kamineto\nbabone kamineto"}
+  ]
+}

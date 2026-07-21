@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from toolshop.rhyme_miner import (
@@ -228,6 +230,54 @@ def test_multisyllabic_rhymes_filter():
 
 
 # ── espeak-ng validation (slow, requires system install) ──────────────
+
+def test_populate_rhymes_persists_multis_and_internal(tmp_path):
+    """populate_rhymes must persist match_length>=3 end rhymes, internal rhymes,
+    and per-song metrics in song_rhyme_metrics."""
+    import sqlite3
+    from toolshop.lyricsdb import build_database
+    from toolshop.rhyme_miner import populate_rhymes
+
+    FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "lyrics_min"
+    db_path = tmp_path / "test_rhyme.db"
+    build_database(root=FIXTURE_ROOT, db_path=db_path)
+    conn = sqlite3.connect(db_path)
+
+    # Check for multisyllabic end rhymes (match_length >= 3)
+    cursor = conn.execute(
+        "SELECT count(*) FROM line_rhymes WHERE match_length >= 3 AND rhyme_type = 'end'"
+    )
+    multi_count = cursor.fetchone()[0]
+    assert multi_count > 0, "No multisyllabic end rhymes persisted"
+
+    # Check for internal rhymes
+    cursor = conn.execute(
+        "SELECT count(*) FROM line_rhymes WHERE rhyme_type = 'internal'"
+    )
+    internal_count = cursor.fetchone()[0]
+    assert internal_count > 0, "No internal rhymes persisted"
+
+    # Check song_rhyme_metrics table has rows
+    cursor = conn.execute("SELECT count(*) FROM song_rhyme_metrics")
+    metrics_count = cursor.fetchone()[0]
+    assert metrics_count > 0, "song_rhyme_metrics table is empty"
+
+    # Check rhyme_factor is populated and > 0 for the multi-test song
+    cursor = conn.execute(
+        """SELECT srm.rhyme_factor, srm.dominant_scheme, srm.pct_multis
+           FROM song_rhyme_metrics srm
+           JOIN songs s ON srm.song_id = s.id
+           WHERE s.title = 'Multi Test Song'"""
+    )
+    row = cursor.fetchone()
+    assert row is not None, "Multi Test Song not found in song_rhyme_metrics"
+    rf, scheme, pct_multis = row
+    assert rf > 0.0, f"rhyme_factor is {rf}, expected > 0"
+    assert scheme is not None, "dominant_scheme is NULL"
+    assert pct_multis > 0.0, f"pct_multis is {pct_multis}, expected > 0"
+
+    conn.close()
+
 
 @pytest.mark.slow
 def test_espeak_validation():

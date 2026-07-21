@@ -18,5 +18,15 @@
     "url": "https://genius.com/Fake-artist-test-song-alpha-lyrics",
     "status": "completed",
     "json_path": "fake-solo/fake-artist-test-song-alpha.json"
+  },
+  {
+    "genius_song_id": null,
+    "title": "Multi Test Song",
+    "primary_artist": "Multi Artist",
+    "featured_artists": [],
+    "category": "multi-solo",
+    "url": "https://genius.com/Multi-artist-multi-test-song-lyrics",
+    "status": "completed",
+    "json_path": "multi-solo/multi-test.json"
   }
 ]

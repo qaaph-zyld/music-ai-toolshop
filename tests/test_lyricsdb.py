@@ -183,8 +183,8 @@ def test_build_database_ingest(tmp_db):
     """Build DB from fixture corpus and verify counts."""
     summary = build_database(root=FIXTURE_ROOT, db_path=tmp_db)
 
-    # 3 files on disk, but alpha appears in 2 folders → dedup to 2 unique songs
-    assert summary["songs_ingested"] == 2
+    # 4 files on disk, but alpha appears in 2 folders → dedup to 3 unique songs
+    assert summary["songs_ingested"] == 3
     assert summary["duplicates_dropped"] == 1
     assert summary["songs_skipped"] == 0
 
@@ -203,8 +203,8 @@ def test_build_database_tables_exist(tmp_db):
 
 def test_build_database_sections_count(tmp_db):
     summary = build_database(root=FIXTURE_ROOT, db_path=tmp_db)
-    # Alpha has 3 sections, Beta has 2 sections → 5 total (dedup removes one alpha)
-    assert summary["sections_ingested"] == 5
+    # Alpha has 3 sections, Beta has 2 sections, Multi has 2 sections → 7 total (dedup removes one alpha)
+    assert summary["sections_ingested"] == 7
 
 
 def test_build_database_lines_have_syllables(tmp_db):

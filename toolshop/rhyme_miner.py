@@ -11,7 +11,9 @@ only for optional validation.
 
 from __future__ import annotations
 
+import json
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -320,7 +322,11 @@ def validate_with_espeak(word: str) -> str:
 # ── DB integration: populate line_rhymes table ────────────────────────
 
 def populate_rhymes(conn, song_id: int) -> int:
-    """Compute and store end-rhyme groups for a song in the line_rhymes table.
+    """Compute and store end-rhyme and internal-rhyme groups for a song.
+
+    Persists the true longest match length for each end-rhyme group,
+    internal rhymes per line, and per-song rhyme metrics in
+    ``song_rhyme_metrics``.
 
     Args:
         conn: sqlite3.Connection to the lyrics database.
@@ -346,13 +352,51 @@ def populate_rhymes(conn, song_id: int) -> int:
 
     line_ids = [r[0] for r in rows]
     texts = [r[1] or "" for r in rows]
-
-    # Find end-rhyme groups at match length 2
-    matches = find_rhymes(texts, min_match=2)
+    total_lines = len(texts)
 
     inserted = 0
-    for group_idx, group in enumerate(matches):
-        for line_idx in group.line_indices:
+
+    # ── End rhymes: longest match first (mirrors rhyme_factor logic) ──
+    matched_lines: set[int] = set()
+    end_rhyme_rows: List[Dict] = []
+    group_idx = 0
+
+    max_skel = max((len(vowel_skeleton(t)) for t in texts), default=0)
+    for match_len in range(max_skel, 1, -1):
+        groups = find_rhymes(texts, min_match=match_len)
+        for group in groups:
+            new_lines = [i for i in group.line_indices if i not in matched_lines]
+            if len(new_lines) >= 2:
+                for line_idx in new_lines:
+                    conn.execute(
+                        """INSERT INTO line_rhymes
+                           (song_id, line_id, rhyme_group, rhyme_type,
+                            vowel_skeleton, match_length, position)
+                           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            song_id,
+                            line_ids[line_idx],
+                            group_idx,
+                            "end",
+                            group.vowel_skeleton,
+                            match_len,
+                            "end",
+                        ),
+                    )
+                    end_rhyme_rows.append({
+                        "line_idx": line_idx,
+                        "match_length": match_len,
+                        "vowel_skeleton": group.vowel_skeleton,
+                    })
+                    inserted += 1
+                matched_lines.update(new_lines)
+                group_idx += 1
+
+    # ── Internal rhymes ──
+    internal_lines: set[int] = set()
+    for i, text in enumerate(texts):
+        internal_matches = find_internal_rhymes(text, min_match=2)
+        for im in internal_matches:
             conn.execute(
                 """INSERT INTO line_rhymes
                    (song_id, line_id, rhyme_group, rhyme_type,
@@ -360,21 +404,51 @@ def populate_rhymes(conn, song_id: int) -> int:
                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
                 (
                     song_id,
-                    line_ids[line_idx],
+                    line_ids[i],
                     group_idx,
-                    group.rhyme_type,
-                    group.vowel_skeleton,
-                    group.match_length,
-                    group.position,
+                    "internal",
+                    im.vowel_skeleton,
+                    im.match_length,
+                    "internal",
                 ),
             )
+            internal_lines.add(i)
             inserted += 1
+            group_idx += 1
+
+    # ── Per-song rhyme metrics ──
+    rf = rhyme_factor(texts)
+
+    if end_rhyme_rows:
+        multi_count = sum(1 for r in end_rhyme_rows if r["match_length"] >= 3)
+        pct_multis = round(multi_count / len(end_rhyme_rows), 4)
+    else:
+        pct_multis = 0.0
+
+    internal_rhyme_rate = round(len(internal_lines) / total_lines, 4) if total_lines else 0.0
+
+    end_groups_for_scheme = find_rhymes(texts, min_match=2)
+    scheme = infer_scheme(end_groups_for_scheme, total_lines)
+
+    skel_counts = Counter(r["vowel_skeleton"] for r in end_rhyme_rows)
+    top_vowel_pairs = json.dumps(skel_counts.most_common(5))
+
+    conn.execute(
+        """INSERT INTO song_rhyme_metrics
+           (song_id, rhyme_factor, pct_multis, internal_rhyme_rate,
+            dominant_scheme, top_vowel_pairs)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (song_id, rf, pct_multis, internal_rhyme_rate, scheme, top_vowel_pairs),
+    )
 
     return inserted
 
 
 def get_artist_rhyme_stats(conn, artist: Optional[str] = None) -> List[Dict]:
-    """Return per-artist rhyme statistics from the line_rhymes table."""
+    """Return per-artist rhyme statistics from the line_rhymes table.
+
+    ``multisyllabic_count`` counts end-rhyme rows only (match_length >= 3).
+    """
     cursor = conn.cursor()
     if artist:
         cursor.execute(
@@ -383,7 +457,7 @@ def get_artist_rhyme_stats(conn, artist: Optional[str] = None) -> List[Dict]:
                 count(DISTINCT lr.song_id) as songs_with_rhymes,
                 count(*) as total_rhyme_lines,
                 round(avg(lr.match_length), 2) as avg_match_length,
-                count(CASE WHEN lr.match_length >= 3 THEN 1 END) as multisyllabic_count
+                count(CASE WHEN lr.match_length >= 3 AND lr.rhyme_type = 'end' THEN 1 END) as multisyllabic_count
                FROM line_rhymes lr
                JOIN songs s ON lr.song_id = s.id
                WHERE s.primary_artist = ? AND s.corpus = 'genius-pro'
@@ -398,12 +472,55 @@ def get_artist_rhyme_stats(conn, artist: Optional[str] = None) -> List[Dict]:
                 count(DISTINCT lr.song_id) as songs_with_rhymes,
                 count(*) as total_rhyme_lines,
                 round(avg(lr.match_length), 2) as avg_match_length,
-                count(CASE WHEN lr.match_length >= 3 THEN 1 END) as multisyllabic_count
+                count(CASE WHEN lr.match_length >= 3 AND lr.rhyme_type = 'end' THEN 1 END) as multisyllabic_count
                FROM line_rhymes lr
                JOIN songs s ON lr.song_id = s.id
                WHERE s.corpus = 'genius-pro'
                GROUP BY s.primary_artist
                ORDER BY total_rhyme_lines DESC"""
+        )
+
+    columns = [desc[0] for desc in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+
+def get_artist_rhyme_fingerprints(conn, artist: Optional[str] = None) -> List[Dict]:
+    """Return per-artist rhyme fingerprints from song_rhyme_metrics.
+
+    Includes avg rhyme_factor, avg pct_multis, avg internal_rhyme_rate,
+    dominant scheme distribution, and top vowel pairs.
+    """
+    cursor = conn.cursor()
+    if artist:
+        cursor.execute(
+            """SELECT
+                s.primary_artist,
+                count(*) as song_count,
+                round(avg(srm.rhyme_factor), 4) as avg_rhyme_factor,
+                round(avg(srm.pct_multis), 4) as avg_pct_multis,
+                round(avg(srm.internal_rhyme_rate), 4) as avg_internal_rhyme_rate
+               FROM song_rhyme_metrics srm
+               JOIN songs s ON srm.song_id = s.id
+               WHERE s.primary_artist = ? AND s.corpus = 'genius-pro'
+                 AND s.role = 'solo'
+               GROUP BY s.primary_artist
+               ORDER BY avg_rhyme_factor DESC""",
+            (artist,),
+        )
+    else:
+        cursor.execute(
+            """SELECT
+                s.primary_artist,
+                count(*) as song_count,
+                round(avg(srm.rhyme_factor), 4) as avg_rhyme_factor,
+                round(avg(srm.pct_multis), 4) as avg_pct_multis,
+                round(avg(srm.internal_rhyme_rate), 4) as avg_internal_rhyme_rate
+               FROM song_rhyme_metrics srm
+               JOIN songs s ON srm.song_id = s.id
+               WHERE s.corpus = 'genius-pro'
+                 AND s.role = 'solo'
+               GROUP BY s.primary_artist
+               ORDER BY avg_rhyme_factor DESC"""
         )
 
     columns = [desc[0] for desc in cursor.description]
