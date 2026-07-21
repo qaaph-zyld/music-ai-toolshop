@@ -1,5 +1,28 @@
 # Changelog
 
+### Answer #020 - T5-L2.1 Independent Verification (READ-ONLY)
+**Timestamp:** 2026-07-22 00:30
+**Action Type:** Verification (no code changes)
+
+**Previous State:** STATUS board asserted "T5-L2.1 DONE & spot-checked PASS" based on numbers relayed from an unreviewed roadmap doc. The discrimination claim (pop RF 0.70–0.76 > drill 0.51–0.66) had never been independently verified.
+
+**Current State:** Independent re-run of all four verification tasks on live `lyrics.db` confirms PASS:
+1. Per-artist fingerprints reproduced exactly (all 11 baseline artists match to 4 decimal places).
+2. Discrimination proven: Cohen's d = 1.1786 (large effect); pop median RF 0.7399 > drill median 0.5628; overlap 13.4%/8.9%.
+3. Persistence intact: 742 song_rhyme_metrics rows, 159,171 line_rhymes, 49.3% match_length≥3, 125,862 internal rhymes.
+4. Persisted == engine: max abs diff 0.000000 across 15-song random sample (seed=42).
+
+#### Changes Made:
+- **ADDED:** `lyrics_research/reports/2026-07-22_l2-1-verification.md` - Full verification report with queries, numbers, and verdict.
+- **UPDATED:** `docs/superpowers/STATUS.md` - T5 line retagged from "spot-checked PASS" to "L2.1 VERIFIED PASS (independent re-run 2026-07-22)".
+
+#### Verification:
+- DB: D:\MusicData\toolshop\lyrics\lyrics.db (READ-ONLY, no modifications)
+- No product code modified. No `populate_rhymes` re-run.
+- Report contains all raw query output for audit.
+
+---
+
 ### Answer #019 - Phase 0: M6 Backups & Test Hygiene Gate
 **Timestamp:** 2026-07-22 00:00
 **Action Type:** Infrastructure + bug fixes

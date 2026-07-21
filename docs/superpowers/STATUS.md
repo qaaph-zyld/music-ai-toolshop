@@ -1,18 +1,18 @@
 # Toolshop Portfolio Status Board
 
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`.
-> **Last review: 2026-07-21 late (T5-L2.1 spot-check — PASS).** Rhyme fingerprint fix verified on disk:
-> persisted `song_rhyme_metrics.rhyme_factor` matches the engine to **0.0000** (24-song sample); multis
-> now persisted (159,171 line_rhymes; match_length up to 29; 125,862 internal); Corona+Indођija→drill_trap
-> (solo 387). **Fingerprint discriminates:** pop cluster RF 0.70–0.76 (Nikolija/Senidah/Relja) sits above
-> drill 0.51–0.66 (Coby/Jala/Corona/Indођija/Buba). The earlier Jala<Buba "target" was a biased 15-song
-> sample — full-catalog Buba 0.51 < Jala 0.57 is correct; coder was right. **Two record corrections:**
-> (1) CI is **billing-locked** (GitHub account), not test-red — Actions have not run since the lock; the
-> "no-new-CI-failures" bar is moot until billing clears; gate on LOCAL pytest instead. (2) True local
-> baseline is **19 failed / 343 passed**, not "10 numpy" — the extra 9 are pre-existing NON-lyrics:
-> ~8 `MissingDependencyError` (remix/pedalboard `.[remix]` not installed → tests should skip-guard, they
-> fail instead) + 1 demucs. **Zero lyrics failures.** L3 (themes) gate is now OPEN. Multi-phase roadmap:
-> `plans/2026-07-21-lyric-intelligence-roadmap-L3-L6.md`.
+> **Last review: 2026-07-22 (T5-L2.1 INDEPENDENT VERIFICATION — PASS).** All four verification tasks
+> succeeded: (1) per-artist fingerprints reproduced exactly vs baseline report; (2) discrimination proven
+> — Cohen's d = 1.18 (large), pop median RF 0.7399 > drill median 0.5628, overlap 13.4%/8.9%;
+> (3) persistence intact — 742 song_rhyme_metrics rows, 159,171 line_rhymes, 49.3% match_length≥3,
+> 125,862 internal; (4) persisted==engine max abs diff 0.000000 (15-song random sample, seed=42).
+> Report: `lyrics_research/reports/2026-07-22_l2-1-verification.md`. L3 (themes) gate confirmed OPEN.
+> Multi-phase roadmap: `plans/2026-07-21-lyric-intelligence-roadmap-L3-L6.md`.
+>
+> **Prior review: 2026-07-21 late (T5-L2.1 spot-check — PASS, now independently confirmed).**
+> CI is **billing-locked** (GitHub account); gate on LOCAL pytest instead. True local baseline is
+> **19 failed / 343 passed** — the extra 9 are pre-existing NON-lyrics (~8 MissingDependencyError
+> from `.[remix]` not installed + 1 demucs). **Zero lyrics failures.**
 >
 > **Prior review: 2026-07-21 (T5-L1.1 spot-check — CORRECTS the 07-17 entry below)** — L1.1 DID run
 > (commits 7ec54d4/fa3fcd6/ad00bc3): **defect-1 fold IS applied** (0 diacritics / 0 Cyrillic left in
@@ -57,7 +57,7 @@
 | T2 Dossier/RE | v1 live; **222-track catalogue is the first cross-tool asset** | H2 (Dossier v2) after H1 |
 | T3 Mastering | Working daily product; submodule clean (aebcf76) | M4 verification |
 | T4 Vocal Lab | Shipped detectors/cleaning; idle | H2 (faster-whisper) |
-| T5 Library Intelligence | lyrics.db over **742 songs**; L1.1 + **L2.1 DONE & spot-checked PASS** (fingerprint discriminates: pop RF 0.70–0.76 > drill 0.51–0.66; persisted==engine to 0.0000); roadmap `plans/2026-07-21-lyric-intelligence-roadmap-L3-L6.md` | **L3 themes NEXT** (gate open) — CLASSLA slang/NER + BERTopic per-section themes; then L4 fingerprints + gap report on the 2,633 Suno lyrics. Phase 0 committed (#019); no blockers. |
+| T5 Library Intelligence | lyrics.db over **742 songs**; L1.1 + **L2.1 VERIFIED PASS** (independent re-run 2026-07-22, report: `lyrics_research/reports/2026-07-22_l2-1-verification.md`); Cohen's d=1.18, persisted==engine to 0.000000; roadmap `plans/2026-07-21-lyric-intelligence-roadmap-L3-L6.md` | **L3 themes NEXT** (gate open) — CLASSLA slang/NER + BERTopic per-section themes; then L4 fingerprints + gap report on the 2,633 Suno lyrics. Phase 0 committed (#019); no blockers. |
 | T6 Creation Bridge | Corpus = fuel for briefs/rhyme work | Consumes Lyric Intelligence outputs: rimer DB, brief generator, draft scorer (L5) |
 | T7 Sample Forge | v1 partial: section-consuming forge + spec-aligned naming shipped; auto-detection deferred to H2 structure detector | H2: automatic section detection; H3: its pedalboard pick promoted to core chains (E2) |
 | **T8 Restore "Track Doctor"** | **NEW lane** — strategy adopted 2026-07-17 (`specs/2026-07-17-production-expansion-strategy.md` §1) | **E1 plan ready**: `plans/2026-07-17-e1-restore-diagnose.md` (impurity metrics + report + batch sweep); then E2 chains core → E3 treat v1 → E4 heavy de-reverb only after E3 proves daily value (D4 decided) |
