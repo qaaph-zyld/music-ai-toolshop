@@ -958,6 +958,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
     )
 
+    # lyrics annotate [--db PATH] [--resume] [--limit N] [--fresh]
+    lyrics_annotate_parser = lyrics_subparsers.add_parser(
+        "annotate", help="Run CLASSLA annotation (lemma/POS/NER) over lyrics lines"
+    )
+    lyrics_annotate_parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+    )
+    lyrics_annotate_parser.add_argument(
+        "--resume",
+        action="store_true",
+        default=True,
+        help="Skip lines already annotated (default: True)",
+    )
+    lyrics_annotate_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Only annotate this many new lines (for testing)",
+    )
+    lyrics_annotate_parser.add_argument(
+        "--fresh",
+        action="store_true",
+        default=False,
+        help="Wipe existing annotation tables before starting",
+    )
+
     return parser
 
 
@@ -1744,6 +1773,22 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                           f"{s.get('avg_syllables_per_line', 0):>10.2f} "
                           f"{s.get('avg_ttr', 0):>10.4f}")
             conn.close()
+
+        elif args.lyrics_command == "annotate":
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.annotate import run_annotation
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            print(f"Running CLASSLA annotation...")
+            summary = run_annotation(
+                db_path=db_path,
+                resume=args.resume,
+                limit=args.limit,
+                fresh=args.fresh,
+            )
 
         else:
             parser.error("Unknown 'lyrics' subcommand.")
