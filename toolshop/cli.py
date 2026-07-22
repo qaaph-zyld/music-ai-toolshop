@@ -1039,6 +1039,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output summary as JSON instead of table",
     )
 
+    # lyrics report [--db PATH]
+    lyrics_report_parser = lyrics_subparsers.add_parser(
+        "report", help="Generate L3 discrimination report (stats only, no lyric dumps)"
+    )
+    lyrics_report_parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+    )
+
     return parser
 
 
@@ -1894,6 +1905,16 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             )
             if args.json and summary:
                 print(json_mod.dumps(summary, indent=2, default=str, ensure_ascii=False))
+
+        elif args.lyrics_command == "report":
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.l3_report import run_report
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            run_report(db_path=db_path)
 
         else:
             parser.error("Unknown 'lyrics' subcommand.")
