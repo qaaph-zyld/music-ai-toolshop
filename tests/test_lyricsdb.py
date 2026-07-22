@@ -297,3 +297,85 @@ def test_build_database_role_and_cohort(tmp_db):
         assert target_artist is not None
         # genre_cohort may be NULL for non-target artists
     conn.close()
+
+
+# ── L3 schema tests ───────────────────────────────────────────────────
+
+def test_l3_tables_exist(tmp_db):
+    """L3 tables (tokens, entities, slang_terms, topics, section_topics) must be created."""
+    build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    conn = sqlite3.connect(tmp_db)
+    cursor = conn.cursor()
+    for table in ("tokens", "entities", "slang_terms", "topics", "section_topics"):
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        )
+        assert cursor.fetchone() is not None, f"Table {table} not created"
+    conn.close()
+
+
+def test_l3_tokens_insert_and_read(tmp_db):
+    """Insert and read back a token row with source_script."""
+    build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    conn = sqlite3.connect(tmp_db)
+    conn.execute("PRAGMA foreign_keys=ON")
+    # Get a real line_id
+    line_id = conn.execute("SELECT id FROM lines LIMIT 1").fetchone()[0]
+    conn.execute(
+        "INSERT INTO tokens (line_id, ordinal, form, lemma, upos, feats, is_oov, source_script)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (line_id, 1, "test", "test", "NOUN", "Case=Nom", 0, "latin"),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT form, lemma, upos, source_script FROM tokens WHERE line_id=?", (line_id,)
+    ).fetchone()
+    assert row == ("test", "test", "NOUN", "latin")
+    conn.close()
+
+
+def test_l3_entities_insert_and_read(tmp_db):
+    """Insert and read back an entity row with line provenance."""
+    build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    conn = sqlite3.connect(tmp_db)
+    conn.execute("PRAGMA foreign_keys=ON")
+    song_id = conn.execute("SELECT id FROM songs LIMIT 1").fetchone()[0]
+    section_id = conn.execute("SELECT id FROM sections LIMIT 1").fetchone()[0]
+    line_id = conn.execute("SELECT id FROM lines LIMIT 1").fetchone()[0]
+    conn.execute(
+        "INSERT INTO entities (song_id, section_id, line_id, text, ner_type)"
+        " VALUES (?, ?, ?, ?, ?)",
+        (song_id, section_id, line_id, "Beograd", "LOC"),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT text, ner_type FROM entities WHERE line_id=?", (line_id,)
+    ).fetchone()
+    assert row == ("Beograd", "LOC")
+    conn.close()
+
+
+def test_l3_topics_and_section_topics_insert(tmp_db):
+    """Insert and read back topic + section_topic assignment."""
+    build_database(root=FIXTURE_ROOT, db_path=tmp_db)
+    conn = sqlite3.connect(tmp_db)
+    conn.execute("PRAGMA foreign_keys=ON")
+    section_id = conn.execute("SELECT id FROM sections LIMIT 1").fetchone()[0]
+    conn.execute(
+        "INSERT INTO topics (topic_id, label, top_terms, size, exemplar_section_id)"
+        " VALUES (?, ?, ?, ?, ?)",
+        (0, "love", '["ljubav","srce"]', 10, section_id),
+    )
+    conn.execute(
+        "INSERT INTO section_topics (section_id, topic_id, probability)"
+        " VALUES (?, ?, ?)",
+        (section_id, 0, 0.85),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT t.label, st.probability FROM section_topics st"
+        " JOIN topics t ON st.topic_id = t.topic_id WHERE st.section_id=?",
+        (section_id,),
+    ).fetchone()
+    assert row == ("love", 0.85)
+    conn.close()

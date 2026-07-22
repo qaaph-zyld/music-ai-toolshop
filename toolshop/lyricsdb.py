@@ -446,6 +446,63 @@ CREATE TABLE IF NOT EXISTS song_rhyme_metrics (
 );
 
 CREATE INDEX IF NOT EXISTS idx_song_rhyme_metrics_song ON song_rhyme_metrics(song_id);
+
+-- ── L3: Language & Themes tables (idempotent; wiped+rebuilt by L3 commands) ──
+
+CREATE TABLE IF NOT EXISTS tokens (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    line_id        INTEGER NOT NULL REFERENCES lines(id) ON DELETE CASCADE,
+    ordinal        INTEGER NOT NULL,
+    form           TEXT,
+    lemma          TEXT,
+    upos           TEXT,
+    feats          TEXT,
+    is_oov         INTEGER DEFAULT 0,
+    source_script  TEXT    -- 'cyrillic' or 'latin' (for coverage reporting)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tokens_line ON tokens(line_id);
+
+CREATE TABLE IF NOT EXISTS entities (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    song_id     INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+    section_id  INTEGER NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+    line_id     INTEGER NOT NULL REFERENCES lines(id) ON DELETE CASCADE,
+    text        TEXT,
+    ner_type    TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_entities_line ON entities(line_id);
+CREATE INDEX IF NOT EXISTS idx_entities_song ON entities(song_id);
+
+CREATE TABLE IF NOT EXISTS slang_terms (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    form            TEXT,
+    lemma           TEXT,
+    freq            INTEGER,
+    drill_freq      REAL,
+    pop_freq        REAL,
+    distinctiveness REAL,
+    is_oov          INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS topics (
+    topic_id            INTEGER PRIMARY KEY,
+    label               TEXT,
+    top_terms           TEXT,  -- JSON array
+    size                INTEGER,
+    exemplar_section_id INTEGER REFERENCES sections(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS section_topics (
+    section_id  INTEGER NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+    topic_id    INTEGER NOT NULL REFERENCES topics(topic_id) ON DELETE CASCADE,
+    probability REAL,
+    PRIMARY KEY (section_id, topic_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_section_topics_section ON section_topics(section_id);
+CREATE INDEX IF NOT EXISTS idx_section_topics_topic ON section_topics(topic_id);
 """
 
 
