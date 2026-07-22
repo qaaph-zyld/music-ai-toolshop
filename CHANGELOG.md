@@ -1,5 +1,47 @@
 # Changelog
 
+### Answer #021 - T5-L3 Language & Themes Analysis
+**Timestamp:** 2026-07-22 23:00
+**Action Type:** Feature implementation (5 commits)
+
+**Previous State:** L2.1 rhyme/flow/collab complete. No NLP annotation, slang lexicon, or theme modeling existed.
+
+**Current State:** Full L3 pipeline implemented and run on 742-song corpus:
+1. **Schema**: 5 new tables (`tokens`, `entities`, `slang_terms`, `topics`, `section_topics`) in `lyricsdb.py`.
+2. **CLASSLA annotation**: `annotate.py` — 36,572/36,572 lines (100% coverage), 282,426 tokens, 6,708 entities. Cyrillic: 3,398 tokens / 419 lines. Latin: 279,028 tokens / 36,153 lines. NER: PER 3,838, LOC 1,240, ORG 919, MISC 645, DERIV-PER 66.
+3. **Slang lexicon**: `lexicon.py` — 6,984 terms mined (2,421 drill-distinctive, 1,741 pop-distinctive, 1,638 strong with |distinctiveness| > 1.0). Log-ratio scoring per 10K tokens normalized.
+4. **BERTopic themes**: `themes.py` — 84 topics from 4,759 sections (2,283 non-outlier assignments). MiniLM multilingual embeddings + UMAP(cosine, seed=42) + HDBSCAN.
+5. **Discrimination report**: `l3_report.py` — JSD(drill||pop) = 0.2015, gate PASSED on all three criteria.
+
+#### Discrimination Evidence (statistics only, no lyric dumps):
+- **Slang**: Drill-distinctive top terms: `brata`(2.23), `Swag`(2.15), `bam`(2.15), `Kongo`(2.11). Pop-distinctive: `limiti`(-3.17), `quiero`(-3.12), `twerka`(-2.85), `Bomba`(-2.85).
+- **Themes**: Drill-overrepresented: topic 33 `cash_haos_ovde_kraju` (∞), topic 13 `brate_su_okej_novi` (15.5x), topic 35 `mami_flex_mama_aman` (12.5x). Pop-overrepresented: topic 18 `zvezde_placu_omen_visini` (0.06x), topic 61 `avlije_senida_ziva_ajde` (0.07x).
+- **Gate**: Slang PASS, Strong slang PASS (1,638), Theme PASS (JSD=0.2015 > 0.05). OVERALL: PASS.
+
+#### Commits:
+- `2318878` feat(lyrics): annotation/themes schema
+- `1ce86cd` feat(lyrics): CLASSLA annotate + entities
+- `6f44a3c` feat(lyrics): slang lexicon + BERTopic themes
+- `7a93ad7` fix(lyrics): BERTopic random_state via UMAP + lexicon threshold
+- `de2a528` feat(lyrics): L3 discrimination report + gate
+
+#### New CLI commands:
+- `toolshop lyrics annotate [--resume] [--fresh] [--limit N]`
+- `toolshop lyrics lexicon [--cohort drill_trap|pop] [--top N] [--json]`
+- `toolshop lyrics themes [--min-section-lines N] [--seed N] [--json]`
+- `toolshop lyrics report`
+
+#### Tests:
+- 419 passed, 3 deselected, 0 failed (was 383 pre-L3, +36 new tests)
+- New: 4 schema, 11 annotate, 8 lexicon, 6 themes, 7 report
+
+#### Dependencies:
+- `lyrics-nlp` extra: classla, bertopic, sentence-transformers, umap-learn, hdbscan, torch
+- CLASSLA model: `sr` nonstandard (internet text type)
+- Embeddings: `paraphrase-multilingual-MiniLM-L12-v2`
+
+---
+
 ### Answer #020 - T5-L2.1 Independent Verification (READ-ONLY)
 **Timestamp:** 2026-07-22 00:30
 **Action Type:** Verification (no code changes)
