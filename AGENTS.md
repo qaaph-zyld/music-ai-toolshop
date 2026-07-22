@@ -28,6 +28,11 @@ Caught by orchestrator spot-check 3+ sessions running: uncommitted work left in 
 - **Commit before you claim.** Never carry a tested deliverable uncommitted across sessions — it risks the work and tangles the next commit. Commit code with, or before, its record.
 - **Handoff = final truth.** Commit hashes, push status, and test counts in the handoff reflect the pushed final state, not a mid-run baseline.
 
+## Mechanical close-out (enforced by tooling)
+- **`toolshop closeout`** must exit 0 at session end. Its evidence block (git status, git log, submodule summary) must be pasted in every handoff.
+- **Pre-push hook** (`hooks/pre-push`, version-controlled): blocks pushes when the working tree has tracked junk files (`pytest_*.txt`, `annotate_run*.txt`) or staged-but-uncommitted changes. Bypass with `--no-verify` is for emergencies only — fix the tree instead.
+- **Hook setup:** every clone must run `git config core.hooksPath hooks` (local config). `toolshop doctor` checks this automatically.
+
 ## Key commands
 ```powershell
 # tests

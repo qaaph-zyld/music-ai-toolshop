@@ -1,0 +1,37 @@
+#!/bin/sh
+# pre-push hook — mechanical close-out gate
+# Blocks push if working tree has junk files or staged-but-uncommitted changes.
+# To bypass in an emergency: git push --no-verify
+# Routine policy: fix the tree instead.
+
+while read local_ref local_sha remote_ref remote_sha; do
+    :
+done
+
+# Check 1: staged-but-uncommitted changes
+if ! git diff --cached --quiet 2>/dev/null; then
+    echo "pre-push: BLOCKED - staged but uncommitted changes exist."
+    echo "  Fix the tree instead: commit or unstage your changes before pushing."
+    exit 1
+fi
+
+# Check 2: tracked junk files (pytest_*.txt, annotate_run*.txt)
+tracked_junk=$(git ls-files 'pytest_*.txt' 'annotate_run*.txt' 2>/dev/null || true)
+if [ -n "$tracked_junk" ]; then
+    echo "pre-push: BLOCKED - tracked junk files detected:"
+    echo "$tracked_junk"
+    echo "  Fix the tree instead: git rm these files and commit."
+    exit 1
+fi
+
+# Check 3: untracked junk files not covered by .gitignore
+untracked_junk=$(git status --porcelain --untracked-files=all 2>/dev/null \
+    | grep -E '^\?\? (pytest_.*\.txt|annotate_run.*\.txt)$' || true)
+if [ -n "$untracked_junk" ]; then
+    echo "pre-push: BLOCKED - untracked junk files in working tree:"
+    echo "$untracked_junk"
+    echo "  Fix the tree instead: delete these files or add them to .gitignore."
+    exit 1
+fi
+
+exit 0

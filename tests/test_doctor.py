@@ -131,3 +131,33 @@ def test_main_returns_nonzero_on_failure():
     with mock.patch.object(doctor, "run_checks", return_value={"ok": False, "python": "x", "checks": []}):
         code = doctor.main([])
     assert code == 1
+
+
+def test_hooks_path_ok_when_set():
+    mock_proc = mock.Mock()
+    mock_proc.stdout = "hooks\n"
+    mock_proc.returncode = 0
+    with mock.patch.object(doctor.subprocess, "run", return_value=mock_proc):
+        result = doctor._hooks_path_ok()
+    assert result["ok"] is True
+    assert result["actual"] == "hooks"
+
+
+def test_hooks_path_fails_when_unset():
+    mock_proc = mock.Mock()
+    mock_proc.stdout = ""
+    mock_proc.returncode = 1
+    with mock.patch.object(doctor.subprocess, "run", return_value=mock_proc):
+        result = doctor._hooks_path_ok()
+    assert result["ok"] is False
+    assert result["actual"] == ""
+
+
+def test_hooks_path_fails_when_wrong_path():
+    mock_proc = mock.Mock()
+    mock_proc.stdout = ".git/hooks\n"
+    mock_proc.returncode = 0
+    with mock.patch.object(doctor.subprocess, "run", return_value=mock_proc):
+        result = doctor._hooks_path_ok()
+    assert result["ok"] is False
+    assert result["actual"] == ".git/hooks"

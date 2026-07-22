@@ -125,6 +125,32 @@ def _backup_ok() -> dict[str, Any]:
     return backup_module.check_backup(target=target)
 
 
+def _hooks_path_ok() -> dict[str, Any]:
+    """Check that core.hooksPath is set to 'hooks' (version-controlled hooks)."""
+    try:
+        proc = subprocess.run(
+            ["git", "config", "core.hooksPath"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        actual = proc.stdout.strip()
+    except Exception as exc:
+        return {
+            "check": "hooks_path",
+            "expected": "hooks",
+            "actual": None,
+            "ok": False,
+            "error": str(exc),
+        }
+    return {
+        "check": "hooks_path",
+        "expected": "hooks",
+        "actual": actual,
+        "ok": actual == "hooks",
+    }
+
+
 def run_checks() -> dict[str, Any]:
     results = [
         _python_version_ok(),
@@ -132,6 +158,7 @@ def run_checks() -> dict[str, Any]:
         _disk_ok(),
         _model_cache_ok(),
         _backup_ok(),
+        _hooks_path_ok(),
     ]
     for extra in EXTRAS:
         results.append(_packages_ok(extra))
