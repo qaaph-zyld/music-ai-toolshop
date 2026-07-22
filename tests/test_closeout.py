@@ -20,9 +20,10 @@ def _mock_run(stdout: str, returncode: int = 0, stderr: str = ""):
 def test_closeout_clean_tree_all_pass(capsys):
     """All checks pass: clean tree, no unpushed, submodule clean → exit 0."""
     responses = [
-        _mock_run("", returncode=0),              # git status --porcelain
+        _mock_run("", returncode=0),              # git status --porcelain --ignore-submodules=dirty
         _mock_run("", returncode=0),              # git log @{u}..HEAD --oneline
         _mock_run(" aebcf76 mastering_tool\n", returncode=0),  # git submodule status
+        _mock_run("", returncode=0),              # git status --porcelain (evidence block)
     ]
     with mock.patch.object(closeout.subprocess, "run", side_effect=responses):
         code = closeout.run_closeout()
@@ -35,9 +36,10 @@ def test_closeout_clean_tree_all_pass(capsys):
 def test_closeout_dirty_tree(capsys):
     """Working tree has staged/unstaged changes → exit nonzero."""
     responses = [
-        _mock_run(" M .gitignore\n", returncode=0),  # git status --porcelain
+        _mock_run(" M .gitignore\n", returncode=0),  # git status --porcelain --ignore-submodules=dirty
         _mock_run("", returncode=0),                   # git log @{u}..HEAD --oneline
         _mock_run(" aebcf76 mastering_tool\n", returncode=0),  # git submodule status
+        _mock_run(" M .gitignore\n", returncode=0),  # git status --porcelain (evidence block)
     ]
     with mock.patch.object(closeout.subprocess, "run", side_effect=responses):
         code = closeout.run_closeout()
@@ -49,9 +51,10 @@ def test_closeout_dirty_tree(capsys):
 def test_closeout_unpushed_commits(capsys):
     """Unpushed commits on current branch → exit nonzero."""
     responses = [
-        _mock_run("", returncode=0),                   # git status --porcelain
+        _mock_run("", returncode=0),                   # git status --porcelain --ignore-submodules=dirty
         _mock_run("abc1234 some commit\n", returncode=0),  # git log @{u}..HEAD
         _mock_run(" aebcf76 mastering_tool\n", returncode=0),  # git submodule status
+        _mock_run("", returncode=0),                   # git status --porcelain (evidence block)
     ]
     with mock.patch.object(closeout.subprocess, "run", side_effect=responses):
         code = closeout.run_closeout()
@@ -63,9 +66,10 @@ def test_closeout_unpushed_commits(capsys):
 def test_closeout_untracked_files(capsys):
     """Untracked non-ignored files in working tree → exit nonzero."""
     responses = [
-        _mock_run("?? junk.txt\n", returncode=0),     # git status --porcelain
+        _mock_run("?? junk.txt\n", returncode=0),     # git status --porcelain --ignore-submodules=dirty
         _mock_run("", returncode=0),                   # git log @{u}..HEAD
         _mock_run(" aebcf76 mastering_tool\n", returncode=0),  # git submodule status
+        _mock_run("?? junk.txt\n", returncode=0),     # git status --porcelain (evidence block)
     ]
     with mock.patch.object(closeout.subprocess, "run", side_effect=responses):
         code = closeout.run_closeout()
@@ -77,9 +81,10 @@ def test_closeout_untracked_files(capsys):
 def test_closeout_submodule_dirty(capsys):
     """Submodule has untracked content (dirty) → exit nonzero."""
     responses = [
-        _mock_run("", returncode=0),                   # git status --porcelain
+        _mock_run("", returncode=0),                   # git status --porcelain --ignore-submodules=dirty
         _mock_run("", returncode=0),                   # git log @{u}..HEAD
         _mock_run("+aebcf76 mastering_tool\n", returncode=0),  # + prefix = dirty
+        _mock_run("", returncode=0),                   # git status --porcelain (evidence block)
     ]
     with mock.patch.object(closeout.subprocess, "run", side_effect=responses):
         code = closeout.run_closeout()
@@ -91,9 +96,10 @@ def test_closeout_submodule_dirty(capsys):
 def test_closeout_no_upstream(capsys):
     """No upstream configured — degrade to warning, not hard failure."""
     responses = [
-        _mock_run("", returncode=0),                   # git status --porcelain
+        _mock_run("", returncode=0),                   # git status --porcelain --ignore-submodules=dirty
         _mock_run("", returncode=128, stderr="fatal: no upstream"),  # git log @{u}..HEAD
         _mock_run(" aebcf76 mastering_tool\n", returncode=0),  # git submodule status
+        _mock_run("", returncode=0),                   # git status --porcelain (evidence block)
     ]
     with mock.patch.object(closeout.subprocess, "run", side_effect=responses):
         code = closeout.run_closeout()
@@ -106,9 +112,10 @@ def test_closeout_no_upstream(capsys):
 def test_closeout_evidence_block_contains_status(capsys):
     """Evidence block must contain git status output."""
     responses = [
-        _mock_run("", returncode=0),              # git status --porcelain
+        _mock_run("", returncode=0),              # git status --porcelain --ignore-submodules=dirty
         _mock_run("", returncode=0),              # git log @{u}..HEAD
         _mock_run(" aebcf76 mastering_tool\n", returncode=0),  # git submodule status
+        _mock_run("", returncode=0),              # git status --porcelain (evidence block)
     ]
     with mock.patch.object(closeout.subprocess, "run", side_effect=responses):
         closeout.run_closeout()

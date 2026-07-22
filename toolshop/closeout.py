@@ -35,7 +35,10 @@ def run_closeout(repo_path: Path | None = None) -> int:
     failures: list[str] = []
 
     # --- Check (a): clean working tree ---
-    status_proc = _git(["status", "--porcelain"], cwd=cwd)
+    # Use --ignore-submodules=dirty so untracked content inside submodules
+    # doesn't trigger a false failure; submodule state is checked separately
+    # in check (c) via `git submodule status`.
+    status_proc = _git(["status", "--porcelain", "--ignore-submodules=dirty"], cwd=cwd)
     status_output = status_proc.stdout.strip()
     if status_output:
         failures.append("working tree not clean (staged/unstaged/untracked changes)")
@@ -77,6 +80,10 @@ def run_closeout(repo_path: Path | None = None) -> int:
     print("=" * 60)
     print()
     print("--- git status --porcelain ---")
+    raw_status = _git(["status", "--porcelain"], cwd=cwd)
+    print(raw_status.stdout.strip() if raw_status.stdout.strip() else "(clean)")
+    print()
+    print("--- git status --porcelain --ignore-submodules=dirty ---")
     print(status_output if status_output else "(clean)")
     print()
     print("--- git log @{u}..HEAD --oneline ---")
