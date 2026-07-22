@@ -88,8 +88,8 @@ def mine_slang(conn: sqlite3.Connection) -> Dict[str, Any]:
         if total_freq < _MIN_FREQ:
             continue
 
-        # Only keep OOV or low-frequency terms
-        if not is_oov and total_freq >= 10:
+        # Only keep OOV or low-frequency terms (freq < 30 across corpus)
+        if not is_oov and total_freq >= 30:
             continue
 
         drill_freq_raw = counts.get("drill_trap", 0)

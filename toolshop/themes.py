@@ -95,11 +95,13 @@ def fit_topics(
 
     # Fit BERTopic
     print(f"  Fitting BERTopic model (seed={seed})...")
+    import umap
+    umap_model = umap.UMAP(n_neighbors=15, n_components=5, metric="cosine", random_state=seed)
     topic_model = BERTopic(
         language=None,  # we provide our own embeddings
         min_topic_size=10,
         calculate_probabilities=False,
-        random_state=seed,
+        umap_model=umap_model,
         verbose=True,
     )
     topics, probs = topic_model.fit_transform(docs, embeddings)
