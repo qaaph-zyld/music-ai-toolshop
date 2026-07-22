@@ -30,6 +30,7 @@ from mastering_tool.tools.vocal_doctor import diagnose_and_recommend
 from . import stem_extractor_adapter
 from . import cleaning_pipeline_adapter
 from . import doctor as doctor_module
+from . import remix_adapter
 from . import remix_cli
 
 
@@ -706,7 +707,7 @@ def build_parser() -> argparse.ArgumentParser:
     remix_parser.add_argument(
         "--mode",
         type=str,
-        default="remix",
+        default=None,
         choices=["remix", "sample"],
         help="Operation mode: remix (single output) or sample (sample pack)",
     )
@@ -720,7 +721,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--fx",
         nargs="*",
         choices=["reverb", "delay", "gain", "compressor", "distortion"],
-        default=[],
+        default=None,
         help="FX chain to apply (space or comma separated)",
     )
     remix_parser.add_argument(
@@ -745,7 +746,7 @@ def build_parser() -> argparse.ArgumentParser:
     remix_parser.add_argument(
         "--segment-beats",
         type=int,
-        default=4,
+        default=None,
         help="Beats per segment for remix/loop slicing (default: 4; use 1 for onset-based samples)",
     )
     remix_parser.add_argument(
@@ -783,6 +784,13 @@ def build_parser() -> argparse.ArgumentParser:
     remix_parser.add_argument(
         "--no-beat-snap", action="store_true",
         help="Disable snapping section boundaries to nearest beat (requires --sections)",
+    )
+    remix_parser.add_argument(
+        "--preset",
+        type=str,
+        default=None,
+        choices=list(remix_adapter.PACK_PRESETS.keys()),
+        help="Pack preset: drum-kit, loop-kit, acapella-kit, remix-kit (forces --mode sample)",
     )
     remix_parser.add_argument(
         "--json", action="store_true", help="Output results as JSON"

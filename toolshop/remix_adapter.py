@@ -69,6 +69,49 @@ KEY_PATTERN = re.compile(
 )
 
 
+PACK_PRESETS: Dict[str, Dict[str, Any]] = {
+    "drum-kit": {
+        "mode": "sample",
+        "stem_name": "drums",
+        "segment_beats": 1,
+        "default_label": "drum",
+        "output_format": "wav",
+    },
+    "loop-kit": {
+        "mode": "sample",
+        "segment_beats": 4,
+        "default_label": "loop",
+        "output_format": "flac",
+    },
+    "acapella-kit": {
+        "mode": "sample",
+        "stem_name": "vocals",
+        "segment_beats": 2,
+        "default_label": "vocal",
+        "output_format": "wav",
+    },
+    "remix-kit": {
+        "mode": "sample",
+        "segment_beats": 8,
+        "default_label": "phrase",
+        "output_format": "flac",
+        "fx_chain": ["compressor"],
+    },
+}
+
+
+def get_preset(name: str) -> Dict[str, Any]:
+    """Return a copy of the named pack preset.
+
+    Raises ValueError if the preset name is not recognised.
+    """
+    if name not in PACK_PRESETS:
+        raise ValueError(
+            f"Unknown preset {name!r}; available: {', '.join(PACK_PRESETS)}"
+        )
+    return dict(PACK_PRESETS[name])
+
+
 class MissingDependencyError(RuntimeError):
     """Raised when a required package is missing for the remix pipeline."""
 
@@ -548,6 +591,7 @@ class RemixResult:
     truncated: bool = False
     manifest_path: Optional[Path] = None
     samples: List[Dict[str, Any]] = field(default_factory=list)
+    preset: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -572,6 +616,7 @@ def create_remix(
     sections: Optional[List[Dict[str, Any]]] = None,
     sub_slice_beats: Optional[int] = None,
     snap_to_beats: bool = True,
+    preset_name: Optional[str] = None,
     **stretch_kwargs: Any,
 ) -> RemixResult:
     """Create a remix or sample pack from an audio file.
@@ -631,7 +676,8 @@ def create_remix(
         audio = audio.astype(np.float32)
 
     if mode == "remix":
-        detected_bpm, beat_samples = _detect_beats(audio, sr)
+        beat_audio = audio if audio.ndim == 1 else np.mean(audio, axis=0)
+        detected_bpm, beat_samples = _detect_beats(beat_audio, sr)
         if src_bpm is None or src_bpm <= 0:
             src_bpm = detected_bpm
         segments = _slice_by_beats(audio, beat_samples, segment_beats=segment_beats)
@@ -664,7 +710,8 @@ def create_remix(
         elif segment_beats <= 1:
             raw_segments = _slice_by_onsets(audio, sr)
         else:
-            detected_bpm, beat_samples = _detect_beats(audio, sr)
+            beat_audio = audio if audio.ndim == 1 else np.mean(audio, axis=0)
+            detected_bpm, beat_samples = _detect_beats(beat_audio, sr)
             if src_bpm is None or src_bpm <= 0:
                 src_bpm = detected_bpm
             raw_segments = _slice_by_beats(
@@ -728,9 +775,15 @@ def create_remix(
             source_hash,
             samples,
             output_format,
+            preset_name=preset_name,
         )
         manifest_path = output_dir / "manifest.json"
         _write_manifest(manifest_path, manifest)
+        if preset_name is not None:
+            readme_path = _write_pack_readme(
+                output_dir, preset_name, src_bpm, src_key,
+                target_bpm, target_key, fx_chain, samples,
+            )
         return RemixResult(
             output_file=output_dir,
             source=resolved_input,
@@ -746,6 +799,7 @@ def create_remix(
             truncated=truncated,
             manifest_path=manifest_path,
             samples=samples,
+            preset=preset_name,
         )
     else:
         raise ValueError(f"Unknown mode: {mode!r}; use 'remix' or 'sample'.")
@@ -836,8 +890,9 @@ def _sample_manifest(
     source_hash: str,
     samples: List[Dict[str, Any]],
     output_format: str,
+    preset_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    return {
+    manifest: Dict[str, Any] = {
         "version": _toolshop_version(),
         "created": datetime.now().isoformat(),
         "mode": "sample",
@@ -847,3 +902,50 @@ def _sample_manifest(
         "sample_count": len(samples),
         "samples": samples,
     }
+    if preset_name is not None:
+        manifest["preset"] = preset_name
+    return manifest
+
+
+def _write_pack_readme(
+    output_dir: Path,
+    preset_name: str,
+    src_bpm: float,
+    src_key: str,
+    target_bpm: Optional[float],
+    target_key: Optional[str],
+    fx_chain: Optional[List[str]],
+    samples: List[Dict[str, Any]],
+) -> Path:
+    """Write a human-readable PACK_README.md into the sample pack directory."""
+    readme_path = output_dir / "PACK_README.md"
+    lines: List[str] = []
+    lines.append(f"# Sample Pack: {output_dir.name}")
+    lines.append("")
+    lines.append(f"**Preset:** {preset_name}")
+    lines.append(f"**Generated:** {datetime.now().isoformat()}")
+    lines.append(f"**Source BPM:** {src_bpm:.2f}")
+    lines.append(f"**Source Key:** {src_key}")
+    if target_bpm:
+        lines.append(f"**Target BPM:** {target_bpm:.2f}")
+    if target_key:
+        lines.append(f"**Target Key:** {target_key}")
+    if fx_chain:
+        lines.append(f"**FX:** {', '.join(fx_chain)}")
+    lines.append(f"**Samples:** {len(samples)}")
+    lines.append("")
+    lines.append("| # | File | Section | Start (s) | End (s) | BPM |")
+    lines.append("|---|------|---------|-----------|---------|-----|")
+    for i, s in enumerate(samples, 1):
+        lines.append(
+            f"| {i} | {s['name']} | {s.get('section', '-')} | "
+            f"{s.get('start_seconds', '-'):.3f} | "
+            f"{s.get('end_seconds', '-'):.3f} | "
+            f"{s.get('source_bpm', '-'):.2f} |"
+        )
+    lines.append("")
+    lines.append(
+        f"_Generated by `toolshop remix --preset {preset_name}`_"
+    )
+    readme_path.write_text("\n".join(lines), encoding="utf-8")
+    return readme_path

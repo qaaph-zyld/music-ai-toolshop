@@ -1,5 +1,30 @@
 # Changelog
 
+### Answer #021 - T7 v1.1 Pack Presets + Auto PACK_README
+**Timestamp:** 2026-07-22 23:00
+**Action Type:** New feature
+
+**Previous State:** T7.1 shipped section-aware slicing + spec-aligned naming. No preset system; users had to manually set `--mode`, `--segment-beats`, `--stem`, `--format`, and `--fx` for each pack type.
+
+**Current State:** Four pack presets (`drum-kit`, `loop-kit`, `acapella-kit`, `remix-kit`) with a `--preset` CLI flag. Presets apply stem-aware defaults (e.g. `drum-kit` uses drums stem, `acapella-kit` uses vocals stem). Each pack auto-generates a `PACK_README.md` with pack name, preset, source info, and sample table. Manifest includes `"preset"` field. Explicit CLI flags override preset defaults.
+
+#### Changes Made:
+- `toolshop/remix_adapter.py`: `PACK_PRESETS` dict, `get_preset()`, `_write_pack_readme()`, `preset_name` param on `create_remix()`, `preset` field on `RemixResult`, `preset_name` param on `_sample_manifest()`. Bug fix: flatten 2D audio before `_detect_beats` in beat-grid and remix paths (pre-existing bug, exposed by preset tests).
+- `toolshop/remix_cli.py`: `_apply_preset()` fills preset defaults for unset flags, forces `--mode sample`, raises `ValueError` if `--preset` combined with `--mode remix`. `preset_name` passed to `create_remix`.
+- `toolshop/cli.py`: `--preset` flag with `choices=["drum-kit", "loop-kit", "acapella-kit", "remix-kit"]`. `--mode`/`--fx`/`--segment-beats` defaults changed to `None` so preset values can fill in.
+- `tests/test_remix_adapter.py`: 5 new tests (get_preset valid/invalid/copy, create_samples_with_preset, pack_readme_content).
+- `tests/test_cli_remix.py`: 4 new tests (parser preset, preset choices, CLI preset run, preset+remix mode error, preset overrides segment_beats).
+- `README.md`: "Pack Presets" subsection under Remix/Sample Forge.
+- `docs/superpowers/STATUS.md`: T7 row updated to v1.1.
+
+#### Tests:
+- 44 passed, 0 failed, 16 warnings (`tests/test_remix_adapter.py tests/test_cli_remix.py -q`)
+
+#### Breaking Changes:
+- `--mode` default changed from `"remix"` to `None` (filled by `_apply_preset` → `"remix"` when no preset). No user-visible change for existing commands.
+- `--fx` default changed from `[]` to `None`. No user-visible change (`_parse_fx(None)` returns `None`, same as before).
+- `--segment-beats` default changed from `4` to `None` (filled by `_apply_preset` → `4` when no preset). No user-visible change.
+
 ### Answer #020 - T5-L2.1 Independent Verification (READ-ONLY)
 **Timestamp:** 2026-07-22 00:30
 **Action Type:** Verification (no code changes)

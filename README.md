@@ -434,6 +434,37 @@ toolshop remix song.wav --mode sample --sections sections.json --sub-slice-beats
 - **Automatic section detection is deferred** to a future H2 structure detector. For now,
   sections must be provided externally (e.g. from a manual annotation or third-party tool).
 
+#### Pack Presets
+
+Use `--preset` to quickly create a sample pack with sensible defaults for a specific use case.
+Presets force `--mode sample` and apply stem-aware defaults. Explicit CLI flags override preset defaults.
+
+| Preset | Stem | Segment | Format | FX | Use case |
+|--------|------|---------|--------|----|----------|
+| `drum-kit` | drums | 1 beat (onset) | wav | — | One-shot drum hits |
+| `loop-kit` | — | 4 beats | flac | — | 4-beat musical loops |
+| `acapella-kit` | vocals | 2 beats | wav | — | Vocal phrases |
+| `remix-kit` | — | 8 beats | flac | compressor | 8-beat phrase素材 |
+
+```bash
+# Drum one-shots from a stems directory
+toolshop remix song.wav --preset drum-kit --stems-dir ./stems/karaoke/my_song --output-dir ./drum_pack
+
+# 4-beat loops from a full mix
+toolshop remix song.wav --preset loop-kit --output-dir ./loops
+
+# Acapella phrases from separated vocals
+toolshop remix song.wav --preset acapella-kit --stems-dir ./stems/karaoke/my_song --output-dir ./vocals
+
+# 8-beat phrases with compressor
+toolshop remix song.wav --preset remix-kit --output-dir ./phrases
+```
+
+- Each pack includes a `PACK_README.md` with pack name, preset, source info, and a sample table.
+- The manifest includes a `"preset"` field.
+- `--preset` cannot be combined with `--mode remix` (raises `ValueError`).
+- Preset stem defaults only apply when `--stems-dir` is provided; without it, the input file is used directly.
+
 ---
 
 ## Python API

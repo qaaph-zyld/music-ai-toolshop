@@ -375,3 +375,86 @@ def test_resolve_stems_dir(tmp_path):
         Path("does_not_exist.wav"), stems_dir=tmp_path
     )
     assert resolved == stem_file
+
+
+def test_get_preset_valid():
+    preset = remix_adapter.get_preset("drum-kit")
+    assert preset["mode"] == "sample"
+    assert preset["segment_beats"] == 1
+    assert preset["stem_name"] == "drums"
+    assert preset["output_format"] == "wav"
+
+    preset2 = remix_adapter.get_preset("loop-kit")
+    assert preset2["segment_beats"] == 4
+    assert preset2["output_format"] == "flac"
+
+    preset3 = remix_adapter.get_preset("remix-kit")
+    assert preset3["segment_beats"] == 8
+    assert preset3["fx_chain"] == ["compressor"]
+
+
+def test_get_preset_invalid_raises():
+    with pytest.raises(ValueError, match="Unknown preset"):
+        remix_adapter.get_preset("nonexistent")
+
+
+def test_get_preset_returns_copy():
+    preset = remix_adapter.get_preset("drum-kit")
+    preset["segment_beats"] = 99
+    preset2 = remix_adapter.get_preset("drum-kit")
+    assert preset2["segment_beats"] == 1
+
+
+@_skip_no_remix
+def test_create_samples_with_preset(tmp_path):
+    audio = _sine_wave(2.0)
+    src = tmp_path / "src.wav"
+    _write_wav(src, audio)
+    out_dir = tmp_path / "pack"
+
+    result = remix_adapter.create_remix(
+        src,
+        out_dir,
+        mode="sample",
+        segment_beats=1,
+        max_duration=240.0,
+        preset_name="drum-kit",
+    )
+    assert out_dir.is_dir()
+    assert result.manifest_path and result.manifest_path.exists()
+    assert result.preset == "drum-kit"
+    assert len(result.samples) >= 1
+
+    import json
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["preset"] == "drum-kit"
+
+    readme = out_dir / "PACK_README.md"
+    assert readme.exists()
+
+
+@_skip_no_remix
+def test_pack_readme_content(tmp_path):
+    audio = _sine_wave(2.0)
+    src = tmp_path / "src.wav"
+    _write_wav(src, audio)
+    out_dir = tmp_path / "pack"
+
+    result = remix_adapter.create_remix(
+        src,
+        out_dir,
+        mode="sample",
+        segment_beats=1,
+        max_duration=240.0,
+        preset_name="loop-kit",
+    )
+    readme = out_dir / "PACK_README.md"
+    assert readme.exists()
+    content = readme.read_text(encoding="utf-8")
+    assert "loop-kit" in content
+    assert "Sample Pack" in content
+    assert "Source BPM" in content
+    assert "Source Key" in content
+    assert "Samples:" in content
+    assert "| # | File |" in content
+    assert "toolshop remix --preset loop-kit" in content

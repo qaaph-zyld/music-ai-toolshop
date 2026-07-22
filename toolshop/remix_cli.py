@@ -65,7 +65,36 @@ def _resolve_output_path(input_path: Path, args: Any) -> Path:
     return _default_data_root() / "samples" / slug
 
 
+def _apply_preset(args: Any) -> None:
+    """Mutate *args* in-place to fill in preset defaults for unset flags.
+
+    Raises ValueError if --preset is combined with --mode remix.
+    """
+    if not args.preset:
+        if args.mode is None:
+            args.mode = "remix"
+        if args.segment_beats is None:
+            args.segment_beats = 4
+        return
+
+    preset = remix_adapter.get_preset(args.preset)
+    if args.mode is not None and args.mode != "sample":
+        raise ValueError(
+            f"--preset {args.preset} requires --mode sample (or omit --mode)"
+        )
+    args.mode = "sample"
+    if args.segment_beats is None:
+        args.segment_beats = preset.get("segment_beats", 4)
+    if args.format is None:
+        args.format = preset.get("output_format")
+    if args.stem is None:
+        args.stem = preset.get("stem_name")
+    if args.fx is None:
+        args.fx = preset.get("fx_chain")
+
+
 def _process_one(input_path: Path, args: Any) -> Dict[str, Any]:
+    _apply_preset(args)
     mode = args.mode
     output_path = _resolve_output_path(input_path, args)
 
@@ -98,6 +127,7 @@ def _process_one(input_path: Path, args: Any) -> Dict[str, Any]:
         sections=sections,
         sub_slice_beats=getattr(args, "sub_slice_beats", None),
         snap_to_beats=not getattr(args, "no_beat_snap", False),
+        preset_name=args.preset,
     )
     return {
         "status": "completed",
@@ -164,7 +194,7 @@ def run(args: Any) -> int:
         if args.json:
             print(json.dumps(result.to_dict(), indent=2, default=str))
         else:
-            _print_result(result, args.mode)
+            _print_result(result, args.mode or "remix")
         return 0
 
     # Directory / batch mode.
@@ -172,6 +202,7 @@ def run(args: Any) -> int:
         print("--output is for single files; use --output-dir for batches.", file=sys.stderr)
         return 1
 
+    _apply_preset(args)
     default_root = _default_data_root() / ("samples" if args.mode == "sample" else "remixes")
     output_root = Path(args.output_dir) if args.output_dir else default_root
     files = batch.discover_files(
@@ -190,7 +221,7 @@ def run(args: Any) -> int:
         process=lambda p: _process_one_for_batch(p, args),
         resume=not args.no_resume,
         offset=args.offset or 0,
-        description=f"remix/{args.mode}",
+        description=f"remix/{args.mode}" if args.mode else "remix/remix",
     )
     completed = sum(1 for t in status.get("tracks", []) if t["status"] == "completed")
     failed = sum(1 for t in status.get("tracks", []) if t["status"] == "failed")

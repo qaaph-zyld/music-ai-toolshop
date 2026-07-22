@@ -199,3 +199,73 @@ def test_cli_sections_run(tmp_path):
     assert "intro" in labels
     assert "chorus" in labels
     assert "outro" in labels
+
+
+def test_remix_parser_preset():
+    parser = build_parser()
+    args = parser.parse_args(
+        ["remix", "song.wav", "--preset", "drum-kit"]
+    )
+    assert args.preset == "drum-kit"
+    assert args.mode is None  # not set explicitly; _apply_preset will fill it
+
+
+def test_remix_parser_preset_choices():
+    parser = build_parser()
+    for name in ("drum-kit", "loop-kit", "acapella-kit", "remix-kit"):
+        args = parser.parse_args(["remix", "song.wav", "--preset", name])
+        assert args.preset == name
+
+
+@_skip_no_remix
+def test_cli_preset_run(tmp_path):
+    audio = _sine_wave(2.0)
+    wav = tmp_path / "src.wav"
+    _write_wav(wav, audio)
+    out_dir = tmp_path / "pack"
+
+    parser = build_parser()
+    args = parser.parse_args([
+        "remix", str(wav), "--preset", "drum-kit",
+        "--output", str(out_dir),
+    ])
+    assert remix_cli.run(args) == 0
+    manifest = out_dir / "manifest.json"
+    assert manifest.exists()
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    assert data["preset"] == "drum-kit"
+    readme = out_dir / "PACK_README.md"
+    assert readme.exists()
+
+
+@_skip_no_remix
+def test_cli_preset_with_remix_mode_raises(tmp_path):
+    audio = _sine_wave(0.5)
+    wav = tmp_path / "src.wav"
+    _write_wav(wav, audio)
+
+    parser = build_parser()
+    args = parser.parse_args([
+        "remix", str(wav), "--preset", "loop-kit", "--mode", "remix",
+        "--output", str(tmp_path / "out.wav"),
+    ])
+    with pytest.raises(ValueError, match="requires --mode sample"):
+        remix_cli.run(args)
+
+
+@_skip_no_remix
+def test_cli_preset_overrides_segment_beats(tmp_path):
+    audio = _sine_wave(2.0)
+    wav = tmp_path / "src.wav"
+    _write_wav(wav, audio)
+    out_dir = tmp_path / "pack"
+
+    parser = build_parser()
+    args = parser.parse_args([
+        "remix", str(wav), "--preset", "loop-kit",
+        "--segment-beats", "2",
+        "--output", str(out_dir),
+    ])
+    assert remix_cli.run(args) == 0
+    # Explicit --segment-beats 2 should override preset default of 4
+    assert args.segment_beats == 2  # _apply_preset preserves explicit values
