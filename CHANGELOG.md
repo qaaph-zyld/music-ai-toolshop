@@ -1,5 +1,34 @@
 # Changelog
 
+### Answer #022 - Q1-S0 Hygiene + Mechanical Close-Out Gate
+**Timestamp:** 2026-07-23 00:30
+**Action Type:** Infrastructure / tooling (5 commits)
+
+**Previous State:** 3 L3 commits were already pushed (verified). 12 junk `pytest_*.txt` files were already cleaned (verified absent). Close-out discipline was documentation-only — no mechanical enforcement. `.gitignore` had exact-match `pytest_tail.txt` instead of globs. Stray handoff file in repo `.windsurf/`. No pre-push hook. No `toolshop closeout` command.
+
+**Current State:**
+1. **Push verified:** `git log origin/master..master` empty — all commits on remote.
+2. **`.gitignore` globs:** Replaced `pytest_tail.txt` with `pytest_*.txt`, `annotate_run*.txt`; added `.windsurf/`.
+3. **Stray handoff moved:** `.windsurf/handoffs/2026-07-22_reconcile-m6-t7-records.md` → `D:\Projects\.windsurf\handoffs\`.
+4. **`toolshop closeout` command:** New CLI verb (`toolshop/closeout.py`). Checks clean tree, no unpushed commits, submodule clean. Prints evidence block. Exit 0 only when all pass. 7 tests (mocked git calls).
+5. **Pre-push hook** (`hooks/pre-push`, version-controlled): blocks pushes with tracked junk files or staged-uncommitted changes. `git config core.hooksPath hooks` activated.
+6. **Doctor check:** `_hooks_path_ok()` in `doctor.py` — verifies `core.hooksPath` == `hooks`. 3 new tests.
+7. **AGENTS.md:** "Mechanical close-out" subsection added.
+8. **Docs wave:** STATUS.md, Q1-S0 plan, 12-month goals spec, 3 research reports committed.
+
+#### Commits:
+- (a) `.gitignore` glob fix + cleanup
+- (b) `toolshop closeout` command + tests
+- (c) hooks/pre-push + doctor hooks_path check + AGENTS.md
+- (d) docs wave (STATUS, plan, specs, research)
+- (e) CHANGELOG #022
+
+#### Tests:
+- Baseline: 419 passed, 3 deselected, 0 failed
+- Final: (recorded in handoff)
+
+---
+
 ### Answer #021 - T5-L3 Language & Themes Analysis
 **Timestamp:** 2026-07-22 23:00
 **Action Type:** Feature implementation (5 commits)
