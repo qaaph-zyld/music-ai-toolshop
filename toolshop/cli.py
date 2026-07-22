@@ -799,6 +799,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # =========================================================================
+    # CLOSEOUT
+    # =========================================================================
+    closeout_parser = subparsers.add_parser(
+        "closeout", help="Mechanical close-out gate: check clean tree, no unpushed, submodule clean"
+    )
+
+    # =========================================================================
     # LYRICS (Genius) COMMANDS
     # =========================================================================
     lyrics_parser = subparsers.add_parser(
@@ -1607,6 +1614,15 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     # =========================================================================
     elif args.command == "doctor":
         code = doctor_module.main(["--json", str(args.json)] if args.json else [])
+        if code != 0:
+            raise SystemExit(code)
+
+    # =========================================================================
+    # CLOSEOUT
+    # =========================================================================
+    elif args.command == "closeout":
+        from . import closeout as closeout_module
+        code = closeout_module.main()
         if code != 0:
             raise SystemExit(code)
 
