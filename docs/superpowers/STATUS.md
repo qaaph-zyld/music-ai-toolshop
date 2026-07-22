@@ -1,7 +1,35 @@
 # Toolshop Portfolio Status Board
 
-> Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`.
-> **Last review: 2026-07-22 (T5-L2.1 INDEPENDENT VERIFICATION — PASS).** All four verification tasks
+> Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
+> 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
+>
+> **Last review: 2026-07-22 evening (FULL-STUDIO MANDATE adopted + landscape research received).**
+> User widened scope to a complete studio toolkit (goals G1–G10, quarters Q1–Q4): new lanes =
+> composition/MIDI, synthesis palette, mixing chains, vocal correction; **3-machine fleet**
+> (2× i7-4770-class + 1× i5 9th-gen, all 16 GB) enables batch grid + TRUE cross-machine DR;
+> stronger machines later → GPU shelf maintained with specs. Research report:
+> `research/2026-07-22-full-studio-oss-landscape.md` — verdicts folded into goals §8 as `likely`
+> (evidence bar unmet; re-verify at adoption). **Key alerts from the report:**
+> (1) pedalboard **VST3-effects-render-dry bug (PR #476, open)** → mandatory test gate in E2;
+> (2) sfizz ARCHIVED → FluidSynth is the durable SF2/SFZ path; (3) LSP Windows builds will be
+> PAID → free mixing-suite question still open (goals §8.3); (4) `.als` generation has real prior
+> art (ableton-set-builder, als-wire, ableton-project-processor) → **E6 substantially de-risked**;
+> (5) GPU shelf is cheap now — ACE-Step v1.5 (MIT, SOTA) needs <4 GB offloaded; one used 8–12 GB
+> card unlocks nearly everything (G9 spec target). **Discipline flag: 3 L3 commits UNPUSHED
+> (`2318878..6f44a3c`) + 12 junk `pytest_*.txt` in repo root — push + cleanup precedes any new lane.**
+>
+> **Addendum same evening: gap-fill research received + verified** (`research/2026-07-22-gapfill-report.md`
+> — this one MET the evidence bar; verdicts folded into goals §8.3). Mixing-suite question RESOLVED:
+> Airwindows Consolidated (MIT) + ZL EQ2/Compressor (AGPL) + Dragonfly Reverb (GPL) for free Windows
+> VST3. Phantom (`phantom-audio`) = stem-masking analysis INTEGRATE candidate for T8/E-lane.
+> Confirmed real gaps: no OSS auto-mixing (diagnose-and-suggest only), no OSS VocAlign-style
+> time-warping. Composition v0 stack fully specified (MusicLang + mido/pretty_midi + drum gens +
+> FluidSynth/sforzando; miditoolkit SKIP-stale). CC0-first instrument content sourced (VCSL,
+> Meadowlark, TR808-fischer, GareBear99 808s). AbletonOSC INTEGRATE (slow but only bridge);
+> FL = still a poor generation target → D1 stands. All research now CLOSED except
+> groove-extraction prior art (rhythm-lane fold-in).
+>
+> **Prior review: 2026-07-22 (T5-L2.1 INDEPENDENT VERIFICATION — PASS).** All four verification tasks
 > succeeded: (1) per-artist fingerprints reproduced exactly vs baseline report; (2) discrimination proven
 > — Cohen's d = 1.18 (large), pop median RF 0.7399 > drill median 0.5628, overlap 13.4%/8.9%;
 > (3) persistence intact — 742 song_rhyme_metrics rows, 159,171 line_rhymes, 49.3% match_length≥3,
@@ -88,16 +116,20 @@
 11. L2 `line_rhymes` (34,598 rows) computed on pre-fold `text_norm` → after defect-1 fix, recompute or
     prove vowel-skeletons unaffected (diacritics are consonant-only — verify, don't assume)
 
-## Recommended Sequence (next ~6 sessions)
+## Recommended Sequence — Q1 (Aug–Oct 2026, per goals v1.0 §6)
 
-1. **T5-L1.1-residual** (lyrics lane, other session): Cyrillic fold + cohort schema + relative index +
-   commit/push L2 leftovers + rhyme-row revalidation (debt 8/9/10/11)
-2. **M6 backups** (CONFIRMED NEXT production session, plan ready: `plans/2026-07-17-h1m6-backups-data-governance.md` —
-   Tier-1 D→C cross-disk works today; D: is a 2010 laptop HDD (ST9640423AS); zero backups of any corpus asset)
-3. **E1 restore diagnose** (production lane opener — plan ready: `plans/2026-07-17-e1-restore-diagnose.md`)
-4. **E2 chains core** (pedalboard adapter + YAML chains) · then **E3 restore treat v1** (presets + before/after)
-5. **M2** Demucs/models · **M4** mastering e2e (independent, any evening)
-6. **Test-debt mini** (numpy failures — flips CI green) · then **M3** CPU opt → closes H1 → **H2 Dossier v2**
+0. **Hygiene FIRST (blocks everything):** push the 3 L3 commits, `.gitignore` glob fix + delete
+   `pytest_*.txt` junk, then mechanize the close-out gate (`toolshop closeout` + pre-push hook, G8)
+1. **T5-L3 close** (themes; already in flight — bring back in-band, spot-check) → **L4** fingerprints +
+   gap report vs the 2,633 Suno lyrics
+2. **H1 close:** M2 Demucs e2e · M4 mastering e2e (any evening) · M3 CPU opt (+ museval seed) · M5 reorg
+3. **E1 restore diagnose** (plan ready) → **E2 chains core** (⚠ include PR#476 VST3 dry-render test
+   gate) → **E3 treat v1**
+4. **H2 Dossier v2** milestone chain (K-S key, structure, beats, chords, faster-whisper lyrics)
+5. **Fleet pilot (new, G5):** 2-machine shared-folder/SQLite job-queue pilot on the existing batch
+   engine + Syncthing/rclone sync + **first true cross-machine backup** (kills the same-box DR caveat)
+6. **New-lane opener (research-gated, last):** composition/MIDI v0 — MusicLang + drum-gen +
+   wobblemidi + FluidSynth render path (goals §8.1); residual research items per goals §8.3
 
 ## Standing Observations (orchestrator)
 
