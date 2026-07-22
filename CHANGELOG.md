@@ -25,7 +25,7 @@
 
 #### Tests:
 - Baseline: 419 passed, 3 deselected, 0 failed
-- Final: (recorded in handoff)
+- Final: 429 passed, 3 deselected, 0 failed (+10 new: 7 closeout + 3 hooks_path)
 
 ---
 
