@@ -35,7 +35,9 @@ toolshop_data/
 lyrics_output/
 Genious_lyrics_extractor/samples/
 Genious_lyrics_extractor/.env
-pytest_tail.txt
+pytest_*.txt
+annotate_run*.txt
+.windsurf/
 
 # Separate live subproject (nested git repo, not part of core package)
 open_DAW/
