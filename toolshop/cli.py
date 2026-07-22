@@ -987,6 +987,58 @@ def build_parser() -> argparse.ArgumentParser:
         help="Wipe existing annotation tables before starting",
     )
 
+    # lyrics lexicon [--cohort drill_trap|pop] [--top N] [--json] [--db PATH]
+    lyrics_lexicon_parser = lyrics_subparsers.add_parser(
+        "lexicon", help="Mine slang lexicon from CLASSLA tokens (OOV + cohort distinctiveness)"
+    )
+    lyrics_lexicon_parser.add_argument(
+        "--cohort", type=str, default=None,
+        choices=["drill_trap", "pop"],
+        help="Filter to drill-distinctive or pop-distinctive terms",
+    )
+    lyrics_lexicon_parser.add_argument(
+        "--top", type=int, default=20,
+        help="Number of terms to show (default: 20)",
+    )
+    lyrics_lexicon_parser.add_argument(
+        "--json", action="store_true", help="Output as JSON instead of table"
+    )
+    lyrics_lexicon_parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+    )
+
+    # lyrics themes [--db PATH] [--min-section-lines N] [--seed N] [--json]
+    lyrics_themes_parser = lyrics_subparsers.add_parser(
+        "themes", help="Fit BERTopic themes per section and compute cohort mix"
+    )
+    lyrics_themes_parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+    )
+    lyrics_themes_parser.add_argument(
+        "--min-section-lines",
+        type=int,
+        default=2,
+        dest="min_section_lines",
+        help="Skip sections with fewer lines than this (default: 2)",
+    )
+    lyrics_themes_parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for BERTopic reproducibility (default: 42)",
+    )
+    lyrics_themes_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output summary as JSON instead of table",
+    )
+
     return parser
 
 
@@ -1789,6 +1841,59 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 limit=args.limit,
                 fresh=args.fresh,
             )
+
+        elif args.lyrics_command == "lexicon":
+            import json as json_mod
+            import sqlite3
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.lexicon import run_lexicon, get_slang_terms
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+
+            # Mine first (idempotent — wipes + rebuilds)
+            print(f"Mining slang lexicon...")
+            run_lexicon(db_path=db_path)
+
+            # Then display
+            conn = sqlite3.connect(db_path)
+            terms = get_slang_terms(conn, cohort=args.cohort, top=args.top)
+            if args.json:
+                print(json_mod.dumps(terms, indent=2, ensure_ascii=False))
+            else:
+                if not terms:
+                    print("No slang terms found. Run 'toolshop lyrics annotate' first.")
+                    conn.close()
+                    return
+                label = f"{args.cohort}-distinctive" if args.cohort else "all"
+                print(f"\nSlang terms ({label}, top {args.top}):")
+                print(f"{'Form':<20} {'Lemma':<20} {'Freq':>5} {'Drill/10K':>10} {'Pop/10K':>10} {'Distinct':>10}")
+                print("-" * 80)
+                for t in terms:
+                    print(f"{t['form']:<20} {t['lemma']:<20} {t['freq']:>5} "
+                          f"{t['drill_freq']:>10.2f} {t['pop_freq']:>10.2f} "
+                          f"{t['distinctiveness']:>10.3f}")
+            conn.close()
+
+        elif args.lyrics_command == "themes":
+            import json as json_mod
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.themes import run_themes
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            print(f"Fitting BERTopic themes...")
+            summary = run_themes(
+                db_path=db_path,
+                min_section_lines=args.min_section_lines,
+                seed=args.seed,
+            )
+            if args.json and summary:
+                print(json_mod.dumps(summary, indent=2, default=str, ensure_ascii=False))
 
         else:
             parser.error("Unknown 'lyrics' subcommand.")
