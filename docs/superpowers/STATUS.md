@@ -3,6 +3,22 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
+> **Last review: 2026-07-23 (Q1-S0 HYGIENE + CLOSE-OUT GATE — VERIFIED PASS · #023).**
+> Orchestrator re-ran everything independently: pytest **429/0** (matches handoff), `toolshop
+> closeout` **exit 0 PASS**, origin sync empty, `core.hooksPath=hooks` + doctor OK, `.gitignore`
+> globs live, docs wave on origin. The close-out gate is now MECHANICAL (CLI verb + tracked
+> pre-push hook + doctor check). First fully honest handoff in the sequence — deviations
+> documented, wrong-approach config hack self-corrected and disclosed. **Q1 step 0 DONE.**
+> Mystery explained: the plan's premises (3 unpushed commits, 12 junk files) had been consumed by
+> a **6th out-of-band L3 session** (`7a93ad7`/`de2a528`/`2893394`, #021 claims "L3 discrimination
+> gate PASS") which pushed + cleaned before Q1-S0 ran — benign this time, but **#021 is
+> UNREVIEWED → next session = L3 spot-check (Q1 item 1)**. Pending orchestrator decisions
+> (root-clutter audit, handoff §6): tracked one-off scripts (`diagnose_voice_analysis.py`,
+> `check_batch_status.py`, `recover_batch_status.py`, `generate_crhymetv_catalogue.py`,
+> `run_papapedro_pilot.*`) + `.coverage` tracked-though-ignored → keep / scripts-dir / git-rm at
+> next consolidation. Minor debt: closeout docstring claims a pointer-on-remote check the code
+> doesn't implement; doctor overall FAIL = pre-existing model_cache gap (M2 scope).
+>
 > **Last review: 2026-07-22 evening (FULL-STUDIO MANDATE adopted + landscape research received).**
 > User widened scope to a complete studio toolkit (goals G1–G10, quarters Q1–Q4): new lanes =
 > composition/MIDI, synthesis palette, mixing chains, vocal correction; **3-machine fleet**
@@ -118,10 +134,10 @@
 
 ## Recommended Sequence — Q1 (Aug–Oct 2026, per goals v1.0 §6)
 
-0. **Hygiene FIRST (blocks everything):** push the 3 L3 commits, `.gitignore` glob fix + delete
-   `pytest_*.txt` junk, then mechanize the close-out gate (`toolshop closeout` + pre-push hook, G8)
-1. **T5-L3 close** (themes; already in flight — bring back in-band, spot-check) → **L4** fingerprints +
-   gap report vs the 2,633 Suno lyrics
+0. ~~Hygiene FIRST~~ → ✅ **DONE, VERIFIED 2026-07-23** (#022/#023): pushed, junk globs live,
+   `toolshop closeout` + pre-push hook + doctor check mechanical
+1. **T5-L3 SPOT-CHECK NEXT** (#021 "discrimination gate PASS" is unreviewed — verify themes/lexicon/
+   gate evidence against lyrics.db) → then **L4** fingerprints + gap report vs the 2,633 Suno lyrics
 2. **H1 close:** M2 Demucs e2e · M4 mastering e2e (any evening) · M3 CPU opt (+ museval seed) · M5 reorg
 3. **E1 restore diagnose** (plan ready) → **E2 chains core** (⚠ include PR#476 VST3 dry-render test
    gate) → **E3 treat v1**
