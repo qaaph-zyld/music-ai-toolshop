@@ -1,5 +1,32 @@
 # Changelog
 
+### Answer #024 - T5-L3 Independent Verification (READ-ONLY)
+**Timestamp:** 2026-07-23
+**Action Type:** Independent verification (orchestrator re-run; docs-only commit)
+
+**Previous State:** CHANGELOG #021 claimed "L3 discrimination gate PASS" (commits 7a93ad7/de2a528/2893394). The claim was UNREVIEWED — STATUS.md flagged it for spot-check as Q1 item 1.
+
+**Current State:** All #021 claims independently reproduced from `lyrics.db` (D:\MusicData\toolshop\lyrics\lyrics.db, READ-ONLY). No product code or DB modified. No CLASSLA/BERTopic/slang mining re-run — persistence-level verification only (same pattern as L2.1 #020).
+
+**Verification results (all re-run from raw DB, not relayed from #021):**
+1. **Annotation coverage:** 36,572/36,572 lines (100%, 0 gaps), 282,426 tokens, 6,708 entities — all match. Cyrillic 3,398 / Latin 279,028. NER: PER 3,838 / LOC 1,240 / ORG 919 / MISC 645 / DERIV-PER 66. 1 NULL lemma out of 282,426 (negligible).
+2. **Slang lexicon:** 6,984 terms, 2,421 drill-distinctive, 1,741 pop-distinctive, 1,638 strong (|dist|>1.0) — all match. Distinctiveness recompute for 10-term random sample (seed=42): max |diff| = 0.0000 (persisted == recomputed). Top-10 drill/pop terms pass face validity (real slang, not tokenizer junk).
+3. **Themes:** 84 topics, 2,283 section_topics — match. JSD(drill||pop) recomputed from persisted per-cohort distributions = 0.2015 (matches to 4 decimals). Section coverage: 2,283/5,493 = 41.6% (734 excluded by min_section_lines=2; 2,476 HDBSCAN outliers — expected, plan sets no coverage target).
+4. **Discrimination gate:** All three conditions PASS (slang: 2,421/1,741 > 0; strong: 1,638 > 0; theme: JSD 0.2015 > 0.05). Top-5 topic overlap = 2/5 — visibly different dominant topics. Direction consistent with L2.1 (Cohen's d=1.18, pop RF > drill RF).
+
+**Verdict: L3 = VERIFIED PASS.** #021 is review-cleared. L4 unblocked.
+
+#### Changes Made:
+- **ADDED:** `lyrics_research/reports/2026-07-23_l3-verification.md` - Full verification report with claims table, queries, and verdict.
+- **UPDATED:** `docs/superpowers/STATUS.md` - T5 lane retagged to "L3 VERIFIED PASS"; Q1 item 1 marked done; review header updated.
+
+#### Verification:
+- DB: D:\MusicData\toolshop\lyrics\lyrics.db (READ-ONLY, no modifications)
+- No product code modified. No CLASSLA, BERTopic, or slang mining re-run.
+- Verification script: D:\MusicData\toolshop\l3_verify.py (outside repo, not committed)
+
+---
+
 ### Answer #023 - Q1-S0 Orchestrator Verification (READ-ONLY)
 **Timestamp:** 2026-07-23
 **Action Type:** Independent verification (orchestrator re-run; docs-only commit)

@@ -3,7 +3,16 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
-> **Last review: 2026-07-23 (Q1-S0 HYGIENE + CLOSE-OUT GATE — VERIFIED PASS · #023).**
+> **Last review: 2026-07-23 (T5-L3 INDEPENDENT VERIFICATION — VERIFIED PASS · #024).**
+> All #021 claims independently reproduced from `lyrics.db`: annotation coverage 36,572/36,572
+> lines (100%), 282,426 tokens, 6,708 entities — all match. Slang: 6,984 terms, 2,421 drill / 1,741
+> pop distinctive, distinctiveness recompute max diff 0.0000 (10-term sample, seed=42). Themes: 84
+> topics, 2,283 section_topics, JSD=0.2015 reproduces exactly. Gate: all three conditions PASS
+> (slang + strong slang + theme discrimination). Direction consistent with L2.1 (different dominant
+> topics, 2/5 overlap in top-5). Report: `lyrics_research/reports/2026-07-23_l3-verification.md`.
+> **#021 is now REVIEW-CLEARED.** L4 (fingerprints + gap report vs 2,633 Suno lyrics) is unblocked.
+>
+> **Prior review: 2026-07-23 (Q1-S0 HYGIENE + CLOSE-OUT GATE — VERIFIED PASS · #023).**
 > Orchestrator re-ran everything independently: pytest **429/0** (matches handoff), `toolshop
 > closeout` **exit 0 PASS**, origin sync empty, `core.hooksPath=hooks` + doctor OK, `.gitignore`
 > globs live, docs wave on origin. The close-out gate is now MECHANICAL (CLI verb + tracked
@@ -101,7 +110,7 @@
 | T2 Dossier/RE | v1 live; **222-track catalogue is the first cross-tool asset** | H2 (Dossier v2) after H1 |
 | T3 Mastering | Working daily product; submodule clean (aebcf76) | M4 verification |
 | T4 Vocal Lab | Shipped detectors/cleaning; idle | H2 (faster-whisper) |
-| T5 Library Intelligence | lyrics.db over **742 songs**; L1.1 + **L2.1 VERIFIED PASS** (independent re-run 2026-07-22, report: `lyrics_research/reports/2026-07-22_l2-1-verification.md`); Cohen's d=1.18, persisted==engine to 0.000000; roadmap `plans/2026-07-21-lyric-intelligence-roadmap-L3-L6.md` | **L3 themes NEXT** (gate open) — CLASSLA slang/NER + BERTopic per-section themes; then L4 fingerprints + gap report on the 2,633 Suno lyrics. Phase 0 committed (#019); no blockers. |
+| T5 Library Intelligence | lyrics.db over **742 songs**; L1.1 + **L2.1 VERIFIED PASS** (independent re-run 2026-07-22, report: `lyrics_research/reports/2026-07-22_l2-1-verification.md`); Cohen's d=1.18, persisted==engine to 0.000000; **L3 VERIFIED PASS** (independent re-run 2026-07-23, report: `lyrics_research/reports/2026-07-23_l3-verification.md`); JSD=0.2015, slang distinctiveness reproduces to 0.0000, 84 topics, 6,708 entities; roadmap `plans/2026-07-21-lyric-intelligence-roadmap-L3-L6.md` | **L4 NEXT** — fingerprints + gap report on the 2,633 Suno lyrics. #021 review-cleared. |
 | T6 Creation Bridge | Corpus = fuel for briefs/rhyme work | Consumes Lyric Intelligence outputs: rimer DB, brief generator, draft scorer (L5) |
 | T7 Sample Forge | v1 partial: section-consuming forge + spec-aligned naming shipped; auto-detection deferred to H2 structure detector | H2: automatic section detection; H3: its pedalboard pick promoted to core chains (E2) |
 | **T8 Restore "Track Doctor"** | **NEW lane** — strategy adopted 2026-07-17 (`specs/2026-07-17-production-expansion-strategy.md` §1) | **E1 plan ready**: `plans/2026-07-17-e1-restore-diagnose.md` (impurity metrics + report + batch sweep); then E2 chains core → E3 treat v1 → E4 heavy de-reverb only after E3 proves daily value (D4 decided) |
@@ -136,8 +145,9 @@
 
 0. ~~Hygiene FIRST~~ → ✅ **DONE, VERIFIED 2026-07-23** (#022/#023): pushed, junk globs live,
    `toolshop closeout` + pre-push hook + doctor check mechanical
-1. **T5-L3 SPOT-CHECK NEXT** (#021 "discrimination gate PASS" is unreviewed — verify themes/lexicon/
-   gate evidence against lyrics.db) → then **L4** fingerprints + gap report vs the 2,633 Suno lyrics
+1. ~~**T5-L3 SPOT-CHECK**~~ → ✅ **DONE, VERIFIED 2026-07-23** (#024): all #021 claims reproduced
+   from lyrics.db — annotation, slang, themes, JSD, gate all match → then **L4** fingerprints + gap
+   report vs the 2,633 Suno lyrics
 2. **H1 close:** M2 Demucs e2e · M4 mastering e2e (any evening) · M3 CPU opt (+ museval seed) · M5 reorg
 3. **E1 restore diagnose** (plan ready) → **E2 chains core** (⚠ include PR#476 VST3 dry-render test
    gate) → **E3 treat v1**
