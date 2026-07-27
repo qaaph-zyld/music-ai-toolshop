@@ -1,5 +1,35 @@
 # Changelog
 
+### Answer #027 - Batch 3 Corpus Expansion (1,425 songs)
+**Timestamp:** 2026-07-27
+**Action Type:** Data expansion + bugfix
+
+**What was done:**
+- Extracted 8 new Balkan artists from Genius: Devito, TNG, Voyage, Rasta (drill_trap); Maya Berovic, Ana Nikolic, Breskvica, Henny (pop). 722 new songs fetched.
+- Updated `COHORT_MAP` in `lyricsdb.py` with 8 new entries.
+- Rebuilt unified index and lyrics.db: 1,425 songs (up from 742), 10,654 sections, 65,912 lines, 273,801 rhyme rows.
+- Cohort distribution: drill_trap 723 solo / pop 524 solo / NULL 178 (85 solo + 93 featured).
+- `.gitignore`: added patterns for `fingerprint-output.txt`, `push-output.txt`, `sanity-output.txt`, `test-final.txt`, `test-fp-output.txt`, `Stemmeca_alatkka/stems/`, `Stemmeca_alatkka/tracks/`.
+- `bpm_adapter.py`: numpy 2.0 scalar fix (`float(np.atleast_1d(tempo)[0])`) — same pattern as `cleaning_stages.py` fix from #019.
+
+**Files added (Genious_lyrics_extractor/):**
+- `extract_batch3.py` (280 lines) — batch3 extraction following batch2 pattern
+- `extract_batch3_remaining.py` — helper for resuming interrupted extraction
+- `fetch_henny.py` — standalone Henny fetch helper
+- `rebuild_db.py` — DB rebuild with platform.platform() patch for Windows
+- `verify_counts.py` — corpus count verification
+- `corpus_inventory.py` — full corpus inventory report
+- `run_batch3_remaining.ps1` — PowerShell helper
+
+**Files modified:**
+- `toolshop/lyricsdb.py` — COHORT_MAP +8 entries
+- `toolshop/bpm_adapter.py` — numpy 2.0 tempo scalar fix
+- `.gitignore` — junk file patterns + Stemmeca dirs
+
+**Next steps:** Fix NULL cohort assignment for 85 solo songs, re-run CLASSLA + slang + BERTopic + fingerprints on expanded corpus.
+
+---
+
 ### Answer #026 - T5-L4 Part A: Pro Fingerprints + Suno Fetch Script
 **Timestamp:** 2026-07-27
 **Action Type:** Feature implementation

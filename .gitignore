@@ -28,6 +28,8 @@ output.txt
 Distro Kidea/
 Stemmeca_alatkka/separated_stems/
 Stemmeca_alatkka/toolshop_stems*/
+Stemmeca_alatkka/stems/
+Stemmeca_alatkka/tracks/
 Voicebox/
 toolshop_data/
 
@@ -38,6 +40,11 @@ Genious_lyrics_extractor/.env
 pytest_*.txt
 annotate_run*.txt
 test-output.txt
+fingerprint-output.txt
+push-output.txt
+sanity-output.txt
+test-final.txt
+test-fp-output.txt
 .windsurf/
 
 # Separate live subproject (nested git repo, not part of core package)

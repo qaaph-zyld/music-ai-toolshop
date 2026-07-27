@@ -43,6 +43,15 @@ COHORT_MAP: Dict[str, str] = {
     "Corona": "drill_trap",
     "Indodjija": "drill_trap",
     "Indođija": "drill_trap",
+    # Batch 3 (2026-07-27):
+    "Devito": "drill_trap",
+    "TNG": "drill_trap",
+    "Voyage": "drill_trap",
+    "Rasta": "drill_trap",
+    "Maya Berović": "pop",
+    "Ana Nikolić": "pop",
+    "Breskvica": "pop",
+    "Henny": "pop",
 }
 
 
