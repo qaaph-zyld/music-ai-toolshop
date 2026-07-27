@@ -1,5 +1,31 @@
 # Changelog
 
+### Answer #025 - FL Studio DAW Integration Phases 1-4
+**Timestamp:** 2026-07-27
+**Action Type:** Feature implementation
+
+**What was built:**
+- **12 DAW modules** in `toolshop/daw/`: `client.py` (TCP bridge client), `transport.py`, `mixer.py`, `channels.py`, `patterns.py`, `piano_roll.py`, `plugins.py`, `generators.py`, `corpus_intel.py`, `daw_cli.py` (CLI with 17 subcommands), `fl_bridge_script.py` (19 bridge handlers for FL Studio 21 API), `__init__.py`
+- **143 tests** in `tests/test_daw.py` (8 test classes, mock TCP server with lambda handlers)
+- **CLI integration** in `toolshop/cli.py` (+15 lines: DAW subparser + dispatch)
+
+**Architecture:** 3-layer pattern — Wrapper module (thin `client.call`) → Bridge script (FL API mapping) → CLI (argparse + dispatch). Mock TCP server for fast deterministic tests.
+
+**Key bugs fixed during implementation:**
+1. `chord_notes` auto-detection: rewrote from fixed +3 semitone offset to scale-interval-based stacked thirds (scale_degree+2, +4). Fixed C major I chord producing D# instead of E.
+2. `gen_arpeggio` chord root parsing: strip trailing "m" from chord names ("Gm" → "G") before `note_name_to_midi`.
+3. Mock server: added 4 missing mixer handlers (set_volume/set_pan/mute/solo).
+
+**Test results:** 538 passed, 2 skipped, 3 deselected, 0 failed (207.51s)
+
+**Also included in this commit:**
+- `tests/fixtures/lyrics_min/_dedup_log.json`: path-case fix (D: → d: from test run)
+- `docs/superpowers/plans/2026-07-23-t5l4-fingerprints-gap-report.md`: L4 plan doc
+- `docs/superpowers/specs/arpino-sachi-vocal-chain-analysis.md`: vocal chain spec
+- `.gitignore`: added `test-output.txt` pattern
+
+---
+
 ### Answer #024 - T5-L3 Independent Verification (READ-ONLY)
 **Timestamp:** 2026-07-23
 **Action Type:** Independent verification (orchestrator re-run; docs-only commit)

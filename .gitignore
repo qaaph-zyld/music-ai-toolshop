@@ -37,6 +37,7 @@ Genious_lyrics_extractor/samples/
 Genious_lyrics_extractor/.env
 pytest_*.txt
 annotate_run*.txt
+test-output.txt
 .windsurf/
 
 # Separate live subproject (nested git repo, not part of core package)

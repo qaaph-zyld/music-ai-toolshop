@@ -806,6 +806,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # =========================================================================
+    # DAW (Live DAW Control) COMMANDS
+    # =========================================================================
+    from .daw import daw_cli as daw_cli_module
+    daw_cli_module.add_parser(subparsers)
+
+    # =========================================================================
     # LYRICS (Genius) COMMANDS
     # =========================================================================
     lyrics_parser = subparsers.add_parser(
@@ -1623,6 +1629,15 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     elif args.command == "closeout":
         from . import closeout as closeout_module
         code = closeout_module.main()
+        if code != 0:
+            raise SystemExit(code)
+
+    # =========================================================================
+    # DAW (Live DAW Control)
+    # =========================================================================
+    elif args.command == "daw":
+        from .daw import daw_cli as daw_cli_module
+        code = daw_cli_module.run(args)
         if code != 0:
             raise SystemExit(code)
 
