@@ -54,6 +54,31 @@ COHORT_MAP: Dict[str, str] = {
     "Henny": "pop",
 }
 
+# Fallback: folder-name (target_artist) → cohort.
+# Used when primary_artist isn't in COHORT_MAP (e.g. Genius lists "THCF"
+# as primary_artist for a song in the jala-solo folder).
+_FOLDER_COHORT_MAP: Dict[str, str] = {
+    "jala": "drill_trap",
+    "buba": "drill_trap",
+    "coby": "drill_trap",
+    "jala-buba": "drill_trap",
+    "jala-buba-coby": "drill_trap",
+    "corona": "drill_trap",
+    "indodjija": "drill_trap",
+    "indođija": "drill_trap",
+    "devito": "drill_trap",
+    "tng": "drill_trap",
+    "voyage": "drill_trap",
+    "rasta": "drill_trap",
+    "nikolija": "pop",
+    "senidah": "pop",
+    "relja": "pop",
+    "maya berovic": "pop",
+    "ana nikolic": "pop",
+    "breskvica": "pop",
+    "henny": "pop",
+}
+
 
 def _derive_role_and_target(category: str) -> Tuple[str, str]:
     """Derive (role, target_artist) from the category folder name.
@@ -661,12 +686,16 @@ def _insert_song(
     role, target_artist = _derive_role_and_target(category)
     genre_cohort = COHORT_MAP.get(primary_artist)
     if genre_cohort is None and role == "solo":
-        # Fallback: check if any known artist name appears in primary_artist
+        # Fallback 1: check if any known artist name appears in primary_artist
         # (handles duo/trio categories like "Jala Brat & Buba Corelli")
         for known_artist, cohort in COHORT_MAP.items():
             if known_artist.lower() in primary_artist.lower():
                 genre_cohort = cohort
                 break
+    if genre_cohort is None and role == "solo":
+        # Fallback 2: check target_artist (folder name) against folder cohort map
+        # (handles Genius listing a different primary_artist, e.g. "THCF" in jala-solo)
+        genre_cohort = _FOLDER_COHORT_MAP.get(target_artist.lower())
 
     cursor = conn.execute(
         """INSERT INTO songs (corpus, category, title, primary_artist,
