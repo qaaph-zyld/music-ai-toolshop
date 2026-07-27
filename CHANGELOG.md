@@ -1,5 +1,25 @@
 # Changelog
 
+### Answer #026 - T5-L4 Part A: Pro Fingerprints + Suno Fetch Script
+**Timestamp:** 2026-07-27
+**Action Type:** Feature implementation
+
+**What was built:**
+- **`toolshop/fingerprint.py`** — Per-artist pro fingerprints from persisted data only (no recomputation). Functions: `build_fingerprint()`, `build_cohort_fingerprint()`, `render_fingerprint_md()`, `render_report()`. Aggregates rhyme craft (RF median+IQR, %multis, internal rate, dominant schemes, top vowel pairs), structure (section-type distribution, avg sections/song, avg lines/section, refren share, hook repetition), lexical (TTR, syllables/line, distinctive vocabulary top-20 with UPOS filtering), and content (top PER/LOC/ORG entities, top-5 topics with shares). Auto-derived 2-3 sentence craft profile.
+- **`tests/test_fingerprint.py`** — 12 TDD tests covering all fingerprint functions, cohort rollups, golden snapshot, and markdown rendering.
+- **CLI verb** `toolshop lyrics fingerprint` with `--artist`, `--cohort`, `--db`, `--output` options. Default renders full report to `lyrics_research/reports/pro_fingerprints.md`.
+- **`lyrics_research/reports/pro_fingerprints.md`** — 10-page report: 8 artist fingerprints + 2 cohort rollups (drill_trap, pop).
+- **`scripts/suno_fetch_liked.py`** — Standalone script to fetch liked Suno clips' metadata via internal API. Saves `<clip_id>_metadata.json` in toolshop-compatible format. Resume support, conservative rate limiting. Requires bearer token from browser dev tools.
+
+**A3 sanity gate (3 spot values verified against direct SQL):**
+1. Jala Brat RF median: SQL=0.5761, report=0.5761 ✓
+2. Buba Corelli %multis median: SQL=0.8462, report=0.8462 ✓
+3. Senidah top-5 topics: all 5 topic shares match SQL to 1 decimal ✓
+
+**Test results:** 584 passed, 0 failed, 3 deselected (235.13s) — up from 538 baseline (+12 fingerprint tests, +34 DAW from #025)
+
+**Part B status:** Suno fetch script written and ready-to-run. Download gated on user providing bearer token. Gap report deferred to follow-up session.
+
 ### Answer #025 - FL Studio DAW Integration Phases 1-4
 **Timestamp:** 2026-07-27
 **Action Type:** Feature implementation

@@ -1063,6 +1063,36 @@ def build_parser() -> argparse.ArgumentParser:
         help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
     )
 
+    # lyrics fingerprint [--artist NAME] [--cohort drill_trap|pop] [--db PATH] [--output PATH]
+    lyrics_fp_parser = lyrics_subparsers.add_parser(
+        "fingerprint", help="Generate per-artist pro fingerprints from persisted data"
+    )
+    lyrics_fp_parser.add_argument(
+        "--artist",
+        type=str,
+        default=None,
+        help="Single artist name (default: all 8 target artists + 2 cohort rollups)",
+    )
+    lyrics_fp_parser.add_argument(
+        "--cohort",
+        type=str,
+        default=None,
+        choices=["drill_trap", "pop"],
+        help="Cohort rollup only (drill_trap or pop)",
+    )
+    lyrics_fp_parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+    )
+    lyrics_fp_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Output file path (default: lyrics_research/reports/pro_fingerprints.md)",
+    )
+
     return parser
 
 
@@ -1946,6 +1976,37 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 print("Run 'toolshop lyrics build-db' first.")
                 return
             run_report(db_path=db_path)
+
+        elif args.lyrics_command == "fingerprint":
+            from toolshop.lyricsdb import DEFAULT_DB_PATH as _DB_DEFAULT
+            from toolshop.fingerprint import (
+                build_fingerprint as _build_fp,
+                build_cohort_fingerprint as _build_cohort_fp,
+                render_fingerprint_md as _render_fp_md,
+                render_report as _render_fp_report,
+            )
+            import sqlite3 as _sqlite3
+            db_path = args.db or _DB_DEFAULT
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            conn = _sqlite3.connect(db_path)
+            try:
+                if args.artist:
+                    fp = _build_fp(conn, args.artist)
+                    print(_render_fp_md(fp))
+                elif args.cohort:
+                    fp = _build_cohort_fp(conn, args.cohort)
+                    print(_render_fp_md(fp))
+                else:
+                    md = _render_fp_report(conn)
+                    output_path = args.output or Path("lyrics_research/reports/pro_fingerprints.md")
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    output_path.write_text(md, encoding="utf-8")
+                    print(f"Report written to {output_path}")
+            finally:
+                conn.close()
 
         else:
             parser.error("Unknown 'lyrics' subcommand.")
