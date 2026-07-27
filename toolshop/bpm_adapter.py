@@ -43,7 +43,7 @@ def analyze_track(path: Path) -> Dict[str, Any]:
 
     # BPM
     tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-    bpm = float(tempo)
+    bpm = float(np.atleast_1d(tempo)[0])
 
     # Key estimation via chroma
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
