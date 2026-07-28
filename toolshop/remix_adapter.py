@@ -208,6 +208,8 @@ def _detect_bpm_key(path: Path) -> Tuple[float, str, str]:
 def _detect_beats(audio: np.ndarray, sr: int) -> Tuple[float, np.ndarray]:
     """Return (bpm, beat_samples) for the audio."""
     _require_deps()
+    if audio.ndim > 1:
+        audio = np.mean(audio, axis=1)
     tempo, beat_frames = librosa.beat.beat_track(y=audio, sr=sr)
     if hasattr(tempo, "item"):
         tempo = tempo.item()
@@ -378,6 +380,24 @@ def _slice_by_sections(
     return result
 
 
+def _to_channels_first(audio: np.ndarray) -> np.ndarray:
+    """Convert (samples, channels) to (channels, samples) for pedalboard."""
+    if audio.ndim == 1:
+        return audio
+    if audio.ndim == 2 and audio.shape[1] <= 2:
+        return np.ascontiguousarray(audio.T)
+    return audio
+
+
+def _to_samples_first(audio: np.ndarray) -> np.ndarray:
+    """Convert (channels, samples) to (samples, channels) for soundfile."""
+    if audio.ndim == 1:
+        return audio
+    if audio.ndim == 2 and audio.shape[0] <= 2:
+        return np.ascontiguousarray(audio.T)
+    return audio
+
+
 def _stretch_segment(
     segment: np.ndarray,
     sr: int,
@@ -400,16 +420,18 @@ def _stretch_segment(
         pitch_shift = float(_semitone_diff(src_key, dst_key))
     if abs(stretch_factor - 1.0) < 1e-6 and abs(pitch_shift) < 1e-6:
         return segment
+    audio_in = _to_channels_first(segment)
     out = pedalboard.time_stretch(
-        segment,
+        audio_in,
         sr,
         stretch_factor=float(stretch_factor),
         pitch_shift_in_semitones=float(pitch_shift),
         **stretch_kwargs,
     )
-    # pedalboard.time_stretch returns (channels, samples) for 1-D input.
     if was_1d and out.ndim > 1:
         out = np.ascontiguousarray(out).reshape(-1)
+    elif not was_1d:
+        out = _to_samples_first(out)
     return out
 
 
@@ -422,10 +444,10 @@ def _build_fx_board(fx_chain: List[str], sr: int) -> "pedalboard.Pedalboard":
         if name == "reverb":
             plugins.append(
                 pedalboard.Reverb(
-                    room_size=0.6,
-                    damping=0.5,
-                    wet_level=0.25,
-                    dry_level=0.75,
+                    room_size=0.4,
+                    damping=0.7,
+                    wet_level=0.15,
+                    dry_level=0.85,
                 )
             )
         elif name == "delay":
@@ -441,14 +463,14 @@ def _build_fx_board(fx_chain: List[str], sr: int) -> "pedalboard.Pedalboard":
         elif name == "compressor":
             plugins.append(
                 pedalboard.Compressor(
-                    threshold_db=-18.0,
-                    ratio=4.0,
+                    threshold_db=-14.0,
+                    ratio=3.0,
                     attack_ms=5.0,
                     release_ms=50.0,
                 )
             )
         elif name == "distortion":
-            plugins.append(pedalboard.Distortion(drive_db=6.0))
+            plugins.append(pedalboard.Distortion(drive_db=4.0))
         else:
             logging.warning("Unknown FX '%s'; skipping.", fx)
     return pedalboard.Pedalboard(plugins)
@@ -461,7 +483,9 @@ def _apply_fx(audio: np.ndarray, sr: int, fx_chain: Optional[List[str]]) -> np.n
     board = _build_fx_board(fx_chain, sr)
     if len(board) == 0:
         return audio
-    return board(audio, sr)
+    audio_in = _to_channels_first(audio)
+    out = board(audio_in, sr)
+    return _to_samples_first(out)
 
 
 def _crossfade_concat(
@@ -526,6 +550,118 @@ def _resolve_input_path(
     return input_path
 
 
+_VOCAL_STEM_NAMES = {"vocals", "main_vocals", "backing_vocals"}
+
+_STEM_HPF = {
+    "drums": 30.0,
+    "other": 150.0,
+    "guitar": 120.0,
+    "piano": 100.0,
+}
+
+_STEM_GAIN_DB = {
+    "drums": 0.0,
+    "bass": -1.0,
+    "other": -3.0,
+    "guitar": -4.0,
+    "piano": -4.0,
+}
+
+
+def combine_stems(
+    stems_dir: Path,
+    output_path: Optional[Path] = None,
+    *,
+    skip_stems: Optional[set] = None,
+) -> Path:
+    """Combine non-vocal stems into a single stereo instrumental track.
+
+    Reads stem WAVs from *stems_dir* (manifest-aware with glob fallback),
+    applies per-stem high-pass filters and gain offsets, sums, and
+    peak-normalizes to -1 dBFS.
+
+    Args:
+        stems_dir: Directory containing stem WAVs (optionally with manifest.json).
+        output_path: Where to write the combined instrumental. Defaults to
+            ``stems_dir / "instrumental_internal.wav"``.
+        skip_stems: Extra stem names to skip beyond the default vocal set.
+
+    Returns:
+        Path to the written instrumental WAV.
+    """
+    _require_deps()
+    stems_dir = Path(stems_dir)
+    if not stems_dir.is_dir():
+        raise FileNotFoundError(f"Stems directory not found: {stems_dir}")
+
+    skip = _VOCAL_STEM_NAMES | (skip_stems or set())
+
+    stem_files: Dict[str, Path] = {}
+    manifest = stems_dir / "manifest.json"
+    if manifest.exists():
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        for name, path_str in data.get("stems", {}).items():
+            if name not in skip:
+                p = Path(path_str)
+                if p.exists():
+                    stem_files[name] = p
+    if not stem_files:
+        for wav in sorted(stems_dir.glob("*.wav")):
+            name = wav.stem.lower()
+            if name not in skip:
+                stem_files[name] = wav
+
+    if not stem_files:
+        raise FileNotFoundError(
+            f"No non-vocal stem WAVs found in {stems_dir}"
+        )
+
+    audio_list: List[np.ndarray] = []
+    sr: int = 0
+    for name, path in stem_files.items():
+        data, file_sr = sf.read(str(path), always_2d=True)
+        if sr == 0:
+            sr = file_sr
+        elif file_sr != sr:
+            logging.warning(
+                "Stem %s has sr %d != %d; skipping.", name, file_sr, sr
+            )
+            continue
+        data = data.T  # (channels, samples) for pedalboard
+        if data.shape[0] == 1:
+            data = np.tile(data, (2, 1))
+        hpf_freq = _STEM_HPF.get(name)
+        if hpf_freq:
+            board = pedalboard.Pedalboard([pedalboard.HighpassFilter(cutoff_frequency_hz=hpf_freq)])
+            data = board(data, sr)
+        gain_db = _STEM_GAIN_DB.get(name, 0.0)
+        if gain_db != 0.0:
+            data = data * (10.0 ** (gain_db / 20.0))
+        audio_list.append(data.astype(np.float32))
+        logging.info("Loaded stem %s: shape=%s", name, data.shape)
+
+    min_len = min(a.shape[1] for a in audio_list)
+    n_ch = max(a.shape[0] for a in audio_list)
+    combined = np.zeros((n_ch, min_len), dtype=np.float32)
+    for a in audio_list:
+        combined[: a.shape[0], :min_len] += a[: a.shape[0], :min_len]
+
+    peak = np.max(np.abs(combined))
+    if peak > 0:
+        target_peak = 10 ** (-1.0 / 20.0)
+        combined = combined * (target_peak / peak)
+
+    if output_path is None:
+        output_path = stems_dir / "instrumental_internal.wav"
+    output_path = Path(output_path)
+    sf.write(str(output_path), _to_samples_first(combined), sr)
+    logging.info(
+        "Combined instrumental: %s (%.1fs, %dch, peak=%.4f)",
+        output_path, min_len / sr, n_ch, float(np.max(np.abs(combined))),
+    )
+    return output_path
+
+
 def _write_manifest(path: Path, manifest: Dict[str, Any]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
@@ -572,6 +708,7 @@ def create_remix(
     sections: Optional[List[Dict[str, Any]]] = None,
     sub_slice_beats: Optional[int] = None,
     snap_to_beats: bool = True,
+    whole_buffer: bool = False,
     **stretch_kwargs: Any,
 ) -> RemixResult:
     """Create a remix or sample pack from an audio file.
@@ -591,6 +728,9 @@ def create_remix(
         stems_dir: Optional existing `toolshop stems` output directory.
         stem_name: Specific stem to use from `stems_dir`.
         crossfade_ms: Crossfade length between segments in remix mode.
+        whole_buffer: If True (remix mode only), stretch the entire audio
+            buffer in one pass instead of per-segment. Eliminates phase
+            discontinuities at segment boundaries.
 
     Returns:
         RemixResult with output metadata.
@@ -599,7 +739,10 @@ def create_remix(
     if not input_path.exists():
         raise FileNotFoundError(f"Audio file not found: {input_path}")
 
-    resolved_input = _resolve_input_path(input_path, stems_dir, stem_name)
+    if stems_dir is not None and stem_name is None:
+        resolved_input = combine_stems(stems_dir)
+    else:
+        resolved_input = _resolve_input_path(input_path, stems_dir, stem_name)
     if not resolved_input.exists():
         raise FileNotFoundError(f"Resolved input not found: {resolved_input}")
 
@@ -618,7 +761,7 @@ def create_remix(
 
     # Load audio. Use stereo for sample mode to preserve width; mono for remix
     # to keep CPU cost low and mixing simple.
-    mono = mode == "remix"
+    mono = False
     audio, sr, duration, truncated = _load_audio(
         resolved_input, max_duration=max_duration, mono=mono
     )
@@ -631,14 +774,12 @@ def create_remix(
         audio = audio.astype(np.float32)
 
     if mode == "remix":
-        detected_bpm, beat_samples = _detect_beats(audio, sr)
-        if src_bpm is None or src_bpm <= 0:
-            src_bpm = detected_bpm
-        segments = _slice_by_beats(audio, beat_samples, segment_beats=segment_beats)
-        processed = []
-        for seg, _start, _end, _beats in segments:
-            seg = _stretch_segment(
-                seg,
+        if whole_buffer:
+            if src_bpm is None or src_bpm <= 0:
+                detected_bpm, _ = _detect_beats(audio, sr)
+                src_bpm = detected_bpm
+            final = _stretch_segment(
+                audio,
                 sr,
                 src_bpm=src_bpm,
                 dst_bpm=target_bpm,
@@ -646,9 +787,26 @@ def create_remix(
                 dst_key=target_key_letter,
                 **stretch_kwargs,
             )
-            processed.append(seg)
-        final = _crossfade_concat(processed, sr, crossfade_ms=crossfade_ms)
-        final = _apply_fx(final, sr, fx_chain)  # apply overall FX once more
+            final = _apply_fx(final, sr, fx_chain)
+        else:
+            detected_bpm, beat_samples = _detect_beats(audio, sr)
+            if src_bpm is None or src_bpm <= 0:
+                src_bpm = detected_bpm
+            segments = _slice_by_beats(audio, beat_samples, segment_beats=segment_beats)
+            processed = []
+            for seg, _start, _end, _beats in segments:
+                seg = _stretch_segment(
+                    seg,
+                    sr,
+                    src_bpm=src_bpm,
+                    dst_bpm=target_bpm,
+                    src_key=src_key,
+                    dst_key=target_key_letter,
+                    **stretch_kwargs,
+                )
+                processed.append(seg)
+            final = _crossfade_concat(processed, sr, crossfade_ms=crossfade_ms)
+            final = _apply_fx(final, sr, fx_chain)
     elif mode == "sample":
         if sections is not None:
             beat_audio = audio if audio.ndim == 1 else np.mean(audio, axis=0)

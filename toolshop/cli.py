@@ -785,6 +785,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Disable snapping section boundaries to nearest beat (requires --sections)",
     )
     remix_parser.add_argument(
+        "--whole-buffer", action="store_true",
+        help="Stretch the entire audio buffer in one pass (remix mode only). "
+             "Eliminates phase artifacts from per-segment stretching.",
+    )
+    remix_parser.add_argument(
         "--json", action="store_true", help="Output results as JSON"
     )
 

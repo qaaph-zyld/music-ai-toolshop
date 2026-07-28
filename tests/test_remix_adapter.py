@@ -141,6 +141,75 @@ def test_create_remix_smoke(tmp_path):
 
 
 @_skip_no_remix
+def test_create_remix_whole_buffer_smoke(tmp_path):
+    audio = _sine_wave(2.0)
+    src = tmp_path / "src.wav"
+    _write_wav(src, audio)
+    out = tmp_path / "remix_wb.wav"
+
+    result = remix_adapter.create_remix(
+        src,
+        out,
+        target_bpm=90.0,
+        mode="remix",
+        whole_buffer=True,
+        max_duration=240.0,
+    )
+    assert out.exists()
+    assert result.manifest_path and result.manifest_path.exists()
+    # Output should exist and be non-empty
+    import soundfile as sf
+    data, sr = sf.read(str(out))
+    assert len(data) > 0
+
+
+@_skip_no_remix
+def test_create_remix_whole_buffer_stereo(tmp_path):
+    sr = 22050
+    t = np.linspace(0, 1.0, int(sr), endpoint=False)
+    left = np.sin(2.0 * np.pi * 440.0 * t).astype(np.float32)
+    right = np.sin(2.0 * np.pi * 880.0 * t).astype(np.float32)
+    stereo = np.stack([left, right], axis=1)
+    src = tmp_path / "stereo_src.wav"
+    _write_wav(src, stereo)
+    out = tmp_path / "remix_stereo.wav"
+
+    result = remix_adapter.create_remix(
+        src,
+        out,
+        target_bpm=100.0,
+        source_bpm=120.0,
+        mode="remix",
+        whole_buffer=True,
+        max_duration=240.0,
+    )
+    assert out.exists()
+    import soundfile as sf
+    data, out_sr = sf.read(str(out))
+    assert data.ndim == 2 and data.shape[1] == 2, f"Expected stereo, got shape {data.shape}"
+
+
+@_skip_no_remix
+def test_combine_stems_glob_fallback(tmp_path):
+    sr = 22050
+    t = np.linspace(0, 0.5, int(sr * 0.5), endpoint=False)
+    sine = np.sin(2.0 * np.pi * 440.0 * t).astype(np.float32)
+    stereo = np.stack([sine, sine], axis=1)
+
+    for name in ["drums", "bass", "other", "vocals", "guitar", "piano"]:
+        _write_wav(tmp_path / f"{name}.wav", stereo)
+
+    out = remix_adapter.combine_stems(tmp_path)
+    assert out.exists()
+    import soundfile as sf
+    data, out_sr = sf.read(str(out))
+    assert data.ndim == 2 and data.shape[1] == 2
+    assert out_sr == sr
+    # Vocals should be skipped; output should be non-silent
+    assert np.max(np.abs(data)) > 0.01
+
+
+@_skip_no_remix
 def test_create_samples_smoke(tmp_path):
     audio = _sine_wave(2.0)
     src = tmp_path / "src.wav"

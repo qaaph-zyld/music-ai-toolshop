@@ -98,6 +98,7 @@ def _process_one(input_path: Path, args: Any) -> Dict[str, Any]:
         sections=sections,
         sub_slice_beats=getattr(args, "sub_slice_beats", None),
         snap_to_beats=not getattr(args, "no_beat_snap", False),
+        whole_buffer=getattr(args, "whole_buffer", False),
     )
     return {
         "status": "completed",

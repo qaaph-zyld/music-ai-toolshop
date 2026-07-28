@@ -150,6 +150,18 @@ def test_remix_parser_sections_defaults():
     assert args.no_beat_snap is False
 
 
+def test_remix_parser_whole_buffer():
+    parser = build_parser()
+    args = parser.parse_args(["remix", "song.wav", "--whole-buffer"])
+    assert args.whole_buffer is True
+
+
+def test_remix_parser_whole_buffer_default():
+    parser = build_parser()
+    args = parser.parse_args(["remix", "song.wav"])
+    assert args.whole_buffer is False
+
+
 @_skip_no_remix
 def test_cli_sections_requires_sample_mode(tmp_path):
     audio = _sine_wave(0.5)
