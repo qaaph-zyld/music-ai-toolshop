@@ -53,6 +53,10 @@ test-fp-output.txt
 pip-output.txt
 video-*-output.txt
 closeout-output.txt
+suno-gap-output.txt
+cohen-d-output.txt
+collab-output.txt
+test-final-output.txt
 .windsurf/
 
 # Separate live subproject (nested git repo, not part of core package)
