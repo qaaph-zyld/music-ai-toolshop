@@ -200,7 +200,7 @@ def test_bertopic_integration():
     model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
     embeddings = model.encode(docs)
 
-    topic_model = BERTopic(min_topic_size=2, random_state=42, calculate_probabilities=False)
+    topic_model = BERTopic(min_topic_size=2, calculate_probabilities=False)
     topics, probs = topic_model.fit_transform(docs, embeddings)
 
     assert len(topics) == len(docs)

@@ -14,6 +14,7 @@ def mock_librosa():
         mock_lib.load.return_value = (MagicMock(), 22050)
         mock_lib.get_duration.return_value = 120.5
         mock_lib.beat.beat_track.return_value = (120.0, None)
+        mock_np.atleast_1d.return_value = [120.0]
 
         # Setup chroma feature mock
         mock_chroma = MagicMock()
