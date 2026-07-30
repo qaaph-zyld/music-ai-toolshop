@@ -30,7 +30,7 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DATA_DIR = Path(os.environ.get("TOOLSHOP_DATA_DIR", r"D:\MusicData\toolshop"))
+DEFAULT_DATA_DIR = Path(os.environ.get("TOOLSHOP_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data" / "toolshop")))
 DEFAULT_BACKUP_TARGET = Path(os.environ.get("TOOLSHOP_BACKUP_DIR", r"C:\Backups\toolshop"))
 MANIFEST_FILENAME = "backup_manifest.json"
 VERIFY_SAMPLE_SIZE = 10

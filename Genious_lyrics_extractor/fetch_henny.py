@@ -34,7 +34,7 @@ def categorize_song(primary_artist: str) -> str:
 
 def main():
     token = load_token()
-    outdir = Path(os.environ.get("TOOLSHOP_DATA_DIR", r"D:\MusicData\toolshop")) / "lyrics" / "genius"
+    outdir = Path(os.environ.get("TOOLSHOP_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data" / "toolshop"))) / "lyrics" / "genius"
     outdir.mkdir(parents=True, exist_ok=True)
 
     if lyricsgenius is None:

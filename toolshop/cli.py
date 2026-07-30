@@ -817,6 +817,12 @@ def build_parser() -> argparse.ArgumentParser:
     daw_cli_module.add_parser(subparsers)
 
     # =========================================================================
+    # VIDEO (Music Video Generator) COMMANDS
+    # =========================================================================
+    from . import video_cli as video_cli_module
+    video_cli_module.add_parser(subparsers)
+
+    # =========================================================================
     # LYRICS (Genius) COMMANDS
     # =========================================================================
     lyrics_parser = subparsers.add_parser(
@@ -888,13 +894,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--root",
         type=Path,
         default=None,
-        help="Corpus root directory (default: D:\\MusicData\\toolshop\\lyrics\\genius)",
+        help="Corpus root directory (default: <repo>/data/toolshop/lyrics/genius)",
     )
     lyrics_build_db_parser.add_argument(
         "--db",
         type=Path,
         default=None,
-        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
 
     # lyrics stats [--artist NAME] [--json] [--db PATH]
@@ -916,7 +922,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
 
     # lyrics rhymes [--artist NAME] [--song ID] [--json] [--db PATH]
@@ -936,7 +942,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
 
     # lyrics flow [--artist NAME] [--song ID] [--json] [--db PATH]
@@ -956,7 +962,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
 
     # lyrics collab [--artist NAME] [--json] [--db PATH]
@@ -973,7 +979,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
 
     # lyrics annotate [--db PATH] [--resume] [--limit N] [--fresh]
@@ -984,7 +990,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
     lyrics_annotate_parser.add_argument(
         "--resume",
@@ -1025,7 +1031,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
 
     # lyrics themes [--db PATH] [--min-section-lines N] [--seed N] [--json]
@@ -1036,7 +1042,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
     lyrics_themes_parser.add_argument(
         "--min-section-lines",
@@ -1065,7 +1071,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
 
     # lyrics fingerprint [--artist NAME] [--cohort drill_trap|pop] [--db PATH] [--output PATH]
@@ -1089,7 +1095,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="Database path (default: D:\\MusicData\\toolshop\\lyrics\\lyrics.db)",
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
     lyrics_fp_parser.add_argument(
         "--output",
@@ -1677,6 +1683,15 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             raise SystemExit(code)
 
     # =========================================================================
+    # VIDEO (Music Video Generator)
+    # =========================================================================
+    elif args.command == "video":
+        from . import video_cli as video_cli_module
+        code = video_cli_module.run(args)
+        if code != 0:
+            raise SystemExit(code)
+
+    # =========================================================================
     # LYRICS (Genius)
     # =========================================================================
     elif args.command == "lyrics":
@@ -1724,7 +1739,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
 
         elif args.lyrics_command == "build-db":
             from toolshop.lyricsdb import build_database, DEFAULT_DB_PATH
-            root = args.root or Path(r"D:\MusicData\toolshop\lyrics\genius")
+            root = args.root or Path(__file__).resolve().parent.parent / "data" / "toolshop" / "lyrics" / "genius"
             db_path = args.db or DEFAULT_DB_PATH
             print(f"Building lyrics database...")
             print(f"  Corpus root: {root}")

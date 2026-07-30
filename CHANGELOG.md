@@ -1,5 +1,34 @@
 # Changelog
 
+### Answer #030 - MusicData Relocation + Suno Liked Songs Scripts
+**Timestamp:** 2026-07-30
+**Action Type:** Infrastructure + script commit
+
+**What was done:**
+- Moved `D:\MusicData` (~15 GB, 20K files) into repo-local `data/` directory.
+- Updated all `TOOLSHOP_DATA_DIR` defaults from hardcoded `D:\MusicData\toolshop` to `Path(__file__).resolve().parent.parent / "data" / "toolshop"` (repo-relative, portable).
+- Updated all hardcoded `D:\MusicData` paths in lyricsdb.py, cli.py, scripts, and Genious_lyrics_extractor (18 files total).
+- Added `data/` to `.gitignore` to prevent accidental commits.
+- Updated `AGENTS.md` data boundary description.
+- Committed Suno liked songs scripts: `scripts/suno_fetch_liked.py` (auto-token via Chrome, is_liked filter, save-as-you-go), `scripts/convert_suno_extractor.py` (converts suno_extractor JSONs to toolshop format).
+- 3,426 Suno liked clip metadata files in `data/toolshop/suno/`.
+
+**Files modified:**
+- `.gitignore` — added `data/`
+- `AGENTS.md` — updated data boundary
+- `toolshop/backup.py`, `toolshop/remix_adapter.py`, `toolshop/remix_cli.py`, `toolshop/stems_cli.py`, `toolshop/video_cli.py` — TOOLSHOP_DATA_DIR defaults
+- `toolshop/lyricsdb.py` — `_DEFAULT_DATA_DIR` + docstring
+- `toolshop/cli.py` — corpus root path + all help text strings
+- `scripts/suno_fetch_liked.py`, `scripts/convert_suno_extractor.py` — OUTPUT_DIR paths
+- `Genious_lyrics_extractor/{corpus_inventory,rebuild_db,verify_counts,fetch_henny,extract_artists,extract_batch2,extract_batch3,extract_batch3_remaining}.py` — data paths
+- `benchmarks/stem_benchmark.py` — data root default
+
+**Test results:** 660 passed, 3 failed (pre-existing: 2 bpm_adapter, 1 bertopic), 1 skipped. No new failures.
+
+**Note:** User must update `PHONEMIZER_ESPEAK_PATH` and `PHONEMIZER_ESPEAK_LIBRARY` env vars to new espeak-ng location under `data/toolshop/espeak-ng/`.
+
+---
+
 ### Answer #029 - L1-L4 Pipeline Re-run on Expanded 1,425-Song Corpus
 **Timestamp:** 2026-07-30
 **Action Type:** Pipeline re-run + bugfix

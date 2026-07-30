@@ -14,7 +14,7 @@ CLI/scripts orchestrate.
 ## Hard rules
 - **Python:** ALWAYS use `.venv` (Python 3.11.9): `D:\Projects\Music-AI-Toolshop\.venv\Scripts\python.exe`. Never the global 3.13.
 - **Compute is CPU-only** (locked decision 2026-07-15, roadmap §0). GT 640 GPU is unusable for ML. No feature merges without a measured min/track number on this machine. Heavy work (>15 min) must be a resumable overnight batch.
-- **Data boundary:** code in repo; audio/models/artifacts under `D:\MusicData\toolshop\` (`TOOLSHOP_DATA_DIR`). Never commit audio, stems, model weights, or results. Never DELETE audio/data — move/quarantine only.
+- **Data boundary:** code in repo; audio/models/artifacts under `data/toolshop/` (`TOOLSHOP_DATA_DIR`, defaults to `<repo>/data/toolshop`). Never commit audio, stems, model weights, or results. Never DELETE audio/data — move/quarantine only.
 - **UTF-8 everywhere:** reconfigure stdout/stderr on entry (see `run_reverse_engineering_batch.py`); `encoding="utf-8"` on every file read/write; test filenames like `Täterprofil ćevap.mp3`.
 - **TDD:** extend `tests/` before modifying adapters. Mock model calls; real-model tests get `@pytest.mark.slow` and are excluded from CI.
 - **Batch jobs:** must use the shared resumable pattern (`toolshop/batch.py`): status JSON flushed per item, `--limit/--offset`, skip-completed resume.

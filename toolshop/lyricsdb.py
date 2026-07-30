@@ -1,7 +1,7 @@
 """SQLite lyrics database — schema, loader, and section label parser.
 
 Tables: ``songs``, ``sections``, ``lines``.  Full rebuild each run.
-``lyrics.db`` lives under ``TOOLSHOP_DATA_DIR`` (default ``D:\\MusicData\\toolshop``),
+``lyrics.db`` lives under ``TOOLSHOP_DATA_DIR`` (default ``<repo>/data/toolshop``),
 never inside the repo.
 """
 
@@ -21,7 +21,7 @@ from toolshop.syllables import count_line, count_syllables
 
 # ── Constants ─────────────────────────────────────────────────────────
 
-_DEFAULT_DATA_DIR = Path(r"D:\MusicData\toolshop")
+_DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "toolshop"
 _DB_SUBDIR = "lyrics"
 _DB_FILENAME = "lyrics.db"
 

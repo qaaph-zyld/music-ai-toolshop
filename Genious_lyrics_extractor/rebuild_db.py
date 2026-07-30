@@ -10,7 +10,7 @@ platform.platform = lambda *a, **kw: 'Windows-11-10.0.22631-SP0'
 from pathlib import Path
 from toolshop.lyricsdb import build_database, DEFAULT_DB_PATH
 
-root = Path(r"D:\MusicData\toolshop\lyrics\genius")
+root = Path(__file__).resolve().parent.parent / "data" / "toolshop" / "lyrics" / "genius"
 db_path = DEFAULT_DB_PATH
 
 print(f"Building lyrics database...")

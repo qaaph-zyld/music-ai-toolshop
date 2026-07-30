@@ -86,7 +86,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Batch 3 continuation: fetch remaining 5 artists"
     )
-    _data_dir = os.environ.get("TOOLSHOP_DATA_DIR", r"D:\MusicData\toolshop")
+    _data_dir = os.environ.get("TOOLSHOP_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data" / "toolshop"))
     _default_outdir = Path(_data_dir) / "lyrics" / "genius"
     parser.add_argument("--outdir", type=Path, default=_default_outdir)
     parser.add_argument("--delay", type=float, default=1.5)

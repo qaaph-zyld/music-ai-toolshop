@@ -106,7 +106,7 @@ def _toolshop_version() -> str:
 
 
 def _data_root() -> Path:
-    return Path(os.environ.get("TOOLSHOP_DATA_DIR", r"D:\MusicData\toolshop"))
+    return Path(os.environ.get("TOOLSHOP_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data" / "toolshop")))
 
 
 def _file_hash(path: Path) -> str:

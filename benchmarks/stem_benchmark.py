@@ -118,7 +118,7 @@ def main() -> int:
     parser.add_argument(
         "--data-root",
         type=Path,
-        default=Path(os.environ.get("TOOLSHOP_DATA_DIR", r"D:\MusicData\toolshop")),
+        default=Path(os.environ.get("TOOLSHOP_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data" / "toolshop"))),
         help="Data root for outputs",
     )
     args = parser.parse_args()

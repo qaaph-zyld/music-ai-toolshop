@@ -5,8 +5,8 @@ featured appearances), categorizes by solo vs featured, and saves lyrics as
 JSON + TXT in subfolders with a master index.
 
 Usage:
-    python extract_batch3.py [--outdir D:/MusicData/toolshop/lyrics/genius] [--delay 1.5]
-    python extract_batch3.py --rebuild --outdir D:/MusicData/toolshop/lyrics/genius
+    python extract_batch3.py [--outdir <repo>/data/toolshop/lyrics/genius] [--delay 1.5]
+    python extract_batch3.py --rebuild --outdir <repo>/data/toolshop/lyrics/genius
 """
 
 from __future__ import annotations
@@ -215,7 +215,7 @@ def main():
         description="Extract lyrics from Genius for Devito, TNG, Voyage, Rasta, Maya Berovic, Ana Nikolic, Breskvica, Henny (batch 3)"
     )
     _data_dir = os.environ.get(
-        "TOOLSHOP_DATA_DIR", r"D:\MusicData\toolshop"
+        "TOOLSHOP_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data" / "toolshop")
     )
     _default_outdir = Path(_data_dir) / "lyrics" / "genius"
     parser.add_argument(

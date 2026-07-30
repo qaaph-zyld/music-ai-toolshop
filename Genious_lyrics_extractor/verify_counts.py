@@ -3,7 +3,7 @@ import sqlite3
 from pathlib import Path
 from collections import Counter
 
-db_path = Path(r"D:\MusicData\toolshop\lyrics\lyrics.db")
+db_path = Path(__file__).resolve().parent.parent / "data" / "toolshop" / "lyrics" / "lyrics.db"
 conn = sqlite3.connect(db_path)
 cur = conn.cursor()
 

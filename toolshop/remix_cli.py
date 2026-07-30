@@ -13,7 +13,7 @@ from . import batch, remix_adapter
 
 
 def _default_data_root() -> Path:
-    return Path(os.environ.get("TOOLSHOP_DATA_DIR", r"D:\MusicData\toolshop"))
+    return Path(os.environ.get("TOOLSHOP_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data" / "toolshop")))
 
 
 def _parse_fx(fx_args: Optional[List[str]]) -> Optional[List[str]]:

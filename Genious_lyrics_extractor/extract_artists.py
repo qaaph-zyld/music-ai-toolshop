@@ -411,7 +411,7 @@ def main():
         description="Extract all lyrics from Buba Corelli, Jala Brat, and Coby"
     )
     _data_dir = os.environ.get(
-        "TOOLSHOP_DATA_DIR", r"D:\MusicData\toolshop"
+        "TOOLSHOP_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data" / "toolshop")
     )
     _default_outdir = Path(_data_dir) / "lyrics" / "genius"
     parser.add_argument(

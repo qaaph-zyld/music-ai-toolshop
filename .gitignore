@@ -24,6 +24,9 @@ results/
 output.json
 output.txt
 
+# Data directory (moved from D:\MusicData\toolshop\ to repo-local data/)
+data/
+
 # Personal audio / generated stems (moved to TOOLSHOP_DATA_DIR)
 Distro Kidea/
 Stemmeca_alatkka/separated_stems/
