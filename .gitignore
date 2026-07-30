@@ -50,6 +50,9 @@ push-output.txt
 sanity-output.txt
 test-final.txt
 test-fp-output.txt
+pip-output.txt
+video-*-output.txt
+closeout-output.txt
 .windsurf/
 
 # Separate live subproject (nested git repo, not part of core package)
