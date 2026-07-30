@@ -1,5 +1,33 @@
 # Changelog
 
+### Answer #031 — Batch 3 Follow-up: Test Fixes, Video Module, Suno Gap Report, Cohen's d, Collab Network
+**Timestamp:** 2026-07-30
+**Action Type:** Test fixes + feature commits + analysis reports
+
+**What was done:**
+- Fixed 3 pre-existing test failures: `test_bpm_adapter.py` (mock `np.atleast_1d`), `test_themes.py` (remove deprecated `random_state` from BERTopic).
+- Committed video assistant module: 5 modules (`video_ass.py`, `video_compose.py`, `video_features.py`, `video_shaders.py`, `video_stock.py`) + 7 tests + `pyproject.toml` video extra.
+- Committed 3 docs: Pravo Vreme analysis, Ableton release notes, perplexity lyrics prompt.
+- Built Suno gap report: compared 3,381 AI-generated Suno lyrics vs 1,315 Genius pro lyrics across L1-L4 dimensions (structure, rhyme, lexical, slang overlap).
+- Recomputed Cohen's d on expanded 1,315-song corpus: d=0.9841 (large effect, down from 1.1786 on 742 songs). Direction consistent: pop > drill_trap.
+- Collaboration network analysis: 252 artists, 370 edges, 18 cross-cohort (drill↔pop) collaborations. Jala Brat is most connected (68 connections).
+
+**Reports:**
+- `lyrics_research/reports/suno_gap_report.md`
+- `lyrics_research/reports/cohen_d_expanded.md`
+- `lyrics_research/reports/collab_network.md`
+
+**Scripts:**
+- `scripts/suno_gap_report.py`
+- `scripts/recompute_cohens_d.py`
+- `scripts/collab_network.py`
+
+**Test results:** 663 passed, 1 skipped, 0 failed (214.93s).
+
+**Commits:** 6c95c4b, 0cd8d43, d88360c, 0e66e07, 2331b7c, 63e79ea, de2ee0d
+
+---
+
 ### Answer #030 - MusicData Relocation + Suno Liked Songs Scripts
 **Timestamp:** 2026-07-30
 **Action Type:** Infrastructure + script commit
