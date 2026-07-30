@@ -44,7 +44,7 @@
 | Top PER Entities | Bog (19), Vida Guerra (18), Cora (16), Corelli (13), Alipašina (12) |
 | Top LOC Entities | Crna Gucci (5), Bosni (3), Alipašino (2), Balenciaga (2), Balkana (2) |
 | Top ORG Entities | AMG (4), Louis-a (4), Givenchy (3), BMW (2), DB (2) |
-| Top-5 Topics | 0_ona_je_joj_nju (40.9%), 1_ko_se_sam_je (25.0%), 2_volim_te_que_zelim (18.2%), 10_voli_sarajevo_volim_love (10.2%), 17_ha_wo_kdm_hmoschino (5.7%) |
+| Top-5 Topics | 0_voli_volim_ljubav_sarajevo (46.7%), 8_ona_mesaj_divljam_rekla (15.6%), 154_down_nje_they_and (13.3%), 144_aha_vidimo_opstanes_tmurne (13.3%), 114_cemo_brani_pak_taboo (11.1%) |
 
 ---
 
@@ -89,7 +89,7 @@
 | Top PER Entities | Bog (31), Boga (16), Jala (16), Pablo (15), Kalaš (14) |
 | Top LOC Entities | Rio (32), Sarajevo (26), Kongo (25), Varšava (15), Benza (13) |
 | Top ORG Entities | Brabus (10), Mercedes (8), AMG (7), Bentley (7), CZ (7) |
-| Top-5 Topics | 1_ko_se_sam_je (40.3%), 0_ona_je_joj_nju (38.7%), 5_cemu_tvoja_radi_blokada (7.5%), 6_sam_nekad_bio_nisam (7.0%), 8_ledja_led_bidi_iza (6.5%) |
+| Top-5 Topics | 14_vozilu_svom_pumpam_elegantan (25.0%), 90_aj_bebe_birale_iphoneom (19.2%), 45_sine_sie_auf_upaljace (19.2%), 19_aman_mami_mama_amanet (19.2%), 99_bog_trpamo_grijese_tjese (17.3%) |
 
 ---
 
@@ -134,7 +134,7 @@
 | Top PER Entities | Rambo (32), Tabak (25), Coby (21), Mirjana (14), Bože (13) |
 | Top LOC Entities | Južni Vetar (6), Nemačku (6), Vlasina (6), Balkana (4), Pariz (4) |
 | Top ORG Entities | HMOSCHINO (14), BMW-a (3), BMW (2), Gucci (2), Mercedesa (2) |
-| Top-5 Topics | 16_drip_braca_brat_moja (29.3%), 1_ko_se_sam_je (22.4%), 4_strasno_pijem_stida_napijem (20.7%), 35_mami_flex_mama_aman (13.8%), 9_eh_ludilo_nocas_klub (13.8%) |
+| Top-5 Topics | 26_braca_carne_ave_brat (30.4%), 13_ludilo_klubu_strasno_klosari (19.6%), 1_strasno_vina_pijem_napijem (19.6%), 32_gas_juzni_sveta_strane (16.1%), 19_aman_mami_mama_amanet (14.3%) |
 
 ---
 
@@ -179,7 +179,7 @@
 | Top PER Entities | Toni Montana (32), Bella (25), Bog (24), Ferragamo (21), Papi (18) |
 | Top LOC Entities | Havana (18), Balkan (16), Bolivije (6), Kazablanka (4), Maroko (4) |
 | Top ORG Entities | KDM (25), Wo-wo-wo-woah (8), AMG (6), Gucci bluze (6), Mercedes Benz (6) |
-| Top-5 Topics | 0_ona_je_joj_nju (57.4%), 1_ko_se_sam_je (16.7%), 33_cash_haos_ovde_kraju (9.3%), 28_grad_ugasi_svetla_raj (8.3%), 13_brate_su_okej_novi (8.3%) |
+| Top-5 Topics | 0_voli_volim_ljubav_sarajevo (30.6%), 43_femme_fatal_rivijeru_njom (22.4%), 107_daj_cuvaj_dam_mi (16.3%), 2_oh_hej_tng_wo (16.3%), 102_yeah_kdm_ah_upoznajmo (14.3%) |
 
 ---
 
@@ -224,25 +224,25 @@
 | Top PER Entities | Balkanac (1), Brrr (1), Cardi (1), Dobermann (1), Indijanac (1) |
 | Top LOC Entities | Teksas (2), Beograd (1) |
 | Top ORG Entities | VIP (3), Architect (1) |
-| Top-5 Topics | 47_zavedi_dzaba_dan_pero (26.7%), 46_bez_necu_tebe_sav (20.0%), 34_srce_pucaj_dvan_bi (20.0%), 3_izdala_bi_ti_ne (20.0%), 78_lele_delija_ah_djavo (13.3%) |
+| Top-5 Topics | 65_zavedi_napravis_dzaba_skinem (28.6%), 133_drogiras_cime_razumijem_zabluda (21.4%), 7_nafuran_uzivo_zivot_doteran (21.4%), 124_joj_dozivas_123_pogresnoj (14.3%), 87_rado_bedo_sretnete_vecan (14.3%) |
 
 ---
 
 ## Nikolija
 
-**Cohort:** pop | **Songs:** 71
+**Cohort:** pop | **Songs:** 70
 
-**Craft Profile:** High rhyme density (RF=0.77) with heavy multisyllabic rhymes (92.3%). Hook-heavy structure (28% refren, 8.9 sections/song). Repetitive lexicon (TTR=0.39, 10.2 syllables/line).
+**Craft Profile:** High rhyme density (RF=0.77) with heavy multisyllabic rhymes (92.4%). Hook-heavy structure (28% refren, 8.9 sections/song). Repetitive lexicon (TTR=0.39, 10.2 syllables/line).
 
 ### Rhyme Craft
 
 | Metric | Value |
 |--------|-------|
-| Rhyme Factor (median) | 0.7729 |
-| Rhyme Factor (IQR) | 0.7103 – 0.8117 |
-| % Multis (median) | 0.9231 |
+| Rhyme Factor (median) | 0.7722 |
+| Rhyme Factor (IQR) | 0.7096 – 0.8144 |
+| % Multis (median) | 0.9237 |
 | % Multis (IQR) | 0.8571 – 0.9565 |
-| Internal Rhyme Rate (median) | 0.8519 |
+| Internal Rhyme Rate (median) | 0.8502 |
 | Dominant Schemes | GABACDCDEBFEFFFFEAEACDCDEBFEFFFFFEBFEFFFF: 1, AAABCCCCDDDDAAABAAABEEGEFFEFAAABAAAB: 1, AAAABBBCACDCACBAAAEBBBCACDCACBAAAA: 1, AGBAABACDEDEFFDDFFDABBAABACDEDEFFDEDEFFD: 1, HAABBCCCDEEFDDIGGGCCCDEEFDD: 1 |
 | Top Vowel Pairs | ao (17), uiiaaaoaaaaa (13), ieaoiia (13), ioeaoeaeiaio (12), ioaaiaio (12) |
 
@@ -250,26 +250,26 @@
 
 | Metric | Value |
 |--------|-------|
-| Section Type Distribution | refren: 179, strofa: 155, prerefren: 116, tekst: 64, postrefren: 54, outro: 22, intro: 20, bridge: 17, other: 3, instrumental: 1 |
-| Avg Sections/Song | 8.89 |
-| Avg Lines/Section | 5.11 |
-| Refren Share | 28.37% |
-| Hook Repetition Ratio | 0.2326 |
+| Section Type Distribution | refren: 177, strofa: 153, prerefren: 114, tekst: 63, postrefren: 54, outro: 21, intro: 20, bridge: 17, other: 3, instrumental: 1 |
+| Avg Sections/Song | 8.90 |
+| Avg Lines/Section | 5.12 |
+| Refren Share | 28.41% |
+| Hook Repetition Ratio | 0.2324 |
 
 ### Lexical
 
 | Metric | Value |
 |--------|-------|
-| TTR (median) | 0.3864 |
+| TTR (median) | 0.3872 |
 | Syllables/Line (median) | 10.21 |
-| Distinctive Vocabulary (top-20) | sve (128), samo (113), kô (107), Sve (63), noć (61), tu (57), voli (56), malo (50), gas (49), nema (47), Gringo (44), dam (41), pitbull (40), Samo (38), Daj (37), noći (36), Nikolija (36), pitaj (35), još (35), opet (34) |
+| Distinctive Vocabulary (top-20) | sve (128), samo (112), kô (107), Sve (62), noć (61), tu (57), voli (56), gas (49), malo (46), nema (46), Gringo (44), dam (41), pitbull (40), Daj (37), Samo (36), noći (36), Nikolija (36), pitaj (35), još (35), opet (34) |
 
 ### Content
 
 | Top PER Entities | Niki (21), Nikolija (17), Hilton (12), Pitbull (10), pitbull terrier (10) |
 | Top LOC Entities | Balkan (4), Milano (4), Nikoliju (4), Crne Gore (3), BG (2) |
 | Top ORG Entities | A-le-le-le-le-le (4), Coca-Cole (3), Belvedere (2), Benz (2), Bull (2) |
-| Top-5 Topics | 3_izdala_bi_ti_ne (28.7%), 2_volim_te_que_zelim (24.1%), 4_strasno_pijem_stida_napijem (19.5%), 32_nagrada_pin_okej_savlada (14.9%), 7_morem_brodovi_plove_noc (12.6%) |
+| Top-5 Topics | 1_strasno_vina_pijem_napijem (26.3%), 16_mokro_medena_klizavo_vatra (19.3%), 0_voli_volim_ljubav_sarajevo (19.3%), 95_smem_gle_357_dam (17.5%), 74_nagrada_zulum_savlada_navrata (17.5%) |
 
 ---
 
@@ -314,7 +314,7 @@
 | Top PER Entities | Bog (25), Benza (14), Senida (11), Marija Magdalena (8), Luka (7) |
 | Top LOC Entities | Beča (14), Pariza (14), Balkana (3), Babilona (2), Banja Luka (2) |
 | Top ORG Entities | U-u-u-u (8), U-u-u-u-u-u-u-u (8), blica (2), Auf der Bühne meine Stimme (1), Baller (1) |
-| Top-5 Topics | 12_spava_topim_seta_utopi (26.7%), 19_oh_gotivimo_budi_snove (21.3%), 18_zvezde_placu_omen_visini (20.0%), 21_ro_do_zakon_red (18.7%), 20_medena_vatra_babylon_led (13.3%) |
+| Top-5 Topics | 59_topim_seta_utopi_nadji (22.2%), 6_zvezde_stars_trap_placu (22.2%), 7_nafuran_uzivo_zivot_doteran (20.6%), 0_voli_volim_ljubav_sarajevo (19.1%), 119_ro_do_ou_oo (15.9%) |
 
 ---
 
@@ -359,96 +359,456 @@
 | Top PER Entities | Bože (25), Dajana (19), Bog (18), Louis (9), Maria (7) |
 | Top LOC Entities | Balkan (17), Beograd (12), Balkanom (6), Cayennu (6), Bora Bora (4) |
 | Top ORG Entities | BMW (7), Porschea (6), Coca-Cola (4), BMW-a (2), Ferrari (2) |
-| Top-5 Topics | 0_ona_je_joj_nju (43.8%), 4_strasno_pijem_stida_napijem (17.5%), 24_gde_la_nedostajem_nestala (13.8%), 3_izdala_bi_ti_ne (13.8%), 27_balkan_krvavi_jao_pa (11.2%) |
+| Top-5 Topics | 3_balkan_limiti_gang_krvavi (36.6%), 4_folk_zvezdu_gotivimo_snove (17.1%), 1_strasno_vina_pijem_napijem (17.1%), 73_namerno_sacuvala_cayennu_ajlajner (14.6%), 11_oduzet_broj_halo_dao (14.6%) |
+
+---
+
+## Devito
+
+**Cohort:** drill_trap | **Songs:** 107
+
+**Craft Profile:** High rhyme density (RF=0.72) with heavy multisyllabic rhymes (89.6%). Hook-heavy structure (32% refren, 8.2 sections/song). Repetitive lexicon (TTR=0.39, 11.2 syllables/line).
+
+### Rhyme Craft
+
+| Metric | Value |
+|--------|-------|
+| Rhyme Factor (median) | 0.7177 |
+| Rhyme Factor (IQR) | 0.6009 – 0.7789 |
+| % Multis (median) | 0.8958 |
+| % Multis (IQR) | 0.8378 – 0.9375 |
+| Internal Rhyme Rate (median) | 0.8696 |
+| Dominant Schemes | AAAAAAAAAAAABCBDCBEBAAAAAAAABCBD: 2, AABIJKCCBBBBBBBBDDDEFFFFGGHHBBBBBBBBDDDEE: 2, AAAAAAAAABHBIJCKCAAAAAAAAADDEEFFGGAAAAAAAAA: 2, AAAABCAADDDDDDDDEEDDAAAAAAAABCAA: 2, AAAABACABBDECECCAAAABACABBDECECC: 2 |
+| Top Vowel Pairs | aoiuaueaiaoi (78), oaoaoaoaoa (59), aiuieuuaaoao (24), aaaaaa (24), aoauaoau (20) |
+
+### Structure
+
+| Metric | Value |
+|--------|-------|
+| Section Type Distribution | refren: 278, strofa: 204, prerefren: 129, tekst: 101, postrefren: 73, intro: 48, outro: 24, bridge: 15, other: 5, interlude: 1 |
+| Avg Sections/Song | 8.21 |
+| Avg Lines/Section | 5.65 |
+| Refren Share | 31.66% |
+| Hook Repetition Ratio | 0.1970 |
+
+### Lexical
+
+| Metric | Value |
+|--------|-------|
+| TTR (median) | 0.3886 |
+| Syllables/Line (median) | 11.24 |
+| Distinctive Vocabulary (top-20) | koka (254), sve (251), samo (238), Nina (184), kô (132), novi (103), Barbie (96), znam (92), furaju (86), tako (85), Matori (84), aligatori (82), mala (78), nema (77), flex (76), la (73), tu (72), sad (69), volim (65), ej (62) |
+
+### Content
+
+| Top PER Entities | Nina (184), Barbie (96), Bože (15), Marina (15), Mili-mili-o-ner (15) |
+| Top LOC Entities | BG (12), Balkan (12), Bečom (11), Monako (8), Cirih (5) |
+| Top ORG Entities | Range-a (21), Audi (20), Bembare (19), Kingston (12), Gucci (10) |
+| Top-5 Topics | 54_barbie_moja_ye_smoking (22.9%), 66_nina_fantasticno_nacisto_svakoj (21.4%), 77_novi_roli_yeah_protivotrov (20.0%), 129_matori_furaju_aligatori_se (18.6%), 149_rame_levo_desno_lomile (17.1%) |
+
+---
+
+## TNG
+
+**Cohort:** drill_trap | **Songs:** 40
+
+**Craft Profile:** Lean rhyme style (RF=0.43) with 79.5% multis. Hook-heavy structure (33% refren, 5.0 sections/song). Lexically diverse (TTR=0.59, 10.8 syllables/line).
+
+### Rhyme Craft
+
+| Metric | Value |
+|--------|-------|
+| Rhyme Factor (median) | 0.4277 |
+| Rhyme Factor (IQR) | 0.3295 – 0.4984 |
+| % Multis (median) | 0.7945 |
+| % Multis (IQR) | 0.7155 – 0.8520 |
+| Internal Rhyme Rate (median) | 0.7800 |
+| Dominant Schemes | ABCBDDDDDDDDDBAAEAEDDFABCBDCFCICCGDGDHHHHEEEEABCBD: 1, ABAAAACAIDDDABAEJAAAFFCFDKGEGGAAHHHL: 1, AAAAAAMANOBBCCDDPAEEQEEEFGGGHBIIIJKKFFJJRHHEEEELLDDDDDDD: 1, MNOPQAABBCCDDRSTEEEEEFFFFFGUDHHBBBBVWGXIEAABBCCDDJAGAKKFFFFFFFLILLAAAYJAGC: 1, ABBBLAACCCCDMDDEEFGGEHNIJIJCHIIIIOCFFFFKPQKGEGGH: 1 |
+| Top Vowel Pairs | aa (15), aiaueuaiaueu (15), aeaieoiauu (12), ai (11), oieiaaaaaiaeaaa (10) |
+
+### Structure
+
+| Metric | Value |
+|--------|-------|
+| Section Type Distribution | refren: 66, strofa: 66, tekst: 27, intro: 16, other: 9, bridge: 8, outro: 6 |
+| Avg Sections/Song | 4.95 |
+| Avg Lines/Section | 10.87 |
+| Refren Share | 33.33% |
+| Hook Repetition Ratio | 0.0808 |
+
+### Lexical
+
+| Metric | Value |
+|--------|-------|
+| TTR (median) | 0.5878 |
+| Syllables/Line (median) | 10.82 |
+| Distinctive Vocabulary (top-20) | TNG (121), kô (105), još (83), dan (50), hoću (50), trepu (38), samo (37), brat (35), sve (28), Hoću (27), tu (26), radi (25), 29 (25), kurac (25), maraka (22), trep (21), fact (21), više (21), kućo (20), treba (20) |
+
+### Content
+
+| Top PER Entities | Bog (7), Frajburg (6), Frenklin (6), Gaston Glock (6), Merlin (6) |
+| Top LOC Entities | Berlin (6), Dakar (4), Preševa (3), Bosna (2), Somalije (2) |
+| Top ORG Entities | Dinar (6), Dolar (6), Fact (4), Airways (3), Ander (3) |
+| Top-5 Topics | 14_vozilu_svom_pumpam_elegantan (28.6%), 2_oh_hej_tng_wo (28.6%), 24_rio_naj_brze_rambo (20.0%), 62_laj_ko_ovde_zavrsis (11.4%), 38_bom_zone_rolam_probam (11.4%) |
+
+---
+
+## Voyage
+
+**Cohort:** drill_trap | **Songs:** 67
+
+**Craft Profile:** Moderate rhyme density (RF=0.66) with 90.5% multisyllabic rhymes. Hook-heavy structure (32% refren, 6.8 sections/song). Repetitive lexicon (TTR=0.41, 10.7 syllables/line).
+
+### Rhyme Craft
+
+| Metric | Value |
+|--------|-------|
+| Rhyme Factor (median) | 0.6633 |
+| Rhyme Factor (IQR) | 0.5393 – 0.7966 |
+| % Multis (median) | 0.9048 |
+| % Multis (IQR) | 0.8155 – 0.9500 |
+| Internal Rhyme Rate (median) | 0.8654 |
+| Dominant Schemes | AAABCCCCCCCCCCBBBBBBBBFGDDEEEECCCCBBBBBBBBAA: 1, ABBABBACCDEFGDECCBBABBACCDEFGDECCA: 1, AABCDDEDAAFFDDDDAABCDDEDGGGIHHHHAABCDDED: 1, ABAACDCAEFEFEFEFGIGGGCGBHHHCCDCAJEFEFEFEFFFFB: 1, AABAAABBBBBBCCCCAABAAABBAABADDEFCCCCAABAAABBAABAAABB: 1 |
+| Top Vowel Pairs | oue (21), iaeiaa (13), eaiieaiiouaiaeaai (12), aaiaaieiaia (12), aiieieiei (12) |
+
+### Structure
+
+| Metric | Value |
+|--------|-------|
+| Section Type Distribution | refren: 146, strofa: 119, tekst: 61, prerefren: 49, intro: 28, postrefren: 24, outro: 18, bridge: 10, other: 4 |
+| Avg Sections/Song | 6.85 |
+| Avg Lines/Section | 5.53 |
+| Refren Share | 31.81% |
+| Hook Repetition Ratio | 0.2000 |
+
+### Lexical
+
+| Metric | Value |
+|--------|-------|
+| TTR (median) | 0.4054 |
+| Syllables/Line (median) | 10.65 |
+| Distinctive Vocabulary (top-20) | sve (168), samo (104), kô (103), nema (82), tu (80), gde (63), kaže (53), bebi (44), dam (44), Balkan (42), znam (42), my (41), yeah (38), pleši (37), tako (35), noćas (35), tresi (33), dobro (32), opet (31), Sve (31) |
+
+### Content
+
+| Top PER Entities | Bella Hadid (20), Katarina (10), Đavole (9), Ale (8), Dalmo (7) |
+| Top LOC Entities | Balkan (42), Beograd (10), Balkana (9), Cirih (6), London (6) |
+| Top ORG Entities | VIP (13), Prada (9), Bella Hadid (6), Gucci (4), Lambo (4) |
+| Top-5 Topics | 10_gde_tebe_nestala_si (24.4%), 19_aman_mami_mama_amanet (20.0%), 13_ludilo_klubu_strasno_klosari (20.0%), 12_tabak_samar_taj_mala (17.8%), 9_kriv_film_trepnula_si (17.8%) |
+
+---
+
+## Rasta
+
+**Cohort:** drill_trap | **Songs:** 109
+
+**Craft Profile:** High rhyme density (RF=0.78) with heavy multisyllabic rhymes (92.0%). Hook-heavy structure (31% refren, 7.3 sections/song). Repetitive lexicon (TTR=0.32, 10.8 syllables/line).
+
+### Rhyme Craft
+
+| Metric | Value |
+|--------|-------|
+| Rhyme Factor (median) | 0.7804 |
+| Rhyme Factor (IQR) | 0.5760 – 0.8687 |
+| % Multis (median) | 0.9200 |
+| % Multis (IQR) | 0.8409 – 0.9649 |
+| Internal Rhyme Rate (median) | 0.8462 |
+| Dominant Schemes | AABACLDDAEECCFFGDAAABAADHDHDIBIBFFGGHGHGJKJKIDIBIDIBC: 1, ABCBDBBEFBFAFGGHIACHDBBEFBFAFGGH: 1, ABACDBCCCCECFCFGBHCCDBCCCCEEIAIGBHCCCCDIBCDBC: 1, ABBABCDEBCDEAFDGHFGIAIJHBCDEBCDEADKDLIJHBCDEBCDEAFDGHFDGH: 1, AAABACCBDGDDECAAAAABACCBFHIFECAAAAABACCB: 1 |
+| Top Vowel Pairs | aa (26), oooo (23), aaaaaa (19), ouaauieoiaaoai (18), eaea (15) |
+
+### Structure
+
+| Metric | Value |
+|--------|-------|
+| Section Type Distribution | refren: 243, strofa: 198, tekst: 84, prerefren: 77, postrefren: 63, intro: 52, bridge: 26, other: 18, outro: 16, hook: 14, instrumental: 2 |
+| Avg Sections/Song | 7.28 |
+| Avg Lines/Section | 6.78 |
+| Refren Share | 30.64% |
+| Hook Repetition Ratio | 0.1951 |
+
+### Lexical
+
+| Metric | Value |
+|--------|-------|
+| TTR (median) | 0.3173 |
+| Syllables/Line (median) | 10.81 |
+| Distinctive Vocabulary (top-20) | sve (412), samo (299), tu (203), yeah (175), znam (137), kô (129), sad (116), Yeah (116), kaže (111), voli (103), tako (101), she (101), down (96), Ma (93), it (92), dan (90), vidim (86), ye (85), mogu (82), svi (78) |
+
+### Content
+
+| Top PER Entities | Habibi (41), Bogu (18), Dr. Love (11), Boga (10), Mini-mini-ministre Dačiću (10) |
+| Top LOC Entities | Balkan (26), Dubai (16), New York (11), BG (10), Tajland (9) |
+| Top ORG Entities | Armani (30), Benz (23), BMW (20), Gucci (16), Audi (12) |
+| Top-5 Topics | 3_balkan_limiti_gang_krvavi (29.5%), 29_yuh_inna_soy_fi (23.9%), 5_les_oy_vavoy_pucnjave (17.1%), 18_na_ravna_pe_ni (14.8%), 2_oh_hej_tng_wo (14.8%) |
+
+---
+
+## Maya Berović
+
+**Cohort:** pop | **Songs:** 154
+
+**Craft Profile:** High rhyme density (RF=0.81) with heavy multisyllabic rhymes (90.9%). Hook-heavy structure (29% refren, 8.5 sections/song). Repetitive lexicon (TTR=0.35, 11.6 syllables/line).
+
+### Rhyme Craft
+
+| Metric | Value |
+|--------|-------|
+| Rhyme Factor (median) | 0.8067 |
+| Rhyme Factor (IQR) | 0.7158 – 0.8582 |
+| % Multis (median) | 0.9091 |
+| % Multis (IQR) | 0.8513 – 0.9560 |
+| Internal Rhyme Rate (median) | 0.8750 |
+| Dominant Schemes | ABCDEFGGHHIICCABCDEFGGHHIICCEFGGHHIICC: 2, ABCDCCEECEEABFCDCCEECEEABBBBBBEECEEA: 2, AABBBBBBCCCCDDDDDDDCCCCCCCC: 2, ABABCCFCDDEBBDDEBBADADAGHBDDEBBDDEBBB: 2, ABAACBDBDEAEGBAACADBDEAEEAEBFBFE: 2 |
+| Top Vowel Pairs | uooeeaeaiuaiaeaoiuoe (24), ooeeaeaaaeriaeuoe (24), iaaiaaaaae (19), oaeaoeeeaaa (18), aaoeaiiiea (18) |
+
+### Structure
+
+| Metric | Value |
+|--------|-------|
+| Section Type Distribution | refren: 383, strofa: 304, prerefren: 233, tekst: 154, spoken: 73, postrefren: 57, bridge: 37, outro: 27, intro: 17, instrumental: 13, other: 8 |
+| Avg Sections/Song | 8.48 |
+| Avg Lines/Section | 4.36 |
+| Refren Share | 29.33% |
+| Hook Repetition Ratio | 0.2500 |
+
+### Lexical
+
+| Metric | Value |
+|--------|-------|
+| TTR (median) | 0.3499 |
+| Syllables/Line (median) | 11.61 |
+| Distinctive Vocabulary (top-20) | sve (266), kô (228), samo (145), znam (142), srce (130), nema (101), ljubav (98), sama (88), radi (87), Sve (87), Samo (84), sada (80), nikad (76), tako (73), Ma (72), redu (72), kažem (72), zna (70), više (69), bebo (65) |
+
+### Content
+
+| Top PER Entities | Bog (21), Balmain (20), Lule (10), Boga (9), Maya (8) |
+| Top LOC Entities | Sahara (18), Sunce (11), Rusija (6), Vatikan (6), Evropom (5) |
+| Top ORG Entities | Givenchy-u (2), Moëta (2), Porsche (2), SLS-a (2), Dolce Gabbana-bana (1) |
+| Top-5 Topics | 0_voli_volim_ljubav_sarajevo (34.1%), 25_ruke_djevojke_president_idemo (23.8%), 1_strasno_vina_pijem_napijem (19.1%), 15_ledja_bidi_ledenog_led (12.7%), 60_cini_lici_harmonija_behari (10.3%) |
+
+---
+
+## Ana Nikolić
+
+**Cohort:** pop | **Songs:** 68
+
+**Craft Profile:** High rhyme density (RF=0.80) with heavy multisyllabic rhymes (91.7%). Hook-heavy structure (32% refren, 7.9 sections/song). Repetitive lexicon (TTR=0.35, 10.4 syllables/line).
+
+### Rhyme Craft
+
+| Metric | Value |
+|--------|-------|
+| Rhyme Factor (median) | 0.8046 |
+| Rhyme Factor (IQR) | 0.7218 – 0.8754 |
+| % Multis (median) | 0.9167 |
+| % Multis (IQR) | 0.8514 – 0.9639 |
+| Internal Rhyme Rate (median) | 0.8161 |
+| Dominant Schemes | ABHBCDEAFFFFFFFFGGAFGGAFCCCICCFFFCDEAFFFFFFFFGGAFGGAFCCCJCCFF: 1, AABBCDEEAABBCDEECDEE: 1, ABGHCCDAEEBABAFFCCDAEEBACCDAEEBA: 1, AABBCCDEFGFHIFFFFFCCDEFGFHIFFGJHIFFGFHIFF: 1, AABBCCDDEEDDFFGGBBCCDDEEDDFFCCDDEEDDFF: 1 |
+| Top Vowel Pairs | aoaeoe (19), oaaaaa (12), oai (11), iieie (10), eee (10) |
+
+### Structure
+
+| Metric | Value |
+|--------|-------|
+| Section Type Distribution | refren: 171, strofa: 137, prerefren: 79, tekst: 65, postrefren: 26, bridge: 22, outro: 16, intro: 11, instrumental: 7, other: 2 |
+| Avg Sections/Song | 7.88 |
+| Avg Lines/Section | 4.79 |
+| Refren Share | 31.90% |
+| Hook Repetition Ratio | 0.2500 |
+
+### Lexical
+
+| Metric | Value |
+|--------|-------|
+| TTR (median) | 0.3539 |
+| Syllables/Line (median) | 10.44 |
+| Distinctive Vocabulary (top-20) | sve (118), Ma (67), lele (62), samo (53), više (49), još (44), voli (42), volim (41), sad (38), ima (38), svi (38), Sve (36), full (36), ljubav (34), znam (34), kô (33), tu (33), nema (33), gram (33), zna (33) |
+
+### Content
+
+| Top PER Entities | Ana (5), Louis (5), Balenciaga (4), Bože (4), Gucci (4) |
+| Top LOC Entities | Atine (3), Balantajn (3), Beogradu (2), Cunami (2), Panama (2) |
+| Top ORG Entities | Prada (9), Mafia caffe (6), BMW-a (4), Fendi (4), Gucci (4) |
+| Top-5 Topics | 0_voli_volim_ljubav_sarajevo (37.7%), 10_gde_tebe_nestala_si (22.6%), 81_kozu_telo_steta_laz (15.1%), 51_spavala_on_uzecu_mnom (13.2%), 71_motô_misli_licno_kraj (11.3%) |
+
+---
+
+## Breskvica
+
+**Cohort:** pop | **Songs:** 40
+
+**Craft Profile:** High rhyme density (RF=0.82) with heavy multisyllabic rhymes (94.8%). Hook-heavy structure (32% refren, 8.2 sections/song). Repetitive lexicon (TTR=0.35, 10.5 syllables/line).
+
+### Rhyme Craft
+
+| Metric | Value |
+|--------|-------|
+| Rhyme Factor (median) | 0.8240 |
+| Rhyme Factor (IQR) | 0.7716 – 0.8573 |
+| % Multis (median) | 0.9481 |
+| % Multis (IQR) | 0.8834 – 1.0000 |
+| Internal Rhyme Rate (median) | 0.8377 |
+| Dominant Schemes | AABBBBCDEEFFBBBBCDEECDEEE: 1, HABCABCDDDDEECICABCABCFFGFGCFFFGABCABC: 1, AABBCDEEFFCGEHEAAABBCDEEGGEEEHEAAABBCDEE: 1, GHAABBCCDDDDDDDDEIEEFFCCDDDDDDDD: 1, AAABBACDAEAFGGFFCHHCCDAEAFGGAEAFGGF: 1 |
+| Top Vowel Pairs | iaoa (12), rieeueooai (8), aeiaeeeeeee (6), aouooiaeie (6), oaeeeeiaaaea (6) |
+
+### Structure
+
+| Metric | Value |
+|--------|-------|
+| Section Type Distribution | refren: 105, strofa: 79, prerefren: 60, tekst: 40, postrefren: 20, intro: 7, bridge: 6, outro: 4, other: 3, instrumental: 2 |
+| Avg Sections/Song | 8.15 |
+| Avg Lines/Section | 4.40 |
+| Refren Share | 32.21% |
+| Hook Repetition Ratio | 0.2650 |
+
+### Lexical
+
+| Metric | Value |
+|--------|-------|
+| TTR (median) | 0.3464 |
+| Syllables/Line (median) | 10.53 |
+| Distinctive Vocabulary (top-20) | sve (81), samo (48), Sve (33), znam (33), bebe (31), tako (30), Ma (26), nema (25), dobra (25), kô (24), više (23), treba (22), tu (22), voli (22), leptir (20), noći (19), malo (19), sad (19), uvek (19), gde (18) |
+
+### Content
+
+| Top PER Entities | Boga (7), Lui (5), DJ Shone (3), Bogu (2), Bože (2) |
+| Top LOC Entities | Fendi (5), Australija (4), Beograd (3), Slavija (3), Kilian (2) |
+| Top ORG Entities | Bad Boy (3), Architect (1) |
+| Top-5 Topics | 9_kriv_film_trepnula_si (25.0%), 152_ljubila_voleo_slama_prebolecu (19.4%), 10_gde_tebe_nestala_si (19.4%), 0_voli_volim_ljubav_sarajevo (19.4%), 53_fire_njemu_nijedna_raj (16.7%) |
+
+---
+
+## Henny
+
+**Cohort:** pop | **Songs:** 44
+
+**Craft Profile:** High rhyme density (RF=0.74) with heavy multisyllabic rhymes (89.9%). Hook-heavy structure (28% refren, 7.4 sections/song). Repetitive lexicon (TTR=0.40, 9.8 syllables/line).
+
+### Rhyme Craft
+
+| Metric | Value |
+|--------|-------|
+| Rhyme Factor (median) | 0.7387 |
+| Rhyme Factor (IQR) | 0.6261 – 0.8018 |
+| % Multis (median) | 0.8990 |
+| % Multis (IQR) | 0.8037 – 0.9581 |
+| Internal Rhyme Rate (median) | 0.7676 |
+| Dominant Schemes | FAAAABBCCDDDDAAAABBBEGEEEDDDDAAAABBB: 1, ABBCDBBCDBDEFCEFEDCFCBBCDBBCDBEFEDCFCBBCDBBCDDA: 1, AAAAABCHCCCDCDEFGDGCGDGCCBIDCAADADEFGDGCGDGCAAAAAAAA: 1, ABCDDDDDEFJEGGGGGGGGABCDDDDDFBKBHBHBIAICIAIAABCDDDDD: 1, AAAABAABACDADEAFAAAAAGGGGDDHICDADEAFAAAAA: 1 |
+| Top Vowel Pairs | ooieaaaaaa (16), eoiae (16), ee (13), oioie (12), eieeauuioiauuioia (11) |
+
+### Structure
+
+| Metric | Value |
+|--------|-------|
+| Section Type Distribution | refren: 91, strofa: 85, prerefren: 51, tekst: 42, intro: 18, postrefren: 14, outro: 11, other: 7, bridge: 5 |
+| Avg Sections/Song | 7.36 |
+| Avg Lines/Section | 5.19 |
+| Refren Share | 28.09% |
+| Hook Repetition Ratio | 0.2382 |
+
+### Lexical
+
+| Metric | Value |
+|--------|-------|
+| TTR (median) | 0.3957 |
+| Syllables/Line (median) | 9.85 |
+| Distinctive Vocabulary (top-20) | sve (74), samo (56), magla (50), Ma (41), kô (35), noć (35), nigggaHot (34), riba (34), znam (32), tu (30), noćas (28), nikad (28), noćima (28), BG-u (27), gluvim (26), techno (25), Samo (24), radiš (22), nemoj (22), pola (20) |
+
+### Content
+
+| Top PER Entities | Dunja (9), Popov (9), Henny (7), Balenciaga (6), Bože (6) |
+| Top LOC Entities | BG-u (27), Srbija (8), Tokija (8), Dubai (6), Saint Laurent (5) |
+| Top ORG Entities | AMG (6), UAE (6), Benz (5), Dior (2), Hop-hop (2) |
+| Top-5 Topics | 1_strasno_vina_pijem_napijem (26.8%), 27_techno_riba_ribe_najprljavije (19.5%), 6_zvezde_stars_trap_placu (19.5%), 4_folk_zvezdu_gotivimo_snove (17.1%), 0_voli_volim_ljubav_sarajevo (17.1%) |
 
 ---
 
 ## drill_trap
 
-**Cohort:** drill_trap | **Songs:** 387
+**Cohort:** drill_trap | **Songs:** 795
 
-**Craft Profile:** Moderate rhyme density (RF=0.56) with 84.2% multisyllabic rhymes. Hook-heavy structure (30% refren, 6.8 sections/song). Repetitive lexicon (TTR=0.47, 12.2 syllables/line).
+**Craft Profile:** Moderate rhyme density (RF=0.60) with 85.7% multisyllabic rhymes. Hook-heavy structure (31% refren, 7.0 sections/song). Repetitive lexicon (TTR=0.44, 11.6 syllables/line).
 
 ### Rhyme Craft
 
 | Metric | Value |
 |--------|-------|
-| Rhyme Factor (median) | 0.5628 |
-| Rhyme Factor (IQR) | 0.4563 – 0.6763 |
-| % Multis (median) | 0.8421 |
-| % Multis (IQR) | 0.7755 – 0.9048 |
-| Internal Rhyme Rate (median) | 0.9000 |
-| Dominant Schemes | AAABBCCDDCECFFGGHHHHKHLHHCCEEEHEEEGGHHCCHHHHMHNHIIGGJJJJJJCOCAAGGHHHHPHQH: 1, AABAAACADDDDDDHEFIJFAFAKCCCCBCGGLMENOFAFA: 1, ABBBBBBBAACCDDDDEFEFGHGHAACCDD: 1, ABKBCBCAAAAADDEEDDFCBGFCHHHHBIIIIIJJJJJJJJDDFCBGFC: 1, AABACDCAEFEAGGGBHDHCIJIKKKKAARSLMLNLBOBBBBABBOBCPCPPNDDDDGGGGEJGFOQKQKGKGKTGKGGGEEEEFGLMLNLBOBBBBABBOBKJAN: 1 |
-| Top Vowel Pairs | aa (91), ea (71), ae (53), ie (51), oa (45) |
+| Rhyme Factor (median) | 0.5974 |
+| Rhyme Factor (IQR) | 0.4624 – 0.7329 |
+| % Multis (median) | 0.8571 |
+| % Multis (IQR) | 0.7879 – 0.9252 |
+| Internal Rhyme Rate (median) | 0.8837 |
+| Dominant Schemes | free: 3, AAAAAAAAAAAABCBDCBEBAAAAAAAABCBD: 2, AABIJKCCBBBBBBBBDDDEFFFFGGHHBBBBBBBBDDDEE: 2, AAAAAAAAABHBIJCKCAAAAAAAAADDEEFFGGAAAAAAAAA: 2, AAAABCAADDDDDDDDEEDDAAAAAAAABCAA: 2 |
+| Top Vowel Pairs | aa (174), ea (96), aaaaaa (91), ae (83), aoiuaueaiaoi (78) |
 
 ### Structure
 
 | Metric | Value |
 |--------|-------|
-| Section Type Distribution | refren: 789, strofa: 759, prerefren: 284, tekst: 262, postrefren: 173, intro: 137, hook: 78, outro: 58, bridge: 51, other: 31, instrumental: 5, interlude: 1 |
-| Avg Sections/Song | 6.79 |
-| Avg Lines/Section | 7.40 |
-| Refren Share | 30.02% |
-| Hook Repetition Ratio | 0.1379 |
+| Section Type Distribution | refren: 1693, strofa: 1531, tekst: 586, prerefren: 581, postrefren: 367, intro: 306, outro: 137, bridge: 123, hook: 115, other: 73, instrumental: 7, interlude: 4 |
+| Avg Sections/Song | 6.95 |
+| Avg Lines/Section | 7.07 |
+| Refren Share | 30.65% |
+| Hook Repetition Ratio | 0.1509 |
 
 ### Lexical
 
 | Metric | Value |
 |--------|-------|
-| TTR (median) | 0.4651 |
-| Syllables/Line (median) | 12.19 |
-| Distinctive Vocabulary (top-20) | kô (972), sve (822), samo (598), znam (331), mala (314), nema (310), tu (278), sad (277), zna (243), daj (239), Mala (217), Samo (211), grad (201), opet (192), voli (190), volim (181), dan (180), život (177), oči (175), mogu (174) |
+| TTR (median) | 0.4430 |
+| Syllables/Line (median) | 11.61 |
+| Distinctive Vocabulary (top-20) | sve (1879), kô (1599), samo (1420), tu (735), znam (687), nema (626), mala (574), sad (560), zna (421), još (415), dan (408), Samo (403), yeah (394), volim (392), tako (391), mogu (371), Sve (362), daj (362), voli (355), grad (353) |
 
 ### Content
 
-| Top PER Entities | Bog (84), Rambo (33), Toni Montana (32), Boga (28), Cora (26) |
-| Top LOC Entities | Rio (32), Sarajevo (27), Kongo (26), Balkan (25), Havana (19) |
-| Top ORG Entities | KDM (25), AMG (17), HMOSCHINO (14), Brabus (11), Mercedes (11) |
-| Top-5 Topics | 0_ona_je_joj_nju (45.6%), 1_ko_se_sam_je (33.1%), 2_volim_te_que_zelim (8.0%), 16_drip_braca_brat_moja (6.9%), 6_sam_nekad_bio_nisam (6.4%) |
+| Top PER Entities | Nina (186), Bog (126), Barbie (100), Bože (59), Boga (52) |
+| Top LOC Entities | Balkan (126), Sarajevo (74), Rio (33), Kongo (27), BG (25) |
+| Top ORG Entities | BMW (50), Audi (38), Gucci (38), Heineken (35), Benz (34) |
+| Top-5 Topics | 0_voli_volim_ljubav_sarajevo (27.6%), 2_oh_hej_tng_wo (21.7%), 5_les_oy_vavoy_pucnjave (19.3%), 3_balkan_limiti_gang_krvavi (16.9%), 14_vozilu_svom_pumpam_elegantan (14.5%) |
 
 ---
 
 ## pop
 
-**Cohort:** pop | **Songs:** 214
+**Cohort:** pop | **Songs:** 520
 
-**Craft Profile:** High rhyme density (RF=0.74) with heavy multisyllabic rhymes (91.8%). Hook-heavy structure (28% refren, 8.6 sections/song). Repetitive lexicon (TTR=0.39, 10.0 syllables/line).
+**Craft Profile:** High rhyme density (RF=0.78) with heavy multisyllabic rhymes (91.7%). Hook-heavy structure (29% refren, 8.3 sections/song). Repetitive lexicon (TTR=0.37, 10.5 syllables/line).
 
 ### Rhyme Craft
 
 | Metric | Value |
 |--------|-------|
-| Rhyme Factor (median) | 0.7399 |
-| Rhyme Factor (IQR) | 0.6663 – 0.8231 |
-| % Multis (median) | 0.9178 |
-| % Multis (IQR) | 0.8571 – 0.9581 |
-| Internal Rhyme Rate (median) | 0.8281 |
-| Dominant Schemes | AABBCDEBDDFFGDHDHFFFFIBBBFBECFFGDHDHFFFF: 2, AABBAAAACAAAADDDDDDDDDDDDAAABAAAEAAACAAAADDDDDDDDDDDD: 2, IAJABKCCCCDEDDALADFFFFGGHHABMCCCCDEDDNOFFFFGGHHABPCCCCDEDD: 1, AKAALBBMCCDCEFECEFEGNGCHIDDOBBBJPJJDIEEFHHEFEGHHEEECHHHHGHHGHQ: 1, GABACDCDEBFEFFFFEAEACDCDEBFEFFFFFEBFEFFFF: 1 |
-| Top Vowel Pairs | aa (29), ee (23), aaaaaa (22), ae (20), aeueee (20) |
+| Rhyme Factor (median) | 0.7771 |
+| Rhyme Factor (IQR) | 0.6880 – 0.8427 |
+| % Multis (median) | 0.9167 |
+| % Multis (IQR) | 0.8519 – 0.9626 |
+| Internal Rhyme Rate (median) | 0.8386 |
+| Dominant Schemes | AABBCCDDEEBBCCDDCCDD: 2, ABCDEFGGHHIICCABCDEFGGHHIICCEFGGHHIICC: 2, ABCDCCEECEEABFCDCCEECEEABBBBBBEECEEA: 2, AABBBBBBCCCCDDDDDDDCCCCCCCC: 2, ABABCCFCDDEBBDDEBBADADAGHBDDEBBDDEBBB: 2 |
+| Top Vowel Pairs | aa (48), ee (45), ao (34), ae (33), ia (25) |
 
 ### Structure
 
 | Metric | Value |
 |--------|-------|
-| Section Type Distribution | refren: 519, strofa: 451, prerefren: 278, tekst: 189, postrefren: 162, outro: 70, intro: 59, bridge: 58, spoken: 30, instrumental: 7, other: 7, hook: 1, interlude: 1 |
-| Avg Sections/Song | 8.56 |
-| Avg Lines/Section | 5.37 |
-| Refren Share | 28.33% |
-| Hook Repetition Ratio | 0.2314 |
+| Section Type Distribution | refren: 1269, strofa: 1056, prerefren: 701, tekst: 490, postrefren: 281, bridge: 128, outro: 127, intro: 113, spoken: 103, instrumental: 29, other: 27, hook: 1, interlude: 1 |
+| Avg Sections/Song | 8.32 |
+| Avg Lines/Section | 4.90 |
+| Refren Share | 29.33% |
+| Hook Repetition Ratio | 0.2449 |
 
 ### Lexical
 
 | Metric | Value |
 |--------|-------|
-| TTR (median) | 0.3904 |
-| Syllables/Line (median) | 10.04 |
-| Distinctive Vocabulary (top-20) | sve (445), samo (376), kô (322), tu (181), noć (163), Samo (156), znam (152), Sve (148), još (133), nema (132), zna (128), srce (112), voli (107), malo (107), noći (99), opet (95), gde (94), daj (92), sad (92), znaš (91) |
+| TTR (median) | 0.3691 |
+| Syllables/Line (median) | 10.51 |
+| Distinctive Vocabulary (top-20) | sve (988), samo (679), kô (642), znam (393), tu (329), Sve (321), nema (303), Samo (295), Ma (286), srce (285), noć (261), zna (258), još (254), ljubav (250), više (227), tako (218), nikad (209), voli (209), noći (206), sad (199) |
 
 ### Content
 
-| Top PER Entities | Bog (47), Bože (31), Niki (21), Dajana (19), Nikolija (17) |
-| Top LOC Entities | Balkan (21), Beograd (14), Beča (14), Pariza (14), Balkanom (6) |
-| Top ORG Entities | BMW (8), U-u-u-u (8), U-u-u-u-u-u-u-u (8), Porschea (6), Coca-Cola (5) |
-| Top-5 Topics | 0_ona_je_joj_nju (24.9%), 3_izdala_bi_ti_ne (23.3%), 4_strasno_pijem_stida_napijem (19.6%), 2_volim_te_que_zelim (19.6%), 18_zvezde_placu_omen_visini (12.7%) |
+| Top PER Entities | Bog (70), Bože (46), Boga (22), Balmain (21), Niki (21) |
+| Top LOC Entities | BG-u (27), Balkan (22), Sahara (18), Beograd (17), Sunce (15) |
+| Top ORG Entities | Gucci (9), Prada (9), BMW (8), Benz (8), U-u-u-u (8) |
+| Top-5 Topics | 0_voli_volim_ljubav_sarajevo (36.4%), 1_strasno_vina_pijem_napijem (23.6%), 4_folk_zvezdu_gotivimo_snove (13.9%), 10_gde_tebe_nestala_si (13.6%), 15_ledja_bidi_ledenog_led (12.5%) |
 
 ---

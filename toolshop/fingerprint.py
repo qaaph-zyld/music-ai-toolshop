@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from toolshop.lyricsdb import COHORT_MAP
 
-# 8 target artists for pro fingerprints
+# 16 target artists for pro fingerprints
 TARGET_ARTISTS: List[str] = [
     "Buba Corelli",
     "Jala Brat",
@@ -24,6 +24,15 @@ TARGET_ARTISTS: List[str] = [
     "Nikolija",
     "Senidah",
     "Relja",
+    # Batch 3 (2026-07-27):
+    "Devito",
+    "TNG",
+    "Voyage",
+    "Rasta",
+    "Maya Berović",
+    "Ana Nikolić",
+    "Breskvica",
+    "Henny",
 ]
 
 # UPOS tags to exclude from distinctive vocabulary
@@ -242,11 +251,12 @@ def _build_lexical(conn: sqlite3.Connection, song_ids: List[int]) -> Dict[str, A
 
     vocab: Counter = Counter()
     if line_ids:
-        line_placeholders = ",".join("?" * len(line_ids))
         cur = conn.execute(
-            f"""SELECT form, upos FROM tokens
-               WHERE line_id IN ({line_placeholders})""",
-            line_ids,
+            f"""SELECT t.form, t.upos FROM tokens t
+               JOIN lines l ON t.line_id = l.id
+               JOIN sections s ON l.section_id = s.id
+               WHERE s.song_id IN ({placeholders})""",
+            song_ids,
         )
         for form, upos in cur.fetchall():
             if form and upos and upos not in _EXCLUDE_UPOS:
