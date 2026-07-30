@@ -1,5 +1,72 @@
 # Changelog
 
+### Answer #029 - L1-L4 Pipeline Re-run on Expanded 1,425-Song Corpus
+**Timestamp:** 2026-07-30
+**Action Type:** Pipeline re-run + bugfix
+
+**What was done:**
+- Fixed NULL cohort assignment: added `_FOLDER_COHORT_MAP` fallback in `lyricsdb.py` using `target_artist` (folder name) when `primary_artist` not in `COHORT_MAP`. Reduced NULL solo from 85 to 0.
+- Rebuilt `lyrics.db`: 1,425 songs, 10,654 sections, 65,912 lines, 273,801 rhyme rows.
+- Cohort distribution: drill_trap 795 solo / pop 520 solo / 13 drill featured / 4 pop featured / 93 NULL featured.
+- CLASSLA annotation: 65,912/65,912 lines (100% coverage), 501,386 tokens, 10,544 entities.
+- Slang lexicon: 11,364 terms (1,630 drill-distinctive, 1,934 pop-distinctive).
+- BERTopic themes: 163 topics, 4,079 section_topics. JSD(drill||pop) = 0.7312. Top-5 overlap 1/5.
+- Pro fingerprints: regenerated with 16 artists (8 original + 8 batch3) + 2 cohort rollups.
+- Fixed SQLite variable limit in `fingerprint.py`: replaced `IN (line_placeholders)` with JOIN subquery to avoid 999 variable limit for 30k+ line_ids.
+- Added 8 batch3 artists to `TARGET_ARTISTS` in `fingerprint.py`.
+
+**Files modified:**
+- `toolshop/lyricsdb.py` — `_FOLDER_COHORT_MAP` + fallback logic in `_insert_song()`
+- `toolshop/fingerprint.py` — SQLite variable limit fix + 8 new artists in `TARGET_ARTISTS`
+- `lyrics_research/reports/pro_fingerprints.md` — regenerated report
+- `.gitignore` — added `Stemmeca_alatkka/run_remix.py`
+
+**Test results:** 660 passed, 3 failed (pre-existing: 2 bpm_adapter mock, 1 bertopic API), 1 skipped. No new failures.
+
+**Next steps:** L4 Part B (Suno gap report) — out of scope for this session.
+
+---
+
+### Answer #028 - Music Video Generator (P0 + P1)
+**Timestamp:** 2026-07-30
+**Action Type:** Feature implementation
+
+**What was done:**
+- Implemented Music Video Generator module with 7 new modules and 72 tests (all passing).
+- **P0 (FFmpeg compositing):**
+  - `video_features.py` — librosa audio feature extraction (beats, onsets, RMS, chroma, sections, stem energies) to sidecar JSON.
+  - `video_ass.py` — LRC to ASS subtitle conversion with 4 style presets (default, neon, minimal, bold).
+  - `video_compose.py` — FFmpeg subprocess compositing: showwaves, Ken Burns, concat, crossfade, ASS overlay, full pipeline orchestration.
+  - `video_cli.py` — argparse subcommands: `features`, `generate`, `lyrics`, `stock`.
+  - `cli.py` integration — `video` subcommand registered and dispatched.
+  - Integration test — end-to-end features → ASS → compose pipeline with mocked FFmpeg.
+- **P1 (Shaders + Stock):**
+  - `video_shaders.py` — ModernGL audio-reactive shader renderer with 4 GLSL presets (neon_grid, plasma, spectrum_bars, particle_swirl). Uniforms derived from audio features (bass, treble, onset, beat phase).
+  - `video_stock.py` — Pexels + Pixabay stock footage API adapters with unified search and download.
+  - `compose_pipeline` updated to support `shader:PRESET` background type.
+- `pyproject.toml` — added `[video]` optional dependency group (librosa, numpy, Pillow, moderngl, httpx).
+
+**Files added:**
+- `toolshop/video_features.py` (140 lines)
+- `toolshop/video_ass.py` (190 lines)
+- `toolshop/video_compose.py` (305 lines)
+- `toolshop/video_cli.py` (220 lines)
+- `toolshop/video_shaders.py` (240 lines)
+- `toolshop/video_stock.py` (175 lines)
+- `tests/test_video_features.py` (7 tests)
+- `tests/test_video_ass.py` (15 tests)
+- `tests/test_video_compose.py` (18 tests)
+- `tests/test_video_cli.py` (9 tests)
+- `tests/test_video_shaders.py` (8 tests)
+- `tests/test_video_stock.py` (13 tests)
+- `tests/test_video_integration.py` (3 tests)
+
+**Files modified:**
+- `toolshop/cli.py` — added video subcommand registration and dispatch
+- `pyproject.toml` — added video extra dependencies
+
+**Test results:** 72 video tests passed, 660 total passed, 3 pre-existing failures (test_bpm_adapter, test_themes — unrelated).
+
 ### Answer #027 - Batch 3 Corpus Expansion (1,425 songs)
 **Timestamp:** 2026-07-27
 **Action Type:** Data expansion + bugfix
