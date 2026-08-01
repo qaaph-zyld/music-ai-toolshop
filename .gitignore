@@ -29,6 +29,7 @@ data/
 
 # Personal audio / generated stems (moved to TOOLSHOP_DATA_DIR)
 Distro Kidea/
+Distro_Kidea/
 Stemmeca_alatkka/separated_stems/
 Stemmeca_alatkka/toolshop_stems*/
 Stemmeca_alatkka/stems/
