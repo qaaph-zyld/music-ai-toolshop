@@ -14,7 +14,6 @@ def mock_librosa():
         mock_lib.load.return_value = (MagicMock(), 22050)
         mock_lib.get_duration.return_value = 120.5
         mock_lib.beat.beat_track.return_value = (120.0, None)
-        mock_np.atleast_1d.return_value = [120.0]
 
         # Setup chroma feature mock
         mock_chroma = MagicMock()
@@ -25,6 +24,9 @@ def mock_librosa():
             0.8
         ] * 12  # Return array of floats > 0.5 for major mode
         mock_np.argmax.return_value = 0
+
+        # np.atleast_1d must return something indexable that float() can convert
+        mock_np.atleast_1d.return_value = [120.0]
 
         yield mock_lib, mock_np
 

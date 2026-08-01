@@ -57,7 +57,13 @@ suno-gap-output.txt
 cohen-d-output.txt
 collab-output.txt
 test-final-output.txt
+diff-output.txt
+status-output.txt
+full-status.txt
 .windsurf/
+
+# Personal lyrics (not for repo)
+lyrics_research/my_lyrics/
 
 # Separate live subproject (nested git repo, not part of core package)
 open_DAW/
