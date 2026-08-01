@@ -1104,6 +1104,65 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output file path (default: lyrics_research/reports/pro_fingerprints.md)",
     )
 
+    # lyrics correct <file> [--mode report|auto-fix|interactive] [--db PATH] [--output PATH] [--json]
+    lyrics_correct_parser = lyrics_subparsers.add_parser(
+        "correct", help="Detect and fix issues in a lyrics file"
+    )
+    lyrics_correct_parser.add_argument(
+        "file", type=Path, help="Path to lyrics text file to correct"
+    )
+    lyrics_correct_parser.add_argument(
+        "--mode", type=str, default="report",
+        choices=["report", "auto-fix", "interactive"],
+        help="Correction mode: report (flag only), auto-fix (safe fixes), interactive (approve each) (default: report)",
+    )
+    lyrics_correct_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Lyrics DB path for corpus validation (enables unknown-word check)",
+    )
+    lyrics_correct_parser.add_argument(
+        "--output", type=Path, default=None,
+        help="Write corrected file here (default: stdout)",
+    )
+    lyrics_correct_parser.add_argument(
+        "--json", action="store_true", help="Output report as JSON instead of text table"
+    )
+
+    # lyrics transform <file> --target-genre drill_trap|pop --direction vocabulary|slang|all
+    #   --mode report|auto-fix|interactive --db PATH --output PATH --json
+    lyrics_transform_parser = lyrics_subparsers.add_parser(
+        "transform", help="Suggest genre-appropriate word replacements in a lyrics file"
+    )
+    lyrics_transform_parser.add_argument(
+        "file", type=Path, help="Path to lyrics text file to transform"
+    )
+    lyrics_transform_parser.add_argument(
+        "--target-genre", type=str, default="drill_trap",
+        choices=["drill_trap", "pop"],
+        help="Target genre cohort for suggestions (default: drill_trap)",
+    )
+    lyrics_transform_parser.add_argument(
+        "--direction", type=str, default="all",
+        choices=["vocabulary", "slang", "all"],
+        help="Transformation direction: vocabulary, slang, or all (default: all)",
+    )
+    lyrics_transform_parser.add_argument(
+        "--mode", type=str, default="report",
+        choices=["report", "auto-fix", "interactive"],
+        help="Transform mode: report (suggest only), auto-fix (safe only), interactive (approve each) (default: report)",
+    )
+    lyrics_transform_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Lyrics DB path for corpus lookups (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_transform_parser.add_argument(
+        "--output", type=Path, default=None,
+        help="Write transformed file here (default: stdout)",
+    )
+    lyrics_transform_parser.add_argument(
+        "--json", action="store_true", help="Output report as JSON instead of text table"
+    )
+
     return parser
 
 
@@ -2027,6 +2086,99 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                     print(f"Report written to {output_path}")
             finally:
                 conn.close()
+
+        elif args.lyrics_command == "correct":
+            from toolshop.lyrics_corrector import (
+                LyricsCorrector, format_report_text, format_report_json,
+            )
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                db_path = None  # Disable corpus validation if DB not found
+
+            corrector = LyricsCorrector(args.file, db_path=db_path)
+            report = corrector.run_all_checks()
+
+            if args.mode == "report":
+                if args.json:
+                    print(format_report_json(report))
+                else:
+                    print(format_report_text(report))
+
+            elif args.mode == "auto-fix":
+                corrected = corrector.apply_fixes(report, auto_safe_only=True)
+                if args.output:
+                    args.output.write_text(corrected, encoding="utf-8")
+                    print(f"Corrected file written to {args.output}")
+                else:
+                    print(corrected)
+                # Print summary of uncertain issues
+                if report.uncertain_issues:
+                    print("\n--- Uncertain issues (not auto-fixed) ---")
+                    print(format_report_text(
+                        type(report)(issues=report.uncertain_issues)
+                    ))
+
+            elif args.mode == "interactive":
+                corrected = corrector.interactive_review(report)
+                if args.output:
+                    args.output.write_text(corrected, encoding="utf-8")
+                    print(f"\nCorrected file written to {args.output}")
+                else:
+                    print("\n--- Corrected text ---")
+                    print(corrected)
+
+        elif args.lyrics_command == "transform":
+            from toolshop.lyrics_transformer import (
+                LyricsTransformer, TransformationReport,
+                format_transform_text, format_transform_json,
+            )
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                db_path = None  # Disable corpus lookups if DB not found
+
+            directions = ["vocabulary", "slang"] if args.direction == "all" else [args.direction]
+
+            transformer = LyricsTransformer(
+                args.file, db_path=db_path,
+                target_genre=args.target_genre,
+            )
+            report = transformer.run_all_transforms(directions)
+
+            if args.mode == "report":
+                if args.json:
+                    print(format_transform_json(report))
+                else:
+                    print(format_transform_text(report))
+
+            elif args.mode == "auto-fix":
+                transformed = transformer.apply_transforms(report, auto_safe_only=True)
+                if args.output:
+                    args.output.write_text(transformed, encoding="utf-8")
+                    print(f"Transformed file written to {args.output}")
+                else:
+                    print(transformed)
+                if report.uncertain_suggestions:
+                    print("\n--- Uncertain suggestions (not auto-applied) ---")
+                    print(format_transform_text(
+                        TransformationReport(
+                            suggestions=report.uncertain_suggestions,
+                            stats={"total": len(report.uncertain_suggestions)},
+                            target_genre=report.target_genre,
+                        )
+                    ))
+
+            elif args.mode == "interactive":
+                transformed = transformer.interactive_transform(report)
+                if args.output:
+                    args.output.write_text(transformed, encoding="utf-8")
+                    print(f"\nTransformed file written to {args.output}")
+                else:
+                    print("\n--- Transformed text ---")
+                    print(transformed)
 
         else:
             parser.error("Unknown 'lyrics' subcommand.")

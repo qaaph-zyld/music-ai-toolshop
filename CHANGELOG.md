@@ -1,5 +1,29 @@
 # Changelog
 
+### Answer #032 — Lyrics Transformer Module
+**Timestamp:** 2026-07-31
+**Action Type:** Feature + tests + CLI integration
+
+**What was done:**
+- New module `toolshop/lyrics_transformer.py` — suggests genre-appropriate word replacements for user-authored lyrics.
+  - **Vocabulary Enhancement**: Low-frequency content words (freq < 5) flagged for replacement. Same-lemma alternatives (auto_safe=True, meaning-preserving inflectional variants) preferred; same-UPOS fallback (auto_safe=False, may shift meaning) when no same-lemma match exists.
+  - **Slang Injection**: Generic content words flagged for replacement with cohort-distinctive slang terms (|distinctiveness| > 1.0, direction matching target genre). UPOS-matched to preserve semantic role. Always auto_safe=False.
+  - `Suggestion` and `TransformationReport` dataclasses.
+  - `run_all_transforms(directions)`, `apply_transforms(report, auto_safe_only=True)`, `interactive_transform(report)`.
+  - `format_transform_text(report)` and `format_transform_json(report)` formatters.
+  - Reuses `CorrectedSection`, `_SECTION_LABEL_RE` from `lyrics_corrector.py`; `_ascii_fold`, `DEFAULT_DB_PATH` from `lyricsdb.py`.
+- CLI integration: `toolshop lyrics transform <file> --target-genre drill_trap|pop --direction vocabulary|slang|all --mode report|auto-fix|interactive --db PATH --output PATH --json`
+- 17 TDD tests in `tests/test_lyrics_transformer.py` with mock SQLite DB (`:memory:` pattern).
+
+**Files affected:**
+- `toolshop/lyrics_transformer.py` (new, ~400 lines)
+- `tests/test_lyrics_transformer.py` (new, ~340 lines)
+- `toolshop/cli.py` (subparser + dispatch block, ~60 lines added)
+
+**Test results:** 707 passed, 1 skipped, 0 failed (378.66s).
+
+---
+
 ### Answer #031 — Batch 3 Follow-up: Test Fixes, Video Module, Suno Gap Report, Cohen's d, Collab Network
 **Timestamp:** 2026-07-30
 **Action Type:** Test fixes + feature commits + analysis reports
