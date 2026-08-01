@@ -1,10 +1,14 @@
 """Lyrics transformation engine — suggests genre-appropriate word replacements
 for user-authored lyrics files.
 
-Two transformation directions:
+Four transformation directions:
   1. Vocabulary Enhancement — replace low-frequency words with higher-frequency
      same-lemma (auto_safe) or same-UPOS (suggest) alternatives from the target cohort.
   2. Slang Injection — replace generic words with cohort-distinctive slang terms.
+  3. Section Structure Optimization — compare user's section sequence to cohort DB
+     patterns and templates, suggest missing/reordered sections (auto_safe).
+  4. Flow Pattern Matching — compare user's per-section syllable patterns to cohort
+     averages, suggest line splitting/merging (not auto_safe).
 
 Supports three modes: report, auto-fix, interactive.
 """
@@ -14,12 +18,13 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from toolshop.lyrics_corrector import CorrectedSection, _SECTION_LABEL_RE
-from toolshop.lyricsdb import _ascii_fold, DEFAULT_DB_PATH
+from toolshop.lyricsdb import _ascii_fold, DEFAULT_DB_PATH, parse_section_label
 
 
 # ── Data structures ───────────────────────────────────────────────────
@@ -426,6 +431,350 @@ class LyricsTransformer:
 
         return None
 
+    # ── Direction 3: Section Structure Optimization ───────────────
+
+    # Template file mapping: cohort → template filename.
+    _TEMPLATE_MAP: Dict[str, str] = {
+        "drill_trap": "template_drill.md",
+        "pop": "template_love_club.md",
+    }
+
+    # Canonical section order extracted from templates (by cohort).
+    _TEMPLATE_ORDER: Dict[str, List[str]] = {
+        "drill_trap": ["intro", "hook", "strofa", "prerefren", "hook", "strofa", "bridge", "hook", "outro"],
+        "pop": ["strofa", "prerefren", "refren", "strofa", "bridge", "refren", "outro"],
+    }
+
+    # Expected section types per cohort (set form for membership checks).
+    _TEMPLATE_TYPES: Dict[str, set] = {
+        "drill_trap": {"intro", "hook", "strofa", "prerefren", "bridge", "outro"},
+        "pop": {"strofa", "prerefren", "refren", "bridge", "outro"},
+    }
+
+    def _parse_user_section_types(self, sections: List[CorrectedSection]) -> List[Tuple[str, int]]:
+        """Parse user sections into (canonical_type, label_line_no) pairs."""
+        result: List[Tuple[str, int]] = []
+        for sec in sections:
+            if not sec.label_raw:
+                result.append(("unknown", sec.label_line_no))
+                continue
+            parsed = parse_section_label(sec.label_raw)
+            result.append((parsed.type, sec.label_line_no))
+        return result
+
+    def _query_cohort_section_sequences(self, conn: sqlite3.Connection) -> List[List[str]]:
+        """Query the most common section sequences from the DB for the target cohort."""
+        try:
+            rows = conn.execute(
+                """SELECT s.song_id, s.ordinal, s.type
+                   FROM sections s
+                   JOIN songs sg ON s.song_id = sg.id
+                   WHERE sg.genre_cohort = ?
+                   ORDER BY s.song_id, s.ordinal""",
+                (self.target_genre,)
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+
+        sequences: Dict[int, List[str]] = {}
+        for song_id, ordinal, sec_type in rows:
+            sequences.setdefault(song_id, []).append(sec_type)
+
+        # Return sequences sorted by frequency (most common first)
+        from collections import Counter
+        seq_tuples = [tuple(seq) for seq in sequences.values()]
+        counter = Counter(seq_tuples)
+        return [list(seq) for seq, _ in counter.most_common(5)]
+
+    def _query_cohort_avg_syllables(self, conn: sqlite3.Connection) -> float:
+        """Query the average syllables per line for the target cohort."""
+        try:
+            row = conn.execute(
+                """SELECT AVG(sm.avg_syllables_per_line)
+                   FROM song_metrics sm
+                   JOIN songs s ON sm.song_id = s.id
+                   WHERE s.genre_cohort = ?""",
+                (self.target_genre,)
+            ).fetchone()
+            return round(row[0], 2) if row[0] else 0.0
+        except sqlite3.OperationalError:
+            return 0.0
+
+    def _query_cohort_section_syllable_avg(
+        self, conn: sqlite3.Connection, section_type: str
+    ) -> Optional[float]:
+        """Query the average syllables per line for a specific section type in the cohort."""
+        try:
+            row = conn.execute(
+                """SELECT AVG(l.syllable_count)
+                   FROM lines l
+                   JOIN sections s ON l.section_id = s.id
+                   JOIN songs sg ON s.song_id = sg.id
+                   WHERE sg.genre_cohort = ? AND s.type = ?
+                     AND l.syllable_count IS NOT NULL""",
+                (self.target_genre, section_type)
+            ).fetchone()
+            return round(row[0], 2) if row[0] else None
+        except sqlite3.OperationalError:
+            return None
+
+    def transform_structure(self, sections: List[CorrectedSection]) -> List[Suggestion]:
+        """Suggest structural improvements by comparing user's section sequence
+        to cohort DB patterns and genre templates.
+
+        All structure suggestions are auto_safe (inserting a section label
+        does not change existing lyrics).
+        """
+        user_types = self._parse_user_section_types(sections)
+        user_type_list = [t for t, _ in user_types]
+
+        template_order = self._TEMPLATE_ORDER.get(self.target_genre, [])
+        template_types = self._TEMPLATE_TYPES.get(self.target_genre, set())
+
+        # Query DB for cohort section sequences
+        conn = self._get_conn()
+        cohort_sequences: List[List[str]] = []
+        if conn is not None:
+            cohort_sequences = self._query_cohort_section_sequences(conn)
+
+        suggestions: List[Suggestion] = []
+
+        # 1. Missing sections (compare to template)
+        user_type_set = set(user_type_list)
+        for t_type in template_types:
+            if t_type not in user_type_set and t_type != "unknown":
+                # Find the best insertion point from template order
+                insert_label = self._canonical_label(t_type)
+                suggestions.append(Suggestion(
+                    line_no=0,
+                    direction="structure",
+                    category="structure_missing_section",
+                    severity="safe",
+                    original="(missing)",
+                    suggested=insert_label,
+                    reasoning=f"Section type '{t_type}' is present in {self.target_genre} template but missing from user lyrics",
+                    auto_safe=True,
+                    context=f"template: {self._TEMPLATE_MAP.get(self.target_genre, '?')}",
+                ))
+
+        # 2. Section ordering check
+        # Equivalence map: refren and hook serve the same structural role
+        _ORDER_EQUIV = {"refren": "hook", "hook": "refren"}
+        if template_order and len(user_type_list) >= 2:
+            # Build expected order index from template (first occurrence)
+            order_idx = {}
+            for i, t in enumerate(template_order):
+                if t not in order_idx:
+                    order_idx[t] = i
+
+            # Check if user sections are in the expected relative order
+            last_expected = -1
+            for i, (u_type, line_no) in enumerate(user_types):
+                # Map equivalent types (refren ↔ hook)
+                lookup_type = _ORDER_EQUIV.get(u_type, u_type)
+                if lookup_type in order_idx:
+                    expected_pos = order_idx[lookup_type]
+                elif u_type in order_idx:
+                    expected_pos = order_idx[u_type]
+                else:
+                    continue
+                if expected_pos < last_expected:
+                    suggestions.append(Suggestion(
+                        line_no=line_no,
+                        direction="structure",
+                        category="structure_ordering",
+                        severity="suggest",
+                        original=f"{u_type} at position {i+1}",
+                        suggested=f"Move after position {last_expected + 1} in template order",
+                        reasoning=f"Section '{u_type}' appears before a section that typically precedes it in {self.target_genre} template",
+                        auto_safe=True,
+                        context=f"template order: {' → '.join(template_order[:6])}...",
+                    ))
+                last_expected = max(last_expected, expected_pos)
+
+        # 3. Section count comparison
+        if cohort_sequences:
+            cohort_avg_sections = round(statistics.mean(len(s) for s in cohort_sequences), 1)
+            user_section_count = len(user_type_list)
+            if user_section_count < cohort_avg_sections - 2:
+                suggestions.append(Suggestion(
+                    line_no=0,
+                    direction="structure",
+                    category="structure_count_mismatch",
+                    severity="suggest",
+                    original=f"{user_section_count} sections",
+                    suggested=f"~{cohort_avg_sections:.0f} sections (cohort average)",
+                    reasoning=f"User has {user_section_count} sections; cohort average is {cohort_avg_sections}. Consider adding pre-chorus, bridge, or post-chorus.",
+                    auto_safe=True,
+                    context=f"cohort: {self.target_genre}",
+                ))
+
+        return suggestions
+
+    @staticmethod
+    def _canonical_label(section_type: str) -> str:
+        """Convert a canonical type key to a display label for suggestions."""
+        labels = {
+            "intro": "[Intro]",
+            "hook": "[Hook]",
+            "strofa": "[Strofa]",
+            "prerefren": "[Pred-Refren]",
+            "refren": "[Refren]",
+            "bridge": "[Prelaz]",
+            "outro": "[Završetak]",
+            "postrefren": "[Post-Refren]",
+        }
+        return labels.get(section_type, f"[{section_type.capitalize()}]")
+
+    # ── Direction 4: Flow Pattern Matching ─────────────────────────
+
+    _VOWEL_GROUPS_RE = re.compile(r"[aeiouAEIOU]+")
+
+    def _estimate_syllables(self, text: str) -> int:
+        """Estimate syllable count for a line using vowel-group heuristic."""
+        words = _WORD_RE.findall(text)
+        total = 0
+        for word in words:
+            groups = self._VOWEL_GROUPS_RE.findall(word)
+            # Each vowel group ≈ 1 syllable; minimum 1 per word
+            total += max(len(groups), 1)
+        return total
+
+    def transform_flow(self, sections: List[CorrectedSection]) -> List[Suggestion]:
+        """Suggest flow improvements by comparing user's per-section syllable
+        patterns to cohort averages.
+
+        Flow suggestions are NOT auto_safe (line splitting/merging changes lyrics).
+        """
+        from toolshop.flow_analyzer import detect_patterns
+
+        conn = self._get_conn()
+        cohort_avg_syl = 0.0
+        if conn is not None:
+            cohort_avg_syl = self._query_cohort_avg_syllables(conn)
+
+        suggestions: List[Suggestion] = []
+
+        for section in sections:
+            if not section.lines:
+                continue
+
+            # Compute syllable counts for this section's lines
+            syl_counts: List[int] = []
+            for line_no, text in section.lines:
+                stripped = text.strip()
+                if not stripped or _SECTION_LABEL_RE.match(stripped):
+                    continue
+                syl_counts.append(self._estimate_syllables(stripped))
+
+            if len(syl_counts) < 2:
+                continue
+
+            user_pattern = detect_patterns(syl_counts)
+            user_avg = round(statistics.mean(syl_counts), 2)
+
+            # Parse section type for cohort comparison
+            sec_type = "unknown"
+            if section.label_raw:
+                parsed = parse_section_label(section.label_raw)
+                sec_type = parsed.type
+
+            # Compare to cohort section-specific average
+            cohort_section_avg = None
+            if conn is not None:
+                cohort_section_avg = self._query_cohort_section_syllable_avg(conn, sec_type)
+
+            # 1. Syllable count comparison
+            comparison_avg = cohort_section_avg if cohort_section_avg else cohort_avg_syl
+            if comparison_avg > 0:
+                diff = user_avg - comparison_avg
+                if abs(diff) >= 1.5:
+                    if diff > 0:
+                        action = "split"
+                        reason = (
+                            f"Section '{sec_type}': user avg {user_avg} syllables/line vs "
+                            f"cohort avg {comparison_avg}. Consider splitting longer lines."
+                        )
+                    else:
+                        action = "merge"
+                        reason = (
+                            f"Section '{sec_type}': user avg {user_avg} syllables/line vs "
+                            f"cohort avg {comparison_avg}. Consider merging shorter lines."
+                        )
+                    suggestions.append(Suggestion(
+                        line_no=section.lines[0][0] if section.lines else 0,
+                        direction="flow",
+                        category="flow_syllable_count",
+                        severity="suggest",
+                        original=f"{user_avg} syllables/line",
+                        suggested=f"{comparison_avg} syllables/line ({action})",
+                        reasoning=reason,
+                        auto_safe=False,
+                        context=f"section: {sec_type}, pattern: {user_pattern}",
+                    ))
+
+            # Compute cohort CV for this section type (used by both pattern checks)
+            cohort_cv: Optional[float] = None
+            if conn is not None:
+                try:
+                    row = conn.execute(
+                        """SELECT AVG(l.syllable_count),
+                                  AVG(l.syllable_count * l.syllable_count)
+                           FROM lines l
+                           JOIN sections s ON l.section_id = s.id
+                           JOIN songs sg ON s.song_id = sg.id
+                           WHERE sg.genre_cohort = ? AND s.type = ?
+                             AND l.syllable_count IS NOT NULL""",
+                        (self.target_genre, sec_type)
+                    ).fetchone()
+                    if row[0] and row[1]:
+                        mean_val = row[0]
+                        mean_sq = row[1]
+                        variance = mean_sq - mean_val * mean_val
+                        if mean_val > 0:
+                            cohort_cv = (variance ** 0.5) / mean_val if variance > 0 else 0.0
+                except sqlite3.OperationalError:
+                    pass
+
+            # 2. Pattern mismatch: user uniform when cohort tends to be more varied
+            if user_pattern == "uniform" and len(syl_counts) >= 3:
+                if cohort_cv and cohort_cv > 0.15:
+                    suggestions.append(Suggestion(
+                        line_no=section.lines[0][0] if section.lines else 0,
+                        direction="flow",
+                        category="flow_pattern_mismatch",
+                        severity="suggest",
+                        original=f"{user_pattern}",
+                        suggested="alternating or varied",
+                        reasoning=(
+                            f"Section '{sec_type}': user pattern is '{user_pattern}' but "
+                            f"cohort shows variation (CV={cohort_cv:.2f}). "
+                            f"Consider alternating line lengths for dynamic flow."
+                        ),
+                        auto_safe=False,
+                        context=f"user avg: {user_avg}, cohort CV: {cohort_cv:.2f}",
+                    ))
+
+            # 3. Pattern mismatch: user alternating when cohort is uniform
+            if user_pattern == "alternating":
+                if cohort_cv is not None and cohort_cv < 0.05:
+                    suggestions.append(Suggestion(
+                        line_no=section.lines[0][0] if section.lines else 0,
+                        direction="flow",
+                        category="flow_pattern_mismatch",
+                        severity="suggest",
+                        original=f"{user_pattern}",
+                        suggested="uniform",
+                        reasoning=(
+                            f"Section '{sec_type}': user pattern is 'alternating' but "
+                            f"cohort tends toward uniform flow (CV={cohort_cv:.2f})."
+                        ),
+                        auto_safe=False,
+                        context=f"user avg: {user_avg}",
+                    ))
+
+        return suggestions
+
     # ── Run all transforms ─────────────────────────────────────────
 
     def run_all_transforms(self, directions: List[str]) -> TransformationReport:
@@ -438,6 +787,10 @@ class LyricsTransformer:
             suggestions.extend(self.transform_vocabulary(sections))
         if "slang" in directions:
             suggestions.extend(self.transform_slang(sections))
+        if "structure" in directions:
+            suggestions.extend(self.transform_structure(sections))
+        if "flow" in directions:
+            suggestions.extend(self.transform_flow(sections))
 
         # Sort by line number
         suggestions.sort(key=lambda s: (s.line_no, s.direction))
@@ -471,13 +824,18 @@ class LyricsTransformer:
         text = self._load_text()
         lines = text.split("\n")
 
-        # Group suggestions by line number
+        # Separate structure suggestions (label insertion) from word-replacement
+        structure_inserts: List[Suggestion] = []
         by_line: Dict[int, List[Suggestion]] = {}
         for s in report.suggestions:
             if auto_safe_only and not s.auto_safe:
                 continue
-            by_line.setdefault(s.line_no, []).append(s)
+            if s.direction == "structure" and s.category == "structure_missing_section":
+                structure_inserts.append(s)
+            else:
+                by_line.setdefault(s.line_no, []).append(s)
 
+        # Apply word-replacement suggestions (reverse order to preserve indices)
         for line_no, line_sugs in sorted(by_line.items(), reverse=True):
             idx = line_no - 1
             if idx < 0 or idx >= len(lines):
@@ -489,6 +847,14 @@ class LyricsTransformer:
                     lines[idx],
                     flags=re.IGNORECASE,
                 )
+
+        # Apply structure label insertions (prepend at beginning of file)
+        if structure_inserts:
+            insert_lines: List[str] = []
+            for sug in structure_inserts:
+                insert_lines.append(sug.suggested)
+                insert_lines.append("")
+            lines = insert_lines + lines
 
         transformed = "\n".join(lines)
         report.transformed_text = transformed

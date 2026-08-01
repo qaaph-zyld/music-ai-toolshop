@@ -1,5 +1,27 @@
 # Changelog
 
+### Answer #033 — Lyrics Transformer: Structure + Flow Directions
+**Timestamp:** 2026-07-31
+**Action Type:** Feature extension + tests + CLI integration
+
+**What was done:**
+- Extended `toolshop/lyrics_transformer.py` with two new transformation directions:
+  - **Section Structure Optimization** (`transform_structure`): Parses user's section sequence via `parse_section_label()`, compares to genre template (`_TEMPLATE_ORDER` / `_TEMPLATE_TYPES`) and cohort DB section sequences. Suggests: missing sections (intro, pre-chorus, bridge, post-chorus), section ordering issues, section count mismatch vs cohort average. All auto_safe=True (inserting section labels doesn't change existing lyrics). Refren↔hook equivalence mapping for drill_trap ordering.
+  - **Flow Pattern Matching** (`transform_flow`): Computes per-section syllable counts (vowel-group heuristic), runs `flow_analyzer.detect_patterns()`, queries cohort `song_metrics` and `lines.syllable_count` for comparison. Suggests: syllable count per line vs cohort average (split/merge), pattern mismatch (uniform vs alternating based on cohort CV). All auto_safe=False (line splitting/merging changes lyrics).
+- Extended `run_all_transforms()` to dispatch `structure` and `flow` directions.
+- Extended `apply_transforms()` to insert section labels for structure suggestions (prepend to file).
+- CLI: `--direction` choices extended with `structure`, `flow`; `all` now includes all four directions.
+- 15 new TDD tests: TestStructureOptimization (6), TestFlowPatternMatching (5), TestStructureAutoFix (2), TestCLIIntegration (2). New `structure_db` fixture with `song_metrics`, `sections.type/ordinal`, `lines.syllable_count` columns.
+
+**Files affected:**
+- `toolshop/lyrics_transformer.py` (extended, ~360 lines added)
+- `tests/test_lyrics_transformer.py` (extended, ~340 lines added)
+- `toolshop/cli.py` (2 edits: `--direction` choices, dispatch `all`)
+
+**Test results:** 722 passed, 1 skipped, 0 failed (284.98s).
+
+---
+
 ### Answer #032 — Lyrics Transformer Module
 **Timestamp:** 2026-07-31
 **Action Type:** Feature + tests + CLI integration

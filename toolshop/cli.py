@@ -1143,8 +1143,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     lyrics_transform_parser.add_argument(
         "--direction", type=str, default="all",
-        choices=["vocabulary", "slang", "all"],
-        help="Transformation direction: vocabulary, slang, or all (default: all)",
+        choices=["vocabulary", "slang", "structure", "flow", "all"],
+        help="Transformation direction: vocabulary, slang, structure, flow, or all (default: all)",
     )
     lyrics_transform_parser.add_argument(
         "--mode", type=str, default="report",
@@ -2140,7 +2140,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             if not db_path.exists():
                 db_path = None  # Disable corpus lookups if DB not found
 
-            directions = ["vocabulary", "slang"] if args.direction == "all" else [args.direction]
+            directions = ["vocabulary", "slang", "structure", "flow"] if args.direction == "all" else [args.direction]
 
             transformer = LyricsTransformer(
                 args.file, db_path=db_path,
