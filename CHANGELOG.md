@@ -22,9 +22,9 @@
 - `scripts/recompute_cohens_d.py`
 - `scripts/collab_network.py`
 
-**Test results:** 663 passed, 1 skipped, 0 failed (214.93s).
+**Test results:** 663 passed, 1 skipped, 0 failed (522.87s).
 
-**Commits:** 6c95c4b, 0cd8d43, d88360c, 0e66e07, 2331b7c, 63e79ea, de2ee0d
+**Commits:** 976e09b (test fix + gitignore), 1f248b8 (corpus correction research + Distro_Kidea gitignore)
 
 ---
 
