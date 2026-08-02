@@ -25,6 +25,13 @@ from typing import Dict, List, Optional, Tuple
 
 from toolshop.lyrics_corrector import CorrectedSection, _SECTION_LABEL_RE
 from toolshop.lyricsdb import _ascii_fold, DEFAULT_DB_PATH, parse_section_label
+from toolshop.rhyme_miner import (
+    vowel_skeleton,
+    find_rhymes,
+    rhyme_factor,
+    infer_scheme,
+    extract_end_rhyme,
+)
 
 
 # ── Data structures ───────────────────────────────────────────────────
@@ -158,11 +165,24 @@ class LyricsTransformer:
             words.extend(_WORD_RE.findall(line.lower()))
         unique = set(words)
         ttr = len(unique) / len(words) if words else 0.0
+        # Rhyme metrics
+        from toolshop.rhyme_miner import rhyme_factor as _rf, find_rhymes as _find_rhymes, infer_scheme as _infer_scheme
+        user_rf = _rf(lines)
+        rhyme_groups = _find_rhymes(lines, min_match=2)
+        matched: set = set()
+        for g in rhyme_groups:
+            matched.update(g.line_indices)
+        isolated_count = len(lines) - len(matched)
+        scheme = _infer_scheme(rhyme_groups, len(lines))
+
         return {
             "word_count": len(words),
             "unique_words": len(unique),
             "ttr": round(ttr, 4),
             "line_count": len(lines),
+            "rhyme_factor": user_rf,
+            "rhyme_scheme": scheme,
+            "isolated_lines": isolated_count,
         }
 
     # ── Cohort benchmarks ──────────────────────────────────────────
@@ -775,6 +795,224 @@ class LyricsTransformer:
 
         return suggestions
 
+    # ── Direction 5: Rhyme Scheme Enhancement ──────────────────────
+
+    _COHORT_RF_MEDIANS: Dict[str, float] = {
+        "drill_trap": 0.56,
+        "pop": 0.74,
+    }
+
+    def _flatten_lyric_lines(self, sections: List[CorrectedSection]) -> List[Tuple[int, str]]:
+        """Flatten sections into (line_no, text) pairs, skipping section labels and blanks."""
+        flat: List[Tuple[int, str]] = []
+        for section in sections:
+            for line_no, text in section.lines:
+                stripped = text.strip()
+                if not stripped or _SECTION_LABEL_RE.match(stripped):
+                    continue
+                flat.append((line_no, stripped))
+        return flat
+
+    def _query_cohort_rf_median(self, conn: Optional[sqlite3.Connection]) -> Optional[float]:
+        """Query the average rhyme_factor for the target cohort from song_rhyme_metrics."""
+        if conn is None:
+            return None
+        try:
+            row = conn.execute(
+                """SELECT AVG(srm.rhyme_factor)
+                   FROM song_rhyme_metrics srm
+                   JOIN songs s ON srm.song_id = s.id
+                   WHERE s.genre_cohort = ? AND s.role = 'solo'""",
+                (self.target_genre,)
+            ).fetchone()
+            return round(row[0], 4) if row[0] else None
+        except sqlite3.OperationalError:
+            return None
+
+    def _find_words_matching_skeleton(
+        self, conn: sqlite3.Connection, target_skeleton: str, exclude_word: str, limit: int = 5
+    ) -> List[Tuple[str, int]]:
+        """Find words from the tokens table whose end vowel skeleton matches the target.
+
+        Returns list of (form, freq) pairs sorted by descending frequency.
+        """
+        if not target_skeleton:
+            return []
+        results: List[Tuple[str, int]] = []
+        try:
+            rows = conn.execute(
+                "SELECT form, COUNT(*) as freq FROM tokens GROUP BY form ORDER BY freq DESC LIMIT 500"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+
+        exclude_folded = _ascii_fold(exclude_word).lower()
+        for form, freq in rows:
+            form_folded = _ascii_fold(form).lower()
+            if form_folded == exclude_folded:
+                continue
+            word_skel = vowel_skeleton(form_folded)
+            if not word_skel:
+                continue
+            if word_skel.endswith(target_skeleton) and len(word_skel) >= len(target_skeleton):
+                results.append((form, freq))
+                if len(results) >= limit:
+                    break
+        return results
+
+    def transform_rhymes(self, sections: List[CorrectedSection]) -> List[Suggestion]:
+        """Suggest rhyme scheme improvements by comparing user's rhyme density
+        to cohort medians, identifying isolated lines, and proposing word
+        replacements to increase multisyllabic rhyme density.
+
+        All rhyme suggestions are auto_safe=False (word replacements are subjective).
+        """
+        flat_lines = self._flatten_lyric_lines(sections)
+        if not flat_lines:
+            return []
+
+        line_texts = [text for _, text in flat_lines]
+        line_nos = [ln for ln, _ in flat_lines]
+
+        # Compute user rhyme factor
+        user_rf = rhyme_factor(line_texts)
+
+        # Find end-rhyme groups
+        rhyme_groups = find_rhymes(line_texts, min_match=2)
+
+        # Identify matched line indices (lines in any rhyme group)
+        matched_indices: set = set()
+        for group in rhyme_groups:
+            matched_indices.update(group.line_indices)
+
+        # Identify isolated lines
+        isolated: List[Tuple[int, int, str]] = []  # (flat_idx, line_no, text)
+        for i, (line_no, text) in enumerate(flat_lines):
+            if i not in matched_indices:
+                isolated.append((i, line_no, text))
+
+        # Query cohort median RF
+        conn = self._get_conn()
+        cohort_rf = self._query_cohort_rf_median(conn)
+        if cohort_rf is None:
+            cohort_rf = self._COHORT_RF_MEDIANS.get(self.target_genre, 0.56)
+
+        suggestions: List[Suggestion] = []
+
+        # 1. Rhyme factor comparison
+        if user_rf < cohort_rf:
+            suggestions.append(Suggestion(
+                line_no=0,
+                direction="rhyme",
+                category="rhyme_factor_low",
+                severity="flag",
+                original=f"RF={user_rf:.4f}",
+                suggested=f"RF={cohort_rf:.4f} (cohort median)",
+                reasoning=(
+                    f"User rhyme factor {user_rf:.4f} is below {self.target_genre} cohort "
+                    f"median {cohort_rf:.4f}. Increase multisyllabic rhyme density."
+                ),
+                auto_safe=False,
+                context=f"cohort: {self.target_genre}, isolated lines: {len(isolated)}",
+            ))
+
+        # 2. For each isolated line, suggest a word replacement matching nearby rhyme skeleton
+        for flat_idx, line_no, text in isolated:
+            # Find nearest rhyming line
+            best_dist = float("inf")
+            best_skeleton = ""
+            best_group_idx = -1
+            for g_idx, group in enumerate(rhyme_groups):
+                for g_line_idx in group.line_indices:
+                    dist = abs(g_line_idx - flat_idx)
+                    if dist < best_dist:
+                        best_dist = dist
+                        best_skeleton = group.vowel_skeleton
+                        best_group_idx = g_idx
+
+            if not best_skeleton:
+                continue
+
+            # Get the last word of the isolated line
+            words = _WORD_RE.findall(text)
+            if not words:
+                continue
+            last_word = words[-1]
+
+            # Find words matching the target skeleton
+            if conn is not None:
+                matches = self._find_words_matching_skeleton(
+                    conn, best_skeleton, exclude_word=last_word, limit=3
+                )
+            else:
+                matches = []
+
+            if matches:
+                alt_form, alt_freq = matches[0]
+                suggestions.append(Suggestion(
+                    line_no=line_no,
+                    direction="rhyme",
+                    category="rhyme_isolated_line",
+                    severity="suggest",
+                    original=last_word,
+                    suggested=alt_form,
+                    reasoning=(
+                        f"Line has no rhyme match. Nearest rhyming group has vowel skeleton "
+                        f"'{best_skeleton}'. Replace '{last_word}' with '{alt_form}' "
+                        f"(freq={alt_freq}) to match the rhyme pattern."
+                    ),
+                    auto_safe=False,
+                    context=text[:60],
+                ))
+            else:
+                suggestions.append(Suggestion(
+                    line_no=line_no,
+                    direction="rhyme",
+                    category="rhyme_isolated_line",
+                    severity="suggest",
+                    original=last_word,
+                    suggested=f"(word with vowel skeleton '{best_skeleton}')",
+                    reasoning=(
+                        f"Line has no rhyme match. Nearest rhyming group has vowel skeleton "
+                        f"'{best_skeleton}'. Rewrite line ending to match this skeleton."
+                    ),
+                    auto_safe=False,
+                    context=text[:60],
+                ))
+
+        # 3. Scheme inference: if AABB, suggest ABAB
+        scheme = infer_scheme(rhyme_groups, len(line_texts))
+        if scheme and len(scheme) >= 4:
+            # Check for AABB pattern (two consecutive pairs of same letters)
+            has_aabb = False
+            i = 0
+            while i < len(scheme) - 3:
+                if (scheme[i] == scheme[i + 1] and
+                        scheme[i + 2] == scheme[i + 3] and
+                        scheme[i] != scheme[i + 2]):
+                    has_aabb = True
+                    break
+                i += 2
+
+            if has_aabb:
+                suggestions.append(Suggestion(
+                    line_no=0,
+                    direction="rhyme",
+                    category="rhyme_scheme_upgrade",
+                    severity="suggest",
+                    original=f"{scheme}",
+                    suggested="ABAB with internal rhymes",
+                    reasoning=(
+                        f"Current scheme is {scheme} (consecutive rhyming pairs). "
+                        f"Consider alternating rhymes (ABAB) with internal rhymes "
+                        f"for more dynamic flow."
+                    ),
+                    auto_safe=False,
+                    context=f"scheme: {scheme}, RF: {user_rf:.4f}",
+                ))
+
+        return suggestions
+
     # ── Run all transforms ─────────────────────────────────────────
 
     def run_all_transforms(self, directions: List[str]) -> TransformationReport:
@@ -791,6 +1029,8 @@ class LyricsTransformer:
             suggestions.extend(self.transform_structure(sections))
         if "flow" in directions:
             suggestions.extend(self.transform_flow(sections))
+        if "rhyme" in directions:
+            suggestions.extend(self.transform_rhymes(sections))
 
         # Sort by line number
         suggestions.sort(key=lambda s: (s.line_no, s.direction))

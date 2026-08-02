@@ -1,5 +1,25 @@
 # Changelog
 
+### Answer #034 — Lyrics Transformer: Rhyme Scheme Enhancement Direction
+**Timestamp:** 2026-07-31
+**Action Type:** Feature extension + tests + CLI integration
+
+**What was added:**
+- `transform_rhymes()` method in `toolshop/lyrics_transformer.py` (~120 lines): Computes user rhyme factor via `rhyme_miner.rhyme_factor()`, compares to cohort medians (drill 0.56, pop 0.74) from `song_rhyme_metrics` table, identifies isolated (unrhymed) lines, suggests word replacements matching nearby vowel skeletons from `tokens` table, and infers rhyme scheme (AABB → suggest ABAB with internal rhymes).
+- Extended `_compute_user_metrics()` to include `rhyme_factor`, `rhyme_scheme`, and `isolated_lines` fields.
+- Extended `run_all_transforms()` to dispatch `"rhyme"` direction.
+- Extended CLI `--direction` choices to include `"rhyme"` and added it to `"all"` expansion.
+- All rhyme suggestions are `auto_safe=False` (word replacements are subjective).
+
+**Files modified:**
+- `toolshop/lyrics_transformer.py` — +`transform_rhymes()`, +`_flatten_lyric_lines()`, +`_query_cohort_rf_median()`, +`_find_words_matching_skeleton()`, extended `run_all_transforms()`, extended `_compute_user_metrics()`, added `rhyme_miner` imports
+- `toolshop/cli.py` — +`"rhyme"` in `--direction` choices and `all` expansion
+- `tests/test_lyrics_transformer.py` — +`TestRhymeEnhancement` class (10 tests), +`rhyme_db` fixture, +`_make_rhyme_mock_db()` helper
+
+**Tests:** 732 passed, 1 skipped, 0 failed (was 722 pre-rhyme, +10 new tests).
+
+---
+
 ### Answer #033 — Lyrics Transformer: Structure + Flow Directions
 **Timestamp:** 2026-07-31
 **Action Type:** Feature extension + tests + CLI integration

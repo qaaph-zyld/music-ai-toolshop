@@ -663,3 +663,241 @@ class TestCLIIntegration:
         assert report.stats.get("total", 0) > 0
         directions = {s.direction for s in report.suggestions}
         assert "structure" in directions or "flow" in directions
+
+
+# ── Mock DB helpers for rhyme tests ───────────────────────────────────
+
+
+def _make_rhyme_mock_db(db_path: Path) -> sqlite3.Connection:
+    """Create a mock DB with song_rhyme_metrics, tokens, songs for rhyme tests."""
+    conn = sqlite3.connect(str(db_path))
+    conn.executescript("""
+        CREATE TABLE songs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            genre_cohort TEXT,
+            role TEXT
+        );
+        CREATE TABLE sections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            song_id INTEGER NOT NULL,
+            ordinal INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            type_number INTEGER,
+            label_raw TEXT,
+            performers TEXT
+        );
+        CREATE TABLE lines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            section_id INTEGER NOT NULL,
+            ordinal INTEGER NOT NULL,
+            text_raw TEXT,
+            text_norm TEXT,
+            word_count INTEGER,
+            syllable_count INTEGER
+        );
+        CREATE TABLE tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            line_id INTEGER NOT NULL,
+            ordinal INTEGER NOT NULL,
+            form TEXT,
+            lemma TEXT,
+            upos TEXT,
+            feats TEXT,
+            is_oov INTEGER DEFAULT 0,
+            source_script TEXT
+        );
+        CREATE TABLE song_rhyme_metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            song_id INTEGER NOT NULL,
+            rhyme_factor REAL,
+            pct_multis REAL,
+            internal_rhyme_rate REAL,
+            dominant_scheme TEXT,
+            top_vowel_pairs TEXT
+        );
+        CREATE TABLE slang_terms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            form TEXT,
+            lemma TEXT,
+            freq INTEGER,
+            drill_freq REAL,
+            pop_freq REAL,
+            distinctiveness REAL,
+            is_oov INTEGER DEFAULT 0
+        );
+        CREATE TABLE song_metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            song_id INTEGER NOT NULL,
+            total_words INTEGER,
+            unique_words INTEGER,
+            ttr REAL,
+            line_count INTEGER,
+            avg_words_per_line REAL,
+            avg_syllables_per_line REAL,
+            hook_repetition_max INTEGER,
+            hook_repetition_ratio REAL,
+            english_loanword_rate REAL,
+            section_type_counts TEXT
+        );
+    """)
+    return conn
+
+
+@pytest.fixture
+def rhyme_db(tmp_path: Path) -> Path:
+    """Mock DB with song_rhyme_metrics and tokens for rhyme enhancement tests."""
+    db_path = tmp_path / "rhyme_test.db"
+    conn = _make_rhyme_mock_db(db_path)
+
+    # Drill cohort songs with RF around 0.56
+    for i in range(5):
+        conn.execute("INSERT INTO songs (genre_cohort, role) VALUES ('drill_trap', 'solo')")
+        conn.execute(
+            "INSERT INTO song_rhyme_metrics (song_id, rhyme_factor, pct_multis, internal_rhyme_rate, dominant_scheme) VALUES (?, ?, ?, ?, ?)",
+            (i + 1, 0.50 + i * 0.02, 0.45, 0.30, "AABB"),
+        )
+
+    # Pop cohort songs with RF around 0.74
+    for i in range(5):
+        conn.execute("INSERT INTO songs (genre_cohort, role) VALUES ('pop', 'solo')")
+        conn.execute(
+            "INSERT INTO song_rhyme_metrics (song_id, rhyme_factor, pct_multis, internal_rhyme_rate, dominant_scheme) VALUES (?, ?, ?, ?, ?)",
+            (i + 6, 0.70 + i * 0.02, 0.55, 0.40, "ABAB"),
+        )
+
+    # Insert a section + line so tokens can reference line_ids
+    conn.execute("INSERT INTO sections (song_id, ordinal, type) VALUES (1, 1, 'strofa')")
+    conn.execute("INSERT INTO lines (section_id, ordinal, text_raw, text_norm) VALUES (1, 1, 'test', 'test')")
+
+    # Tokens with known vowel skeletons for word suggestion matching
+    # "plamen" → "ae", "pramen" → "ae", "stanes" → "ae", "ranjen" → "ae"
+    # "sama" → "aa" (different, should not match "ae" target)
+    for i, (word, lemma, upos) in enumerate([
+        ("plamen", "plamen", "NOUN"),
+        ("pramen", "pramen", "NOUN"),
+        ("stanes", "stanes", "VERB"),
+        ("ranjen", "ranjen", "ADJ"),
+        ("sama", "sama", "ADJ"),
+    ]):
+        for j in range(10):
+            conn.execute(
+                "INSERT INTO tokens (line_id, ordinal, form, lemma, upos) VALUES (?, ?, ?, ?, ?)",
+                (1, i * 10 + j + 1, word, lemma, upos),
+            )
+
+    conn.commit()
+    conn.close()
+    return db_path
+
+
+# ── TestRhymeEnhancement ──────────────────────────────────────────────
+
+
+RHYME_AABB_TEXT = """\
+[Verse]
+Oseti kako te greje ovaj plamen
+Kada oko prsta motam kose pramen
+Nisi svesna kako bih te mazio
+Da li bih se ja tako pazio
+"""
+
+RHYME_AAB_TEXT = """\
+[Verse]
+Oseti kako te greje ovaj plamen
+Kada oko prsta motam kose pramen
+Pitam se da li si ti sama
+"""
+
+RHYME_ABAB_TEXT = """\
+[Verse]
+Oseti kako te greje ovaj plamen
+Nisi svesna kako bih te mazio
+Kada oko prsta motam kose pramen
+Da li bih se ja tako pazio
+"""
+
+
+class TestRhymeEnhancement:
+    def test_rhyme_factor_computed(self, rhyme_db, tmp_path):
+        f = tmp_path / "test.txt"
+        f.write_text(RHYME_AAB_TEXT, encoding="utf-8")
+        t = LyricsTransformer(f, db_path=rhyme_db, target_genre="drill_trap")
+        report = t.run_all_transforms(["rhyme"])
+        assert "rhyme_factor" in report.user_metrics
+        assert report.user_metrics["rhyme_factor"] > 0.0
+
+    def test_cohort_median_comparison(self, rhyme_db, tmp_path):
+        f = tmp_path / "test.txt"
+        f.write_text(RHYME_AAB_TEXT, encoding="utf-8")
+        t = LyricsTransformer(f, db_path=rhyme_db, target_genre="drill_trap")
+        report = t.run_all_transforms(["rhyme"])
+        rf_sugs = [s for s in report.suggestions if s.category == "rhyme_factor_low"]
+        assert len(rf_sugs) > 0
+
+    def test_isolated_line_detection(self, rhyme_db, tmp_path):
+        f = tmp_path / "test.txt"
+        f.write_text(RHYME_AAB_TEXT, encoding="utf-8")
+        t = LyricsTransformer(f, db_path=rhyme_db, target_genre="drill_trap")
+        report = t.run_all_transforms(["rhyme"])
+        isolated = [s for s in report.suggestions if s.category == "rhyme_isolated_line"]
+        assert len(isolated) > 0
+
+    def test_rhyme_target_suggestion(self, rhyme_db, tmp_path):
+        f = tmp_path / "test.txt"
+        f.write_text(RHYME_AAB_TEXT, encoding="utf-8")
+        t = LyricsTransformer(f, db_path=rhyme_db, target_genre="drill_trap")
+        report = t.run_all_transforms(["rhyme"])
+        isolated = [s for s in report.suggestions if s.category == "rhyme_isolated_line"]
+        assert len(isolated) > 0
+        for s in isolated:
+            assert "skeleton" in s.reasoning.lower() or "rhyme" in s.reasoning.lower()
+
+    def test_scheme_inference_aabb(self, rhyme_db, tmp_path):
+        f = tmp_path / "test.txt"
+        f.write_text(RHYME_AABB_TEXT, encoding="utf-8")
+        t = LyricsTransformer(f, db_path=rhyme_db, target_genre="drill_trap")
+        report = t.run_all_transforms(["rhyme"])
+        scheme_sugs = [s for s in report.suggestions if s.category == "rhyme_scheme_upgrade"]
+        assert len(scheme_sugs) > 0
+        assert "ABAB" in scheme_sugs[0].suggested
+
+    def test_scheme_inference_abab(self, rhyme_db, tmp_path):
+        f = tmp_path / "test.txt"
+        f.write_text(RHYME_ABAB_TEXT, encoding="utf-8")
+        t = LyricsTransformer(f, db_path=rhyme_db, target_genre="drill_trap")
+        report = t.run_all_transforms(["rhyme"])
+        scheme_sugs = [s for s in report.suggestions if s.category == "rhyme_scheme_upgrade"]
+        assert len(scheme_sugs) == 0
+
+    def test_all_rhyme_suggestions_not_auto_safe(self, rhyme_db, tmp_path):
+        f = tmp_path / "test.txt"
+        f.write_text(RHYME_AAB_TEXT, encoding="utf-8")
+        t = LyricsTransformer(f, db_path=rhyme_db, target_genre="drill_trap")
+        report = t.run_all_transforms(["rhyme"])
+        rhyme_sugs = [s for s in report.suggestions if s.direction == "rhyme"]
+        assert len(rhyme_sugs) > 0
+        for s in rhyme_sugs:
+            assert s.auto_safe is False
+
+    def test_rhyme_direction_in_run_all(self, rhyme_db, tmp_path):
+        f = tmp_path / "test.txt"
+        f.write_text(RHYME_AAB_TEXT, encoding="utf-8")
+        t = LyricsTransformer(f, db_path=rhyme_db, target_genre="drill_trap")
+        report = t.run_all_transforms(["rhyme"])
+        directions = {s.direction for s in report.suggestions}
+        assert "rhyme" in directions
+
+    def test_rhyme_on_nisi_fixture(self, nisi_file, rhyme_db):
+        t = LyricsTransformer(nisi_file, db_path=rhyme_db, target_genre="drill_trap")
+        report = t.run_all_transforms(["rhyme"])
+        assert "rhyme_factor" in report.user_metrics
+        assert report.user_metrics["rhyme_factor"] >= 0.0
+
+    def test_cli_direction_includes_rhyme(self):
+        from toolshop.cli import build_parser
+        parser = build_parser()
+        args = parser.parse_args([
+            "lyrics", "transform", "dummy.txt",
+            "--direction", "rhyme",
+        ])
+        assert args.direction == "rhyme"
