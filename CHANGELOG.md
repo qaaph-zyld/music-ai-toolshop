@@ -1,5 +1,18 @@
 # Changelog
 
+### Answer #035 — Lyrics Corrector: Commit Pre-work Files
+**Timestamp:** 2026-08-01
+**Action Type:** Commit previously uncommitted files from lyrics correction tool session
+
+**What was committed:**
+- `toolshop/lyrics_corrector.py` — Lyrics correction engine with whitespace, phonetic English, section label, diacritic consistency, corpus validation, and filename mismatch checks. Supports report/auto-fix/interactive modes.
+- `tests/test_lyrics_corrector.py` — 27 TDD tests covering all check categories, auto-fix logic, report formatting, and Nisi Svesnecca fixture.
+- `toolshop/lyricsdb.py` — Added user-authored section types to `_TYPE_MAP` (build-up, breakdown, call-response) not present in Genius corpus.
+
+**Tests:** 69 passed (corrector + transformer suites), 0 failed.
+
+---
+
 ### Answer #034 — Lyrics Transformer: Rhyme Scheme Enhancement Direction
 **Timestamp:** 2026-07-31
 **Action Type:** Feature extension + tests + CLI integration

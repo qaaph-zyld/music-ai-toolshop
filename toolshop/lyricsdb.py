@@ -176,6 +176,13 @@ _TYPE_MAP: Dict[str, str] = {
     "deseti": "strofa",
     # Instrumental (multi-word, handled separately)
     # Interlude (multi-word, handled separately)
+    # User-authored section types (not in Genius corpus)
+    "build-up": "prerefren",
+    "buildup": "prerefren",
+    "breakdown": "bridge",
+    "call-response": "call_response",
+    "call_response": "call_response",
+    "calls": "call_response",
 }
 
 _VALID_TYPES = frozenset(
