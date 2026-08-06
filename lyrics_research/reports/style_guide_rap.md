@@ -76,6 +76,99 @@ Use 1–2 primary themes and 1 secondary theme.
 
 ---
 
+## 5a. Advanced Rhyme & Flow Techniques
+<!-- Source: R2 (researcher_rhyme_flow_craft_20260806.md) -->
+
+20-technique catalog from elite MC analysis, grouped by category. Each technique is transferable to Serbian/Bosnian drill and hip-hop.
+
+### Multisyllabic Engineering (5 techniques)
+
+1. **Syllable-series stacking** — Rhyming every syllable in multi-word phrases, not just word endings. Eminem rhymes "amygdala hippocampus" with "trigger the ignoramus," matching internal vowels across the entire phrase. *Balkan application: extend 2-syllable end-rhymes to 3–4 syllable chains using vowel-skeleton matching.*
+
+2. **Assonance layering** — Repeating a single vowel sound across non-rhyming words to create rhythmic unity. Eminem places 37 "ee" sounds in 8 bars of "Lose Yourself." *Balkan application: pick one Serbian vowel (e.g., /a/) and hit it 5–6 times across a bar on non-rhyming words.*
+
+3. **Buried vowel chain** — Hitting the same vowel 3–5 times mid-line before landing it at the end. MF DOOM: "I creep through the scene, keep the scheme on the lean." *Balkan application: choose /a/ or /o/, hit it 4+ times inside the line before the end-rhyme.*
+
+4. **Structural rhyme complex** — 15–27 rhymed syllables spread across 4–6 bars in a single chain. DOOM's largest complex stretches 27 syllables over six bars. *Balkan application: build a 4-bar verse section where every bar contributes to one extended rhyme chain.*
+
+5. **Time-shifted rhyme placement** — Deliberately placing the second rhyme off-beat so it spills into the next bar. Creates a loose, conversational feel. *Balkan application: land the end-rhyme half a beat late so the final syllable carries over — suits trap's swung hi-hats.*
+
+### Pacing & Structure (5 techniques)
+
+6. **Tension-relaxation pacing** — Varying rhyme frequency to signal narrative function. Faster rhyme pacing = tension; slower = relaxation. Kendrick shifts between rigid (beats 1&3) and flexible (beats 2&4) within a single song. *Balkan application: dense rhymes in verse 1 (tension), sparse rhymes in hook (release).*
+
+7. **Formal verse roles** — Assigning distinct rhyme patterns to verse sections: Verse-Rhyming Block (stable, 3rd person), Verse-Excursion (irregular, quick jumps), Verse-Crisis (intensifying, shortening intervals), Parenthetical Chorus (hook-like, beats 1&3). *Balkan application: structure a 16-bar verse as 4+4+4+4 with each 4-bar block serving a different formal role.*
+
+8. **Chain rhyme** — Consecutive words where each rhymes with the previous: "city gritty committee pity the fool." *Balkan application: "brata, vrata, kata, spata" — chain 4–5 Serbian words sharing the same vowel-skeleton.*
+
+9. **Compound internal rhyme** — Two pairs of internal rhymes overlapping within a single line. Pharoahe Monch packs "maneuver" and "Vancouver" between "fuck" and "Canucks." *Balkan application: two overlapping internal rhyme pairs per line, e.g., (A...B...A...B) pattern within one bar.*
+
+10. **Bridge/link rhyme** — Bridge: internal rhyme pair spanning two lines, both members internal. Link: line-final rhyme connected to an internal rhyme in the next line. *Balkan application: end bar 4 with a rhyme that appears internally in bar 5, creating cross-bar continuity.*
+
+### Phonetics (3 techniques)
+
+11. **Slant rhyme via perceptual similarity** — Matching vowels while mismatching consonants, exploiting psychoacoustic closeness. Jay-Z rhymes "life" with "light" (final consonant differs but is perceptually similar). *Balkan application: rhyme words with matching vowels but different final consonants (m/n, p/k, t/d) — Serbian's simpler vowel system makes vowel matching straightforward.*
+
+12. **Transformative rhyme** — Deliberately distorting pronunciation to force a rhyme. Kanye: "birthday"/"thirstay." *Balkan application: less viable in Serbian where pronunciation is phonetically regular — use sparingly, perhaps with English loanwords or brand names.*
+
+13. **Triplet flow** — Three syllables over one beat in cascading cadence. Three types: mixed (interspersed), phrasal (complete phrases), total (entire verses). Migos' "Versace" made it ubiquitous. *Balkan application: already used in Balkan trap; practice all three types. Staccato delivery suits autotuned trap beats.*
+
+### Delivery (3 techniques)
+
+14. **Staccato trap delivery** — Short, punctuated syllables with empty space between them, suited to quantized trap beats with clicky hi-hats. *Balkan application: leave space between syllables rather than filling every beat — the silence is part of the rhythm.*
+
+15. **Laid-back microtiming** — Systematically placing syllables behind the beat for a relaxed feel. Snoop Dogg on "Gin and Juice." *Balkan application: deliver verses slightly behind the beat for a smooth, confident persona; contrast with on-beat delivery in the hook.*
+
+16. **Eager microtiming** — Systematically placing syllables ahead of the beat for urgency. Lil B, Blueface. *Balkan application: rush syllables slightly ahead of the beat for aggressive, urgent verses; works well over fast drill beats (140+ BPM).*
+
+### Narrative (4 techniques)
+
+17. **Epistolary narrative** — Structuring a verse as a letter to an absent person. Nas's "One Love" introduced the prison-letter format to rap. *Balkan application: address a friend who left the country, a former partner, or a deceased mentor — the "pismo" format has Balkan cultural resonance.*
+
+18. **Character-through-time** — Moving characters through chronological events within 16 bars. Nas reduces eight friends to three over twelve bars: "Eight turned to seven... seven turned to six." *Balkan application: track a crew's fate across bars — who left, who stayed, who changed — each bar advancing the timeline.*
+
+19. **Non-linear concept structure** — Album-level narrative using hysteron proteron (first event mentioned = temporally latest). Kendrick's *good kid, m.A.A.d city* starts at the end. *Balkan application: open a track with the aftermath, then rewind — "Ovo je kraj, a evo kako je počelo."*
+
+20. **Punchline structure (9 types)** — Setup bar followed by payoff bar. Nine types: wordplay, double entendre, intertextual reference, intratextual reference, hashtag, premise, response, blunt statement, comical effect. *Balkan application: use the setup-payoff structure in battle-style verses; hashtag punches ("#izvinite") work well in social-media-era drill.*
+
+---
+
+## 5b. Balkan-Transfer Techniques
+<!-- Source: R2 (researcher_rhyme_flow_craft_20260806.md) -->
+
+Seven specific recommendations for techniques Balkan artists could adopt from elite English-language MCs.
+
+1. **DOOM's buried vowel chains** — Pick one vowel (e.g., /a/), hit it 4–5 times mid-line before the end rhyme. Example target: "stalno, malo, palo, hallo, brata" — five /a/ hits before landing the end-rhyme. Creates a submerged rhythmic layer that rewards repeated listening.
+
+2. **Eminem's assonance layering** — Use vowel repetition on non-rhyming words for rhythmic unity. In a bar about the club, hit /o/ on non-rhyming words: "nosim, dolazim, prošlost, sobom, noćas" — the /o/ thread connects words that don't rhyme but share a sonic color.
+
+3. **Kendrick's formal verse roles** — Assign different rhyme patterns to verse sections. First 4 bars: stable rhymes on beats 2&4 (rhyming block). Next 4: irregular off-beat rhymes (excursion). Next 4: intensifying, intervals shortening (crisis). Last 4: hook-like, rhymes on beats 1&3 (parenthetical chorus). This creates formal architecture where rhyme placement signals narrative function.
+
+4. **Nas's character-through-time** — Move characters through events within 16 bars. Start with a full crew, reduce it bar by bar: "Bilo nas je šest / pet je otišlo / četiri su na spavu / tri su pod nadzorom / dvojica su još tu / a ja pišem ovaj stih." Each loss advances the narrative while maintaining rhyme.
+
+5. **Black Thought's scripted-improv hybrid** — Pre-write rhyme banks grouped by vowel sound and muscle-memory them through daily recitation. When freestyling, the pre-written banks surface automatically. Practice: write 20 words per vowel (/a/ words, /o/ words, /e/ words), recite them daily until they flow without thought.
+
+6. **Compound internal rhymes** — Two overlapping internal rhyme pairs within a single line. Target pattern: (A...B...A...B) within one bar. Example: "brata (A) leti (B) vrata (A) meti (B)" — two rhyme threads woven through one line, creating a secondary rhythmic layer on top of the beat.
+
+7. **Odd-numbered rhyme schemes** — Break symmetry by rhyming internally on bar 3, then completing the scheme on bar 4. Instead of AABB (bars 1-2 rhyme, bars 3-4 rhyme), use AA_A (bars 1-2 rhyme, bar 3 has an internal rhyme, bar 4 completes the A scheme). The asymmetry draws attention and prevents monotony.
+
+---
+
+## 5c. Internal Rhyme Taxonomy (Alim 2002)
+<!-- Source: R2 (researcher_rhyme_flow_craft_20260806.md) -->
+
+H. Samy Alim's foundational analysis identified four internal rhyme types that have become standard terminology in hip-hop scholarship.
+
+- **Chain rhymes** — Consecutive words where each rhymes with the previous. Example: "city gritty committee pity the fool." Each word chains to the one before it, creating a rolling momentum. *Balkan: "vrata, brata, kata, spata, nata" — five-word chain on the /ata/ skeleton.*
+
+- **Compound rhymes** — Two pairs of internal rhymes overlapping within a single line. Example: "maneuver" and "Vancouver" between "fuck" and "Canucks." Two rhyme threads run simultaneously, creating a dense sonic weave. *Balkan: two overlapping pairs per line, e.g., (A...B...A...B) where A and B are different vowel skeletons.*
+
+- **Bridge rhymes** — Internal rhymes spanning two lines where both members are internal (neither is line-final). Example: "agilities" / "abilities" — both appear mid-line in consecutive bars. Creates cross-line connectivity without relying on end-rhymes. *Balkan: plant matching syllables mid-line in bars 3 and 4, independent of the end-rhyme scheme.*
+
+- **Link rhymes** — The first member is line-final, the second is internal in the next line. Example: "calibrated" (end of line 1) / "validated" (internal in line 2). Links the end of one bar to the interior of the next, creating forward momentum. *Balkan: end bar 1 with "stavljeno," then place "slavljeno" mid-bar 2 — the rhyme bridges across the bar line.*
+
+---
+
 ## 6. Hook Formulas
 
 ### Formula A: Brand + Status
@@ -143,6 +236,9 @@ Example: *"Nadrkano hodanje, gazim limenke Red bula / Izlazim sa žurke u stilu,
 - [ ] Ad-libs or interjections feel intentional, not random.
 - [ ] The last hook line is the most memorable phrase.
 - [ ] Dialect matches the artist's region.
+- [ ] At least one buried vowel chain (4+ same-vowel hits mid-line).
+- [ ] Rhyme pacing varies between sections (tension-relaxation).
+- [ ] Each verse advances the narrative (no stagnant rephrasing).
 
 ---
 

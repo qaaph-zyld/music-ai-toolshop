@@ -1163,6 +1163,207 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Output report as JSON instead of text table"
     )
 
+    # =========================================================================
+    # LYRICS CRAFT COMMANDS (B1-B10)
+    # =========================================================================
+
+    # lyrics clean-tokens --input PATH [--output PATH] [--json]
+    lyrics_clean_tokens_parser = lyrics_subparsers.add_parser(
+        "clean-tokens", help="Remove Suno audio metadata tokens from lyrics text"
+    )
+    lyrics_clean_tokens_parser.add_argument(
+        "--input", type=Path, required=True, help="Path to lyrics text file"
+    )
+    lyrics_clean_tokens_parser.add_argument(
+        "--output", type=Path, default=None, help="Write cleaned text here (default: stdout)"
+    )
+    lyrics_clean_tokens_parser.add_argument(
+        "--json", action="store_true", help="Output report as JSON instead of text"
+    )
+
+    # lyrics cliches --input PATH [--include-balkan] [--json]
+    lyrics_cliches_parser = lyrics_subparsers.add_parser(
+        "cliches", help="Check lyrics for cliché density and audio token contamination"
+    )
+    lyrics_cliches_parser.add_argument(
+        "--input", type=Path, required=True, help="Path to lyrics text file"
+    )
+    lyrics_cliches_parser.add_argument(
+        "--include-balkan", action="store_true", help="Also check Balkan clichés"
+    )
+    lyrics_cliches_parser.add_argument(
+        "--json", action="store_true", help="Output report as JSON instead of text"
+    )
+
+    # lyrics template --cohort drill_trap|pop [--db PATH] [--num-sections INT] [--json]
+    lyrics_template_parser = lyrics_subparsers.add_parser(
+        "template", help="Generate genre-specific structure template from corpus"
+    )
+    lyrics_template_parser.add_argument(
+        "--cohort", type=str, required=True,
+        choices=["drill_trap", "pop"],
+        help="Genre cohort for template generation",
+    )
+    lyrics_template_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_template_parser.add_argument(
+        "--num-sections", type=int, default=6,
+        help="Number of sections in template (default: 6)",
+    )
+    lyrics_template_parser.add_argument(
+        "--json", action="store_true", help="Output template as JSON instead of text"
+    )
+
+    # lyrics score-ai --input PATH [--cohort drill_trap|pop] [--db PATH] [--json]
+    lyrics_score_ai_parser = lyrics_subparsers.add_parser(
+        "score-ai", help="Score AI-generated lyrics against cohort baselines (4-component)"
+    )
+    lyrics_score_ai_parser.add_argument(
+        "--input", type=Path, required=True, help="Path to lyrics text file"
+    )
+    lyrics_score_ai_parser.add_argument(
+        "--cohort", type=str, default="drill_trap",
+        choices=["drill_trap", "pop"],
+        help="Genre cohort for baseline comparison (default: drill_trap)",
+    )
+    lyrics_score_ai_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_score_ai_parser.add_argument(
+        "--json", action="store_true", help="Output scores as JSON instead of text"
+    )
+
+    # lyrics check-scheme --input PATH [--expected-scheme STR] [--db PATH] [--json]
+    lyrics_check_scheme_parser = lyrics_subparsers.add_parser(
+        "check-scheme", help="Detect and validate rhyme schemes in lyrics"
+    )
+    lyrics_check_scheme_parser.add_argument(
+        "--input", type=Path, required=True, help="Path to lyrics text file"
+    )
+    lyrics_check_scheme_parser.add_argument(
+        "--expected-scheme", type=str, default=None,
+        help="Expected rhyme scheme (e.g. AABB) to compare against",
+    )
+    lyrics_check_scheme_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_check_scheme_parser.add_argument(
+        "--json", action="store_true", help="Output report as JSON instead of text"
+    )
+
+    # lyrics inject-slang --input PATH --cohort drill_trap|pop [--density FLOAT] [--db PATH] [--output PATH] [--json]
+    lyrics_inject_slang_parser = lyrics_subparsers.add_parser(
+        "inject-slang", help="Replace generic words with cohort-distinctive slang"
+    )
+    lyrics_inject_slang_parser.add_argument(
+        "--input", type=Path, required=True, help="Path to lyrics text file"
+    )
+    lyrics_inject_slang_parser.add_argument(
+        "--cohort", type=str, required=True,
+        choices=["drill_trap", "pop"],
+        help="Genre cohort for slang selection",
+    )
+    lyrics_inject_slang_parser.add_argument(
+        "--density", type=float, default=0.05,
+        help="Target slang density (default: 0.05)",
+    )
+    lyrics_inject_slang_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_inject_slang_parser.add_argument(
+        "--output", type=Path, default=None,
+        help="Write modified text here (default: stdout)",
+    )
+    lyrics_inject_slang_parser.add_argument(
+        "--json", action="store_true", help="Output report as JSON instead of text"
+    )
+
+    # lyrics retrieve-similar --input PATH --cohort drill_trap|pop [--top-k INT] [--db PATH] [--json]
+    lyrics_retrieve_similar_parser = lyrics_subparsers.add_parser(
+        "retrieve-similar", help="Retrieve similar professional lyrics for few-shot prompting"
+    )
+    lyrics_retrieve_similar_parser.add_argument(
+        "--input", type=Path, required=True, help="Path to draft lyrics text file"
+    )
+    lyrics_retrieve_similar_parser.add_argument(
+        "--cohort", type=str, required=True,
+        choices=["drill_trap", "pop"],
+        help="Genre cohort for similarity search",
+    )
+    lyrics_retrieve_similar_parser.add_argument(
+        "--top-k", type=int, default=5,
+        help="Number of similar songs to return (default: 5)",
+    )
+    lyrics_retrieve_similar_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_retrieve_similar_parser.add_argument(
+        "--json", action="store_true", help="Output results as JSON instead of text"
+    )
+
+    # lyrics theme-match --input PATH --cohort drill_trap|pop [--db PATH] [--json]
+    lyrics_theme_match_parser = lyrics_subparsers.add_parser(
+        "theme-match", help="Compare input theme distribution against cohort baseline (JSD)"
+    )
+    lyrics_theme_match_parser.add_argument(
+        "--input", type=Path, required=True, help="Path to lyrics text file"
+    )
+    lyrics_theme_match_parser.add_argument(
+        "--cohort", type=str, required=True,
+        choices=["drill_trap", "pop"],
+        help="Genre cohort for baseline comparison",
+    )
+    lyrics_theme_match_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_theme_match_parser.add_argument(
+        "--json", action="store_true", help="Output report as JSON instead of text"
+    )
+
+    # lyrics improve-loop --input PATH --cohort drill_trap|pop [--iterations INT] [--target-score INT] [--db PATH] [--json]
+    lyrics_improve_loop_parser = lyrics_subparsers.add_parser(
+        "improve-loop", help="Iterative improvement loop with weakest-component suggestions"
+    )
+    lyrics_improve_loop_parser.add_argument(
+        "--input", type=Path, required=True, help="Path to lyrics text file"
+    )
+    lyrics_improve_loop_parser.add_argument(
+        "--cohort", type=str, required=True,
+        choices=["drill_trap", "pop"],
+        help="Genre cohort for scoring baseline",
+    )
+    lyrics_improve_loop_parser.add_argument(
+        "--iterations", type=int, default=3,
+        help="Max improvement iterations (default: 3)",
+    )
+    lyrics_improve_loop_parser.add_argument(
+        "--target-score", type=int, default=65,
+        help="Stop when overall score reaches this (default: 65)",
+    )
+    lyrics_improve_loop_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_improve_loop_parser.add_argument(
+        "--json", action="store_true", help="Output report as JSON instead of text"
+    )
+
+    # lyrics centaur [--port INT]
+    lyrics_centaur_parser = lyrics_subparsers.add_parser(
+        "centaur", help="Launch Centaur co-write Streamlit app (requires streamlit + plotly)"
+    )
+    lyrics_centaur_parser.add_argument(
+        "--port", type=int, default=8501,
+        help="Port for Streamlit app (default: 8501)",
+    )
+
     return parser
 
 
@@ -2179,6 +2380,193 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 else:
                     print("\n--- Transformed text ---")
                     print(transformed)
+
+        elif args.lyrics_command == "clean-tokens":
+            import json as json_mod
+            from toolshop.token_cleaner import clean_tokens
+            text = args.input.read_text(encoding="utf-8")
+            cleaned, report = clean_tokens(text)
+            if args.output:
+                args.output.write_text(cleaned, encoding="utf-8")
+                print(f"Cleaned text written to {args.output}")
+            else:
+                print(cleaned)
+            if args.json:
+                print(json_mod.dumps(
+                    {**report, "per_token": dict(report.get("per_token", {}))},
+                    indent=2, ensure_ascii=False,
+                ))
+
+        elif args.lyrics_command == "cliches":
+            import json as json_mod
+            from toolshop.cliche_checker import check_cliches
+            text = args.input.read_text(encoding="utf-8")
+            result = check_cliches(text, include_balkan=args.include_balkan)
+            if args.json:
+                print(json_mod.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                print(f"\nCliché Density: {result['density_pct']:.2f}%")
+                print(f"Total clichés: {result['total_cliches']}")
+                print(f"Audio token contamination: {result['audio_token_count']}")
+                if result.get("per_line_hits"):
+                    print("\nLine hits:")
+                    for hit in result["per_line_hits"]:
+                        print(f"  Line {hit['line']}: {', '.join(hit['terms'])}")
+                if result.get("audio_token_lines"):
+                    print(f"\nAudio token lines: {result['audio_token_lines']}")
+
+        elif args.lyrics_command == "template":
+            import json as json_mod
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.structure_template import generate_template
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            result = generate_template(args.cohort, db_path=db_path, num_sections=args.num_sections)
+            if args.json:
+                print(json_mod.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                print(f"\nStructure Template — {result['cohort']} ({result['total_lines']} lines)")
+                print("-" * 50)
+                for i, sec in enumerate(result["sections"], 1):
+                    print(f"  {i}. {sec['type']:<15} {sec['lines']:>3} lines  [{sec['rhyme_scheme']}]")
+
+        elif args.lyrics_command == "score-ai":
+            import json as json_mod
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.ai_scorer import score_lyrics
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            result = score_lyrics(args.input, cohort=args.cohort, db_path=db_path)
+            if args.json:
+                print(json_mod.dumps(result, indent=2, ensure_ascii=False, default=str))
+            else:
+                print(f"\nAI Lyric Quality Score: {result['overall_score']:.1f}/100")
+                print("-" * 50)
+                for comp_name in ["structural", "rhyme", "lexical", "repetition"]:
+                    comp = result["components"].get(comp_name, {})
+                    print(f"  {comp_name.capitalize():<15} {comp.get('score', 0):>6.1f}/100")
+
+        elif args.lyrics_command == "check-scheme":
+            import json as json_mod
+            from toolshop.scheme_checker import check_scheme
+            result = check_scheme(args.input, expected_scheme=args.expected_scheme)
+            if args.json:
+                print(json_mod.dumps(result, indent=2, ensure_ascii=False, default=str))
+            else:
+                for sec in result.get("sections", []):
+                    print(f"\n{sec['type']} — detected: {sec.get('detected_scheme', '?')}")
+                    if sec.get("expected_scheme"):
+                        print(f"  Expected: {sec['expected_scheme']}  Match: {sec.get('match_pct', 0):.0f}%")
+                    if sec.get("broken_lines"):
+                        print(f"  Broken lines: {sec['broken_lines']}")
+                    if sec.get("fixes"):
+                        print(f"  Fixes: {sec['fixes']}")
+
+        elif args.lyrics_command == "inject-slang":
+            import json as json_mod
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.slang_injector import inject_slang
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            result = inject_slang(args.input, cohort=args.cohort, density=args.density, db_path=db_path)
+            if args.output:
+                args.output.write_text(result["modified_text"], encoding="utf-8")
+                print(f"Modified text written to {args.output}")
+            else:
+                print(result["modified_text"])
+            if args.json:
+                print(json_mod.dumps(
+                    {k: v for k, v in result.items() if k != "modified_text"},
+                    indent=2, ensure_ascii=False, default=str,
+                ))
+            else:
+                print(f"\nInjections: {len(result.get('injections', []))}  Final density: {result.get('final_density', 0):.4f}")
+
+        elif args.lyrics_command == "retrieve-similar":
+            import json as json_mod
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            try:
+                from toolshop.similarity_retriever import retrieve_similar
+            except ImportError:
+                print("scikit-learn is required for this feature.")
+                print("Install with: pip install scikit-learn")
+                return
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            result = retrieve_similar(args.input, cohort=args.cohort, top_k=args.top_k, db_path=db_path)
+            if args.json:
+                print(json_mod.dumps(result, indent=2, ensure_ascii=False, default=str))
+            else:
+                print(f"\nTop-{result.get('top_k', args.top_k)} similar songs ({result.get('cohort', args.cohort)}):")
+                for r in result.get("results", []):
+                    print(f"  {r['rank']}. {r['artist']} — {r['title']} (sim={r['similarity']:.3f})")
+
+        elif args.lyrics_command == "theme-match":
+            import json as json_mod
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.theme_comparator import compare_themes
+            db_path = args.db or DEFAULT_DB_PATH
+            if not db_path.exists():
+                print(f"Database not found: {db_path}")
+                print("Run 'toolshop lyrics build-db' first.")
+                return
+            result = compare_themes(args.input, cohort=args.cohort, db_path=db_path)
+            if "error" in result:
+                print(result["error"])
+                return
+            if args.json:
+                print(json_mod.dumps(result, indent=2, ensure_ascii=False, default=str))
+            else:
+                print(f"\nTheme Match — JSD: {result.get('jsd_score', 0):.4f}")
+                if result.get("over_represented"):
+                    print("\nOver-represented themes:")
+                    for t in result["over_represented"][:5]:
+                        print(f"  Topic {t.get('topic_id')}: {t.get('topic_words', '')}  "
+                              f"input={t.get('input_pct', 0):.1f}%  cohort={t.get('cohort_pct', 0):.1f}%")
+                if result.get("under_represented"):
+                    print("\nUnder-represented themes:")
+                    for t in result["under_represented"][:5]:
+                        print(f"  Topic {t.get('topic_id')}: {t.get('topic_words', '')}  "
+                              f"input={t.get('input_pct', 0):.1f}%  cohort={t.get('cohort_pct', 0):.1f}%")
+
+        elif args.lyrics_command == "improve-loop":
+            import json as json_mod
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.improve_loop import improve_loop
+            db_path = args.db or DEFAULT_DB_PATH
+            result = improve_loop(
+                args.input, cohort=args.cohort,
+                iterations=args.iterations, target_score=args.target_score,
+                db_path=db_path,
+            )
+            if args.json:
+                print(json_mod.dumps(result, indent=2, ensure_ascii=False, default=str))
+            else:
+                print(f"\nBaseline score: {result.get('baseline_score', 0):.1f}")
+                for it in result.get("iterations", []):
+                    print(f"  Iteration {it['iteration']}: score={it.get('score', 0):.1f} "
+                          f"weakest={it.get('weakest_component', '?')} delta={it.get('delta', 0):+.1f}")
+                print(f"Final score: {result.get('final_score', 0):.1f}")
+
+        elif args.lyrics_command == "centaur":
+            from toolshop.centaur_app import launch_centaur
+            try:
+                launch_centaur(port=args.port)
+            except ImportError:
+                print("streamlit and plotly are required for the Centaur app.")
+                print("Install with: pip install streamlit plotly")
 
         else:
             parser.error("Unknown 'lyrics' subcommand.")

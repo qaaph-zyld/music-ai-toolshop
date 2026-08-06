@@ -24,6 +24,7 @@ lyrics = ["requests>=2.28", "beautifulsoup4>=4.12", "python-dotenv>=1.0", "langd
 remix = ["pedalboard>=0.9", "librosa>=0.10", "numpy>=1.20", "scipy>=1.10", "soundfile>=0.12"]
 video = ["librosa>=0.10", "numpy>=1.20", "Pillow>=10.0", "moderngl>=5.8", "httpx>=0.25"]
 lyrics-nlp = ["classla", "bertopic", "sentence-transformers", "umap-learn", "hdbscan", "torch"]
+lyrics-craft = ["scikit-learn>=1.3", "streamlit>=1.30", "plotly>=5.18"]
 
 [tool.setuptools.packages.find]
 include = ["toolshop*"]

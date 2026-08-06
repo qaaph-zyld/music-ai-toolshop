@@ -46,6 +46,7 @@ Genious_lyrics_extractor/.env
 pytest_*.txt
 annotate_run*.txt
 test-output.txt
+p3-test-output.txt
 fingerprint-output.txt
 push-output.txt
 sanity-output.txt

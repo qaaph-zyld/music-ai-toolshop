@@ -1,5 +1,70 @@
 # Changelog
 
+### Answer #036 — Lyrics Craft: 10 New Modules + CLI Integration + Research Docs
+**Timestamp:** 2026-08-07
+**Action Type:** Feature implementation — 10 new `toolshop lyrics` subcommands + research synthesis docs
+
+**What was built:**
+
+10 new Python modules (2,414 lines total) implementing AI lyric quality tooling:
+- `toolshop/token_cleaner.py` (116 lines) — B4: Remove Suno audio metadata tokens from lyrics
+- `toolshop/cliche_checker.py` (145 lines) — B2: Cliché density checker with audio token contamination detection
+- `toolshop/structure_template.py` (196 lines) — B3: Genre-specific structure template generator from corpus
+- `toolshop/ai_scorer.py` (325 lines) — B1: 4-component z-score lyric quality scorer (Structural/Rhyme/Lexical/Repetition)
+- `toolshop/scheme_checker.py` (226 lines) — B6: Rhyme scheme detector with expected-scheme comparison and fix suggestions
+- `toolshop/slang_injector.py` (283 lines) — B5: Post-processor replacing generic words with cohort-distinctive slang
+- `toolshop/similarity_retriever.py` (190 lines) — B7: TF-IDF few-shot example retriever (requires scikit-learn)
+- `toolshop/theme_comparator.py` (279 lines) — B8: Theme distribution comparator with JSD (requires bertopic)
+- `toolshop/improve_loop.py` (299 lines) — B9: Iterative improvement loop with weakest-component suggestions
+- `toolshop/centaur_app.py` (361 lines) — B10: Streamlit co-write interface (requires streamlit + plotly)
+
+10 test files (89 new tests, all passing):
+- `tests/test_token_cleaner.py` (8 tests), `tests/test_cliche_checker.py` (9 tests), `tests/test_structure_template.py` (8 tests), `tests/test_ai_scorer.py` (7 tests)
+- `tests/test_scheme_checker.py` (6 tests), `tests/test_slang_injector.py` (6 tests), `tests/test_similarity_retriever.py` (4 tests)
+- `tests/test_theme_comparator.py` (tests), `tests/test_improve_loop.py` (tests), `tests/test_centaur_app.py` (tests)
+
+CLI integration:
+- 10 new subparser blocks added to `cli.py` (clean-tokens, cliches, template, score-ai, check-scheme, inject-slang, retrieve-similar, theme-match, improve-loop, centaur)
+- 10 dispatch blocks with lazy imports, DB existence checks, JSON/text output modes, ImportError fallbacks for optional deps
+
+Dependency management:
+- New `lyrics-craft` extra in `pyproject.toml`: `scikit-learn>=1.3`, `streamlit>=1.30`, `plotly>=5.18`
+- scikit-learn imported at function level in `similarity_retriever.py` — module importable without it
+- streamlit/plotly imported with try/except in `centaur_app.py` — fallback prints install instructions
+- bertopic imported with try/except in `theme_comparator.py` — fallback returns error dict
+
+Research docs (from prior synthesis phase, committed together):
+- `lyrics_research/reports/craft_research_synthesis.md` — Cross-report synthesis of 5 research handoffs
+- `lyrics_research/reports/craft_implementation_plan.md` — 10-feature implementation spec
+- `lyrics_research/ai_lyric_pipeline.md` — AI lyric improvement pipeline document
+- `lyrics_research/practice_curriculum.md` — 15-exercise progressive curriculum
+- `lyrics_research/reports/style_guide.md` (updated) — New sections: prosody rules, hook toolkit, Max Martin principles, Serbian vowel advantage, verse development
+- `lyrics_research/reports/style_guide_rap.md` (updated) — New sections: Balkan-transfer techniques, internal rhyme taxonomy
+
+**Key design decisions:**
+- Agents built modules in parallel (3 sessions), orchestrator merged CLI in one pass — no file conflicts
+- `slang_terms` table has no `cohort` column — used `distinctiveness > 0.5` (drill) / `< -0.5` (pop) per `lexicon.py` pattern
+- B8 command name is `theme-match` (not `themes`) to avoid collision with existing command
+- All DB-dependent commands check `db_path.exists()` and print helpful error if missing
+
+**Tests:** 780 passed, 1 failed (pre-existing `test_espeak_validation` — espeak-ng not installed), 4 skipped. 256.18s.
+
+**Files modified:**
+- `toolshop/cli.py` — +10 subparser blocks, +10 dispatch blocks
+- `pyproject.toml` — +`lyrics-craft` extra
+- `.gitignore` — +`p3-test-output.txt`
+- `CHANGELOG.md` — This entry
+- `tests/fixtures/lyrics_min/_dedup_log.json` — Path case fix (D: → d:)
+- `lyrics_research/reports/style_guide.md` — Updated by Agent 2 (research phase)
+- `lyrics_research/reports/style_guide_rap.md` — Updated by Agent 2 (research phase)
+
+**Files created (24):**
+- 10 modules in `toolshop/`
+- 10 test files in `tests/`
+- 4 research docs in `lyrics_research/`
+
+---
+
 ### Answer #035 — Lyrics Corrector: Commit Pre-work Files
 **Timestamp:** 2026-08-01
 **Action Type:** Commit previously uncommitted files from lyrics correction tool session
