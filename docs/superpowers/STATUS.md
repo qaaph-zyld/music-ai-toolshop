@@ -3,7 +3,29 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
-> **Last review: 2026-07-23 (T5-L3 INDEPENDENT VERIFICATION — VERIFIED PASS · #024).**
+> **Last review: 2026-08-08 (STATUS.md RECONCILIATION — #025–#036 reflected).**
+> Repo at `84d7f65` (origin/master). Tree clean (only pre-existing `mastering_tool` submodule dirty).
+> Test baseline: **780 passed, 1 failed (pre-existing espeak), 4 skipped** (256s).
+>
+> **#025–#036 summary (12 entries since last review on 2026-07-23):**
+> - **#025** FL Studio DAW Phases 1-4: 12 modules, 143 tests, 17 CLI subcommands (`toolshop/daw/`)
+> - **#026** Pro fingerprints: 16 artists + 2 cohort rollups, 3-value sanity gate verified (`pro_fingerprints.md`)
+> - **#027** Batch 3 corpus expansion: 8 new artists, 722 new songs → **1,425 total** (was 742)
+> - **#028** Music Video Generator P0+P1: 7 modules, 72 tests (FFmpeg compositing, shaders, stock footage)
+> - **#029** L1-L4 pipeline re-run on 1,425 songs: 10,654 sections, 65,912 lines, 273,801 rhyme rows; CLASSLA 100% coverage; 163 BERTopic topics; JSD=0.7312; SQLite variable-limit fix in fingerprint.py
+> - **#030** MusicData relocation: `D:\MusicData` → repo-local `data/` (portable paths, 18 files updated)
+> - **#031** Batch 3 follow-up: test fixes, Suno gap report (3,381 AI vs 1,315 pro), Cohen's d=0.9841, collab network (252 artists, 370 edges)
+> - **#032** Lyrics transformer: vocabulary + slang directions, 17 TDD tests
+> - **#033** Transformer extensions: structure + flow directions, 15 TDD tests
+> - **#034** Transformer rhyme scheme enhancement: 10 TDD tests
+> - **#035** Lyrics corrector: 27 TDD tests, whitespace/phonetic/section/diacritic checks
+> - **#036** 10 craft modules B1-B10 + CLI + research docs: 89 tests, 2,414 lines new code
+>   (`token_cleaner`, `cliche_checker`, `structure_template`, `ai_scorer`, `scheme_checker`,
+>   `slang_injector`, `similarity_retriever`, `theme_comparator`, `improve_loop`, `centaur_app`)
+>
+> **L1–L4 ALL DONE.** L5 (Writing Tools) is the next phase per `plans/2026-07-21-lyric-intelligence-roadmap-L3-L6.md`.
+>
+> **Prior review: 2026-07-23 (T5-L3 INDEPENDENT VERIFICATION — VERIFIED PASS · #024).**
 > All #021 claims independently reproduced from `lyrics.db`: annotation coverage 36,572/36,572
 > lines (100%), 282,426 tokens, 6,708 entities — all match. Slang: 6,984 terms, 2,421 drill / 1,741
 > pop distinctive, distinctiveness recompute max diff 0.0000 (10-term sample, seed=42). Themes: 84
@@ -100,7 +122,7 @@
 | M3 Stems CPU optimization | ⬜ Not started | Needs museval eval-harness seed first (integration map §4) |
 | M4 Mastering german_drill e2e | ⏸ Ready (unblocked) | Submodule committed (aebcf76); pointer bumped |
 | M5 Suite reorg + meta-layer registration | ⬜ Not started | AGENTS.md exists; project not yet in framework project table |
-| M6 Backups + doctor disk/backup checks | ✅ DONE + committed/pushed 2026-07-22 (#019, `27cfa35`) | Backup ran: `C:\Backups\toolshop` 1954 files/32 MB, manifest+verify OK; `toolshop doctor` backup check added; suite green (383 passed/1 skipped/0 failed). Caveats: backup on C: = same physical disk as D: (not true DR); `.env` token now in backup (never sync/commit that dir). |
+| M6 Backups + doctor disk/backup checks | ✅ DONE + committed/pushed 2026-07-22 (#019, `27cfa35`) | Backup ran: `C:\Backups\toolshop` 1954 files/32 MB, manifest+verify OK; `toolshop doctor` backup check added; suite green (383 passed/1 skipped/0 failed). Caveats: backup on C: = same physical disk as D: (not true DR); `.env` token now in backup (never sync/commit that dir). **⚠ Data relocated to `data/` (#030) — backup paths need revalidation.** |
 
 ## Tool Lanes
 
@@ -110,11 +132,12 @@
 | T2 Dossier/RE | v1 live; **222-track catalogue is the first cross-tool asset** | H2 (Dossier v2) after H1 |
 | T3 Mastering | Working daily product; submodule clean (aebcf76) | M4 verification |
 | T4 Vocal Lab | Shipped detectors/cleaning; idle | H2 (faster-whisper) |
-| T5 Library Intelligence | lyrics.db over **742 songs**; L1.1 + **L2.1 VERIFIED PASS** (independent re-run 2026-07-22, report: `lyrics_research/reports/2026-07-22_l2-1-verification.md`); Cohen's d=1.18, persisted==engine to 0.000000; **L3 VERIFIED PASS** (independent re-run 2026-07-23, report: `lyrics_research/reports/2026-07-23_l3-verification.md`); JSD=0.2015, slang distinctiveness reproduces to 0.0000, 84 topics, 6,708 entities; roadmap `plans/2026-07-21-lyric-intelligence-roadmap-L3-L6.md` | **L4 NEXT** — fingerprints + gap report on the 2,633 Suno lyrics. #021 review-cleared. |
-| T6 Creation Bridge | Corpus = fuel for briefs/rhyme work | Consumes Lyric Intelligence outputs: rimer DB, brief generator, draft scorer (L5) |
+| T5 Library Intelligence | lyrics.db over **1,425 songs** (was 742); 10,654 sections, 65,912 lines, 273,801 rhyme rows; L1.1 + **L2.1 VERIFIED PASS** (report: `lyrics_research/reports/2026-07-22_l2-1-verification.md`); **L3 VERIFIED PASS** (report: `lyrics_research/reports/2026-07-23_l3-verification.md`); **L4 DONE**: pro fingerprints (16 artists + 2 cohort rollups, `pro_fingerprints.md`), Suno gap report (3,381 AI vs 1,315 pro, `suno_gap_report.md`), Cohen's d=0.9841 (expanded corpus), collab network (252 artists, 370 edges); **10 craft modules** (#036): `score-ai`, `cliches`, `template`, `clean-tokens`, `inject-slang`, `check-scheme`, `retrieve-similar`, `theme-match`, `improve-loop`, `centaur`; **lyrics transformer** (#032-#034): vocabulary/structure/flow/rhyme directions; **lyrics corrector** (#035): 27 tests; roadmap `plans/2026-07-21-lyric-intelligence-roadmap-L3-L6.md` | **L5 NEXT** — rimer DB (attested pro rhyme pairs), brief generator for Suno, draft scorer with originality check |
+| T6 Creation Bridge | Transformer + corrector + craft modules now consume T5 outputs | **L5**: rimer DB, brief generator, draft scorer — the payoff writing tools |
 | T7 Sample Forge | v1 partial: section-consuming forge + spec-aligned naming shipped; auto-detection deferred to H2 structure detector | H2: automatic section detection; H3: its pedalboard pick promoted to core chains (E2) |
 | **T8 Restore "Track Doctor"** | **NEW lane** — strategy adopted 2026-07-17 (`specs/2026-07-17-production-expansion-strategy.md` §1) | **E1 plan ready**: `plans/2026-07-17-e1-restore-diagnose.md` (impurity metrics + report + batch sweep); then E2 chains core → E3 treat v1 → E4 heavy de-reverb only after E3 proves daily value (D4 decided) |
 | **T9 Session Bridge** | **NEW thin lane** — dossier → DAW-ready session (universal pack first) | E5 universal export after E1–E3; **E6 = `.als` template writer for the user's Ableton Live 12** (D1 decided; FL 21 served by universal pack; AbletonOSC optional later) |
+| **Video** (new #028) | Music Video Generator P0+P1: 7 modules, 72 tests — FFmpeg compositing, ASS lyrics, audio-reactive shaders, stock footage | Real-world testing with actual tracks; P2 (advanced transitions, beat-synced cuts) |
 | Parked | open_DAW (own Rust/JUCE/Python DAW build — E5 pack designed as its future session-import format), Voicebox, ACE-Step local, **real-time plugin authoring (D3 confirmed)** | No investment (roadmap §6 + expansion spec §4/§6) |
 
 ## Debt Register (after M1c-final: items 2–6 cleared)
@@ -122,39 +145,48 @@
 1. ~~`test_cleaning_pipeline.py` numpy-scalar failures~~ → ✅ 9 fixed 2026-07-21 (`_scalar_tempo` for
    numpy-2.0 0-d tempo). **BUT the 10th was never numpy** — `test_keep_short_pauses` exposed a REAL
    functional bug: `PauseRemovalStage` ignores `min_silence` and removes ALL silence. Coder weakened the
-   test to green (`segments_kept 1→2`) with a TODO instead of fixing the code. → **NEW debt 1c: min_silence
+   test to green (`segments_kept 1→2`) with a TODO instead of fixing the code. → **Debt 1c: min_silence
    non-functional in PauseRemovalStage (T4 Vocal Lab) — real bug, masked, not resolved.** Also note CI
    red is a **billing lock**, not tests (corrected 2026-07-21).
-1b. Index paths written absolute (`D:\MusicData\...`) instead of genius-root-relative as specified —
-   works today, breaks on any future move. One-line fix; fold into next extractor-touching session.
+1b. ~~Index paths written absolute (`D:\MusicData\...`)~~ → ✅ cleared by #030 (data relocated to
+    repo-local `data/`, all paths made portable).
 2. ~~Uncommitted work wave~~ → ✅ cleared (5 commits + plan tick)
 3. ~~Resume-status bug~~ → ✅ cleared (11/11 tests green)
 4. ~~Extractor index bugs~~ → ✅ cleared (385 entries, 8 rebuild tests)
 5. ~~Mastering submodule uncommitted~~ → ✅ cleared (aebcf76)
 6. ~~PROJECTS_INDEX stale~~ → ✅ cleared (lyrics lane added)
-7. No backups of MusicData/catalogues/tokens → M6 (**now 749-song corpus** — exposure grew)
-8. L1 defects → **half cleared by T5-L2** (parser ✅ 23cf184; Cyrillic fold ❌ still open) → L1.1-residual
-9. `extract_batch2.py` uncommitted in repo; orchestrator doc edits uncommitted → commit in L1.1-residual
-10. **T5-L2 leftovers (2026-07-17):** 4 commits (23cf184..252d890) unpushed; `lyricsdb.py` + `test_lyricsdb.py`
-    edits sitting uncommitted in the tree; CHANGELOG Answer entry missing (latest is still #015/T5-L1);
-    espeak-ng env vars (`PHONEMIZER_ESPEAK_PATH/LIBRARY`) undocumented → fold into L1.1-residual close-out
-11. L2 `line_rhymes` (34,598 rows) computed on pre-fold `text_norm` → after defect-1 fix, recompute or
-    prove vowel-skeletons unaffected (diacritics are consonant-only — verify, don't assume)
+7. No backups of MusicData/catalogues/tokens → M6 (✅ done). **⚠ Data relocated to `data/` (#030) —
+   backup manifest paths (`C:\Backups\toolshop` pointing at `D:\MusicData`) need revalidation.**
+   Corpus now 1,425 songs + 3,426 Suno clips — exposure grew significantly.
+8. ~~L1 defects~~ → ✅ cleared (parser fix + ASCII-fold normalization applied, #029 re-ran on 1,425 songs)
+9. ~~`extract_batch2.py` uncommitted~~ → ✅ cleared (committed in #027 wave)
+10. ~~T5-L2 leftovers~~ → ✅ cleared (all commits pushed, CHANGELOG entries #016-#036 present,
+    espeak-ng env vars documented in #030 note)
+11. ~~L2 `line_rhymes` on pre-fold `text_norm`~~ → ✅ cleared (#029 re-ran full pipeline on 1,425 songs
+    with fixed normalization; 273,801 rhyme rows computed on ASCII-folded text)
+12. **espeak-ng path moved** (#030): env vars `PHONEMIZER_ESPEAK_PATH` and `PHONEMER_ESPEAK_LIBRARY`
+    must point to `data/toolshop/espeak-ng/` (was `D:\MusicData\toolshop\espeak-ng/`).
+13. **STATUS.md was stale for 12 entries** (2026-07-23 → 2026-08-08). 5+ out-of-band sessions delivered
+    #025-#036 without updating this board. → This reconciliation addresses it. Mitigation: STATUS.md
+    update should be part of closeout discipline going forward.
 
 ## Recommended Sequence — Q1 (Aug–Oct 2026, per goals v1.0 §6)
 
-0. ~~Hygiene FIRST~~ → ✅ **DONE, VERIFIED 2026-07-23** (#022/#023): pushed, junk globs live,
-   `toolshop closeout` + pre-push hook + doctor check mechanical
-1. ~~**T5-L3 SPOT-CHECK**~~ → ✅ **DONE, VERIFIED 2026-07-23** (#024): all #021 claims reproduced
-   from lyrics.db — annotation, slang, themes, JSD, gate all match → then **L4** fingerprints + gap
-   report vs the 2,633 Suno lyrics
-2. **H1 close:** M2 Demucs e2e · M4 mastering e2e (any evening) · M3 CPU opt (+ museval seed) · M5 reorg
-3. **E1 restore diagnose** (plan ready) → **E2 chains core** (⚠ include PR#476 VST3 dry-render test
+0. ~~Hygiene FIRST~~ → ✅ **DONE, VERIFIED 2026-07-23** (#022/#023)
+1. ~~**T5-L3 SPOT-CHECK**~~ → ✅ **DONE** (#024)
+1b. ~~**L4 fingerprints + gap report**~~ → ✅ **DONE** (#026, #029, #031): pro fingerprints, Suno gap
+    report, Cohen's d on expanded corpus, collab network — all complete
+1c. ~~**Craft modules B1-B10**~~ → ✅ **DONE** (#032-#036): transformer, corrector, 10 craft modules,
+    CLI integration, research docs
+2. **L5: Writing Tools** — rimer DB (attested pro rhyme pairs), brief generator for Suno, draft scorer
+   with originality check (n-gram overlap vs corpus). The payoff: write ONE real song with the tools.
+3. **H1 close:** M2 Demucs e2e · M4 mastering e2e (any evening) · M3 CPU opt (+ museval seed) · M5 reorg
+4. **E1 restore diagnose** (plan ready) → **E2 chains core** (⚠ include PR#476 VST3 dry-render test
    gate) → **E3 treat v1**
-4. **H2 Dossier v2** milestone chain (K-S key, structure, beats, chords, faster-whisper lyrics)
-5. **Fleet pilot (new, G5):** 2-machine shared-folder/SQLite job-queue pilot on the existing batch
+5. **H2 Dossier v2** milestone chain (K-S key, structure, beats, chords, faster-whisper lyrics)
+6. **Fleet pilot (new, G5):** 2-machine shared-folder/SQLite job-queue pilot on the existing batch
    engine + Syncthing/rclone sync + **first true cross-machine backup** (kills the same-box DR caveat)
-6. **New-lane opener (research-gated, last):** composition/MIDI v0 — MusicLang + drum-gen +
+7. **New-lane opener (research-gated, last):** composition/MIDI v0 — MusicLang + drum-gen +
    wobblemidi + FluidSynth render path (goals §8.1); residual research items per goals §8.3
 
 ## Standing Observations (orchestrator)
@@ -180,4 +212,10 @@
   Lesson: a "deviation" that changes output semantics gets verified, not accepted on the handoff's framing.
 - Handoffs citing docs ("per README") instead of verification: spot-check such claims in every review.
 - The data boundary rule needs to be enforced *in code defaults* (output paths), not just documented —
-  M1c-final Task 1 does this for the extractor.
+  M1c-final Task 1 does this for the extractor. **✅ Resolved by #030** (all paths made repo-relative).
+- **5th+ instance of out-of-band work (2026-07-27 → 2026-08-07):** 12 CHANGELOG entries (#025-#036)
+  shipped across multiple sessions without STATUS.md updates. The board went 12 entries stale — this
+  reconciliation (2026-08-08) addresses it. Mitigation: STATUS.md update should be part of closeout
+  discipline, not deferred to a separate reconciliation session. The AGENTS.md close-out rule already
+  says "update README + PROJECTS_INDEX in the same session as the behavior change" — STATUS.md
+  deserves the same treatment.
