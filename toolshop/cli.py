@@ -1364,6 +1364,100 @@ def build_parser() -> argparse.ArgumentParser:
         help="Port for Streamlit app (default: 8501)",
     )
 
+    # =========================================================================
+    # LYRICS L5: WRITING TOOLS COMMANDS
+    # =========================================================================
+
+    # lyrics build-rimer [--db PATH]
+    lyrics_build_rimer_parser = lyrics_subparsers.add_parser(
+        "build-rimer", help="Build attested rhyme pairs DB from line_rhymes corpus"
+    )
+    lyrics_build_rimer_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+
+    # lyrics rime --word WORD [--cohort drill_trap|pop] [--top-k INT] [--db PATH] [--json]
+    lyrics_rime_parser = lyrics_subparsers.add_parser(
+        "rime", help="Look up attested rhyme partners for a word from the corpus"
+    )
+    lyrics_rime_parser.add_argument(
+        "--word", type=str, required=True, help="Word to find rhymes for"
+    )
+    lyrics_rime_parser.add_argument(
+        "--cohort", type=str, default=None,
+        choices=["drill_trap", "pop", "shared"],
+        help="Filter by cohort (drill_trap, pop, or shared)",
+    )
+    lyrics_rime_parser.add_argument(
+        "--top-k", type=int, default=10,
+        help="Maximum results (default: 10)",
+    )
+    lyrics_rime_parser.add_argument(
+        "--min-frequency", type=int, default=1,
+        help="Minimum corpus frequency (default: 1)",
+    )
+    lyrics_rime_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_rime_parser.add_argument(
+        "--json", action="store_true", help="Output as JSON instead of table"
+    )
+
+    # lyrics brief [--artist NAME] [--cohort drill_trap|pop] [--topic TEXT] [--db PATH] [--json] [--output PATH]
+    lyrics_brief_parser = lyrics_subparsers.add_parser(
+        "brief", help="Generate a Suno-ready writing brief from corpus fingerprints"
+    )
+    lyrics_brief_parser.add_argument(
+        "--artist", type=str, default=None,
+        help="Artist name for per-artist fingerprint",
+    )
+    lyrics_brief_parser.add_argument(
+        "--cohort", type=str, default=None,
+        choices=["drill_trap", "pop"],
+        help="Genre cohort (required if --artist not given)",
+    )
+    lyrics_brief_parser.add_argument(
+        "--topic", type=str, default=None,
+        help="Optional topic/keyword hint to include in brief",
+    )
+    lyrics_brief_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_brief_parser.add_argument(
+        "--json", action="store_true", help="Output brief as JSON instead of text"
+    )
+    lyrics_brief_parser.add_argument(
+        "--output", type=Path, default=None,
+        help="Write brief to file (default: stdout)",
+    )
+
+    # lyrics score --input PATH [--vs ARTIST] [--cohort drill_trap|pop] [--db PATH] [--json]
+    lyrics_score_parser = lyrics_subparsers.add_parser(
+        "score", help="Score draft lyrics (5-component, includes originality check)"
+    )
+    lyrics_score_parser.add_argument(
+        "--input", type=Path, required=True, help="Path to draft lyrics text file"
+    )
+    lyrics_score_parser.add_argument(
+        "--vs", type=str, default=None,
+        help="Compare against specific artist instead of cohort average",
+    )
+    lyrics_score_parser.add_argument(
+        "--cohort", type=str, default="drill_trap",
+        choices=["drill_trap", "pop"],
+        help="Genre cohort for baseline comparison (default: drill_trap)",
+    )
+    lyrics_score_parser.add_argument(
+        "--db", type=Path, default=None,
+        help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_score_parser.add_argument(
+        "--json", action="store_true", help="Output scores as JSON instead of text"
+    )
+
     return parser
 
 
@@ -2567,6 +2661,81 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             except ImportError:
                 print("streamlit and plotly are required for the Centaur app.")
                 print("Install with: pip install streamlit plotly")
+
+        elif args.lyrics_command == "build-rimer":
+            import json as json_mod
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.rimer_db import build_rimer_db
+            db_path = args.db or DEFAULT_DB_PATH
+            stats = build_rimer_db(db_path)
+            print(f"Rimer DB built: {stats['total_pairs']} pairs, "
+                  f"{stats['unique_skeletons']} unique skeletons, "
+                  f"{stats['drill_pairs']} drill, {stats['pop_pairs']} pop")
+
+        elif args.lyrics_command == "rime":
+            import json as json_mod
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.rimer_db import lookup_rhymes
+            db_path = args.db or DEFAULT_DB_PATH
+            results = lookup_rhymes(
+                args.word, cohort=args.cohort, top_k=args.top_k,
+                min_frequency=args.min_frequency, db_path=db_path,
+            )
+            if args.json:
+                print(json_mod.dumps(results, indent=2, ensure_ascii=False))
+            else:
+                if not results:
+                    print(f"No attested rhymes found for '{args.word}'.")
+                else:
+                    print(f"Attested rhymes for '{args.word}':")
+                    for r in results:
+                        coh = r.get("cohort", "?")
+                        print(f"  {r['word']:<20} skel={r['vowel_skeleton']:<8} "
+                              f"freq={r['frequency']:>3}  ml={r['match_length']}  "
+                              f"cohort={coh}")
+
+        elif args.lyrics_command == "brief":
+            import json as json_mod
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.brief_generator import generate_brief, format_brief, format_suno_prompt
+            db_path = args.db or DEFAULT_DB_PATH
+            brief = generate_brief(
+                artist=args.artist, cohort=args.cohort,
+                topic=args.topic, db_path=db_path,
+            )
+            if args.json:
+                output = json_mod.dumps(brief, indent=2, ensure_ascii=False, default=str)
+            else:
+                output = format_brief(brief)
+            if args.output:
+                args.output.write_text(output, encoding="utf-8")
+                print(f"Brief written to {args.output}")
+            else:
+                print(output)
+
+        elif args.lyrics_command == "score":
+            import json as json_mod
+            from toolshop.lyricsdb import DEFAULT_DB_PATH
+            from toolshop.draft_scorer import score_draft
+            db_path = args.db or DEFAULT_DB_PATH
+            result = score_draft(
+                args.input, artist=args.vs, cohort=args.cohort, db_path=db_path,
+            )
+            if args.json:
+                print(json_mod.dumps(result, indent=2, ensure_ascii=False, default=str))
+            else:
+                target = result.get("comparison_target", "?")
+                print(f"\n=== DRAFT SCORE (vs {target}) ===")
+                print(f"Overall: {result['overall_score']:.1f}/100\n")
+                for comp_name in ("structural", "rhyme", "lexical", "repetition", "originality"):
+                    comp = result["components"].get(comp_name, {})
+                    print(f"  {comp_name.capitalize():<15} {comp.get('score', 0):>6.1f}/100")
+                orig = result["components"].get("originality", {})
+                orig_metrics = orig.get("metrics", {})
+                if orig_metrics.get("overlap_pct", 0) > 0:
+                    print(f"\n  Originality: {orig_metrics['overlap_pct']:.1f}% n-gram overlap with corpus")
+                    for src in orig_metrics.get("source_songs", [])[:3]:
+                        print(f"    → {src['artist']} — {src['title']} ({src['matched_count']} matches)")
 
         else:
             parser.error("Unknown 'lyrics' subcommand.")

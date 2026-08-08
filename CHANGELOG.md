@@ -1,5 +1,23 @@
 # Changelog
 
+### Answer #037 — L5 Writing Tools: Rimer DB + Brief Generator + Draft Scorer + CLI
+**Timestamp:** 2026-08-08
+**Action Type:** Feature implementation — 3 new modules + 4 new CLI subcommands + 41 new tests
+
+**What was built:**
+- `toolshop/rimer_db.py` — Attested rhyme pair database: `build_rimer_db()` extracts word pairs from `line_rhymes`, `lookup_rhymes()` for word→partner lookup, `rank_pairs()` for cohort-filtered ranking. New `rhyme_pairs` table with frequency, drill/pop counts, distinctiveness.
+- `toolshop/brief_generator.py` — Suno-ready writing brief: `generate_brief()` combines per-artist/cohort fingerprints, structure templates, top themes, and rimer DB rhyme pairs. `format_brief()` for human-readable output, `format_suno_prompt()` for Suno prompt format.
+- `toolshop/draft_scorer.py` — 5-component draft scorer extending `ai_scorer`: Structural + Rhyme + Lexical + Repetition + **Originality** (trigram overlap vs full corpus). Per-artist comparison mode (`--vs`).
+- CLI: 4 new `toolshop lyrics` subcommands: `build-rimer`, `rime`, `brief`, `score`
+
+**Tests:**
+- `tests/test_rimer_db.py` — 16 tests (build, lookup, rank, cohort filtering)
+- `tests/test_brief_generator.py` — 12 tests (artist/cohort/topic modes, format, Suno prompt)
+- `tests/test_draft_scorer.py` — 13 tests (n-gram extraction, overlap, 5-component scoring, artist vs cohort, novel/copied text)
+- Full suite: **856 passed, 2 skipped, 0 failed** (873.65s)
+
+---
+
 ### Answer #036 — Lyrics Craft: 10 New Modules + CLI Integration + Research Docs
 **Timestamp:** 2026-08-07
 **Action Type:** Feature implementation — 10 new `toolshop lyrics` subcommands + research synthesis docs
