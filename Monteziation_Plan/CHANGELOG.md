@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Updated (2026-08-11) — PLR Flipping Plan Refined
+
+- **Updated plan** (`plr_flipping_plan.md` — expanded from 369 to ~560 lines)
+  - **Section 2.5: Niche Demand Matrix & Per-Product Rebranding Specs** — 8 products mapped to 15 niche angles with opportunity scores, per-product rebranding specs (title, format, pricing, differentiator), and bundle strategy
+  - **Section 2.6: Competitor Analysis & Exploitable Gaps** — 5 niche competitor tables with specific Gumroad sellers, pricing, sales counts, and exploitable gaps
+  - **Section 5: Per-Product Pricing Table** — 8 products with Starter/Pro/Premium tiers, death zone compliance checks, and bundle positioning
+  - **Section 6: 30-Day Timeline Refined** — Reddit warmup starts Day 1 (was Day 7), first product mention Day 14 (was Day 7), specific subreddits/Discord/Pinterest/SEO keywords per product, product launch order by opportunity score
+  - **Traffic Channel Map** — 8 products × 4 channel types (Reddit, Discord, Pinterest, Gumroad SEO) with specific community names
+  - Key research findings: ADHD workbooks 2:1 revenue vs planners, faceless YouTuber prompts <5 competitors, profession-specific AI prompts underserved at $27-$49, email template market gap between $25 and $94
+
 ### Added (2026-08-10) — AI PLR Rebranding Research Report
 - **Research report** (docs/researcher_ai_rebranding_workflow_20260810.md - 4,588 words)
   - AI-assisted PLR rebranding workflow for 2026
