@@ -12,6 +12,7 @@ d:\Project/
 ├── open_DAW/                # Rust audio engine + Python AI modules
 ├── docs/                    # Project documentation
 ├── project_catalogues/      # Per-project catalogues
+├── Monteziation_Plan/       # PLR and monetization strategy research docs
 ├── Tools/                   # Utility tools
 ├── Websites/                # Web projects
 ├── Apps_Projects/           # App projects
