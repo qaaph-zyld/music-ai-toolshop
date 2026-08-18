@@ -1,0 +1,21 @@
+# Vocal Cleanup Module Dependencies
+
+# Audio processing
+librosa>=0.10.0
+numpy>=1.24.0
+scipy>=1.10.0
+soundfile>=0.12.0
+pydub>=0.25.1
+
+# Voice Activity Detection
+webrtcvad>=2.0.10
+
+# FFmpeg bindings
+ffmpeg-python>=0.2.0
+
+# Testing
+pytest>=7.3.0
+pytest-cov>=4.1.0
+
+# Utilities
+tqdm>=4.65.0

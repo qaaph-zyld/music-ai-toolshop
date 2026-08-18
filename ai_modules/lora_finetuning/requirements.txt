@@ -1,0 +1,26 @@
+# LoRA Fine-Tuning Pipeline for BS-RoFormer / Demucs
+# Requirements for the fine-tuning pipeline (not for MSST itself — MSST has its own requirements.txt)
+
+# Core ML
+torch>=2.1.0
+torchaudio>=2.1.0
+numpy>=1.24.0
+pyyaml>=6.0
+
+# Audio processing
+audiomentations>=0.35.0
+pedalboard>=0.9.0
+soundfile>=0.12.0
+librosa>=0.10.0
+
+# LoRA backends (MSST supports both)
+loralib>=0.1.1
+peft>=0.7.0
+
+# Evaluation metrics
+torch_log_wmse>=0.1.0
+auraloss>=0.4.0
+
+# Utilities
+tqdm>=4.65.0
+tensorboard>=2.14.0
