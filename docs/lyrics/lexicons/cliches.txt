@@ -1,0 +1,130 @@
+# Banned globalized pop clichés and generic abstract imagery.
+# Source: docs/ANTI_SLOP_PLAYBOOK.md §B4; docs/CONSTITUTION.md Art. 4.2
+# Format: one banned phrase or image per line. Lowercase, Latin script.
+
+plamen ljubavi
+plamen strasti
+plamen u srcu
+plameni ugalj
+gorimo zajedno
+plamen koji ne gori
+plamen koji ne prestaje
+slomljena krila
+slomljena srca
+večna ljubav
+večna strast
+večna bol
+večna sreća
+zauvek ljubav
+zauvek zajedno
+zauvek tvoja
+zauvek tvoj
+neumorna ljubav
+beskrajna ljubav
+beskrajna bol
+beskrajna sreća
+beskrajna večnost
+beskrajna noć
+reke suza
+reka suza
+more suza
+očajanje i suze
+suze kao reka
+slomljene duše
+slomljeno srce
+polovina mene
+druga polovina
+nedostaje mi polovina
+kompletna sam
+nisam kompletna
+ti me kompletiraš
+kompletiraš me
+savršena ljubav
+savršen par
+savršen dan
+savršena noć
+savršen svet
+savršeni svet
+u mojim venama
+vatra u venama
+led u venama
+vatra u srcu
+led u srcu
+sunce moje ljubavi
+ti si moje sunce
+zvezde govore
+zvezde su na tvojoj strani
+zvezde nam govore
+zvezde nam se smeju
+zvezde nam se smeše
+pod istim nebom
+pod istim zvezdama
+zvezde nas vode
+nebo je granica
+samo nebo zna
+samo zvezde znaju
+more zvezda
+zvezdano nebo
+mesecina
+pod mesecinom
+mesec nosi moju tugu
+mesec nosi moju bol
+prolazni oblak
+oblaci suza
+kisa i suze
+kiša i suze
+jutro bez tebe
+jutro bez nade
+proleće bez tebe
+zima bez tebe
+sve je prazno
+prazno srce
+prazna duša
+prazno telo
+čekam te uvek
+čekam te zauvek
+čekam te večno
+samo ti i ja
+samo mi dva
+samo nas dvoje
+naš mali svet
+mali svet
+naše carstvo
+naša priča
+naša bajka
+bajka o nama
+kraj naše priče
+početak naše priče
+kraj priče
+kraj bajke
+živim u tvojoj ljubavi
+umirem u tvojoj ljubavi
+uvijek si tu
+uveće si tu
+večno si tu
+zauvek si tu
+
+# Generic filler phrases
+svet se vrti
+život je igra
+život je san
+život je pustinja
+život je more
+život je boj
+ljubav je rat
+ljubav je igra
+ljubav je bolest
+ljubav je vatra
+ljubav je lek
+ljubav je droga
+ljubav je sve
+ljubav je svet
+ljubav je zakon
+srce je slomljeno
+srce je hladno
+srce mi gori
+srce mi ledi
+srce me voli
+srce me mrzi
+srce me zove
+srce me zove tebi

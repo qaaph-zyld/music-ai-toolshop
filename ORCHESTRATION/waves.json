@@ -1,0 +1,289 @@
+{
+  "task": "L5 Exit + L6 Prep — Wave-Orchestrated Plan",
+  "project_root": "d:/Projects/Music-AI-Toolshop",
+  "orchestration_dir": "ORCHESTRATION",
+  "waves": [
+    {
+      "wave": 1,
+      "name": "Discovery & Verification",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "A",
+          "role": "explorer",
+          "name": "Agent A: L5 Tools Live Verification",
+          "task": "Verify all L5 writing tools work against the live lyrics.db. Run each CLI command and document exact outputs, timing, and any errors.",
+          "scope": "toolshop/ + data/",
+          "output": "wave1/agent_a_handoff.md",
+          "constraints": [
+            "Read-only. Do NOT modify any files except your own handoff output file.",
+            "Use the venv Python: .venv\\Scripts\\python.exe",
+            "DB path: data/toolshop/lyrics/lyrics.db",
+            "Document exact command, exit code, and key output for each step"
+          ],
+          "context_budget": "200k",
+          "instructions": [
+            "Read AGENTS.md at d:\\Projects\\Music-AI-Toolshop\\AGENTS.md for project rules (Python 3.11.9 venv, CPU-only, data boundaries).",
+            "Run: .venv\\Scripts\\python.exe -m toolshop.cli lyrics build-rimer --db data/toolshop/lyrics/lyrics.db — Document output (should build rhyme_pairs table from 273k line_rhymes rows).",
+            "Run: .venv\\Scripts\\python.exe -m toolshop.cli lyrics rime --word zivot --cohort drill_trap --top-k 10 --db data/toolshop/lyrics/lyrics.db — Document rhyme partners found.",
+            "Run: .venv\\Scripts\\python.exe -m toolshop.cli lyrics rime --word novac --cohort drill_trap --top-k 10 --db data/toolshop/lyrics/lyrics.db — Document rhyme partners found.",
+            "Run: .venv\\Scripts\\python.exe -m toolshop.cli lyrics brief --artist \"Jala Brat\" --topic \"street life\" --db data/toolshop/lyrics/lyrics.db — Document the full brief output (structure template, rhyme targets, themes, Suno prompt).",
+            "Run: .venv\\Scripts\\python.exe -m toolshop.cli lyrics brief --cohort drill_trap --topic \"street life\" --db data/toolshop/lyrics/lyrics.db — Document the cohort-level brief.",
+            "Create a small sample lyrics file (5-10 lines of Serbian/Bosnian drill-style lyrics) and run: .venv\\Scripts\\python.exe -m toolshop.cli lyrics score --input <sample> --cohort drill_trap --db data/toolshop/lyrics/lyrics.db — Document all 5 component scores.",
+            "Also run with --vs \"Jala Brat\" to test per-artist comparison mode.",
+            "Verify the rhyme_pairs table was populated: query SELECT COUNT(*) FROM rhyme_pairs and SELECT COUNT(DISTINCT vowel_skeleton) FROM rhyme_pairs.",
+            "Document any errors, unexpected behavior, or performance issues.",
+            "Write all findings to ORCHESTRATION/wave1/agent_a_handoff.md with sections: Commands Run, Outputs, Errors/Issues, Verification Results, Recommendations for Wave 2."
+          ]
+        },
+        {
+          "id": "B",
+          "role": "explorer",
+          "name": "Agent B: German Corpus Discovery",
+          "task": "Discover German-language content in the CrhymeTV catalogue and assess feasibility of German corpus expansion via the proven lyricsgenius extractor.",
+          "scope": "results/crhymetv_re/ + generate_crhymetv_catalogue.py + Genious_lyrics_extractor/",
+          "output": "wave1/agent_b_handoff.md",
+          "constraints": [
+            "Read-only. Do NOT modify any files except your own handoff output file.",
+            "Do NOT make any API calls or network requests.",
+            "Do NOT install any packages."
+          ],
+          "context_budget": "200k",
+          "instructions": [
+            "Read AGENTS.md at d:\\Projects\\Music-AI-Toolshop\\AGENTS.md for project rules.",
+            "Read the CrhymeTV catalogue generator: d:\\Projects\\Music-AI-Toolshop\\generate_crhymetv_catalogue.py — understand what metadata it stores (artist names, track titles, language info if any).",
+            "Read the catalogue output at d:\\Projects\\Music-AI-Toolshop\\results\\crhymetv_re\\ — look for catalogue.md or catalogue.json. List all artist names found.",
+            "Identify which artists/tracks are German-language. CrhymeTV is a Balkan trap/drill channel — German tracks may be from German drill artists featured on the channel.",
+            "Read the extractor scripts: d:\\Projects\\Music-AI-Toolshop\\Genious_lyrics_extractor\\extract_artists.py and extract_batch2.py and extract_batch3.py — understand the pattern for adding new artists.",
+            "Read the roadmap L6 section: d:\\Projects\\Music-AI-Toolshop\\docs\\superpowers\\plans\\2026-07-21-lyric-intelligence-roadmap-L3-L6.md lines 73-78 — it mentions '222 CrhymeTV artists' and 'phonemizer-de'.",
+            "Assess: How many German artists can be identified from the CrhymeTV catalogue? If few/no German artists in CrhymeTV, identify known German drill/trap artists that could be searched on Genius instead (e.g., Apache 207, RAF Camora, Capital Bra, Shirin David, SSIO, Kollegah, Farid Bang).",
+            "Document the lyricsgenius extractor pattern: what would need to change to support German artists? (Name variants, diacritics, Unicode handling for German umlauts ä/ö/ü/ß).",
+            "Assess phonemizer-de requirements: German is NOT phonetic (unlike Serbian which uses vowel skeletons). Read d:\\Projects\\Music-AI-Toolshop\\toolshop\\rhyme_miner.py to understand the current vowel-skeleton approach and why it won't work for German.",
+            "Check if espeak-ng German voice data is available alongside the existing installation at data/toolshop/espeak-ng/.",
+            "Write all findings to ORCHESTRATION/wave1/agent_b_handoff.md with sections: CrhymeTV German Artists Found, Extractor Compatibility Assessment, phonemizer-de Requirements, Recommended German Artist List, Risks & Mitigations."
+          ]
+        },
+        {
+          "id": "C",
+          "role": "explorer",
+          "name": "Agent C: Flow Analyzer v1 Audit & v2 Design Prep",
+          "task": "Audit the current flow analyzer v1, identify v2 requirements, and check whisperX/faster-whisper availability for word-level timing analysis.",
+          "scope": "toolshop/flow_analyzer.py + research docs",
+          "output": "wave1/agent_c_handoff.md",
+          "constraints": [
+            "Read-only. Do NOT modify any files except your own handoff output file.",
+            "Do NOT install any packages."
+          ],
+          "context_budget": "200k",
+          "instructions": [
+            "Read AGENTS.md at d:\\Projects\\Music-AI-Toolshop\\AGENTS.md for project rules.",
+            "Read the full flow analyzer v1: d:\\Projects\\Music-AI-Toolshop\\toolshop\\flow_analyzer.py (283 lines) — document all current capabilities (syllable density, pattern detection, section flow profiles).",
+            "Read the rhyme/flow research report: d:\\Projects\\.windsurf\\handoffs\\researcher_rhyme_flow_craft_20260806.md — extract the v2-relevant findings: Kendrick tension-relaxation model, Migos triplet flow types, microtiming (laid-back vs eager), DOOM time-shifted rhyme placement.",
+            "Read the AI lyric improvement research: d:\\Projects\\.windsurf\\handoffs\\researcher_ai_lyric_improvement_20260806.md — check for any flow/delivery evaluation findings.",
+            "Read the roadmap L6 section: d:\\Projects\\Music-AI-Toolshop\\docs\\superpowers\\plans\\2026-07-21-lyric-intelligence-roadmap-L3-L6.md lines 73-78 — 'Ties into the H3 flow analyzer (whisperX word timings × beat grid) so text craft meets delivery craft.'",
+            "Check if whisperX is installed: run .venv\\Scripts\\python.exe -c \"import whisperx; print(whisperx.__version__)\" — document result (expected: not installed, CPU-only constraint).",
+            "Check if faster-whisper is installed: run .venv\\Scripts\\python.exe -c \"import faster_whisper; print('available')\" — document result.",
+            "Check the longterm roadmap for T4 Vocal Lab v1 plans: d:\\Projects\\Music-AI-Toolshop\\docs\\superpowers\\specs\\2026-07-15-longterm-roadmap-v2.md lines 77-81 — faster-whisper is the planned transcription tool.",
+            "Document v2 architecture proposal: (1) word-level timings from faster-whisper (CPU-viable, CTranslate2 int8), (2) beat grid from T2 dossier, (3) alignment: each word's start/end time mapped to beat position, (4) microtiming analysis: deviation from grid (laid-back = positive, eager = negative), (5) tension-relaxation pacing: rhyme pacing over verse, (6) triplet flow detection: 3-against-4 rhythm patterns.",
+            "Identify what data is already in lyrics.db that could support v2 without whisperX: the lines table has syllable counts, the song_metrics table has BPM. What's missing?",
+            "Write all findings to ORCHESTRATION/wave1/agent_c_handoff.md with sections: v1 Capabilities, v2 Requirements, Available Tools (whisperX vs faster-whisper), v2 Architecture Proposal, Data Gaps, Dependencies & Risks."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "name": "A/B Brief Generation",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "D",
+          "role": "implementer",
+          "name": "Agent D: Fingerprint-Based Brief Generation",
+          "task": "Generate a corpus-informed Suno brief for Jala Brat (drill_trap) using the L5 writing tools. This is the 'fingerprint' side of the A/B comparison.",
+          "scope": "toolshop/ + data/ + ORCHESTRATION/wave2/",
+          "output": "wave2/agent_d_handoff.md",
+          "constraints": [
+            "Use the venv Python: .venv\\Scripts\\python.exe",
+            "DB path: data/toolshop/lyrics/lyrics.db",
+            "Do NOT modify any source files. Only create output files in ORCHESTRATION/wave2/.",
+            "If build-rimer has not been run yet, run it first."
+          ],
+          "context_budget": "200k",
+          "instructions": [
+            "Read AGENTS.md at d:\\Projects\\Music-AI-Toolshop\\AGENTS.md for project rules.",
+            "Ensure rimer DB is built: .venv\\Scripts\\python.exe -m toolshop.cli lyrics build-rimer --db data/toolshop/lyrics/lyrics.db",
+            "Generate the brief: .venv\\Scripts\\python.exe -m toolshop.cli lyrics brief --artist \"Jala Brat\" --topic \"street life\" --db data/toolshop/lyrics/lyrics.db --output ORCHESTRATION/wave2/brief_fingerprint.md",
+            "Also generate the Suno prompt format: run with --json and extract the Suno prompt, or use the format_suno_prompt() function. Save to ORCHESTRATION/wave2/suno_prompt_fingerprint.txt",
+            "Query 5 key rhyme words and document their attested partners: .venv\\Scripts\\python.exe -m toolshop.cli lyrics rime --word zivot --cohort drill_trap --db data/toolshop/lyrics/lyrics.db --json",
+            "Repeat for: novac, brat, grad, problem — save all results.",
+            "Also run the structure template: .venv\\Scripts\\python.exe -m toolshop.cli lyrics template --cohort drill_trap --db data/toolshop/lyrics/lyrics.db --json — save to ORCHESTRATION/wave2/structure_template.json",
+            "Document what the fingerprint brief contains: structure template (section types, counts), rhyme scheme targets, theme distribution, slang density target, TTR target, repetition pattern, Suno style hints.",
+            "Write findings to ORCHESTRATION/wave2/agent_d_handoff.md with sections: Brief Generated, Suno Prompt, Rhyme Partners Found, Structure Template, Craft Targets Summary."
+          ]
+        },
+        {
+          "id": "E",
+          "role": "implementer",
+          "name": "Agent E: Naive Prompt Generation",
+          "task": "Create a naive/generic Suno prompt for the same target (Jala Brat drill trap, street life theme) — no corpus data, just generic instructions. Document what the naive prompt lacks vs the fingerprint brief.",
+          "scope": "ORCHESTRATION/wave2/",
+          "output": "wave2/agent_e_handoff.md",
+          "constraints": [
+            "Do NOT use any toolshop CLI commands or corpus data.",
+            "Do NOT modify any source files. Only create output files in ORCHESTRATION/wave2/.",
+            "The naive prompt should be what a user would write WITHOUT the toolshop — just generic Suno instructions."
+          ],
+          "context_budget": "200k",
+          "instructions": [
+            "Create a naive Suno prompt for a drill trap song in Serbian/Bosnian about street life. Write it to ORCHESTRATION/wave2/suno_prompt_naive.txt. The prompt should include: genre (drill trap), language (Serbian/Bosnian), topic (street life), BPM (around 120-140), mood (dark, aggressive), and generic structure (verse-chorus-verse-chorus). Do NOT include: specific rhyme targets, corpus-attested rhyme pairs, theme distribution data, slang density targets, TTR targets, or structure templates from the corpus.",
+            "Create a document comparing what the naive prompt lacks vs what a fingerprint-based prompt would contain. Write to ORCHESTRATION/wave2/naive_vs_fingerprint_gap.md with sections: What the Naive Prompt Has, What It Lacks (structure template, rhyme targets, theme distribution, slang density, TTR target, repetition pattern, Suno style hints), Expected Impact on Output Quality.",
+            "Write findings to ORCHESTRATION/wave2/agent_e_handoff.md with sections: Naive Prompt Created, Gap Analysis, Expected Quality Difference."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "name": "Scoring & A/B Comparison",
+      "parallel": false,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "F",
+          "role": "implementer",
+          "name": "Agent F: Draft Scoring & A/B Report",
+          "task": "Score both draft lyrics files (fingerprint-based and naive) with the 5-component draft scorer and produce the A/B comparison report. This is the L5 exit criterion deliverable.",
+          "scope": "toolshop/ + data/ + ORCHESTRATION/wave2/ + ORCHESTRATION/wave3/",
+          "output": "wave3/agent_f_handoff.md",
+          "constraints": [
+            "Use the venv Python: .venv\\Scripts\\python.exe",
+            "DB path: data/toolshop/lyrics/lyrics.db",
+            "Do NOT modify any source files. Only create output files in ORCHESTRATION/wave3/.",
+            "Both draft files must exist at ORCHESTRATION/wave2/draft_fingerprint.txt and ORCHESTRATION/wave2/draft_naive.txt before starting.",
+            "If either draft file is missing, document the gap and score whichever is available."
+          ],
+          "context_budget": "200k",
+          "instructions": [
+            "Read AGENTS.md at d:\\Projects\\Music-AI-Toolshop\\AGENTS.md for project rules.",
+            "Score the fingerprint draft: .venv\\Scripts\\python.exe -m toolshop.cli lyrics score --input ORCHESTRATION/wave2/draft_fingerprint.txt --cohort drill_trap --db data/toolshop/lyrics/lyrics.db --json — save JSON output to ORCHESTRATION/wave3/scores_fingerprint.json",
+            "Score the naive draft: .venv\\Scripts\\python.exe -m toolshop.cli lyrics score --input ORCHESTRATION/wave2/draft_naive.txt --cohort drill_trap --db data/toolshop/lyrics/lyrics.db --json — save JSON output to ORCHESTRATION/wave3/scores_naive.json",
+            "Also score both with per-artist comparison: add --vs \"Jala Brat\" to both commands. Save to ORCHESTRATION/wave3/scores_fingerprint_vs_jala.json and ORCHESTRATION/wave3/scores_naive_vs_jala.json",
+            "Run additional craft module checks on both drafts for richer comparison:",
+            "  - .venv\\Scripts\\python.exe -m toolshop.cli lyrics clean-tokens --input <draft> --json (Suno token contamination)",
+            "  - .venv\\Scripts\\python.exe -m toolshop.cli lyrics cliches --input <draft> --include-balkan --json (cliche density)",
+            "  - .venv\\Scripts\\python.exe -m toolshop.cli lyrics check-scheme --input <draft> --db data/toolshop/lyrics/lyrics.db --json (rhyme scheme)",
+            "  - .venv\\Scripts\\python.exe -m toolshop.cli lyrics theme-match --input <draft> --cohort drill_trap --db data/toolshop/lyrics/lyrics.db --json (theme distribution)",
+            "Produce the A/B comparison report at ORCHESTRATION/wave3/ab_comparison_report.md with sections:",
+            "  1. Executive Summary — which draft scored higher, by how much, on which components",
+            "  2. Side-by-Side 5-Component Scores table (structural, rhyme, lexical, repetition, originality, overall)",
+            "  3. Per-Artist Comparison (vs Jala Brat) — how close each draft is to Jala's fingerprint",
+            "  4. Craft Module Analysis — cliche density, token contamination, scheme adherence, theme match",
+            "  5. Qualitative Analysis — where the fingerprint brief helped vs where it didn't",
+            "  6. L5 Exit Criterion Evaluation — does the fingerprint draft score >= naive on >=3 of 5 components?",
+            "  7. Recommendations — what to improve for the next iteration",
+            "Write findings to ORCHESTRATION/wave3/agent_f_handoff.md with sections: Scores Computed, A/B Verdict, L5 Exit Status."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 4,
+      "name": "L6 Prep",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "G",
+          "role": "implementer",
+          "name": "Agent G: German Corpus Extraction",
+          "task": "Extract German-language artist lyrics from Genius using the proven lyricsgenius extractor pattern. Save to data/toolshop/lyrics/genius_german/.",
+          "scope": "Genious_lyrics_extractor/ + data/",
+          "output": "wave4/agent_g_handoff.md",
+          "constraints": [
+            "Use the venv Python: .venv\\Scripts\\python.exe",
+            "Do NOT modify existing source files. New files only.",
+            "Genius API token is in Genious_lyrics_extractor/.env as Genious_API='...'",
+            "Follow the existing extractor pattern exactly (extract_artists.py, extract_batch2.py).",
+            "German artist names must include umlaut variants (ä/ae, ö/oe, ü/ue, ß/ss).",
+            "Save extracted lyrics to data/toolshop/lyrics/genius_german/ (new directory).",
+            "If API token is expired or extraction fails, document the error and list the target artists for manual extraction."
+          ],
+          "context_budget": "200k",
+          "instructions": [
+            "Read AGENTS.md at d:\\Projects\\Music-AI-Toolshop\\AGENTS.md for project rules.",
+            "Read the existing extractor pattern: d:\\Projects\\Music-AI-Toolshop\\Genious_lyrics_extractor\\extract_artists.py — understand the lyricsgenius API usage, artist name variant matching, and output format.",
+            "Read extract_batch2.py and extract_batch3.py for the batch extraction pattern (new script per batch, imports shared functions).",
+            "Create a new extraction script: d:\\Projects\\Music-AI-Toolshop\\Genious_lyrics_extractor\\extract_german.py — following the same pattern but targeting German drill/trap artists.",
+            "Target German artists (based on Wave 1 Agent B findings, or if unavailable, use this list): Apache 207, RAF Camora, Capital Bra, Shirin David, SSIO, Kollegah, Farid Bang, Bushido, Luciano, Ufo361, Bonez MC, Gzuz, 18Karat. Include name variants with umlauts.",
+            "Run the extraction script. Monitor for API token expiry (tokens expire frequently — pre-validate with direct HTTP request).",
+            "Document: artist count, track count per artist (solo vs featured), any extraction issues.",
+            "Write findings to ORCHESTRATION/wave4/agent_g_handoff.md with sections: Artists Targeted, Extraction Results, Track Counts, Issues Encountered, Files Created."
+          ]
+        },
+        {
+          "id": "H",
+          "role": "implementer",
+          "name": "Agent H: phonemizer-de Setup & Wrapper",
+          "task": "Set up German phonemization using phonemizer + espeak-ng, and create a minimal toolshop/phonemizer_de.py wrapper module with TDD tests.",
+          "scope": "toolshop/ + data/ + tests/",
+          "output": "wave4/agent_h_handoff.md",
+          "constraints": [
+            "Use the venv Python: .venv\\Scripts\\python.exe",
+            "Follow TDD: write tests first, then implement.",
+            "espeak-ng is installed at data/toolshop/espeak-ng/ — check if German voice data is available.",
+            "Do NOT install packages without checking if they're already available.",
+            "Function-level imports for optional deps (same pattern as similarity_retriever.py).",
+            "Keep the module minimal — just phonemize German text and extract vowel skeletons for rhyme mining."
+          ],
+          "context_budget": "200k",
+          "instructions": [
+            "Read AGENTS.md at d:\\Projects\\Music-AI-Toolshop\\AGENTS.md for project rules.",
+            "Check if phonemizer is installed: .venv\\Scripts\\python.exe -c \"import phonemizer; print(phonemizer.__version__)\"",
+            "Check if espeak-ng German voice is available: look in data/toolshop/espeak-ng/ for German voice data (espeak-ng-data/voices/de).",
+            "Read the current rhyme mining approach: d:\\Projects\\Music-AI-Toolshop\\toolshop\\rhyme_miner.py — understand vowel_skeleton() and _word_skeleton() functions. German needs real phonemization because spelling doesn't reliably indicate pronunciation (e.g., 'ei' = /aɪ/, 'ie' = /iː/, 'eu' = /ɔɪ/, 'sch' = /ʃ/, 'ch' = /x/ or /ç/).",
+            "Write tests first: d:\\Projects\\Music-AI-Toolshop\\tests\\test_phonemizer_de.py — test phonemization of common German words (e.g., 'ich' -> /ɪç/, 'auch' -> /aʊx/, 'sein' -> /zaɪn/, 'licht' -> /lɪçt/). Test vowel skeleton extraction from phonemized output. Use function-level imports so module is importable without phonemizer installed.",
+            "Implement d:\\Projects\\Music-AI-Toolshop\\toolshop\\phonemizer_de.py: phonemize_german(text) -> str (returns IPA), german_vowel_skeleton(word) -> str (extracts vowel pattern from IPA for rhyme matching), and a combined function that phonemizes then extracts skeleton.",
+            "Run tests: .venv\\Scripts\\python.exe -m pytest tests/test_phonemizer_de.py -v",
+            "If phonemizer or German voice data is not available, document the setup steps needed and create the module with stubs that raise ImportError with helpful messages.",
+            "Write findings to ORCHESTRATION/wave4/agent_h_handoff.md with sections: Setup Status, Module Created, Test Results, phonemizer-de vs Serbian vowel skeleton comparison, Setup Steps for User."
+          ]
+        },
+        {
+          "id": "I",
+          "role": "implementer",
+          "name": "Agent I: Flow Analyzer v2 Specification",
+          "task": "Design the flow analyzer v2 architecture specification. Do NOT implement — spec only.",
+          "scope": "toolshop/flow_analyzer.py + research docs",
+          "output": "wave4/agent_i_handoff.md",
+          "constraints": [
+            "Do NOT implement any code. Spec document only.",
+            "Do NOT modify any existing source files.",
+            "Read-only except for the spec file and handoff."
+          ],
+          "context_budget": "200k",
+          "instructions": [
+            "Read AGENTS.md at d:\\Projects\\Music-AI-Toolshop\\AGENTS.md for project rules.",
+            "Read the full flow analyzer v1: d:\\Projects\\Music-AI-Toolshop\\toolshop\\flow_analyzer.py (283 lines) — document all dataclasses, functions, and current limitations.",
+            "Read the rhyme/flow research report: d:\\Projects\\.windsurf\\handoffs\\researcher_rhyme_flow_craft_20260806.md — extract v2-relevant techniques: (1) Kendrick tension-relaxation model (faster rhyme pacing = tension, slower = relaxation), (2) Migos triplet flow (3 types: mixed, phrasal, total), (3) microtiming (laid-back vs eager as systematic deviation), (4) DOOM time-shifted rhyme placement, (5) Eminem syllable-series stacking.",
+            "Read the roadmap L6 section: d:\\Projects\\Music-AI-Toolshop\\docs\\superpowers\\plans\\2026-07-21-lyric-intelligence-roadmap-L3-L6.md lines 73-78.",
+            "Read the longterm roadmap T4 section: d:\\Projects\\Music-AI-Toolshop\\docs\\superpowers\\specs\\2026-07-15-longterm-roadmap-v2.md lines 77-81 — faster-whisper is the planned transcription tool (CPU-viable, CTranslate2 int8).",
+            "Read the existing lyrics DB schema: d:\\Projects\\Music-AI-Toolshop\\toolshop\\lyricsdb.py — understand what tables exist (songs, sections, lines, song_metrics, line_rhymes, etc.) and what data is available for flow analysis.",
+            "Write the v2 specification to ORCHESTRATION/wave4/flow_v2_spec.md with sections:",
+            "  1. Overview — what v2 adds over v1 (word-level timings, beat grid alignment, microtiming, tension-relaxation, triplet detection)",
+            "  2. Data Requirements — what inputs are needed (faster-whisper word timings, beat grid from T2 dossier, existing syllable counts from lines table)",
+            "  3. Architecture — module structure, dataclasses, functions, DB schema additions (new tables/columns for word timings, beat_alignment, microtiming)",
+            "  4. Algorithm Specifications — (a) word-to-beat alignment, (b) microtiming deviation computation (laid-back = positive offset, eager = negative), (c) tension-relaxation pacing (rhyme density over verse timeline), (d) triplet flow detection (3-against-4 pattern in syllable timing), (e) flow pattern classification extending v1's uniform/alternating/accelerating/decelerating/free",
+            "  5. CPU Feasibility — all computation must be CPU-only per AGENTS.md. faster-whisper int8 is CPU-viable. Beat grid from existing T2 analysis. No GPU dependencies.",
+            "  6. Integration Points — how v2 connects to T2 (dossier beat grid), T4 (vocal transcription), T5 (lyrics.db), and the L5 writing tools (flow targets in briefs)",
+            "  7. Implementation Phases — phase 1 (word timings ingest + basic alignment), phase 2 (microtiming analysis), phase 3 (tension-relaxation + triplet detection), phase 4 (integration with brief generator)",
+            "  8. Test Plan — unit tests with synthetic timing data, integration tests with real audio",
+            "Write findings to ORCHESTRATION/wave4/agent_i_handoff.md with sections: Spec Written, Key Design Decisions, Dependencies, Implementation Phases, Risks."
+          ]
+        }
+      ]
+    }
+  ]
+}

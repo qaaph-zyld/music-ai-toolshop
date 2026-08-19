@@ -28,6 +28,25 @@ Caught by orchestrator spot-check 3+ sessions running: uncommitted work left in 
 - **Commit before you claim.** Never carry a tested deliverable uncommitted across sessions — it risks the work and tangles the next commit. Commit code with, or before, its record.
 - **Handoff = final truth.** Commit hashes, push status, and test counts in the handoff reflect the pushed final state, not a mid-run baseline.
 
+## Lane discipline (added 2026-08-19 — each rule is written against a failure that happened)
+
+- **Commit messages must describe their contents.** Commit `31224e5` shipped a 6,390-line new
+  top-level package under the subject *"chore: update mastering_tool submodule"*. No automated gate
+  can catch this — `closeout` and the pre-push hook both pass on a clean, pushed tree. So: a
+  lane-sized diff (>500 lines, or any new top-level package) must carry its CHANGELOG number in the
+  commit subject.
+- **New top-level packages are lanes, not files.** A new directory at the repo root, or a new
+  `toolshop/` subpackage, needs a plan, a STATUS row, a dependency extra, and **its tests inside
+  `tests/`** where `pytest.ini`'s `testpaths` will collect them. `ai_modules/` shipped 1,440 lines
+  of tests that have never once run.
+- **Fallback paths must be declarable.** Any module with a primary ML backend and a heuristic
+  fallback needs a `--require-advanced` guard (see `toolshop melody-carrier extract`, and the
+  reverse-engineering backend that caught the original silent-fallback incident). Recording which
+  path ran is necessary but not sufficient — the user must be able to *demand* the good path.
+- **Backups are verified by coverage, not by exit code.** `backup.py` verified clean for a month
+  while collecting zero Suno data. When adding an asset class, add a test that asserts it appears in
+  the manifest.
+
 ## Mechanical close-out (enforced by tooling)
 - **`toolshop closeout`** must exit 0 at session end. Its evidence block (git status, git log, submodule summary) must be pasted in every handoff.
 - **Pre-push hook** (`hooks/pre-push`, version-controlled): blocks pushes when the working tree has tracked junk files (`pytest_*.txt`, `annotate_run*.txt`) or staged-but-uncommitted changes. Bypass with `--no-verify` is for emergencies only — fix the tree instead.

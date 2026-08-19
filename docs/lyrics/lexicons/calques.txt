@@ -1,0 +1,68 @@
+# Banned calqued idioms — English thoughts translated into Serbian.
+# Source: docs/ANTI_SLOP_PLAYBOOK.md §A1; docs/CONSTITUTION.md Art. 1.4
+# Format: one banned phrase per line. Lowercase, Latin script.
+
+padam za tobom
+padam za tebe
+padaš mi
+ti si moj ceo svet
+ti si moje sve
+moj ceo svet
+daj mi malo prostora
+daj mi prostora
+izgubljen u tvojim očima
+izgubljena u tvojim očima
+izgubljen u očima
+srce mi je slomljeno
+slomljeno srce
+nemaš pojma
+nemaš blage veze
+u mojim snovima
+u tvojim snovima
+uvijek i zauvek
+zauvek i jedan dan
+svi putevi vode do tebe
+sve se vrti oko tebe
+vratio sam se zbog tebe
+vratila sam se zbog tebe
+bez tebe nisam ja
+bez tebe nisam ništa
+ti si moje sunce
+u tvom svetlu
+moja druga polovina
+savršena kombinacija
+savršen par
+nema nas više
+mi smo gotovi
+kraj priče
+kraj naše priče
+budi moj
+budi moja
+u mojim mislima
+u tvojim mislima
+ne mogu bez tebe
+umirem bez tebe
+zauvek tvoja
+zauvek tvoj
+moja ljubavi
+moja srećo
+moja boli
+moja sve
+
+# Calque-ish patterns that often surface as AI defaults:
+daj mi šansu
+daj mi priliku
+imam priliku
+izgubio sam te
+izgubila sam te
+pokidao si me
+pokidala si me
+na dnu sam
+na dnu sam bureta
+moj život je predstava
+nije fer
+nije pošteno
+stvarno želim
+želim te zauvek
+želim te vratiti
+želim te nazad

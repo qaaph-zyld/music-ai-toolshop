@@ -1,5 +1,52 @@
 # Changelog
 
+### Answer #040 — P0 close-out: hygiene, data boundary, and records reconciled
+**Timestamp:** 2026-08-20
+**Action Type:** Consolidation — repo hygiene + documentation truth-up
+
+**Hygiene:**
+- Deleted **29 run-dump files** from the repo root (`cli-help-*`, `mc-*`, `test-output-*`,
+  `*-output.txt`, `pytest_runner.log`, `diagnose_voice.*`). Only `requirements-web.txt` and
+  `requirements.lock.txt` remain.
+- `.gitignore`: globs that would have caught all 29, plus `docs/*.mp3`.
+- `git rm --cached .coverage` — tracked despite being gitignored.
+- `git rm -r --cached Voicebox/` — **410 files** for a parked lane that `PROJECTS_INDEX.md` already
+  described as removed (decision D9). Re-clone at the GPU gate. Tracked files **2,256 → 1,859**.
+
+**Data boundary — `docs/lyrics/` committed doctrine-only:**
+Fifteen documents were moved into `docs/lyrics/` from `D:\Projects	o_be_moved` at some point and
+left untracked. Nine of them contain **actual song lyrics** (detected by section markers), as does
+`reference_songs/`. Those are now gitignored, matching the existing `lyrics_research/my_lyrics/`
+rule. Tracked instead: `CONSTITUTION.md`, `CRAFT_KB.md`, `ANTI_SLOP_PLAYBOOK.md`,
+`SOUND_EFFECTS_PRINCIPLES.md`, `qc_reference.py`, `lexicons/`, `templates/`.
+
+**A gap this created, and closed in the same wave:** excluding those files from git left them
+protected by *nothing*. `_discover_repo_assets()` now backs up `docs/lyrics/**` and
+`lyrics_research/my_lyrics/**` (+1 test). The general rule is now in AGENTS.md — **excluding
+something from version control must not silently exclude it from the backup.**
+
+**Records reconciled:**
+- `README.md` (first update since 2026-07-21) — a Backups section with the Tier-1/Tier-2 commands and
+  an explicit "this is not DR" note, plus the four undocumented command groups: `daw`, `video`,
+  `melody-carrier`, and the L5 lyric writing tools. Data-boundary section corrected to `data/toolshop/`.
+- `PROJECTS_INDEX.md` — corrected **742 → 1,425 songs** and removed the stale `D:\MusicData` paths
+  (both wrong since #030); added 5 lanes; Suno row now records the completed preservation pass.
+- `AGENTS.md` — new **Lane discipline** section (4 rules, each written against a failure that
+  actually happened: mislabelled lane commits, uncollected tests, undeclarable fallbacks, and
+  backups verified by exit code rather than coverage).
+- `docs/superpowers/STATUS.md` — P0 execution record, `ai_modules` lane row stating plainly that its
+  tests are never collected and its disposition is pending, debt register updated.
+- `ORCHESTRATION/` committed (wave harness; waves 3–4 never ran — recorded, not hidden).
+
+**Deliberately deferred:** the 8 tracked repo-root one-off scripts. Every one has a live importer
+(`tests/`, `toolshop/batch.py`) or doc reference, so relocating them needs import updates and earns
+its own pass rather than a shuffle at the end of a long session.
+
+**`ai_modules/` untouched** — decision D6 is deferred pending the user's review. P0 only recorded it.
+
+---
+
+
 ### Answer #039 — Melody Carrier lane: commit + make the primary path reachable
 **Timestamp:** 2026-08-19
 **Action Type:** Consolidation — commit an uncommitted lane, then fix its dependency story

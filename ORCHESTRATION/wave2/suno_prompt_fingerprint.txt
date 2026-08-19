@@ -1,0 +1,7 @@
+style: Serbian drill trap, dark piano, 808 bass, fast flow
+language: Serbian (Latin)
+vocal style: aggressive, rhythmic delivery
+structure: tekst(14) → refren(7) → strofa(11) → refren(7) → strofa(11) → refren(7)
+rhyme density: 0.58
+multis: 85%
+topic: street life

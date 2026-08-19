@@ -177,3 +177,30 @@ def test_backup_includes_external_suno_extractor(tmp_path, monkeypatch):
     names = {Path(f["relative_path"]).name for f in manifest.files}
     assert "liked.json" in names
     assert "legacy.mp3" in names
+
+
+def test_backup_covers_gitignored_personal_lyrics(tmp_path):
+    """Excluding files from git must not silently exclude them from the backup.
+
+    ``docs/lyrics/`` song documents and ``lyrics_research/my_lyrics/`` are gitignored
+    by the data boundary, so the backup is the *only* thing protecting them.
+    """
+    repo = tmp_path / "repo"
+    (repo / "docs" / "lyrics").mkdir(parents=True)
+    (repo / "docs" / "lyrics" / "MY_SONG.md").write_text("[Chorus]\n...", encoding="utf-8")
+    (repo / "lyrics_research" / "my_lyrics").mkdir(parents=True)
+    (repo / "lyrics_research" / "my_lyrics" / "draft.txt").write_text("draft", encoding="utf-8")
+
+    source = tmp_path / "source"
+    (source / "lyrics").mkdir(parents=True)
+
+    manifest = backup.run_backup(
+        target=tmp_path / "backup",
+        source_root=source,
+        repo_root=repo,
+        include_external=False,
+    )
+
+    names = {Path(f["relative_path"]).name for f in manifest.files}
+    assert "MY_SONG.md" in names
+    assert "draft.txt" in names

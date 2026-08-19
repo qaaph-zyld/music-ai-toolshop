@@ -169,6 +169,15 @@ def _discover_repo_assets(repo_root: Path) -> List[Path]:
         for p in reports_dir.rglob("*.md"):
             assets.append(p)
 
+    # Personal lyric work that is deliberately gitignored (data boundary) and so has
+    # no protection from version control at all. Added 2026-08-19 alongside the
+    # docs/lyrics/ exclusion — excluding something from git must not silently mean
+    # excluding it from the backup too.
+    for personal in (repo_root / "docs" / "lyrics", repo_root / "lyrics_research" / "my_lyrics"):
+        if personal.exists():
+            for pattern in ("*.md", "*.txt", "*.csv", "*.json"):
+                assets.extend(p for p in personal.rglob(pattern) if p.is_file())
+
     catalogue_dir = repo_root / "results" / "crhymetv_re"
     if catalogue_dir.exists():
         for pattern in ("catalogue.csv", "catalogue.md", "suno_prompts.md"):

@@ -3,7 +3,92 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
-> **Last review: 2026-08-08 (STATUS.md RECONCILIATION — #025–#036 reflected).**
+> **P0 EXECUTED 2026-08-19/20 — consolidation + safety. See CHANGELOG #038–#040.**
+>
+> | Item | Result |
+> |---|---|
+> | **Suno preservation** | **3,426 / 3,426 tracks fetched, 15.79 GB, 0 failures**, 27.6 min. All 17 records that had no `audio_url` recovered by reconstructing the deterministic CDN path. D: 146 → 132 GB free. |
+> | **Backup coverage (F1b)** | Fixed. Tier-1 now carries Suno metadata + download manifest; Tier-2 carries the mp3s behind `--include-audio`; `_discover_external_assets()` reaches `suno_extractor/`. **+4 regression tests.** |
+> | **Backup run** | `D:\Backups\toolshop` — **6,871 files, 117.4 MB, verified=True, DB smoke test PASS**, including **3,427 Suno metadata files (was 0)**. |
+> | **melody-carrier (F3)** | Committed (#039): 6 modules, 1,868 LOC, 107 tests. Obsolete `platform_system!='Windows'` marker lifted, `melody` extra added, **`--require-advanced` guard** added (pre-flight + runtime check). +6 tests. |
+> | **`ai_modules/` (F2)** | **UNTOUCHED by decision (D6 deferred).** Recorded only — see the lane table below. |
+> | **Hygiene** | 29 root run-dumps deleted, `.gitignore` globs added, `.coverage` untracked, **`Voicebox/` untracked (410 files, D9)**. Tracked files 2,256 → 1,859. |
+> | **Records** | README (backups + 4 new command groups), PROJECTS_INDEX (742→1,425, stale `D:\MusicData` paths gone, 5 lanes added), AGENTS.md (lane-discipline rules), this board. |
+> | **Deferred deliberately** | The 8 tracked repo-root one-off scripts. All have live importers (`tests/`, `toolshop/batch.py`) or doc references; relocating them needs import updates and deserves its own pass, not a shuffle at the end of a long session. |
+>
+> **Data-boundary call made during P0:** `docs/lyrics/` was committed **doctrine-only**. The nine
+> song-specific documents and `reference_songs/` contain actual lyrics and are now gitignored, matching
+> the existing `lyrics_research/my_lyrics/` rule. Tracked: Constitution, Craft KB, Anti-Slop Playbook,
+> Sound-Effects Principles, `qc_reference.py`, lexicons, templates.
+>
+> ---
+>
+> **Last review: 2026-08-19 (FULL STATE ASSESSMENT — orchestrator, all evidence re-run locally).**
+> Full report: `specs/2026-08-19-state-of-project-assessment.md`. New goal set + phased strategy:
+> `specs/2026-08-19-goals-v2.md` (supersedes goals v1.0). Executable next session:
+> `plans/2026-08-19-p0-consolidation-and-safety.md`.
+>
+> **Verified this session:** repo at `31224e5`, branch master, **0 unpushed**. Suite
+> **963 passed / 2 skipped / 0 failed** (689.20s) — re-run by orchestrator, genuinely green (the
+> "1 failed espeak" line below is stale). `lyrics.db` queried directly: **1,425 songs / 10,654
+> sections / 65,912 lines / 273,801 line_rhymes / 501,386 tokens / 163 topics / 13,036 rhyme_pairs**;
+> cohorts drill_trap 808 / pop 524 / NULL 93. `toolshop doctor` = **FAIL** (model_cache + backup).
+>
+> **Findings (ranked, detail in the assessment):**
+> - **F1 CRITICAL — backup 28 days stale on a 98%-full destination.** Last write 2026-07-21; corpus
+>   has since gone 742→1,425 songs. C: has 14 GB free. `backup.py` source path *was* correctly
+>   updated for #030 — it simply has not been run.
+> - **F1b CRITICAL — the backup has NEVER covered Suno** *(found after the initial pass)*.
+>   `_discover_assets()` collects only genius json/txt + `lyrics.db` + `espeak-ng`;
+>   `_discover_repo_assets()` adds `.env`, lyrics_research reports, 3 catalogue files. **No Suno path
+>   is in either list**, so the 2026-07-21 backup that verified clean holds **zero Suno data** — a
+>   *coverage* bug that a green manifest hid for a month. At stake: **3,426 metadata JSONs** (small,
+>   irreplaceable, the only index of what exists) and **37 mp3s / 211 MB** at
+>   `D:\Projects\suno_extractor\suno_downloads\` (outside the repo, so no source root reaches it).
+>   **The other ~3,389 tracks are not on this machine at all** — they exist only as
+>   `https://cdn1.suno.ai/<id>.mp3` links, which no backup can protect. Fetching them locally
+>   (~13–15 GB) is a preservation task needing its own plan and explicit authorisation → **D10**.
+> - **F2 HIGH — `ai_modules/` (6,390 LOC, 40 files) entered via commit `31224e5`, whose subject says
+>   "chore: update mastering_tool submodule".** No CHANGELOG (#038 absent), no STATUS row, no plan.
+>   Its 7 test files (1,440 LOC) sit outside `testpaths = tests` and are **never collected**. Largely
+>   duplicates T1/T2/T4/suno; `musicgen` + `lora_finetuning` violate the CPU-only lock. Partly copied
+>   from the **parked** `open_DAW/ai_modules/`.
+> - **F3 HIGH — `toolshop/melody_carrier/` (2,043 LOC + 5 test files + tracked `cli.py` edits) is
+>   uncommitted**, four weeks after the mechanical gate was installed. Its three primary ML backends
+>   (`basic_pitch`, `autochord`, `adtof_pytorch`) are **all absent from the venv**, so every run takes
+>   the librosa fallback; there is no `melody` extra; and `pyproject.toml` excludes basic-pitch on
+>   Windows via a marker that research verdict R4 shows is **obsolete**.
+> - **F4 HIGH — governance reverted to documentation-only.** Zero plans written since 2026-07-23
+>   while 13 CHANGELOG entries + 2 undocumented lanes shipped. 8th+ out-of-band instance.
+> - **F5–F10 MEDIUM/LOW** — video + melody lanes never research-gated; debt 1c still open (and
+>   `ai_modules/vocal_cleanup` may hold its fix); M2 model cache still missing; 778.93 MiB pack,
+>   410 tracked `Voicebox/` files, 29 root `.txt`, stale `PROJECTS_INDEX.md` (still says 742 songs at
+>   `D:\MusicData`) and README; Agent D's orchestration handoff relayed L2.1-era DB numbers; waves 3–4
+>   never ran.
+>
+> **Research re-verified 2026-08-19:** pedalboard **PR #476 still OPEN** (VST3 renders dry on Windows
+> → E2 ships on built-in DSP only) · **HT-Demucs FT ONNX export now exists, ~1.31× faster on CPU**
+> (gives M3 a concrete first move) · ACE-Step 1.5 2B **<4 GB VRAM** (G9 shelf confirmed) ·
+> **basic-pitch DOES support Windows** (lift the marker) · **no dominant OSS music-video pipeline**
+> (keep the in-house build).
+>
+> **Verdict: FREEZE new lanes. Next session = P0 consolidation + safety** (plan written).
+>
+> **User decisions taken 2026-08-19:** **D5 RESOLVED — P0, then P1 (keystone).** H1 close + Dossier v2
+> run before further creation-loop work. · **D7 RESOLVED (revised) — Tier-1 backup target is a path on
+> D:** (~148 GB free; C: abandoned at 98% full). Recorded honestly as Tier-1 convenience, **not DR** —
+> D: is the 2010 Seagate holding everything; second-disk copy stays open under G5. · **D6 DEFERRED —
+> user is reviewing `ai_modules/` first; P0 leaves it byte-identical** and only adds an honest STATUS
+> row (exists, uncollected by pytest, disposition pending). · **D10 OPEN (new) — fetch the ~3,389
+> CDN-only Suno tracks locally?** Recommended, needs explicit go-ahead. D8/D9 still open (goals v2 §8).
+>
+> **P0 plan updated:** new **Task 1b** (fix backup coverage — blocks the backup run itself) and
+> **Task 1c** (record the CDN exposure, download nothing).
+>
+> **Session order now:** S1 = P0 consolidation · S2 = M2 model cache + mirror (flips `doctor` to OK) ·
+> S3 = M3 stems via the HT-Demucs FT ONNX export (R2).
+
+> **Prior review: 2026-08-08 (STATUS.md RECONCILIATION — #025–#036 reflected).**
 > Repo at `84d7f65` (origin/master). Tree clean (only pre-existing `mastering_tool` submodule dirty).
 > Test baseline: **780 passed, 1 failed (pre-existing espeak), 4 skipped** (256s).
 >
@@ -138,7 +223,9 @@
 | **T8 Restore "Track Doctor"** | **NEW lane** — strategy adopted 2026-07-17 (`specs/2026-07-17-production-expansion-strategy.md` §1) | **E1 plan ready**: `plans/2026-07-17-e1-restore-diagnose.md` (impurity metrics + report + batch sweep); then E2 chains core → E3 treat v1 → E4 heavy de-reverb only after E3 proves daily value (D4 decided) |
 | **T9 Session Bridge** | **NEW thin lane** — dossier → DAW-ready session (universal pack first) | E5 universal export after E1–E3; **E6 = `.als` template writer for the user's Ableton Live 12** (D1 decided; FL 21 served by universal pack; AbletonOSC optional later) |
 | **Video** (new #028) | Music Video Generator P0+P1: 7 modules, 72 tests — FFmpeg compositing, ASS lyrics, audio-reactive shaders, stock footage | Real-world testing with actual tracks; P2 (advanced transitions, beat-synced cuts) |
-| Parked | open_DAW (own Rust/JUCE/Python DAW build — E5 pack designed as its future session-import format), Voicebox, ACE-Step local, **real-time plugin authoring (D3 confirmed)** | No investment (roadmap §6 + expansion spec §4/§6) |
+| **Melody Carrier** (new #039) | Audio→MIDI→carrier WAVs for Suno cover mode. 6 modules, 1,868 LOC, 107 tests. Committed 2026-08-19 after sitting uncommitted; `melody` extra + `--require-advanced` guard added | Install the advanced backends and measure the quality delta vs the librosa fallbacks (P2) |
+| **`ai_modules/`** | ⚠ **UNDECIDED — D6 deferred, user reviewing.** 40 files / **6,390 LOC**, committed 2026-08-18 in `31224e5` under a submodule-chore subject. **Its 7 test files (~1,440 LOC) sit outside `pytest.ini`'s `testpaths = tests` and are never collected — this code is untested by the suite.** Overlaps T1/T2/T4/suno; `musicgen` + `lora_finetuning` violate the CPU-only lock. Partly copied from the parked `open_DAW/` | Disposition per the ledger in `specs/2026-08-19-state-of-project-assessment.md` §7 — **recommendation only, awaiting the user's review** |
+| Parked | open_DAW (own Rust/JUCE/Python DAW build — E5 pack designed as its future session-import format), Voicebox (untracked from git 2026-08-19, D9), ACE-Step local, **real-time plugin authoring (D3 confirmed)** | No investment (roadmap §6 + expansion spec §4/§6) |
 
 ## Debt Register (after M1c-final: items 2–6 cleared)
 
@@ -155,9 +242,21 @@
 4. ~~Extractor index bugs~~ → ✅ cleared (385 entries, 8 rebuild tests)
 5. ~~Mastering submodule uncommitted~~ → ✅ cleared (aebcf76)
 6. ~~PROJECTS_INDEX stale~~ → ✅ cleared (lyrics lane added)
-7. No backups of MusicData/catalogues/tokens → M6 (✅ done). **⚠ Data relocated to `data/` (#030) —
-   backup manifest paths (`C:\Backups\toolshop` pointing at `D:\MusicData`) need revalidation.**
-   Corpus now 1,425 songs + 3,426 Suno clips — exposure grew significantly.
+7. ~~No backups of MusicData/catalogues/tokens~~ → ✅ **CLEARED 2026-08-19 (#038).** Target moved to
+   `D:\Backups\toolshop` (D7); **coverage bug F1b fixed** — the backup had never collected any Suno
+   data at all, which is why a green manifest hid the gap for a month. Verified run: 6,871 files /
+   117.4 MB / verified=True, including 3,427 Suno metadata files (was 0). **Residual: still same-disk,
+   so not DR — G5 owes a second physical disk.**
+7b. **Suno CDN dependency** → ✅ **CLEARED 2026-08-19 (#038).** All 3,426 tracks now local
+   (15.79 GB, 0 failures). Previously ~3,389 existed only as `cdn1.suno.ai` links.
+14. **`ai_modules/` tests are never collected** (F2) — 7 files / ~1,440 LOC outside
+   `testpaths = tests`. 6,390 LOC of committed code is untested by the suite. Blocked on D6.
+15. **Repo-root one-off scripts** (8 tracked) — deferred from P0 Task 6; all have live importers or
+   doc references, so relocation needs import updates in its own pass.
+16. ~~`docs/lyrics/` song documents have no protection~~ → ✅ **CLEARED in the same wave.** Excluding
+   them from git left them protected by nothing, so `_discover_repo_assets()` now backs up
+   `docs/lyrics/**` and `lyrics_research/my_lyrics/**` (+1 test). **General rule, now in AGENTS.md:
+   excluding something from version control must not silently exclude it from the backup.**
 8. ~~L1 defects~~ → ✅ cleared (parser fix + ASCII-fold normalization applied, #029 re-ran on 1,425 songs)
 9. ~~`extract_batch2.py` uncommitted~~ → ✅ cleared (committed in #027 wave)
 10. ~~T5-L2 leftovers~~ → ✅ cleared (all commits pushed, CHANGELOG entries #016-#036 present,

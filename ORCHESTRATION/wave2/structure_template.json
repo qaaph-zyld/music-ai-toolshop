@@ -1,0 +1,36 @@
+{
+  "sections": [
+    {
+      "type": "tekst",
+      "lines": 14,
+      "rhyme_scheme": "AABB"
+    },
+    {
+      "type": "refren",
+      "lines": 7,
+      "rhyme_scheme": "AABB"
+    },
+    {
+      "type": "strofa",
+      "lines": 11,
+      "rhyme_scheme": "AABB"
+    },
+    {
+      "type": "refren",
+      "lines": 7,
+      "rhyme_scheme": "AABB"
+    },
+    {
+      "type": "strofa",
+      "lines": 11,
+      "rhyme_scheme": "AABB"
+    },
+    {
+      "type": "refren",
+      "lines": 7,
+      "rhyme_scheme": "AABB"
+    }
+  ],
+  "cohort": "drill_trap",
+  "total_lines": 57
+}

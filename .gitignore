@@ -27,6 +27,10 @@ output.txt
 # Data directory (moved from D:\MusicData\toolshop\ to repo-local data/)
 data/
 
+# Parked lane, untracked 2026-08-19 (D9): 410 vendored files for a lane that
+# PROJECTS_INDEX.md already described as removed. Re-clone at the GPU gate.
+Voicebox/
+
 # Personal audio / generated stems (moved to TOOLSHOP_DATA_DIR)
 Distro Kidea/
 Distro_Kidea/
@@ -69,3 +73,28 @@ lyrics_research/my_lyrics/
 
 # Separate live subproject (nested git repo, not part of core package)
 open_DAW/
+
+# Song-specific lyric documents and reference song texts. Craft doctrine
+# (Constitution, Craft KB, Anti-Slop Playbook, lexicons, templates) IS tracked;
+# actual lyrics never enter the repo - same rule as lyrics_research/my_lyrics/.
+docs/lyrics/*
+!docs/lyrics/CONSTITUTION.md
+!docs/lyrics/CRAFT_KB.md
+!docs/lyrics/ANTI_SLOP_PLAYBOOK.md
+!docs/lyrics/SOUND_EFFECTS_PRINCIPLES.md
+!docs/lyrics/qc_reference.py
+!docs/lyrics/lexicons/
+!docs/lyrics/templates/
+
+# Personal audio dropped into docs/
+docs/*.mp3
+docs/*.wav
+
+# Run dumps in the repo root (the 2026-08-19 sweep found 29 of these)
+cli-help-*.txt
+mc-*.txt
+test-output*.txt
+test-renderer-output.txt
+*-output.txt
+audio-inventory.txt
+

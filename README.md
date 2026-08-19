@@ -87,11 +87,70 @@ toolshop remix song.wav --mode sample --segment-beats 4 --output-dir ./samples
 
 ## Data boundary
 
-Audio inputs and generated outputs (stems, batches, personal libraries) live outside this repository. Default data root is `D:\MusicData\toolshop\`; override with the `TOOLSHOP_DATA_DIR` environment variable.
+Audio inputs and generated outputs (stems, batches, personal libraries) live outside version control.
+The data root is repo-local but **gitignored**: `data/toolshop/` (moved from `D:\MusicData\toolshop\`
+in #030). Override with the `TOOLSHOP_DATA_DIR` environment variable.
+
+Lyrics corpora, Suno audio, and `.env` tokens are never committed.
+
+## Backups
+
+```powershell
+# Tier-1: corpora, lyrics.db, Suno metadata, espeak, tokens, reports (~120 MB)
+.venv\Scripts\python.exe -m toolshop.backup --target D:\Backups\toolshop
+
+# Tier-1 + Tier-2 audio (adds ~16 GB of Suno mp3s)
+.venv\Scripts\python.exe -m toolshop.backup --target D:\Backups\toolshop --include-audio
+```
+
+`toolshop doctor` fails the `backup` check once the backup is more than 7 days old.
+Override the destination with `TOOLSHOP_BACKUP_DIR`.
+
+> **Not disaster recovery.** `D:\Backups\toolshop` sits on the same physical disk as the source.
+> It protects against accidental deletion and bad scripts, not against drive failure. A second
+> physical disk is tracked as goal G5.
 
 ---
 
 ## Commands Reference
+
+Fourteen command groups: `suno` · `analyze` · `yt` · `track` · `voice` · `stem` · `stems` · `clean` ·
+`remix` · `doctor` · `closeout` · `daw` · `video` · `melody-carrier` · `lyrics`.
+
+### DAW Bridge (`toolshop daw`)
+
+Live control of FL Studio / Ableton over a TCP bridge — transport, mixer, channels, piano roll,
+plugins, and corpus-informed generators (#025).
+
+### Music Video (`toolshop video`)
+
+FFmpeg compositing, LRC-to-ASS lyric subtitles with style presets, audio-reactive shaders, and stock
+footage assembly (#028).
+
+### Melody Carrier (`toolshop melody-carrier`)
+
+Audio → MIDI → carrier WAVs for Suno cover mode (#039).
+
+```powershell
+# Stage 1: stems -> analysis -> melody/chords/bass/drums MIDI
+.venv\Scripts\python.exe -m toolshop.cli melody-carrier extract track.wav --output work --genre drill
+
+# Refuse the librosa fallbacks - fails fast if basic-pitch/autochord/adtof are missing
+.venv\Scripts\python.exe -m toolshop.cli melody-carrier extract track.wav --output work --genre drill --require-advanced
+
+# Stage 2: render carrier WAVs + Suno prompts
+.venv\Scripts\python.exe -m toolshop.cli melody-carrier render work --fidelity medium
+```
+
+Install the advanced backends with the `melody` extra: `pip install -e .[melody]`.
+
+### Lyric Writing Tools (`toolshop lyrics`)
+
+Built on a 1,425-song corpus (`data/toolshop/lyrics/lyrics.db`): a rimer DB of attested rhyme pairs,
+a Suno brief generator driven by per-artist fingerprints, and a 5-component draft scorer with an
+originality check (#037) — plus ten craft modules: `score-ai`, `cliches`, `template`,
+`clean-tokens`, `inject-slang`, `check-scheme`, `retrieve-similar`, `theme-match`, `improve-loop`,
+`centaur` (#036).
 
 ### Suno Tools (`toolshop suno`)
 
