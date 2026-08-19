@@ -31,7 +31,10 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 DEFAULT_DATA_DIR = Path(os.environ.get("TOOLSHOP_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data" / "toolshop")))
-DEFAULT_BACKUP_TARGET = Path(os.environ.get("TOOLSHOP_BACKUP_DIR", r"C:\Backups\toolshop"))
+# D:, not C: (decision D7, 2026-08-19). C: sits at 98% full with 14 GB free, which is
+# not enough headroom for the corpus. Enforced as a code default rather than an
+# environment variable so a fresh clone and a scheduled run agree without setup.
+DEFAULT_BACKUP_TARGET = Path(os.environ.get("TOOLSHOP_BACKUP_DIR", r"D:\Backups\toolshop"))
 MANIFEST_FILENAME = "backup_manifest.json"
 VERIFY_SAMPLE_SIZE = 10
 

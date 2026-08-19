@@ -121,8 +121,10 @@ def _model_cache_ok() -> dict[str, Any]:
 
 def _backup_ok() -> dict[str, Any]:
     """Check whether a recent valid backup exists."""
-    target = Path(os.environ.get("TOOLSHOP_BACKUP_DIR", r"C:\Backups\toolshop"))
-    return backup_module.check_backup(target=target)
+    # Defer to backup.py rather than repeating the default here. The two drifted
+    # apart once already: the backup ran to D: while doctor kept reporting on a
+    # stale C: copy, so a real backup looked like a failing one.
+    return backup_module.check_backup(target=backup_module.DEFAULT_BACKUP_TARGET)
 
 
 def _hooks_path_ok() -> dict[str, Any]:
