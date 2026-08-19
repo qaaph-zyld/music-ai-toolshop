@@ -7,6 +7,7 @@ from . import genius_adapter
 from . import genius_parser
 from . import lyrics_analyzer
 from . import remix_adapter
+from . import melody_carrier
 
 __all__ = [
     "cli",
@@ -18,4 +19,5 @@ __all__ = [
     "genius_parser",
     "lyrics_analyzer",
     "remix_adapter",
+    "melody_carrier",
 ]

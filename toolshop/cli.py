@@ -823,6 +823,12 @@ def build_parser() -> argparse.ArgumentParser:
     video_cli_module.add_parser(subparsers)
 
     # =========================================================================
+    # MELODY CARRIER COMMANDS
+    # =========================================================================
+    from .melody_carrier import melody_cli as mc_cli_module
+    mc_cli_module.add_parser(subparsers)
+
+    # =========================================================================
     # LYRICS (Genius) COMMANDS
     # =========================================================================
     lyrics_parser = subparsers.add_parser(
@@ -2042,6 +2048,15 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     elif args.command == "video":
         from . import video_cli as video_cli_module
         code = video_cli_module.run(args)
+        if code != 0:
+            raise SystemExit(code)
+
+    # =========================================================================
+    # MELODY CARRIER
+    # =========================================================================
+    elif args.command == "melody-carrier":
+        from .melody_carrier import melody_cli as mc_cli_module
+        code = mc_cli_module.run(args)
         if code != 0:
             raise SystemExit(code)
 

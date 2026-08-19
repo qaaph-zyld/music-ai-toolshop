@@ -1,5 +1,39 @@
 # Changelog
 
+### Answer #039 — Melody Carrier lane: commit + make the primary path reachable
+**Timestamp:** 2026-08-19
+**Action Type:** Consolidation — commit an uncommitted lane, then fix its dependency story
+
+**Why this entry exists:**
+Assessment F3. `toolshop/melody_carrier/` (6 modules, 1,868 LOC), five test files (1,757 LOC,
+**107 tests**) and the `toolshop/cli.py` + `toolshop/__init__.py` edits that register the
+`melody-carrier` command group were sitting **uncommitted in the working tree** — the exact failure
+the mechanical close-out gate was built to stop, four weeks after it shipped and was verified.
+
+**What the lane does:**
+Audio to MIDI to carrier-WAV for Suno cover mode. `toolshop melody-carrier extract` pulls stems,
+analyses the track and converts melody / chords / bass / drums to MIDI; `render` builds carrier WAVs
+at low/medium/high fidelity. Presets `4stem` / `6stem`.
+
+**The dependency defect (also F3):**
+The extractor documents Basic Pitch / autochord / ADTOF-pytorch as primary paths with librosa
+fallbacks — but **none of the three were installed**, there was no dependency extra, and
+`pyproject.toml` actively excluded basic-pitch on this platform via
+`"basic-pitch; platform_system!='Windows'"`. So every run silently took the pYIN/spectral fallback.
+
+Research verdict R4 (2026-08-19) shows that exclusion is **obsolete**: basic-pitch installs on
+Windows and ships ONNX Runtime there by default.
+
+**Fixes:**
+- Lifted the `platform_system!='Windows'` marker on basic-pitch.
+- Added a `melody` extra declaring the lane's dependencies.
+- Added `--require-advanced`, mirroring the reverse-engineering backend guard: the user can now
+  *demand* the primary path and get a hard failure instead of a quiet downgrade. Governance rule 9 —
+  recording which path ran (the lane already did this correctly) is necessary but not sufficient.
+
+---
+
+
 ### Answer #038 — Suno Preservation: backup coverage fix (F1b) + CDN catalogue fetch
 **Timestamp:** 2026-08-19
 **Action Type:** Critical data-safety fix + new preservation script
