@@ -1,5 +1,55 @@
 # Changelog
 
+### Answer #038 — Suno Preservation: backup coverage fix (F1b) + CDN catalogue fetch
+**Timestamp:** 2026-08-19
+**Action Type:** Critical data-safety fix + new preservation script
+
+**The defect (assessment F1b):**
+`toolshop/backup.py` had **never** backed up any Suno data. `_discover_assets()` collected only
+`lyrics/genius/**/*.{json,txt}`, `lyrics/lyrics.db` and `espeak-ng/**`; `_discover_repo_assets()`
+added `.env`, `lyrics_research/reports/*.md` and three `results/crhymetv_re/` files. No Suno path
+appeared in either list, so the 2026-07-21 backup that verified clean held **zero Suno data**. A
+green manifest against the wrong asset set hid this for a month. This is a *coverage* bug, not the
+staleness bug it looked like.
+
+**What was found:**
+- `data/toolshop/suno/` holds **3,426 metadata records**, each with a *remote* `audio_url`
+  (`https://cdn1.suno.ai/<id>.mp3`) and **zero local audio**.
+- The only downloaded Suno audio on the machine was **37 mp3s / 211 MB** in
+  `D:\Projects\suno_extractor\suno_downloads` — outside every source root, so unreachable by the backup.
+- The remaining ~3,389 tracks existed **only as CDN links**. No backup protects a file that was
+  never downloaded, so this needed a preservation fetch, not better scheduling.
+- **17 records carried a title but no `audio_url`.** The CDN path is deterministic; constructed
+  URLs returned `200` with real byte counts, so all 17 are recoverable rather than lost.
+
+**What was built:**
+- `toolshop/backup.py` — `_discover_assets()` now covers `suno/*.json` and
+  `suno/audio/_download_manifest.json` as **Tier-1**, and `suno/audio/*.mp3` as **Tier-2** behind
+  `include_audio` (off by default: ~13 GB of re-fetchable audio should not slow a Tier-1 restore).
+  New `_discover_external_assets()` reaches `suno_extractor/` (liked-song exports, `suno_library.db`,
+  and the legacy downloads under `--include-audio`), copied under `<target>/external/`.
+  New CLI flags `--include-audio` and `--no-external`.
+- `scripts/suno_fetch_catalogue.py` — preservation fetcher: resume by default (size-checked against
+  the manifest and `Content-Length`), per-file `sha256`, atomic `.part` writes, 4 workers, capped
+  retries with exponential backoff, and **abort-on-sustained-429** rather than pushing harder.
+  Reconstructs the CDN URL from `id` when `audio_url` is missing.
+- `docs/superpowers/plans/2026-08-19-suno-catalogue-preservation.md` — the plan, with the verified
+  `HEAD` evidence recorded in it.
+
+**Tests:** `tests/test_backup.py` +4 regression guards — metadata and download-manifest are backed
+up, audio is excluded by default, audio is included on request, and external `suno_extractor` assets
+are reached. **9 passed** (was 5).
+
+**Backup destination moved** from `C:\Backups	oolshop` (14 GB free, 98% full) to
+`D:\Backups	oolshop` per user decision D7. Recorded honestly as Tier-1 convenience, **not DR** —
+D: is the 2010 Seagate that also holds the source. A second physical disk stays open under G5.
+
+**Verified:** backup run = **6,871 files / 117.4 MB, verified=True, DB smoke test PASS**, including
+**3,427 Suno metadata files (previously 0)** and 34 external files.
+
+---
+
+
 ### Answer #037 — L5 Writing Tools: Rimer DB + Brief Generator + Draft Scorer + CLI
 **Timestamp:** 2026-08-08
 **Action Type:** Feature implementation — 3 new modules + 4 new CLI subcommands + 41 new tests

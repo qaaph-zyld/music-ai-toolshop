@@ -72,15 +72,21 @@ def _sha256(path: Path, buf_size: int = 65536) -> str:
     return h.hexdigest()
 
 
-def _discover_assets(source_root: Path) -> List[Path]:
+def _discover_assets(source_root: Path, include_audio: bool = False) -> List[Path]:
     """Discover asset files under source_root.
 
-    Includes:
+    Tier-1 (always):
     - lyrics/genius/**/*.json (corpus)
     - lyrics/genius/**/*.txt (corpus)
     - lyrics/genius/_*.json (indices)
     - lyrics/lyrics.db (fingerprint DB)
     - espeak-ng/** (phonemizer install)
+    - suno/*.json (track metadata + the only index of what exists)
+    - suno/audio/_download_manifest.json (proof of the preservation fetch)
+
+    Tier-2 (``include_audio=True``):
+    - suno/audio/*.mp3 (~13 GB; re-fetchable while the CDN links live, so it is
+      opt-in and a Tier-1 restore stays fast)
     """
     assets: List[Path] = []
 
@@ -100,7 +106,54 @@ def _discover_assets(source_root: Path) -> List[Path]:
             if p.is_file():
                 assets.append(p)
 
+    # Suno. Absent from this list until 2026-08-19 (assessment F1b): the backup
+    # verified clean for a month while holding zero Suno data.
+    suno_dir = source_root / "suno"
+    if suno_dir.exists():
+        assets.extend(p for p in suno_dir.glob("*.json") if p.is_file())
+        audio_dir = suno_dir / "audio"
+        if audio_dir.exists():
+            manifest = audio_dir / "_download_manifest.json"
+            if manifest.exists():
+                assets.append(manifest)
+            if include_audio:
+                assets.extend(p for p in audio_dir.glob("*.mp3") if p.is_file())
+
     return sorted(set(assets))
+
+
+def _discover_external_assets(include_audio: bool = False) -> List[tuple[Path, Path]]:
+    """Discover assets that live outside both the data root and the repo.
+
+    Returns ``(source_file, base_dir)`` pairs so callers can preserve relative
+    layout under ``<target>/external/``.
+
+    ``D:\\Projects\\suno_extractor`` holds the only Suno audio downloaded before the
+    2026-08-19 preservation pass (37 mp3s, ~211 MB) plus the older liked-song
+    exports. No source root reaches it, so it was never backed up.
+    """
+    pairs: List[tuple[Path, Path]] = []
+
+    extractor = Path(os.environ.get("TOOLSHOP_SUNO_EXTRACTOR_DIR", r"D:\Projects\suno_extractor"))
+    if not extractor.exists():
+        return pairs
+
+    # Small, irreplaceable: the liked-song exports and the library DB.
+    songs_dir = extractor / "suno_songs"
+    if songs_dir.exists():
+        for pattern in ("*.json", "*.csv", "*.md"):
+            pairs.extend((p, extractor) for p in songs_dir.glob(pattern) if p.is_file())
+
+    library_db = extractor / "suno_library.db"
+    if library_db.exists():
+        pairs.append((library_db, extractor))
+
+    if include_audio:
+        downloads = extractor / "suno_downloads"
+        if downloads.exists():
+            pairs.extend((p, extractor) for p in downloads.glob("*.mp3") if p.is_file())
+
+    return sorted(set(pairs))
 
 
 def _discover_repo_assets(repo_root: Path) -> List[Path]:
@@ -131,14 +184,20 @@ def run_backup(
     source_root: Optional[Path] = None,
     repo_root: Optional[Path] = None,
     verify: bool = True,
+    include_audio: bool = False,
+    include_external: bool = True,
 ) -> BackupManifest:
     """Run a backup of toolshop data assets.
 
     Args:
         target: Directory to copy assets into.
-        source_root: MusicData root (default: D:\\MusicData\\toolshop).
+        source_root: Data root (default: ``<repo>/data/toolshop``).
         repo_root: Repo root for repo-side assets (.env, reports).
         verify: Re-read a sample of files and compare hashes.
+        include_audio: Also copy Tier-2 audio (Suno mp3s, ~13 GB). Off by default so
+            a Tier-1 backup stays small and fast to restore.
+        include_external: Also copy assets outside the data root and repo — notably
+            ``suno_extractor`` (see :func:`_discover_external_assets`).
 
     Returns:
         BackupManifest with per-file details.
@@ -156,26 +215,29 @@ def run_backup(
         total_size_bytes=0,
     )
 
-    data_assets = _discover_assets(source_root)
+    data_assets = _discover_assets(source_root, include_audio=include_audio)
     repo_assets = _discover_repo_assets(repo_root)
+    external_assets = _discover_external_assets(include_audio=include_audio) if include_external else []
 
-    all_assets: List[tuple[Path, Path]] = []
+    # (source, destination, relative_path_for_manifest)
+    all_assets: List[tuple[Path, Path, str]] = []
     for src in data_assets:
         rel = src.relative_to(source_root)
-        dst = target / rel
-        all_assets.append((src, dst))
+        all_assets.append((src, target / rel, str(rel)))
     for src in repo_assets:
         rel = src.relative_to(repo_root)
-        dst = target / "repo" / rel
-        all_assets.append((src, dst))
+        all_assets.append((src, target / "repo" / rel, str(rel)))
+    for src, base in external_assets:
+        rel = src.relative_to(base.parent)
+        all_assets.append((src, target / "external" / rel, str(Path("external") / rel)))
 
-    for src, dst in all_assets:
+    for src, dst, rel_path in all_assets:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
         size = src.stat().st_size
         digest = _sha256(src)
         entry = FileEntry(
-            relative_path=str(src.relative_to(source_root if source_root in src.parents else repo_root)),
+            relative_path=rel_path,
             size_bytes=size,
             sha256=digest,
             source=str(src),
@@ -321,12 +383,25 @@ def main(argv: list[str] | None = None) -> int:
         help=f"Source data root (default: {DEFAULT_DATA_DIR})",
     )
     parser.add_argument("--no-verify", action="store_true", help="Skip integrity verification.")
+    parser.add_argument(
+        "--include-audio",
+        action="store_true",
+        help="Also copy Tier-2 audio (Suno mp3s, ~13 GB). Off by default: audio is "
+        "re-fetchable while the CDN links live, so Tier-1 stays small.",
+    )
+    parser.add_argument(
+        "--no-external",
+        action="store_true",
+        help="Skip assets outside the data root and repo (suno_extractor).",
+    )
     args = parser.parse_args(argv)
 
     manifest = run_backup(
         target=args.target,
         source_root=args.source,
         verify=not args.no_verify,
+        include_audio=args.include_audio,
+        include_external=not args.no_external,
     )
 
     print(f"Backup complete: {manifest.file_count} files, {manifest.total_size_bytes / (1024*1024):.1f} MB")
