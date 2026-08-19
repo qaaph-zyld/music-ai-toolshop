@@ -136,7 +136,12 @@ path handling is fine — **it simply has not been run.**
 
 *Exposure:* the flagship lyric asset is one disk failure from gone.
 
-### F1b — CRITICAL · The backup has never covered Suno at all *(found 2026-08-19, after the initial pass)*
+### F1b — CRITICAL · The backup has never covered Suno at all *(found 2026-08-19, after the initial pass)* · **RESOLVED 2026-08-19/20 (#038)**
+
+> **Outcome:** coverage fixed and regression-tested (+5 tests); **3,426 / 3,426 tracks fetched,
+> 15.79 GB, zero failures**; backup live at `D:\Backups\toolshop` (6,871 files / 117.4 MB,
+> verified=True) carrying **3,427 Suno metadata files, previously 0**. The finding below is kept as
+> written, because how it was missed matters more than the fix.
 
 Scheduling was not the only problem. `_discover_assets()` collects exactly four things —
 `lyrics/genius/**/*.json`, `lyrics/genius/**/*.txt`, `lyrics/lyrics.db`, `espeak-ng/**` — and

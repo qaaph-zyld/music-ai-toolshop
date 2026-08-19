@@ -7,12 +7,14 @@
 >
 > | Item | Result |
 > |---|---|
-> | **Suno preservation** | **3,426 / 3,426 tracks fetched, 15.79 GB, 0 failures**, 27.6 min. All 17 records that had no `audio_url` recovered by reconstructing the deterministic CDN path. D: 146 → 132 GB free. |
+> | **Suno preservation** | **3,426 / 3,426 tracks fetched, 15.79 GB, 0 failures**, 27.6 min. All 17 records that had no `audio_url` recovered by reconstructing the deterministic CDN path. D: 146 → 131 GB free. **Reconciled independently:** 3,426 metadata ids = 3,426 manifest entries (all `ok`) = 3,426 files on disk (15.90 GB); **0 missing, 0 orphans, 0 ids absent from the manifest, 0 size mismatches, 3,426 sha256 recorded.** |
 > | **Backup coverage (F1b)** | Fixed. Tier-1 now carries Suno metadata + download manifest; Tier-2 carries the mp3s behind `--include-audio`; `_discover_external_assets()` reaches `suno_extractor/`. **+4 regression tests.** |
-> | **Backup run** | `D:\Backups\toolshop` — **6,871 files, 117.4 MB, verified=True, DB smoke test PASS**, including **3,427 Suno metadata files (was 0)**. |
+> | **Backup run** | `D:\Backups\toolshop` — **6,925 files, 118.5 MB, verified=True, DB smoke test PASS**, including **3,427 Suno metadata files (was 0)**, the download manifest, and the 50 `docs/lyrics` files git no longer tracks. |
+> | **`doctor` backup check** | **FAIL (29d, C:) → OK (6,925 files, age 0d, verified, D:).** The default target was moved into code (`backup.DEFAULT_BACKUP_TARGET`) and `doctor` now defers to it — the two had drifted, so a fresh backup was being reported as a month-old failure. **`model_cache` is now the only failing check**, and that is M2 = session S2. |
 > | **melody-carrier (F3)** | Committed (#039): 6 modules, 1,868 LOC, 107 tests. Obsolete `platform_system!='Windows'` marker lifted, `melody` extra added, **`--require-advanced` guard** added (pre-flight + runtime check). +6 tests. |
 > | **`ai_modules/` (F2)** | **UNTOUCHED by decision (D6 deferred).** Recorded only — see the lane table below. |
 > | **Hygiene** | 29 root run-dumps deleted, `.gitignore` globs added, `.coverage` untracked, **`Voicebox/` untracked (410 files, D9)**. Tracked files 2,256 → 1,859. |
+> | **Test suite** | **974 passed, 2 skipped, 0 failed** (347s) — orchestrator re-ran it twice: once through `f532abf` and again on the final tree through `e36f509`. **+11 on the 963 baseline** (5 backup coverage tests, 6 melody-carrier guard tests). No test was weakened. |
 > | **Records** | README (backups + 4 new command groups), PROJECTS_INDEX (742→1,425, stale `D:\MusicData` paths gone, 5 lanes added), AGENTS.md (lane-discipline rules), this board. |
 > | **Deferred deliberately** | The 8 tracked repo-root one-off scripts. All have live importers (`tests/`, `toolshop/batch.py`) or doc references; relocating them needs import updates and deserves its own pass, not a shuffle at the end of a long session. |
 >
@@ -249,6 +251,14 @@
    so not DR — G5 owes a second physical disk.**
 7b. **Suno CDN dependency** → ✅ **CLEARED 2026-08-19 (#038).** All 3,426 tracks now local
    (15.79 GB, 0 failures). Previously ~3,389 existed only as `cdn1.suno.ai` links.
+13b. **A test dirties the tracked tree on every run** (found during P0). `test_build_database_dedup_log`
+   (and neighbours) call `build_database(root=FIXTURE_ROOT, ...)`, and `build_database` writes
+   `_dedup_log.json` **into `root`** — which is the tracked `tests/fixtures/lyrics_min/`. So a plain
+   `pytest` run leaves `tests/fixtures/lyrics_min/_dedup_log.json` modified (a drive-letter case
+   flip, `d:` → `D:`). **This quietly undermines `toolshop closeout`'s clean-tree check**, which is
+   the gate the whole close-out discipline rests on, and it is why that file showed up dirty at the
+   start of this session too. Fix: have the tests copy the fixture into `tmp_path` first, or teach
+   `build_database` to take a separate output root. Small, but it weakens the mechanism.
 14. **`ai_modules/` tests are never collected** (F2) — 7 files / ~1,440 LOC outside
    `testpaths = tests`. 6,390 LOC of committed code is untested by the suite. Blocked on D6.
 15. **Repo-root one-off scripts** (8 tracked) — deferred from P0 Task 6; all have live importers or
