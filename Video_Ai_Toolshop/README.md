@@ -1,17 +1,19 @@
 # Video AI Toolshop
 
-End-to-end pipeline for generating cinematic AI character videos from your photos using open-source models on cloud GPU.
+End-to-end pipeline for generating cinematic AI character videos from your photos using open-source models — **100% free** on Kaggle P100 + Google Colab T4.
 
 ## Quick Start
 
-1. **Read the plan:** `C:\Users\cc\.windsurf\plans\cinematic-ai-character-video-pipeline-81354c.md`
+1. **Read the free-tier setup:** `infra/free_tier_setup.md`
 2. **Read the orchestration ledger:** `ORCHESTRATION/orchestration_ledger.md`
-3. **Dispatch Wave 1:** Open the 3 prompt files in `ORCHESTRATION/prompts/wave1_*.md` in separate Cascade threads
+3. **Upload photos** to Google Drive or HuggingFace dataset repo
+4. **Open Kaggle notebook:** `notebooks/kaggle_train_sdxl_lora.ipynb` — train LoRA
+5. **Open Colab notebook:** `notebooks/colab_generate_video.ipynb` — generate + post-process
 
 ## Architecture
 
 ```
-Photos → Flux LoRA Training → Cinematic Reference Images → Wan 2.2 I2V → Post-Process → Final Video
+Photos → SDXL LoRA Training (Kaggle P100) → Cinematic Reference Images (Colab T4) → HunyuanVideo 1.5 I2V (Colab T4) → Post-Process → Final Video
 ```
 
 **Three tracks:**
@@ -38,30 +40,35 @@ Video_Ai_Toolshop/
 ├── infra/                 # Cloud environment setup docs
 ├── workflows/             # ComfyUI workflow JSON files
 ├── models/
-│   ├── flux_lora/         # Trained Flux LoRA weights
-│   └── wan_lora/          # Trained Wan 2.2 video LoRA weights
+│   ├── sdxl_lora/         # Trained SDXL LoRA weights
+│   └── hunyuan_lora/      # Trained HunyuanVideo LoRA weights (optional Track B)
+├── notebooks/             # Kaggle + Colab notebooks
 ├── output/
 │   ├── reference_images/  # Generated cinematic reference images
 │   ├── raw_video/         # Raw AI-generated video clips
 │   ├── processed_video/   # Post-processed clips (upscaled, interpolated)
 │   └── final/             # Final assembled videos
 └── scripts/
-    └── postproc/          # Post-processing pipeline scripts
+    ├── postproc/          # Post-processing pipeline scripts
+    ├── generate_references.py  # SDXL reference image generation
+    ├── generate_videos.py      # HunyuanVideo 1.5 clip generation
+    ├── train_sdxl_lora.py      # SDXL LoRA training wrapper
+    └── validate_identity.py    # ArcFace identity validation
 ```
 
 ## Key Models
 
-| Model | Purpose | License | VRAM |
-|-------|---------|---------|------|
-| Wan 2.2 I2V-A14B | Video generation | Apache 2.0 | 80GB (full) / 24GB (5B) |
-| Flux.1-dev | Image generation + LoRA | Non-commercial | 24GB |
-| Flux.1-schnell | Image generation (commercial) | Apache 2.0 | 24GB |
-| HunyuanVideo 1.5 | Alternative video gen | Tencent (research) | 14GB min |
+| Model | Purpose | License | VRAM | Free Tier |
+|-------|---------|---------|------|-----------|
+| HunyuanVideo 1.5 | Video generation (primary) | Open weights | 14GB min | ✅ Kaggle P100 / Colab T4 |
+| LTX-Video 2B | Video generation (fallback) | Apache 2.0 | 8GB | ✅ Colab T4 |
+| SDXL | Image generation + LoRA | CreativeML Open RAIL++-M | 8GB | ✅ Kaggle P100 / Colab T4 |
 
-## Cost Estimate
+## Cost
 
-~$20-30 for 10 cinematic scenes (Track A, including 2-3 LoRA training iterations).
-~$10-12/month model storage on RunPod.
+**$0** — entirely free on Kaggle P100 (30h/week) + Google Colab T4 + HuggingFace Hub + Google Drive 15GB.
+
+Quality: ~85-90% of the paid RunPod A100 pipeline. Main tradeoff is speed (2-3x slower) and session management (no persistent storage).
 
 ## Research Sources
 

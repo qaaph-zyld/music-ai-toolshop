@@ -1,0 +1,76 @@
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "hunyuan_video_1.5_i2v_fp16.safetensors"
+    }
+  },
+  "2": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "hunyuan_vae.safetensors"
+    }
+  },
+  "3": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference_scene_1.png"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "ohwx person walking forward, cinematic motion, camera dollying forward, 35mm anamorphic, volumetric fog, photorealistic, film grain",
+      "clip": ["6", 0]
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "blurry, distorted, low quality, deformed, watermark, talking, mouth moving",
+      "clip": ["6", 0]
+    }
+  },
+  "6": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "hunyuan_text_encoder.safetensors",
+      "type": "hunyuan_video"
+    }
+  },
+  "7": {
+    "class_type": "HunyuanImageToVideo",
+    "inputs": {
+      "positive": ["4", 0],
+      "negative": ["5", 0],
+      "vae": ["2", 0],
+      "width": 1024,
+      "height": 576,
+      "length": 121,
+      "batch_size": 1,
+      "seed": 42,
+      "steps": 30,
+      "cfg": 7.5,
+      "embedded_guidance_scale": 6.0,
+      "num_frames": 121
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["7", 0],
+      "vae": ["2", 0]
+    }
+  },
+  "9": {
+    "class_type": "SaveAnimatedWEBP",
+    "inputs": {
+      "images": ["8", 0],
+      "filename_prefix": "hunyuan_i2v_scene",
+      "fps": 24.0,
+      "lossless": false,
+      "quality": 90,
+      "method": "default"
+    }
+  }
+}

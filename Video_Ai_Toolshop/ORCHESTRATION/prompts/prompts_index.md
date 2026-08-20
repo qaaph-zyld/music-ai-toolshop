@@ -10,8 +10,8 @@
 | 1 | cloud | engineer | Cloud Environment Setup | `wave1_agentcloud_cloud_environment_setup.md` | `wave1/cloud_handoff.md` |
 | 1 | comfyui | engineer | ComfyUI Workflow Designer | `wave1_agentcomfyui_comfyui_workflow_designer.md` | `wave1/comfyui_handoff.md` |
 | 1 | — | GATE | **Human approval required** | — | — |
-| 2 | flux_lora | trainer | Flux LoRA Trainer | `wave2_agentflux_lora_flux_lora_trainer.md` | `wave2/flux_lora_handoff.md` |
-| 2 | wan_lora | trainer | Wan 2.2 Video LoRA Trainer | `wave2_agentwan_lora_wan_2_2_video_lora_trainer.md` | `wave2/wan_lora_handoff.md` |
+| 2 | sdxl_lora | trainer | SDXL LoRA Trainer | `wave2_agentsdxl_lora_sdxl_lora_trainer.md` | `wave2/sdxl_lora_handoff.md` |
+| 2 | hunyuan_lora | trainer | HunyuanVideo LoRA Trainer | `wave2_agenthunyuan_lora_hunyuanvideo_lora_trainer.md` | `wave2/hunyuan_lora_handoff.md` |
 | 2 | — | GATE | **Human approval required** | — | — |
 | 3 | ref_images | generator | Cinematic Reference Image Generator | `wave3_agentref_images_cinematic_reference_image_generator.md` | `wave3/ref_images_handoff.md` |
 | 3 | — | GATE | **Human approval required** | — | — |

@@ -12,7 +12,7 @@
 | Wave | Name | Agents | Status | Gate |
 |------|------|--------|--------|------|
 | 1 | Parallel Setup | 3 (dataset, cloud, comfyui) | COMPLETE | Yes |
-| 2 | LoRA Training | 2 (flux_lora, wan_lora) | PENDING | Yes |
+| 2 | LoRA Training | 2 (sdxl_lora, hunyuan_lora) | PENDING | Yes |
 | 3 | Reference Image Generation | 1 (ref_images) | PENDING | Yes |
 | 4 | Video Generation + Post-Processing Setup | 2 (video_gen, postproc_setup) | PENDING | Yes |
 | 5 | Post-Processing + Assembly | 2 (postproc, assembly) | PENDING | No |
@@ -33,8 +33,8 @@
 
 | Agent | Role | Prompt File | Handoff File | Status |
 |-------|------|-------------|--------------|--------|
-| flux_lora | trainer | `prompts/wave2_agentflux_lora_flux_lora_trainer.md` | `wave2/flux_lora_handoff.md` | COMPLETE |
-| wan_lora | trainer | `prompts/wave2_agentwan_lora_wan_2_2_video_lora_trainer.md` | `wave2/wan_lora_handoff.md` | COMPLETE (scripts ready, Track B optional) |
+| sdxl_lora | trainer | `prompts/wave2_agentsdxl_lora_sdxl_lora_trainer.md` | `wave2/sdxl_lora_handoff.md` | PENDING |
+| hunyuan_lora | trainer | `prompts/wave2_agenthunyuan_lora_hunyuanvideo_lora_trainer.md` | `wave2/hunyuan_lora_handoff.md` | PENDING (optional Track B) |
 
 ### Wave 3 — Reference Image Generation
 
@@ -64,11 +64,12 @@
 
 All 3 Wave 1 agents completed. Deliverables:
 
-- **Dataset Curator:** Complete curation guide at `dataset/README.md` — photo selection, cropping script (1024×576), captioning guide, Kohya config, validation checklist.
-- **Cloud Environment:** Complete RunPod setup at `infra/cloud_setup.md` — template config, install script, model downloads, storage strategy ($10-12/mo), GPU guide, verification commands.
-- **ComfyUI Workflows:** 3 workflow JSON files at `workflows/` — basic I2V, camera control (dolly_forward), ControlNet stacking (Depth + OpenPose). ComfyUI pinned to v0.3.22.
+- **Dataset Curator:** Complete curation guide at `dataset/README.md` — photo selection, cropping script (1024×576), captioning guide, Kohya config, validation checklist. Updated for SDXL.
+- **Cloud Environment:** Free-tier setup at `infra/free_tier_setup.md` — Kaggle P100 16GB (30h/week), Google Colab T4 16GB, HuggingFace Hub, Google Drive 15GB. $0 total cost.
+- **ComfyUI Workflows:** 5 workflow JSON files at `workflows/` — HunyuanVideo 1.5 I2V, LTX-Video 2B fallback, plus legacy Wan 2.2 workflows. ComfyUI pinned to v0.3.22.
+- **Notebooks:** `notebooks/kaggle_train_sdxl_lora.ipynb` (training) and `notebooks/colab_generate_video.ipynb` (generation + post-processing).
 
-**Gate Decision:** Wave 1 outputs are documentation and workflow templates — no GPU execution needed. Ready to proceed to Wave 2 once user provides photos and deploys RunPod instance.
+**Gate Decision:** Wave 1 updated for zero-cost pipeline. Ready to proceed to Wave 2 once user uploads photos to HuggingFace/Google Drive.
 
 ### Wave 2 Synthesis
 *(To be filled after Wave 2 agents complete)*
@@ -92,3 +93,7 @@ All 3 Wave 1 agents completed. Deliverables:
 | 2026-08-20 | Flux.1-dev as image LoRA base | Best photorealism (non-commercial) |
 | 2026-08-20 | 5-wave orchestration design | Natural decomposition of pipeline stages |
 | 2026-08-20 | Gate after Waves 1-4 | User review checkpoints for quality control |
+| 2026-08-20 | **PIVOT: Zero-cost pipeline** | User has GTX 950M (no local GPU). Switched to free-tier: HunyuanVideo 1.5 + SDXL on Kaggle P100 + Colab T4 |
+| 2026-08-20 | HunyuanVideo 1.5 replaces Wan 2.2 | 14GB VRAM fits free tier, same ⭐⭐⭐⭐⭐ quality |
+| 2026-08-20 | SDXL replaces Flux.1-dev | 8GB VRAM fits free tier, mature LoRA ecosystem |
+| 2026-08-20 | LTX-Video 2B as fallback | 8GB VRAM if HunyuanVideo OOMs on 16GB |

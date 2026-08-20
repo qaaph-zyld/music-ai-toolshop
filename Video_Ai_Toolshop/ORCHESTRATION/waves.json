@@ -13,7 +13,7 @@
           "id": "dataset",
           "role": "preparer",
           "name": "Dataset Curator",
-          "task": "Curate 25-30 photos, crop to 1024x576, write captions with trigger word, package for upload",
+          "task": "Curate 25-30 photos, crop to 1024x576 (16:9) or 1024x1024 (square), write captions with trigger word, package for Google Drive upload",
           "scope": "d:/Project/Video_Ai_Toolshop/dataset/",
           "output": "wave1/dataset_handoff.md",
           "constraints": ["Read-only on research files. Write only to dataset/ directory."]
@@ -22,7 +22,7 @@
           "id": "cloud",
           "role": "engineer",
           "name": "Cloud Environment Setup",
-          "task": "Set up RunPod A100 80GB template with Kohya_ss, ComfyUI, Wan 2.2 nodes, post-processing tools. Document model weight storage strategy.",
+          "task": "Set up free-tier cloud environment: Kaggle P100 16GB for training, Google Colab T4 16GB for generation, HuggingFace Hub for model storage, Google Drive 15GB for dataset/outputs. Document notebook setup and session management strategy.",
           "scope": "d:/Project/Video_Ai_Toolshop/infra/",
           "output": "wave1/cloud_handoff.md",
           "constraints": ["Read-only. Document setup steps only — do not rent GPUs."]
@@ -31,7 +31,7 @@
           "id": "comfyui",
           "role": "engineer",
           "name": "ComfyUI Workflow Designer",
-          "task": "Design ComfyUI workflow JSON for Wan 2.2 I2V with camera control (TTM or Fun Camera Control), ControlNet stacking, and post-processing nodes. Pin ComfyUI version. Validate against /object_info endpoint.",
+          "task": "Design ComfyUI workflow JSON for HunyuanVideo 1.5 I2V (14GB VRAM) with camera control and ControlNet stacking. Also design LTX-Video 2B (8GB) fallback workflow. Pin ComfyUI version. Validate against /object_info endpoint.",
           "scope": "d:/Project/Video_Ai_Toolshop/workflows/",
           "output": "wave1/comfyui_handoff.md",
           "constraints": ["Read-only. Design workflows only — do not execute."]
@@ -45,22 +45,22 @@
       "gate_after": true,
       "agents": [
         {
-          "id": "flux_lora",
+          "id": "sdxl_lora",
           "role": "trainer",
-          "name": "Flux LoRA Trainer",
-          "task": "Train Flux.1-dev DreamBooth LoRA on curated dataset using Kohya_ss. Validate identity with ArcFace cosine similarity (>0.7 = good). Save pytorch_lora_weights.safetensors.",
-          "scope": "d:/Project/Video_Ai_Toolshop/models/flux_lora/",
-          "output": "wave2/flux_lora_handoff.md",
-          "constraints": ["Use inference-time lora_scale, NOT fuse_lora(). Expect 2-3 iterations."]
+          "name": "SDXL LoRA Trainer",
+          "task": "Train SDXL DreamBooth LoRA on curated dataset using Kohya_ss on Kaggle P100 16GB. Use fp16 + gradient checkpointing to fit 16GB VRAM. Validate identity with ArcFace cosine similarity (>0.7 = good). Upload LoRA weights to HuggingFace Hub.",
+          "scope": "d:/Project/Video_Ai_Toolshop/models/sdxl_lora/",
+          "output": "wave2/sdxl_lora_handoff.md",
+          "constraints": ["Use inference-time lora_scale, NOT fuse_lora(). Expect 2-3 iterations. Kaggle 30h/week limit."]
         },
         {
-          "id": "wan_lora",
+          "id": "hunyuan_lora",
           "role": "trainer",
-          "name": "Wan 2.2 Video LoRA Trainer",
-          "task": "Train Wan 2.2 I2V dual-expert LoRA using musubi-tuner or finetrainers. Train two LoRAs: high-noise (composition/motion) + low-noise (texture/identity). Optional: three-stage training (high/mid/low noise). Save both .safetensors.",
-          "scope": "d:/Project/Video_Ai_Toolshop/models/wan_lora/",
-          "output": "wave2/wan_lora_handoff.md",
-          "constraints": ["Optional — only if Track B selected. Requires video clips dataset."]
+          "name": "HunyuanVideo LoRA Trainer",
+          "task": "Train HunyuanVideo 1.5 I2V LoRA using official Muon optimizer training code on Kaggle P100 16GB. 10-15 images sufficient for human characters. Upload LoRA weights to HuggingFace Hub.",
+          "scope": "d:/Project/Video_Ai_Toolshop/models/hunyuan_lora/",
+          "output": "wave2/hunyuan_lora_handoff.md",
+          "constraints": ["Optional — Track B. Requires video clips. 14GB VRAM min with offloading."]
         }
       ]
     },
@@ -74,10 +74,10 @@
           "id": "ref_images",
           "role": "generator",
           "name": "Cinematic Reference Image Generator",
-          "task": "Generate 3-5 cinematic reference images per target scene (10 scenes = 30-50 images) using Flux + LoRA + Five Pillars prompt framework. Output at 1024x576 (16:9) to match Wan 2.2 input. Use lora_scale 0.8-1.2 at inference (NOT fuse_lora). Save all images with metadata.",
+          "task": "Generate 3-5 cinematic reference images per target scene (10 scenes = 30-50 images) using SDXL + LoRA + Five Pillars prompt framework on Google Colab T4. Output at 1024x576 (16:9) to match HunyuanVideo 1.5 input. Use lora_scale 0.8-1.2 at inference (NOT fuse_lora). Save to Google Drive with metadata.",
           "scope": "d:/Project/Video_Ai_Toolshop/output/reference_images/",
           "output": "wave3/ref_images_handoff.md",
-          "constraints": ["Depends on Wave 2 flux_lora. Generate at Wan 2.2 aspect ratio."]
+          "constraints": ["Depends on Wave 2 sdxl_lora. Generate at HunyuanVideo 1.5 aspect ratio."]
         }
       ]
     },
@@ -91,16 +91,16 @@
           "id": "video_gen",
           "role": "generator",
           "name": "Video Clip Generator",
-          "task": "Generate 5s 720P/24fps cinematic video clips from reference images using Wan 2.2 I2V in ComfyUI. Apply camera control (TTM or Fun Camera Control). Use anchor-frame workflow: last frame of clip N = first frame of clip N+1. Consider LightX2V 4-step LoRA for speed. Save raw clips.",
+          "task": "Generate 5s 720P/24fps cinematic video clips from reference images using HunyuanVideo 1.5 I2V on Google Colab T4 16GB with model offloading. Use anchor-frame workflow: last frame of clip N = first frame of clip N+1. Fallback to LTX-Video 2B if HunyuanVideo OOMs. Save raw clips to Google Drive.",
           "scope": "d:/Project/Video_Ai_Toolshop/output/raw_video/",
           "output": "wave4/video_gen_handoff.md",
-          "constraints": ["Depends on Wave 3. Camera control at 640x640 on 24GB VRAM (not 720P)."]
+          "constraints": ["Depends on Wave 3. 16GB VRAM — use model offloading. Save clips immediately (Colab disconnects)."]
         },
         {
           "id": "postproc_setup",
           "role": "engineer",
           "name": "Post-Processing Pipeline Setup",
-          "task": "Set up GFPGAN → Real-ESRGAN → RIFE chain as ComfyUI nodes and standalone scripts. Prepare FaceFusion 3.6 as backup. Document exact commands and VRAM requirements.",
+          "task": "Set up GFPGAN → Real-ESRGAN → RIFE chain as Colab notebook cells. Prepare FaceFusion 3.6 as backup. Document exact commands and 16GB VRAM requirements.",
           "scope": "d:/Project/Video_Ai_Toolshop/scripts/postproc/",
           "output": "wave4/postproc_handoff.md",
           "constraints": ["Can run in parallel with video_gen. Set up only — do not process clips yet."]
@@ -120,13 +120,13 @@
           "task": "Run GFPGAN → Real-ESRGAN → RIFE chain on all raw clips. Apply FaceFusion backup if identity drift detected. Output final 1080p+ 48fps clips.",
           "scope": "d:/Project/Video_Ai_Toolshop/output/processed_video/",
           "output": "wave5/postproc_handoff.md",
-          "constraints": ["Depends on Wave 4. ~10-20 min per clip on RTX 4090."]
+          "constraints": ["Depends on Wave 4. ~20-40 min per clip on Colab T4 (slower than 4090)."]
         },
         {
           "id": "assembly",
           "role": "editor",
           "name": "Final Assembly Editor",
-          "task": "Assemble processed clips in DaVinci Resolve 21. Add audio (ElevenLabs for TTS, Suno/Udio for music, Freesound for SFX). Color grade with Shot Match + cinematic LUTs. Export 4K master + vertical social cuts.",
+          "task": "Assemble processed clips in DaVinci Resolve (free). Add audio (Piper TTS for voiceover, royalty-free music from YouTube Audio Library, Freesound for SFX). Color grade with Shot Match + cinematic LUTs. Export 1080p master + vertical social cuts.",
           "scope": "d:/Project/Video_Ai_Toolshop/output/final/",
           "output": "wave5/assembly_handoff.md",
           "constraints": ["Depends on postproc. Manual editing in DaVinci Resolve."]

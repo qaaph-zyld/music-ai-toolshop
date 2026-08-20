@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers preparing your photos for Flux.1-dev DreamBooth LoRA training.
+This guide covers preparing your photos for SDXL DreamBooth LoRA training on free-tier GPUs (Kaggle P100 / Colab T4 16GB).
 
 ## Step 1: Photo Selection
 

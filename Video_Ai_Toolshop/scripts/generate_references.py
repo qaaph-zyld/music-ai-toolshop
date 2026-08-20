@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Generate cinematic reference images using Flux + LoRA.
+"""Generate cinematic reference images using SDXL + LoRA.
 
 Usage:
-    python generate_references.py --lora models/flux_lora/pytorch_lora_weights.safetensors \
+    python generate_references.py --lora models/sdxl_lora/sdxl_lora.safetensors \
         --output output/reference_images/ --scenes scenes.json
 
-    python generate_references.py --lora models/flux_lora/pytorch_lora_weights.safetensors \
+    python generate_references.py --lora models/sdxl_lora/sdxl_lora.safetensors \
         --output output/reference_images/ --prompt "ohwx person in neon-lit Tokyo street"
 """
 
@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 import torch
-from diffusers import FluxPipeline
+from diffusers import StableDiffusionXLPipeline
 
 
 # Default cinematic scenes (10 scenes × 3-5 images each = 30-50 images)
@@ -170,7 +170,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate cinematic reference images with Flux + LoRA")
     parser.add_argument("--lora", required=True, help="Path to Flux LoRA weights (.safetensors)")
     parser.add_argument("--output", default="output/reference_images", help="Output directory")
-    parser.add_argument("--model", default="black-forest-labs/FLUX.1-dev", help="Base model (FLUX.1-dev or FLUX.1-schnell)")
+    parser.add_argument("--model", default="stabilityai/stable-diffusion-xl-base-1.0", help="Base SDXL model")
     parser.add_argument("--scenes", help="JSON file with custom scene definitions")
     parser.add_argument("--prompt", help="Single prompt (overrides scenes)")
     parser.add_argument("--num-images", type=int, default=5, help="Number of images for single prompt mode")
@@ -178,13 +178,14 @@ def main():
     parser.add_argument("--width", type=int, default=1024, help="Image width")
     parser.add_argument("--height", type=int, default=576, help="Image height (576 for 16:9)")
     parser.add_argument("--steps", type=int, default=30, help="Inference steps")
-    parser.add_argument("--guidance", type=float, default=3.5, help="CFG guidance scale")
+    parser.add_argument("--guidance", type=float, default=7.0, help="CFG guidance scale (7.0 for SDXL)")
     args = parser.parse_args()
     
     print(f"Loading model: {args.model}")
-    pipe = FluxPipeline.from_pretrained(
+    pipe = StableDiffusionXLPipeline.from_pretrained(
         args.model,
-        torch_dtype=torch.bfloat16
+        torch_dtype=torch.float16,
+        variant="fp16"
     ).to("cuda")
     
     print(f"Loading LoRA: {args.lora}")
