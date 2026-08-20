@@ -95,10 +95,16 @@ git clone https://github.com/facefusion/facefusion.git
 cd facefusion
 python install.py --onnxruntime cuda --skip-conda
 
-# Finetrainers (alternative LoRA training)
+# Finetrainers (alternative LoRA training — fallback for Wan 2.2)
 cd /workspace
 git clone https://github.com/a-r-r-o-w/finetrainers.git
 cd finetrainers
+pip install -r requirements.txt
+
+# musubi-tuner (primary for Wan 2.2 dual-expert LoRA training)
+cd /workspace
+git clone https://github.com/kohya-ss/musubi-tuner.git
+cd musubi-tuner
 pip install -r requirements.txt
 
 # HuggingFace login
