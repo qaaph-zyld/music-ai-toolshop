@@ -11,6 +11,7 @@ Usage:
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -163,5 +164,4 @@ def main():
 
 
 if __name__ == "__main__":
-    import sys
     main()

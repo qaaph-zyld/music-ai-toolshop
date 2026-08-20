@@ -1,0 +1,13 @@
+[general]
+resolution = [1024, 576]
+shuffle_caption = true
+keep_tokens = 1
+
+[[datasets]]
+batch_size = 1
+enable_bucket = false
+
+  [[datasets.subsets]]
+  image_dir = "/workspace/dataset/processed"
+  caption_extension = ".txt"
+  num_repeats = 10

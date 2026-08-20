@@ -33,7 +33,7 @@
 
 | Agent | Role | Prompt File | Handoff File | Status |
 |-------|------|-------------|--------------|--------|
-| flux_lora | trainer | `prompts/wave2_agentflux_lora_flux_lora_trainer.md` | `wave2/flux_lora_handoff.md` | PENDING |
+| flux_lora | trainer | `prompts/wave2_agentflux_lora_flux_lora_trainer.md` | `wave2/flux_lora_handoff.md` | COMPLETE |
 | wan_lora | trainer | `prompts/wave2_agentwan_lora_wan_2_2_video_lora_trainer.md` | `wave2/wan_lora_handoff.md` | PENDING (optional) |
 
 ### Wave 3 — Reference Image Generation
