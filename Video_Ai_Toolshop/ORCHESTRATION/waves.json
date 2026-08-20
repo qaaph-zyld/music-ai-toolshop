@@ -1,0 +1,137 @@
+{
+  "task": "Cinematic AI Character Video Pipeline",
+  "project_root": "d:/Project/Video_Ai_Toolshop",
+  "orchestration_dir": "ORCHESTRATION",
+  "waves": [
+    {
+      "wave": 1,
+      "name": "Parallel Setup",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "dataset",
+          "role": "preparer",
+          "name": "Dataset Curator",
+          "task": "Curate 25-30 photos, crop to 1024x576, write captions with trigger word, package for upload",
+          "scope": "d:/Project/Video_Ai_Toolshop/dataset/",
+          "output": "wave1/dataset_handoff.md",
+          "constraints": ["Read-only on research files. Write only to dataset/ directory."]
+        },
+        {
+          "id": "cloud",
+          "role": "engineer",
+          "name": "Cloud Environment Setup",
+          "task": "Set up RunPod A100 80GB template with Kohya_ss, ComfyUI, Wan 2.2 nodes, post-processing tools. Document model weight storage strategy.",
+          "scope": "d:/Project/Video_Ai_Toolshop/infra/",
+          "output": "wave1/cloud_handoff.md",
+          "constraints": ["Read-only. Document setup steps only — do not rent GPUs."]
+        },
+        {
+          "id": "comfyui",
+          "role": "engineer",
+          "name": "ComfyUI Workflow Designer",
+          "task": "Design ComfyUI workflow JSON for Wan 2.2 I2V with camera control (TTM or Fun Camera Control), ControlNet stacking, and post-processing nodes. Pin ComfyUI version. Validate against /object_info endpoint.",
+          "scope": "d:/Project/Video_Ai_Toolshop/workflows/",
+          "output": "wave1/comfyui_handoff.md",
+          "constraints": ["Read-only. Design workflows only — do not execute."]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "name": "LoRA Training",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "flux_lora",
+          "role": "trainer",
+          "name": "Flux LoRA Trainer",
+          "task": "Train Flux.1-dev DreamBooth LoRA on curated dataset using Kohya_ss. Validate identity with ArcFace cosine similarity (>0.7 = good). Save pytorch_lora_weights.safetensors.",
+          "scope": "d:/Project/Video_Ai_Toolshop/models/flux_lora/",
+          "output": "wave2/flux_lora_handoff.md",
+          "constraints": ["Use inference-time lora_scale, NOT fuse_lora(). Expect 2-3 iterations."]
+        },
+        {
+          "id": "wan_lora",
+          "role": "trainer",
+          "name": "Wan 2.2 Video LoRA Trainer",
+          "task": "Train Wan 2.2 I2V dual-expert LoRA using musubi-tuner or finetrainers. Train two LoRAs: high-noise (composition/motion) + low-noise (texture/identity). Optional: three-stage training (high/mid/low noise). Save both .safetensors.",
+          "scope": "d:/Project/Video_Ai_Toolshop/models/wan_lora/",
+          "output": "wave2/wan_lora_handoff.md",
+          "constraints": ["Optional — only if Track B selected. Requires video clips dataset."]
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "name": "Reference Image Generation",
+      "parallel": false,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "ref_images",
+          "role": "generator",
+          "name": "Cinematic Reference Image Generator",
+          "task": "Generate 3-5 cinematic reference images per target scene (10 scenes = 30-50 images) using Flux + LoRA + Five Pillars prompt framework. Output at 1024x576 (16:9) to match Wan 2.2 input. Use lora_scale 0.8-1.2 at inference (NOT fuse_lora). Save all images with metadata.",
+          "scope": "d:/Project/Video_Ai_Toolshop/output/reference_images/",
+          "output": "wave3/ref_images_handoff.md",
+          "constraints": ["Depends on Wave 2 flux_lora. Generate at Wan 2.2 aspect ratio."]
+        }
+      ]
+    },
+    {
+      "wave": 4,
+      "name": "Video Generation + Post-Processing Setup",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "video_gen",
+          "role": "generator",
+          "name": "Video Clip Generator",
+          "task": "Generate 5s 720P/24fps cinematic video clips from reference images using Wan 2.2 I2V in ComfyUI. Apply camera control (TTM or Fun Camera Control). Use anchor-frame workflow: last frame of clip N = first frame of clip N+1. Consider LightX2V 4-step LoRA for speed. Save raw clips.",
+          "scope": "d:/Project/Video_Ai_Toolshop/output/raw_video/",
+          "output": "wave4/video_gen_handoff.md",
+          "constraints": ["Depends on Wave 3. Camera control at 640x640 on 24GB VRAM (not 720P)."]
+        },
+        {
+          "id": "postproc_setup",
+          "role": "engineer",
+          "name": "Post-Processing Pipeline Setup",
+          "task": "Set up GFPGAN → Real-ESRGAN → RIFE chain as ComfyUI nodes and standalone scripts. Prepare FaceFusion 3.6 as backup. Document exact commands and VRAM requirements.",
+          "scope": "d:/Project/Video_Ai_Toolshop/scripts/postproc/",
+          "output": "wave4/postproc_handoff.md",
+          "constraints": ["Can run in parallel with video_gen. Set up only — do not process clips yet."]
+        }
+      ]
+    },
+    {
+      "wave": 5,
+      "name": "Post-Processing + Assembly",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "postproc",
+          "role": "processor",
+          "name": "Video Post-Processor",
+          "task": "Run GFPGAN → Real-ESRGAN → RIFE chain on all raw clips. Apply FaceFusion backup if identity drift detected. Output final 1080p+ 48fps clips.",
+          "scope": "d:/Project/Video_Ai_Toolshop/output/processed_video/",
+          "output": "wave5/postproc_handoff.md",
+          "constraints": ["Depends on Wave 4. ~10-20 min per clip on RTX 4090."]
+        },
+        {
+          "id": "assembly",
+          "role": "editor",
+          "name": "Final Assembly Editor",
+          "task": "Assemble processed clips in DaVinci Resolve 21. Add audio (ElevenLabs for TTS, Suno/Udio for music, Freesound for SFX). Color grade with Shot Match + cinematic LUTs. Export 4K master + vertical social cuts.",
+          "scope": "d:/Project/Video_Ai_Toolshop/output/final/",
+          "output": "wave5/assembly_handoff.md",
+          "constraints": ["Depends on postproc. Manual editing in DaVinci Resolve."]
+        }
+      ]
+    }
+  ]
+}

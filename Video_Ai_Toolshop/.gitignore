@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+
+# Model weights (large files)
+*.safetensors
+*.ckpt
+*.pth
+*.bin
+*.gguf
+
+# Output media (regenerated, not stored in git)
+output/raw_video/*.mp4
+output/processed_video/*.mp4
+output/final/*.mp4
+output/reference_images/*.png
+output/reference_images/*.jpg
+
+# Dataset (personal photos)
+dataset/raw/
+*.jpg
+*.jpeg
+*.png
+!research/*.md
+!README.md
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Cache
+.cache/
+.workspace_cache/
