@@ -47,6 +47,16 @@ Caught by orchestrator spot-check 3+ sessions running: uncommitted work left in 
   while collecting zero Suno data. When adding an asset class, add a test that asserts it appears in
   the manifest.
 
+## Package layout (D12, 2026-08-30 — replaces H1-M5's big-bang reorg)
+
+`toolshop/` is deliberately mostly flat. The wholesale core/tool reorganisation was **descoped**: its
+own success criterion was "imports/CLI unchanged", so it could not deliver anything observable, and a
+55-module move behind re-export shims is exactly where a passing suite stops being evidence.
+
+**The rule instead:** when a lane is next touched *substantially*, move its modules into a subpackage
+**then**, with that lane's own tests as the safety net. `toolshop/daw/` and `toolshop/melody_carrier/`
+were built this way and are the pattern. Never a repo-wide move as its own task.
+
 ## Measurement discipline (added 2026-08-30 — earned the hard way)
 
 - **Warm up before you measure, and repeat the baseline.** An M3 sweep ran each baseline cold and

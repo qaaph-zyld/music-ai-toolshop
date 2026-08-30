@@ -4,13 +4,14 @@
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
 > **S5 / M5 DONE 2026-08-30 — meta-layer registered, Voicebox ADR, root cleanup. See CHANGELOG #045.**
-> **H1 IS NOW CLOSED** (M1-M6 all done), subject to the D12 ruling below.
+> **H1 IS CLOSED** (M1-M6 all done). **D12 RESOLVED 2026-08-30 — user agreed to descope the package
+> reorg**; replaced by the opportunistic-subpackage rule now in AGENTS.md. H1 needs nothing further.
 >
 > | Item | Result |
 > |---|---|
 > | **REGISTRATION != DETECTION** | The exit criterion is *"session_brief detects project"*. `CANONICAL_PROJECTS` alone does **not** do that — `session_brief` never reads it. **Three** maps needed updating in `ai_dev_meta_layer`: `project_inventory.CANONICAL_PROJECTS` (path), `knowledge_router.PROJECT_KEYWORDS` (text), `knowledge_router.FILE_PATH_HEURISTICS` (paths — was returning `{}`). All three verified empirically; `mrp`/`yt_extractor` still route correctly (no over-match). Stopping at "added to the table" would have been the **4th** false claim this session. |
 > | **Second repo, handled carefully** | `ai_dev_meta_layer` test baseline taken **before and after**: **30 failed / 508 passed both times** — identical, so those failures are pre-existing there, not mine. Registered as `music_ai_toolshop` (the lookup normalises dashes → underscores; a dashed key would be dead code). **Committed but deliberately NOT pushed** — pushing a second repo is the user's call. |
-> | **[D12] Package reorg DESCOPED** | 55 flat modules, 63 importing test files. Declined: its own exit criterion is *"imports/CLI unchanged"* (delivers nothing observable); the roadmap says *"gradual … never a big-bang rewrite"*; a mass move behind re-export shims is where a green suite lies; and **H2 Dossier v2 is the real bottleneck**. Proposed instead: move modules into subpackages *opportunistically* when a lane is next touched — `daw/` and `melody_carrier/` already prove the pattern. **Needs the user's ruling.** |
+> | **[D12] Package reorg DESCOPED** | 55 flat modules, 63 importing test files. Declined: its own exit criterion is *"imports/CLI unchanged"* (delivers nothing observable); the roadmap says *"gradual … never a big-bang rewrite"*; a mass move behind re-export shims is where a green suite lies; and **H2 Dossier v2 is the real bottleneck**. **RESOLVED 2026-08-30 — user agreed.** Replaced by a standing rule now in AGENTS.md: subpackage moves happen *opportunistically*, when a lane is next touched substantially, with that lane's tests as the net. `daw/` and `melody_carrier/` already prove the pattern. **H1 closes without it.** |
 > | **Voicebox ADR** | `specs/2026-08-30-adr-voicebox-archived.md` — records the P0 removal that shipped without one. States honestly that the upstream URL was never captured before untracking, and that **GPT-SoVITS**, not Voicebox, is the likely path if the lane reopens. |
 > | **Root scripts — decided, not deferred a third time** | 3 with zero importers moved to `scripts/`; 4 stay because tests import them or `.ps1` launchers call them by path. Act where free, abstain where not. |
 >
@@ -279,7 +280,7 @@
 | M2 Demucs e2e + model mirror | ⏸ Ready, gated on M1c-final | Plan + prompt embedded |
 | M3 Stems CPU optimization | ⬜ Not started | Needs museval eval-harness seed first (integration map §4) |
 | M4 Mastering german_drill e2e | ⏸ Ready (unblocked) | Submodule committed (aebcf76); pointer bumped |
-| M5 Suite reorg + meta-layer registration | ✅ DONE 2026-08-30 (#045) | Registered in all 3 meta-layer maps (path + text + file detection), verified empirically. AGENTS.md live. Voicebox ADR written. Root scripts decided. **Package reorg descoped — D12 awaiting user ruling.** |
+| M5 Suite reorg + meta-layer registration | ✅ DONE 2026-08-30 (#045) | Registered in all 3 meta-layer maps (path + text + file detection), verified empirically. AGENTS.md live. Voicebox ADR written. Root scripts decided. **Package reorg descoped (D12, user-agreed 2026-08-30)** — replaced by the opportunistic-subpackage rule in AGENTS.md. |
 | M6 Backups + doctor disk/backup checks | ✅ DONE + committed/pushed 2026-07-22 (#019, `27cfa35`) | Backup ran: `C:\Backups\toolshop` 1954 files/32 MB, manifest+verify OK; `toolshop doctor` backup check added; suite green (383 passed/1 skipped/0 failed). Caveats: backup on C: = same physical disk as D: (not true DR); `.env` token now in backup (never sync/commit that dir). **⚠ Data relocated to `data/` (#030) — backup paths need revalidation.** |
 
 ## Tool Lanes

@@ -1,5 +1,43 @@
 # Changelog
 
+### Answer #046 — D12 resolved: package reorg descoped. H1 CLOSED.
+**Timestamp:** 2026-08-30
+**Action Type:** Decision record
+
+**The user agreed with the recommendation in #045. M5's core/tool package reorganisation is
+descoped, and H1 closes without it.**
+
+The reasoning, for the record: `toolshop/` holds 55 flat modules and 63 test files import from them,
+and the milestone's own exit criterion was *"imports/CLI unchanged"* — a refactor that by definition
+delivers nothing observable. Roadmap v2 already said the reorganisation should be *"gradual … never a
+big-bang rewrite"*, so performing it as one task was against its own guidance. And a 55-module move
+behind re-export shims is precisely the situation where a passing suite stops being evidence.
+
+**Replaced by a standing rule** (AGENTS.md, "Package layout"): when a lane is next touched
+*substantially*, its modules move into a subpackage **then**, with that lane's own tests as the safety
+net. `toolshop/daw/` and `toolshop/melody_carrier/` were built exactly this way and are the pattern.
+Never a repo-wide move as its own task.
+
+**H1 — "Finish & Solidify" — is CLOSED.** M1 through M6 are all done:
+
+| | | |
+|---|---|---|
+| M1 | CrhymeTV analyze-only | closed 2026-07-16 |
+| M2 | Model cache + mirror | #041 |
+| M3 | Stems CPU | #042 |
+| M4 | Mastering e2e | #043 |
+| M5 | Reorg + registration | #045 (+ this) |
+| M6 | Backups + data governance | #019, coverage fixed in #038 |
+
+**H2 — Dossier v2 — is now the active horizon.** It is the keystone: everything downstream consumes
+dossiers, and the creation loop has waited on it since July.
+
+**Still open for the user:** D6 (`ai_modules/` disposition) and D11 (`german_drill` PSR gate vs
+target, plus the AAC ceiling overshoot).
+
+---
+
+
 ### Answer #045 — S5/M5: meta-layer registration, Voicebox ADR, root cleanup. Reorg descoped.
 **Timestamp:** 2026-08-30
 **Action Type:** Milestone — last H1 item. Two repos touched.
