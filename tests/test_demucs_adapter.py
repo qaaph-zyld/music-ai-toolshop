@@ -101,3 +101,62 @@ def test_separate_wrong_backend_raises():
             input_file=Path("x.wav"),
             model_id="uvr-mdx-net-voc-ft",
         )
+
+
+# ------------------------------------------------------------------ M3: jobs
+#
+# The adapter passed no tuning parameters at all, so demucs ran at jobs=0 on an
+# 8-core machine. CONTROLLED measurement 2026-08-30 (warm-up discarded, baseline
+# repeated to check drift): 30.2 s -> 24.6 s on a 30 s clip = 1.22x, with 2.0%
+# baseline drift. An earlier uncontrolled sweep reported 2.97x; that was largely
+# cold-cache warm-up, not compute.
+
+from unittest.mock import MagicMock, patch
+
+from toolshop import demucs_adapter as _da
+
+
+def test_auto_jobs_scales_with_cores_and_is_capped():
+    for cores, expected in [(1, 1), (2, 1), (4, 2), (8, 4), (16, 4), (64, 4)]:
+        with patch.object(_da.os, "cpu_count", return_value=cores):
+            assert _da.auto_jobs() == expected, f"{cores} cores"
+
+
+def test_auto_jobs_survives_unknown_core_count():
+    with patch.object(_da.os, "cpu_count", return_value=None):
+        assert _da.auto_jobs() == 1
+
+
+def test_api_separate_passes_jobs_to_demucs():
+    """The whole point of M3: the parameter must actually reach the library."""
+    fake_sep = MagicMock()
+    fake_sep.separate_audio_file.return_value = (None, {})
+    fake_module = MagicMock(Separator=MagicMock(return_value=fake_sep))
+
+    with patch.dict("sys.modules", {"demucs.api": fake_module}):
+        _da._api_separate(
+            input_path=Path("in.wav"),
+            output_dir=Path("out"),
+            model=_da.stem_models.MODELS["htdemucs"],
+            output_format="wav",
+            device="cpu",
+            jobs=3,
+        )
+    assert fake_module.Separator.call_args.kwargs["jobs"] == 3
+
+
+def test_api_separate_defaults_to_auto_jobs():
+    fake_sep = MagicMock()
+    fake_sep.separate_audio_file.return_value = (None, {})
+    fake_module = MagicMock(Separator=MagicMock(return_value=fake_sep))
+
+    with patch.dict("sys.modules", {"demucs.api": fake_module}):
+        with patch.object(_da, "auto_jobs", return_value=7):
+            _da._api_separate(
+                input_path=Path("in.wav"),
+                output_dir=Path("out"),
+                model=_da.stem_models.MODELS["htdemucs"],
+                output_format="wav",
+                device="cpu",
+            )
+    assert fake_module.Separator.call_args.kwargs["jobs"] == 7

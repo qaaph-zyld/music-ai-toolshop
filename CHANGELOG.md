@@ -1,5 +1,74 @@
 # Changelog
 
+### Answer #042 — S3/M3: stems CPU. A small real win, and a retracted large one.
+**Timestamp:** 2026-08-30
+**Action Type:** Milestone — measurement, one adopted change, one retraction
+
+**Headline:** `4stem` gains a genuine **1.22x**. `vocals-hq` gains **nothing**, and stays an
+overnight preset at ~26 min/track. A first sweep claimed 2.97x and 1.40x; both were inflated by a
+measurement flaw, found and corrected within the session.
+
+**First, a scoping correction.** The S2 close-out implied research verdict R2 (HT-Demucs FT ONNX)
+would speed up the 26-minute `vocals-hq`. It would not — the backends do not overlap:
+
+| Backend | Presets | R2 applies |
+|---|---|---|
+| `audio-separator` (MDXC/RoFormer, MDX-Net, VR) | `karaoke`, `vocals-hq`, `full-vocals`, `full-vocals-hq` | **no** |
+| `demucs` | `4stem`, `6stem` | yes |
+
+**The real finding: both adapters passed zero tuning parameters.** `stem_extractor_adapter` built
+`Separator(...)` with no `mdxc_params`; `demucs_adapter` built `demucs.api.Separator(...)` with no
+`jobs`, on an 8-core machine. So the honest first question was not "which faster model do we adopt"
+but "how much of the cost is unconfigured defaults" — which is why no new dependency was added.
+
+**THE MISTAKE, recorded because it is the most useful thing here.**
+The first sweep ran each backend's baseline **first** (model cold on a 2010 HDD) and every variant
+afterwards (model warm in page cache). It therefore measured disk warm-up and attributed it to
+compute. It reported **demucs 2.97x** and **audio-separator 1.40x**. Both were wired in.
+
+The tells were in the data and were not read: `batch_size=4` (278.2 s) and `batch_size=8` (289.2 s)
+clustered together while the lone cold baseline stood 110 s apart — a real batching effect would not
+behave that way.
+
+A full-track validation then measured `vocals-hq` at **25.97 min against a 26.06 min baseline —
+1.00x, exactly nothing**, with the tuned parameter verified as reaching the library.
+
+**Re-measured under control** (warm-up discarded, baseline repeated to detect drift):
+
+    demucs   jobs=0  30.2 s
+             jobs=4  24.6 s   = 1.22x
+             jobs=0  29.6 s   <- 2.0% drift, so the instrument was stable
+
+**Adopted:** demucs `jobs`, computed per machine by `auto_jobs()` (core count halved, capped at 4 =
+the highest value measured), overridable per call. Never hardcoded — the fleet (G5) has other CPUs.
+`4stem` is now ~0.82x realtime, about 2.5 min for a 3 min track: comfortably interactive.
+
+**Retracted:** the MDXC `batch_size` default returns to the library value. The plumbing stays,
+because it is what makes a future controlled measurement possible and testable. A test now pins
+`batch_size == 1` with the reason, so it cannot be quietly re-raised.
+
+**One finding survived**, because it was warm-vs-warm and so not subject to the confound:
+**do not lower MDXC `overlap`.** At `overlap=2` the run took 1023.8 s against 278.1 s at
+`overlap=8` — a **3.7x slowdown**. Lower overlap means *more* work for MDXC, which reads backwards
+if you assume it is a fraction. Documented and pinned by a test.
+
+**R2 is reinstated as a live candidate.** It was dismissed on the strength of the inflated 2.97x.
+Against the true 1.22x, the ONNX export's reported ~1.31x is comparable or better, and the two may
+compose. It should be evaluated on merit, not against a number that was wrong.
+
+**Answer to the milestone's actual question:** HQ separation still has to be an overnight job.
+`vocals-hq` measured **25.97 min for a 2.85 min track, 9.11x realtime** — no better than before.
+Speed there needs a different model or different hardware, not tuning.
+
+**Left deliberately unmeasured:** `mdx_params` (`karaoke`, `full-vocals`) and `vr_params`. Only MDXC
+and demucs were measured; guessing at the rest would repeat the mistake above.
+
+**Tests:** +12 (`auto_jobs` scaling, parameter pass-through both backends, the `overlap` guard, the
+`batch_size` retraction guard).
+
+---
+
+
 ### Answer #041 — S2 / M2: model cache complete, hashed, and honestly licensed
 **Timestamp:** 2026-08-30
 **Action Type:** Milestone — H1 M2 closed; `toolshop doctor` model_cache FAIL -> OK

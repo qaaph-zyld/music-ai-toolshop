@@ -171,3 +171,66 @@ def test_extract_stems_preset_karaoke(mock_audio_separator, tmp_path):
     assert mock_audio_separator.call_count == 1
     assert result["preset"] == "karaoke"
     assert set(result["stems"].keys()) == {"instrumental", "main_vocals"}
+
+
+# ---------------------------------------------------------------- M3: MDXC params
+#
+# The batch_size "speedup" was a cold-cache artifact: a 30 s clip sweep showed
+# 1.40x, a full-track run showed 1.00x (25.97 min vs a 26.06 min baseline). The
+# defaults are therefore the LIBRARY defaults. What is worth guarding is the
+# plumbing, and the one finding that survived (overlap).
+
+from toolshop import stem_extractor_adapter as _sea
+
+
+def test_default_mdxc_params_are_the_library_defaults():
+    """No tuned batch size ships without a warm-up-controlled measurement."""
+    p = _sea.default_mdxc_params()
+    assert p["batch_size"] == _sea.MDXC_BATCH_SIZE == 1, (
+        "batch_size=4 measured 1.40x on a clip but 1.00x on a full track - "
+        "it was disk warm-up, not compute. Do not re-raise this without a "
+        "controlled measurement."
+    )
+
+
+def test_default_mdxc_params_keep_overlap_at_eight():
+    """The one surviving finding: overlap=2 was 3.7x SLOWER, warm vs warm.
+
+    Lower overlap means more work for MDXC, not less. This guards against a
+    plausible-looking 'optimisation' that reads overlap as a fraction.
+    """
+    assert _sea.default_mdxc_params()["overlap"] == 8
+
+
+def test_run_audio_separator_passes_params_through(mock_audio_separator, tmp_path):
+    """The plumbing is the durable deliverable - it makes future tuning testable."""
+    sep_class = mock_audio_separator
+    sep_class.return_value.separate.return_value = []
+    import toolshop.stem_extractor_adapter as adapter
+
+    adapter._run_audio_separator(
+        input_path=tmp_path / "in.wav",
+        model=adapter.stem_models.MODELS["bs-roformer-317"],
+        output_dir=tmp_path,
+        model_file_dir=tmp_path,
+    )
+    passed = sep_class.call_args.kwargs["mdxc_params"]
+    assert passed["batch_size"] == 1
+    assert passed["overlap"] == 8
+
+
+def test_explicit_mdxc_params_override_the_default(mock_audio_separator, tmp_path):
+    sep_class = mock_audio_separator
+    sep_class.return_value.separate.return_value = []
+    import toolshop.stem_extractor_adapter as adapter
+
+    custom = {"segment_size": 128, "override_model_segment_size": True,
+              "batch_size": 2, "overlap": 8, "pitch_shift": 0}
+    adapter._run_audio_separator(
+        input_path=tmp_path / "in.wav",
+        model=adapter.stem_models.MODELS["bs-roformer-317"],
+        output_dir=tmp_path,
+        model_file_dir=tmp_path,
+        mdxc_params=custom,
+    )
+    assert sep_class.call_args.kwargs["mdxc_params"] == custom

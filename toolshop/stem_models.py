@@ -167,7 +167,15 @@ MODELS: Dict[str, StemModel] = {
             ("vocals", "vocals"),
         ],
         quality_tier="hq",
-        cpu_min_per_track=None,
+        # MEASURED 2026-08-30 (8 logical cores, CPU-only), CONTROLLED - warm-up
+        # discarded, baseline repeated (2.0% drift), 30 s clip:
+        #   jobs=0 -> 30.2 s / 29.6 s
+        #   jobs=4 -> 24.6 s   = 1.22x  (the computed default)
+        # ~0.82x realtime, so a 3 min track is ~2.5 min - comfortably interactive,
+        # unlike the RoFormer presets at ~9x. Stem correlation 0.986-0.9995.
+        # NOTE: an earlier UNCONTROLLED sweep reported 2.97x and ~1.9 min. That
+        # baseline was cold-cache inflated; these are the trustworthy figures.
+        cpu_min_per_track=2.5,
         vram_gb=None,
         license="MIT",
         source="https://github.com/facebookresearch/demucs",

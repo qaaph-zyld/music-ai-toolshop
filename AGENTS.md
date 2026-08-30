@@ -47,6 +47,20 @@ Caught by orchestrator spot-check 3+ sessions running: uncommitted work left in 
   while collecting zero Suno data. When adding an asset class, add a test that asserts it appears in
   the manifest.
 
+## Measurement discipline (added 2026-08-30 — earned the hard way)
+
+- **Warm up before you measure, and repeat the baseline.** An M3 sweep ran each baseline cold and
+  every variant warm, so it measured 609 MB of disk read and called it compute. It reported a 2.97x
+  and a 1.40x speedup; controlled re-runs gave 1.22x and **1.00x**. Any timing comparison needs a
+  discarded warm-up run and the baseline repeated at the end — if the two baselines disagree by more
+  than ~10%, the machine is not a stable instrument and no conclusion holds.
+- **Validate a clip result on a full input before shipping it.** The 1.40x survived a 30 s clip and
+  died on a 3 min track. Short-input measurements exaggerate anything with fixed overhead.
+- **Kill the watcher with the process it watches.** Stopping a long job while leaving an
+  `until <cond>; do sleep; done` loop polling for output that will now never appear leaks a shell
+  that spins for the rest of the session. Three were leaked in one session before a user noticed.
+  Prefer bounded polling (`for i in $(seq 1 N)`) over unbounded `until`.
+
 ## Mechanical close-out (enforced by tooling)
 - **`toolshop closeout`** must exit 0 at session end. Its evidence block (git status, git log, submodule summary) must be pasted in every handoff.
 - **Pre-push hook** (`hooks/pre-push`, version-controlled): blocks pushes when the working tree has tracked junk files (`pytest_*.txt`, `annotate_run*.txt`) or staged-but-uncommitted changes. Bypass with `--no-verify` is for emergencies only — fix the tree instead.

@@ -3,6 +3,28 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
+> **S3 / M3 DONE 2026-08-30 — stems CPU. One real win, one retraction. See CHANGELOG #042.**
+>
+> | Item | Result |
+> |---|---|
+> | **Scoping correction** | The S2 note implied R2 (HT-Demucs ONNX) would speed up the 26-min `vocals-hq`. It would not — R2 is the **demucs** backend; `vocals-hq` is **audio-separator**. The two do not overlap. |
+> | **The real finding** | **Both adapters passed zero tuning parameters.** RoFormer ran `batch_size=1`; demucs ran `jobs=0` on an 8-core machine. So the first question was "how much is unconfigured defaults", not "what do we adopt". No new dependency was added. |
+> | **A MISTAKE, found and corrected in-session** | The first sweep ran baselines **cold** and variants **warm**, measuring disk warm-up as compute. It reported **2.97x** (demucs) and **1.40x** (RoFormer); both were wired in. A full-track run then measured `vocals-hq` at **25.97 min vs a 26.06 min baseline = 1.00x, nothing**. The tells were in the data and were not read: batch4 (278.1 s) and batch8 (289.2 s) clustered, the lone cold baseline stood 110 s apart. |
+> | **Controlled re-measurement** | Warm-up discarded, baseline repeated: demucs `jobs=0` 30.2 s / `jobs=4` **24.6 s** / `jobs=0` 29.6 s → **1.22x**, 2.0% drift (stable instrument). |
+> | **Adopted** | demucs `jobs` via `auto_jobs()` — computed per machine (cores//2, capped at 4 = highest measured), overridable, never hardcoded (fleet has other CPUs). `4stem` ≈ **0.82x realtime, ~2.5 min for a 3 min track** — interactive. |
+> | **Retracted** | MDXC `batch_size` default back to the library value. Plumbing kept (it makes future controlled tuning possible and testable); a test pins `batch_size == 1` with the reason so it cannot be quietly re-raised. |
+> | **Survived the confound** | **Do not lower MDXC `overlap`** — `overlap=2` took 1023.8 s vs 278.1 s at `overlap=8`, a **3.7x slowdown**, warm vs warm. Lower overlap means *more* work. Pinned by a test. |
+> | **R2 reinstated** | It was dismissed against the inflated 2.97x. Against the true **1.22x**, its reported ~1.31x is comparable or better and the two may compose. Evaluate on merit. |
+> | **Milestone question answered** | **HQ separation still has to be overnight.** `vocals-hq` = 25.97 min / 9.11x realtime, unchanged. That needs a different model or different hardware, not tuning. |
+> | **Test suite** | **991 passed, 2 skipped, 0 failed** (390s). +8 on the 983 baseline (`auto_jobs` scaling, pass-through both backends, the `overlap` guard, the `batch_size` retraction guard). |
+> | **Left unmeasured, deliberately** | `mdx_params` (`karaoke`, `full-vocals`) and `vr_params`. Guessing there would repeat the mistake above. |
+>
+> **AGENTS.md gained a "Measurement discipline" section** — warm up and repeat the baseline; validate
+> clip results on a full input; kill the watcher with the process it watches (three polling loops were
+> leaked in one session before the user spotted them).
+>
+> ---
+>
 > **S2 / M2 DONE 2026-08-30 — model cache complete. See CHANGELOG #041.**
 >
 > | Item | Result |

@@ -35,6 +35,56 @@ def _default_model_dir() -> Path:
     return Path.home() / ".cache" / "toolshop-models"
 
 
+# These ARE audio-separator's own defaults. They are passed explicitly so the
+# values are visible and overridable in one place, not because they are tuned.
+MDXC_BATCH_SIZE = 1
+
+
+def default_mdxc_params() -> Dict[str, Any]:
+    """MDXC (RoFormer) parameters. **Deliberately the library defaults.**
+
+    A NULL RESULT, recorded because the process that produced it matters more
+    than the numbers (M3, 2026-08-30, 8 logical cores, CPU-only).
+
+    A 30 s clip sweep appeared to show `batch_size=4` giving a **1.40x** speedup
+    (388.2 s -> 278.1 s) with byte-identical output. It was wired in as a default.
+    A full-track run then measured **25.97 min against a 26.06 min baseline —
+    1.00x. Exactly no improvement.**
+
+    The sweep was confounded. It ran the baseline **first**, with the 609 MB
+    checkpoint cold on a 2010 HDD, and every variant afterwards with the model
+    warm in the page cache. The tells were all there in the data:
+
+      * `batch_size=4` (278.1 s) and `batch_size=8` (289.2 s) clustered together;
+        both were warm. The lone cold run stood 110 s apart.
+      * Doubling the batch to 8 moved the result by 11 s, which is not how a real
+        batching effect behaves.
+
+    So `batch_size` stays at the library default until someone measures it with a
+    warm-up run and a repeated baseline. **The plumbing below is still worth
+    keeping** — it makes that measurement possible and testable, which is the one
+    durable thing the exercise produced.
+
+    ONE FINDING SURVIVED, because it was a warm-vs-warm comparison and therefore
+    not subject to the same confound:
+
+    **Do not "optimise" `overlap` downwards.** For MDXC a lower value means *more*
+    work, not less: `overlap=2` took 1023.8 s against 278.1 s at `overlap=8` — a
+    **3.7x slowdown** between two equally-warm runs. That reads backwards if you
+    assume overlap is a fraction, which is exactly why someone would try it.
+
+    `mdx_params` (MDX-Net: `karaoke`, `full-vocals`) and `vr_params` were never
+    measured and are left alone. Guessing there would repeat the mistake above.
+    """
+    return {
+        "segment_size": 256,
+        "override_model_segment_size": False,
+        "batch_size": MDXC_BATCH_SIZE,
+        "overlap": 8,
+        "pitch_shift": 0,
+    }
+
+
 def _run_audio_separator(
     input_path: Path,
     model: stem_models.StemModel,
@@ -42,6 +92,7 @@ def _run_audio_separator(
     use_gpu: bool = False,
     output_format: str = "wav",
     model_file_dir: Optional[Path] = None,
+    mdxc_params: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, str]:
     """Run one audio-separator model and return canonical stem paths."""
     _check_audio_separator()
@@ -55,6 +106,7 @@ def _run_audio_separator(
         output_format=output_format,
         use_directml=use_directml,
         model_file_dir=str(model_file_dir),
+        mdxc_params=mdxc_params or default_mdxc_params(),
     )
     separator.load_model(model.model_file)
 
@@ -80,6 +132,7 @@ def extract_stems_preset(
     use_gpu: bool = False,
     output_format: Optional[str] = None,
     model_file_dir: Optional[Path] = None,
+    mdxc_params: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Extract stems using a named preset from the registry.
 
@@ -89,6 +142,8 @@ def extract_stems_preset(
         output_dir: Directory for output files. Defaults to
             ./separated_tracks/<preset_id>.
         use_gpu: Whether to use GPU acceleration (default: CPU).
+        mdxc_params: MDXC (RoFormer) tuning. None uses `default_mdxc_params()`,
+            which is measured, not guessed - see its docstring.
         output_format: Audio format written by the backend. Defaults to the
             preset's configured format.
         model_file_dir: Directory where audio-separator caches downloaded models.
@@ -134,6 +189,7 @@ def extract_stems_preset(
             use_gpu=use_gpu,
             output_format=output_format,
             model_file_dir=model_file_dir,
+            mdxc_params=mdxc_params,
         )
 
         # Apply preset-level aliases (e.g. map model's "vocals" to "main_vocals").

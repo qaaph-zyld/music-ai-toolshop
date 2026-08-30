@@ -7,6 +7,7 @@ Tries the Python API first (`demucs.api.Separator`) and falls back to a
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 import sys
@@ -34,17 +35,49 @@ def _normalize_ext(path: Path, output_format: str) -> Path:
     return path
 
 
+def auto_jobs() -> int:
+    """Pick a demucs worker count for this machine.
+
+    MEASURED 2026-08-30 (8 logical cores, CPU-only), **controlled**: warm-up run
+    discarded, then jobs=0 / jobs=4 / jobs=0 again to catch drift.
+
+        jobs=0  30.2 s
+        jobs=4  24.6 s      <- 1.22x
+        jobs=0  29.6 s      <- baseline repeat, 2.0% drift => stable instrument
+
+    **1.22x, not the 2.97x first reported.** The initial sweep ran the baseline
+    cold and the variant warm, so it was partly measuring disk warm-up (56.5 s
+    cold vs ~30 s warm). The companion claim on the audio-separator side survived
+    that confound even less well - see `stem_extractor_adapter.default_mdxc_params`,
+    where a clip-measured "1.40x" turned out to be exactly 1.00x on a full track.
+
+    1.22x is small but genuine, free, and the output is equivalent (stem
+    correlation 0.986-0.9995 vs jobs=0; the `other` residual stem varies most,
+    as expected).
+
+    Capped at 4 because that is the highest value actually measured; halved from
+    the core count so demucs' worker processes do not fight torch's own threads.
+    The fleet (G5) has different CPUs, so this is computed, never hardcoded.
+    """
+    cores = os.cpu_count() or 1
+    return max(1, min(4, cores // 2))
+
+
 def _api_separate(
     input_path: Path,
     output_dir: Path,
     model: stem_models.StemModel,
     output_format: str,
     device: str = "cpu",
+    jobs: Optional[int] = None,
 ) -> Dict[str, str]:
     """Use demucs.api.Separator to separate and write stems to output_dir."""
     from demucs.api import Separator  # type: ignore
 
-    sep = Separator(model=model.model_file, device=device)
+    if jobs is None:
+        jobs = auto_jobs()
+    logger.info("demucs: model=%s device=%s jobs=%d", model.model_file, device, jobs)
+    sep = Separator(model=model.model_file, device=device, jobs=jobs)
     # separate_audio_file returns (origin, separated) where separated is a dict.
     _, separated = sep.separate_audio_file(str(input_path))
 
@@ -113,6 +146,7 @@ def separate(
     output_dir: Optional[Path] = None,
     output_format: str = "flac",
     device: str = "cpu",
+    jobs: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Separate an audio file with Demucs.
 
@@ -122,6 +156,8 @@ def separate(
         output_dir: Destination directory for stems.
         output_format: Output audio format.
         device: 'cpu' or 'cuda'.
+        jobs: Demucs worker processes. None picks a measured default for this
+            machine via `auto_jobs()` - see its docstring for the 2.97x figure.
 
     Returns:
         Result dict matching the adapter contract used by `stems_cli`.
@@ -142,6 +178,7 @@ def separate(
             model=model,
             output_format=output_format,
             device=device,
+            jobs=jobs,
         )
         backend = "demucs-api"
     except Exception:
