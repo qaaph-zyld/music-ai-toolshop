@@ -109,7 +109,7 @@ def _model_cache_ok() -> dict[str, Any]:
     cache_root = Path(os.environ.get("TOOLSHOP_MODEL_DIR", Path.home() / ".cache" / "toolshop-models"))
     cache_root.mkdir(parents=True, exist_ok=True)
     status = stem_models.check_model_cache(cache_root)
-    return {
+    result = {
         "check": "model_cache",
         "path": status["path"],
         "ok": status["complete"],
@@ -117,6 +117,35 @@ def _model_cache_ok() -> dict[str, Any]:
         "missing": status["missing"],
         "orphans": status["orphans"],
     }
+
+    # Presence is not integrity. Re-hashing 1.48 GB is too slow for a routine
+    # health check, so compare sizes here and leave the full hash pass to
+    # `verify_model_cache()`. Size still catches the common failures: a truncated
+    # download, an interrupted write, a half-restored cache.
+    if status["complete"] and stem_models.MODEL_MANIFEST_PATH.exists():
+        try:
+            manifest = json.loads(
+                stem_models.MODEL_MANIFEST_PATH.read_text(encoding="utf-8")
+            )
+            wrong_size = [
+                name
+                for name, entry in manifest.get("models", {}).items()
+                if (cache_root / name).exists()
+                and (cache_root / name).stat().st_size != entry.get("size_bytes")
+            ]
+            unrecorded = [
+                n for n in status["present"] if n not in manifest.get("models", {})
+            ]
+            result["size_mismatch"] = wrong_size
+            result["unrecorded"] = unrecorded
+            if wrong_size or unrecorded:
+                result["ok"] = False
+        except Exception as exc:  # a broken manifest must not mask a good cache
+            result["manifest_error"] = str(exc)
+    elif status["complete"]:
+        result["manifest"] = f"absent ({stem_models.MODEL_MANIFEST_PATH})"
+
+    return result
 
 
 def _backup_ok() -> dict[str, Any]:

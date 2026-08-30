@@ -1,5 +1,78 @@
 # Changelog
 
+### Answer #041 — S2 / M2: model cache complete, hashed, and honestly licensed
+**Timestamp:** 2026-08-30
+**Action Type:** Milestone — H1 M2 closed; `toolshop doctor` model_cache FAIL -> OK
+
+**The milestone:** two of four audio-separator checkpoints were absent, silently disabling the
+`vocals-hq` and `full-vocals-hq` presets. Both fetched via `audio-separator`'s own downloader, at
+exactly the sizes a live `HEAD` predicted: `model_bs_roformer_ep_317_sdr_12.9755.ckpt` (609.7 MB) and
+`mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt` (870.8 MB). Cache is now 4/4, 0 missing,
+0 orphans. **`doctor` model_cache: FAIL -> OK.**
+
+**A provenance defect corrected (and NOT papered over):**
+`stem_models.py` recorded the karaoke model as `source=RVC-Boss/GPT-SoVITS`, `license="MIT"`.
+GPT-SoVITS is a text-to-speech project and is not its origin; `audio-separator`'s own
+`download_checks.json` resolves it to the TRvlvr release, weights by aufr33 + viperx. The MIT claim
+appears inherited from that wrong attribution.
+
+Rather than swap MIT onto the corrected entry, both RoFormer entries now read
+**`unverified — see source`**. UVR's MIT covers its GUI and UVR-team models with credit, but
+explicitly does **not** extend to third-party models it merely redistributes (viperx/Kim/Demucs carry
+their own), and the weight authors have not declared terms. An admitted gap in the licence ledger is
+worth more than an asserted licence.
+
+**Two things only the real download could reveal:**
+1. The two models use **different companion-config naming**:
+   `model_bs_roformer_….yaml` (same stem) vs `mel_band_roformer_…_config.yaml` (stem + `_config`).
+   The first fix handled only the same-stem case; both are handled now, with a test for each.
+   Previously either would have been reported as a spurious orphan.
+2. **`vocals-hq` is an overnight preset, not an interactive one** — see measurement below.
+
+**Integrity, because presence is not integrity:**
+- `docs/model_manifest.json` — version-controlled sha256 + size + licence + source for all four
+  models and both companion configs (2.4 KB).
+- `stem_models.verify_model_cache()` re-hashes; `doctor` does the cheap size check every run.
+- The point: the backup verified "clean" for a month while collecting the wrong asset set (F1b).
+  A test proves the difference — a file that is present, correctly named and wrong-bytes **passes**
+  the old presence check and **fails** the new one.
+
+**Measured CPU cost (governance rule 1), on this machine, CPU-only:**
+- **`vocals-hq` = 26.06 min for a 2.85 min track = 9.14x realtime.** Far past the 15 min/track
+  threshold, so it routes to the overnight batch engine rather than interactive use.
+- `full-vocals-hq` **not measured** — the run was stopped after its first pass to avoid holding up
+  close-out. It runs bs-roformer *plus* the 870 MB karaoke model, so it is **>26 min/track** and
+  likely ~50. Recorded as a lower bound, not a figure.
+
+**Debt 13b fixed (it was breaking the close-out gate):**
+`build_database()` writes `_dedup_log.json` into whatever it gets as `root`, and the tests passed it
+the **tracked** `tests/fixtures/lyrics_min/`. Every plain `pytest` run therefore left the working tree
+modified, quietly defeating `toolshop closeout`'s clean-tree check. Tests now run against a throwaway
+copy, fixed once at import so all 17 call sites keep working unchanged. Verified: 100 tests pass and
+`git status` is clean immediately afterwards.
+
+**An existing test was asserting something wrong, and was corrected rather than weakened:**
+`test_model_cache_ok` created **zero-byte placeholder files** for every model and asserted the cache
+was healthy. The new size check (correctly) rejected that, so the test failed. The tempting fix was
+to flip the assertion — which is precisely how debt 1c happened, and is forbidden by AGENTS.md.
+
+Instead the test's *intent* was restored: it points `MODEL_MANIFEST_PATH` at a non-existent file so
+it keeps testing presence, which is what it was written for. Two tests were then added for the
+behaviour it could no longer cover:
+- `test_model_cache_rejects_present_but_wrong_size` — every file present and correctly named, wrong
+  bytes; asserts `missing == []` so the failure is provably about integrity, not presence.
+- `test_model_cache_survives_a_broken_manifest` — a corrupt manifest must not mask a fine cache.
+
+Net: `test_doctor.py` 16 → 19 tests, all passing, and the suite is stronger than before the change.
+
+**Note:** the machine clock advanced ~10 days mid-session, so backup-age readings and file timestamps
+across this wave are inconsistent. The backup was re-run at close-out (6,925 files, 118.5 MB,
+verified, DB smoke test PASS). `docs/model_manifest.json` is **not** in the backup by design — it is
+version-controlled, so git and origin are its protection.
+
+---
+
+
 ### Answer #040 — P0 close-out: hygiene, data boundary, and records reconciled
 **Timestamp:** 2026-08-20
 **Action Type:** Consolidation — repo hygiene + documentation truth-up

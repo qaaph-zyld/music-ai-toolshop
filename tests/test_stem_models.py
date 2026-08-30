@@ -103,3 +103,104 @@ def test_check_model_cache_complete(tmp_path):
     status = stem_models.check_model_cache(tmp_path)
     assert status["complete"]
     assert not status["missing"]
+
+
+# ------------------------------------------------------------ M2: cache integrity
+#
+# Presence is not integrity. The backup verified "clean" for a month while
+# collecting the wrong asset set (assessment F1b); these guard the same trap here.
+
+import json as _json
+
+from toolshop import stem_models as _sm
+
+
+def _fake_cache(tmp_path, *, with_yaml=True):
+    cache = tmp_path / "models"
+    cache.mkdir()
+    for m in _sm.MODELS.values():
+        if m.backend != "audio-separator":
+            continue
+        (cache / m.model_file).write_bytes(m.model_file.encode() * 8)
+    if with_yaml:
+        # Both conventions seen against real downloads on 2026-08-20: one model's
+        # sidecar shares its stem, the other appends "_config".
+        (cache / "model_bs_roformer_ep_317_sdr_12.9755.yaml").write_text("cfg", encoding="utf-8")
+        (cache / "mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956_config.yaml").write_text(
+            "cfg", encoding="utf-8"
+        )
+    return cache
+
+
+def test_companion_yaml_is_not_an_orphan(tmp_path):
+    """RoFormer checkpoints ship a sidecar .yaml — part of the model, not junk."""
+    cache = _fake_cache(tmp_path)
+    status = _sm.check_model_cache(cache)
+    assert status["complete"] is True
+    assert status["orphans"] == [], f"companion config reported as orphan: {status['orphans']}"
+
+
+def test_unrelated_file_is_still_an_orphan(tmp_path):
+    cache = _fake_cache(tmp_path)
+    (cache / "some_random_thing.bin").write_bytes(b"x")
+    (cache / "not_a_companion.yaml").write_text("y", encoding="utf-8")
+    orphans = _sm.check_model_cache(cache)["orphans"]
+    assert "some_random_thing.bin" in orphans
+    assert "not_a_companion.yaml" in orphans, "a .yaml with no matching model must still be an orphan"
+
+
+def test_build_manifest_records_hashes_and_licences(tmp_path):
+    cache = _fake_cache(tmp_path)
+    manifest = _sm.build_model_manifest(cache)
+    models = manifest["models"]
+    assert "model_bs_roformer_ep_317_sdr_12.9755.ckpt" in models
+    entry = models["model_bs_roformer_ep_317_sdr_12.9755.ckpt"]
+    assert len(entry["sha256"]) == 64
+    assert entry["size_bytes"] > 0
+    assert entry["license"] and entry["source"]
+    # Companions are recorded alongside their model, not silently dropped -
+    # and both naming conventions are covered.
+    assert models["model_bs_roformer_ep_317_sdr_12.9755.yaml"]["companion_of"] == (
+        "model_bs_roformer_ep_317_sdr_12.9755.ckpt"
+    )
+    assert models["mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956_config.yaml"][
+        "companion_of"
+    ] == "mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt"
+
+
+def test_verify_passes_on_an_intact_cache(tmp_path):
+    cache = _fake_cache(tmp_path)
+    result = _sm.verify_model_cache(cache, manifest=_sm.build_model_manifest(cache))
+    assert result["ok"] is True
+    assert result["corrupt"] == [] and result["missing"] == []
+
+
+def test_verify_detects_a_corrupt_file_that_presence_would_miss(tmp_path):
+    """The case a filename check cannot see: right name, right place, wrong bytes."""
+    cache = _fake_cache(tmp_path)
+    manifest = _sm.build_model_manifest(cache)
+    target = cache / "model_bs_roformer_ep_317_sdr_12.9755.ckpt"
+    target.write_bytes(b"corrupted-but-present" * 4)
+
+    # A presence-only check is still happy...
+    assert _sm.check_model_cache(cache)["complete"] is True
+    # ...the hash check is not.
+    result = _sm.verify_model_cache(cache, manifest=manifest)
+    assert result["ok"] is False
+    assert "model_bs_roformer_ep_317_sdr_12.9755.ckpt" in result["corrupt"]
+
+
+def test_verify_reports_missing_file(tmp_path):
+    cache = _fake_cache(tmp_path)
+    manifest = _sm.build_model_manifest(cache)
+    (cache / "model_bs_roformer_ep_317_sdr_12.9755.ckpt").unlink()
+    result = _sm.verify_model_cache(cache, manifest=manifest)
+    assert result["ok"] is False
+    assert "model_bs_roformer_ep_317_sdr_12.9755.ckpt" in result["missing"]
+
+
+def test_verify_without_a_manifest_is_not_silently_ok(tmp_path, monkeypatch):
+    monkeypatch.setattr(_sm, "MODEL_MANIFEST_PATH", tmp_path / "nope.json")
+    result = _sm.verify_model_cache(_fake_cache(tmp_path))
+    assert result["ok"] is False
+    assert "no manifest" in result["reason"]

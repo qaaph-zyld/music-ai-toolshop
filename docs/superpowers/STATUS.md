@@ -3,6 +3,25 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
+> **S2 / M2 DONE 2026-08-30 — model cache complete. See CHANGELOG #041.**
+>
+> | Item | Result |
+> |---|---|
+> | **Model cache** | Both missing RoFormer checkpoints fetched at exactly their expected sizes (609.7 MB + 870.8 MB). Cache 4/4, 0 missing, **0 orphans**. **`doctor` model_cache FAIL → OK.** |
+> | **Provenance defect** | The karaoke model recorded `source=RVC-Boss/GPT-SoVITS` (a TTS project — not its origin) and `license="MIT"`. Corrected to the TRvlvr release. **Both RoFormer licences now read `unverified — see source`**: UVR's MIT does not extend to third-party models it merely redistributes, and the weight authors declared no terms. An admitted gap beats an asserted licence. |
+> | **Companion configs** | The two models use *different* sidecar naming (`….yaml` vs `…_config.yaml`). Only the real download exposed this; both handled, test each. Either would previously have shown as a spurious orphan. |
+> | **Integrity** | `docs/model_manifest.json` — sha256 + size + licence + source for 4 models and 2 configs. `verify_model_cache()` re-hashes; `doctor` size-checks every run. A test proves a present-but-wrong-bytes file **passes** the old check and **fails** the new one — the F1b trap, closed here before it could form. |
+> | **Measured CPU cost** | **`vocals-hq` = 26.06 min for a 2.85 min track = 9.14× realtime** — past the 15 min/track rule, so it is an **overnight-batch preset**, not interactive. `full-vocals-hq` **not measured**; run stopped after its first pass, known only to be **>26 min** (lower bound, not a figure). |
+> | **Debt 13b** | **FIXED.** `build_database()` wrote `_dedup_log.json` into the *tracked* fixture, so every `pytest` run dirtied the tree and defeated `closeout`'s clean-tree check. Tests now use a throwaway copy — 100 pass, tree clean afterwards. |
+> | **Test suite** | **983 passed, 2 skipped, 0 failed** (457s). **+9 on the 974 baseline** (7 model-integrity tests, 2 new doctor tests). No test weakened. |
+> | **A test caught, not weakened** | `test_model_cache_ok` asserted that a cache of **zero-byte placeholders** was healthy; the new size check correctly rejected it. The assertion was **not** flipped (that is how debt 1c happened). Its intent was restored (presence-only, manifest pointed away), and two tests added for what it could no longer cover: present-but-wrong-size, and a corrupt manifest not masking a good cache. `test_doctor.py` 16 → 19. |
+> | **Clock** | The machine clock advanced ~10 days mid-session; backup-age readings across this wave are inconsistent. Backup re-run at close-out: 6,925 files, 118.5 MB, verified, DB smoke PASS. `docs/model_manifest.json` is deliberately **not** in the backup — it is version-controlled, so git is its protection. |
+>
+> **Next: S3 — M3 stems CPU** via the HT-Demucs FT ONNX export (R2, ~1.31× faster). The `vocals-hq`
+> measurement makes that lane more valuable than it looked: HQ separation currently costs ~9× realtime.
+>
+> ---
+>
 > **P0 EXECUTED 2026-08-19/20 — consolidation + safety. See CHANGELOG #038–#040.**
 >
 > | Item | Result |

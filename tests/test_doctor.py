@@ -84,15 +84,76 @@ def test_disk_ok_not_enough_space(monkeypatch):
 
 
 def test_model_cache_ok(tmp_path, monkeypatch):
+    """Presence check, with the integrity layer deliberately out of the picture.
+
+    These are zero-byte placeholders, so the size comparison added in #041 would
+    (correctly) reject them. Point the manifest somewhere that does not exist so
+    this test keeps testing what it was written to test: presence.
+    """
     cache = tmp_path / "models"
     cache.mkdir()
     for name in doctor.stem_models.expected_model_files():
         (cache / name).touch()
     monkeypatch.setenv("TOOLSHOP_MODEL_DIR", str(cache))
+    monkeypatch.setattr(doctor.stem_models, "MODEL_MANIFEST_PATH", tmp_path / "no_manifest.json")
+
     result = doctor._model_cache_ok()
     assert result["ok"] is True
     assert result["path"] == str(cache)
     assert result["missing"] == []
+    assert "absent" in result["manifest"]
+
+
+def test_model_cache_rejects_present_but_wrong_size(tmp_path, monkeypatch):
+    """The case #041 exists for: every file present, correctly named, wrong bytes.
+
+    A truncated download, an interrupted write or a half-restored cache all look
+    perfect to a presence-only check. This is the same trap that let the backup
+    verify "clean" for a month while holding the wrong asset set (F1b).
+    """
+    import json
+
+    cache = tmp_path / "models"
+    cache.mkdir()
+    for name in doctor.stem_models.expected_model_files():
+        (cache / name).touch()
+
+    # A manifest that says these files should be substantial.
+    manifest_path = tmp_path / "model_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "models": {
+                    name: {"size_bytes": 609_700_000, "sha256": "0" * 64}
+                    for name in doctor.stem_models.expected_model_files()
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TOOLSHOP_MODEL_DIR", str(cache))
+    monkeypatch.setattr(doctor.stem_models, "MODEL_MANIFEST_PATH", manifest_path)
+
+    result = doctor._model_cache_ok()
+    assert result["ok"] is False, "zero-byte placeholders must not read as a healthy cache"
+    assert result["missing"] == [], "they are present - the failure must be integrity, not presence"
+    assert result["size_mismatch"], "the size mismatch is what should have been reported"
+
+
+def test_model_cache_survives_a_broken_manifest(tmp_path, monkeypatch):
+    """A corrupt manifest must not mask an otherwise fine cache."""
+    cache = tmp_path / "models"
+    cache.mkdir()
+    for name in doctor.stem_models.expected_model_files():
+        (cache / name).touch()
+    manifest_path = tmp_path / "model_manifest.json"
+    manifest_path.write_text("{not json", encoding="utf-8")
+    monkeypatch.setenv("TOOLSHOP_MODEL_DIR", str(cache))
+    monkeypatch.setattr(doctor.stem_models, "MODEL_MANIFEST_PATH", manifest_path)
+
+    result = doctor._model_cache_ok()
+    assert result["ok"] is True
+    assert "manifest_error" in result
 
 
 def test_model_cache_missing(tmp_path, monkeypatch):

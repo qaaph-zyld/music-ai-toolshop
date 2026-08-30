@@ -6,9 +6,16 @@ adapters can map raw filenames to canonical stem names without substring guessin
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
+
+# Version-controlled record of what each model file should hash to. Small enough
+# to be code rather than data, and it must survive a cache wipe — the whole point
+# of M2 was to stop depending on a third-party release page staying reachable.
+MODEL_MANIFEST_PATH = Path(__file__).resolve().parent.parent / "docs" / "model_manifest.json"
 
 
 @dataclass
@@ -86,10 +93,20 @@ MODELS: Dict[str, StemModel] = {
             ("Vocals", "main_vocals"),
         ],
         quality_tier="hq",
-        cpu_min_per_track=None,
+        # MEASURED 2026-08-30 on this machine (CPU-only, i7-4770 class):
+        # 26.06 min for a 2.85 min track = **9.14x realtime**. Well past the 15
+        # min/track governance threshold, so `vocals-hq` is an overnight-batch
+        # preset, not an interactive one. Scale by track length, not by this number.
+        cpu_min_per_track=26.1,
         vram_gb=None,
-        license="MIT/BSD",
-        source="https://github.com/TRvlvr/model_repo",
+        # Weight licence UNVERIFIED (checked 2026-08-20). The BS-RoFormer
+        # *architecture* (lucidrains) is MIT, and UVR's own GUI and UVR-team models
+        # are MIT-with-credit — but UVR's terms explicitly do NOT extend to
+        # third-party models it merely redistributes (viperx/Kim/Demucs each carry
+        # their own). The viperx weight author has not clearly declared terms, so
+        # this is recorded as unverified rather than asserted as MIT.
+        license="unverified — see source; architecture MIT (lucidrains), weight terms undeclared",
+        source="https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/model_bs_roformer_ep_317_sdr_12.9755.ckpt",
     ),
     "mel-band-roformer-karaoke": StemModel(
         id="mel-band-roformer-karaoke",
@@ -103,10 +120,22 @@ MODELS: Dict[str, StemModel] = {
             ("Vocals", "main_vocals"),
         ],
         quality_tier="hq",
+        # NOT YET MEASURED. The `full-vocals-hq` run was stopped after the
+        # bs-roformer first pass so it would not hold up close-out. What is known:
+        # this preset runs bs-roformer (26.06 min measured) *plus* this 870 MB
+        # model, so full-vocals-hq is **>26 min/track** and almost certainly ~50.
+        # That is a lower bound, not a measurement - finish it before quoting a figure.
         cpu_min_per_track=None,
         vram_gb=None,
-        license="MIT",
-        source="https://github.com/RVC-Boss/GPT-SoVITS",
+        # CORRECTED 2026-08-20. The previous entry claimed
+        # source="https://github.com/RVC-Boss/GPT-SoVITS", license="MIT".
+        # GPT-SoVITS is a text-to-speech project and is not where this model comes
+        # from; `audio-separator`'s own download_checks.json resolves it to the
+        # TRvlvr release below, and the weights are by aufr33 + viperx. The MIT
+        # claim appears to have been inherited from that wrong attribution.
+        # See the bs-roformer-317 note above for why "unverified" is the honest value.
+        license="unverified — see source; weights by aufr33/viperx, terms undeclared",
+        source="https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt",
     ),
     "uvr-bve-4b": StemModel(
         id="uvr-bve-4b",
@@ -316,13 +345,22 @@ def check_model_cache(cache_root: Path) -> Dict[str, Any]:
 
     Demucs backend models are excluded because Demucs downloads them on first
     run into its own cache. Known audio-separator metadata files are ignored as
-    orphans.
+    orphans, as are per-model companion configs (RoFormer checkpoints ship a
+    sidecar ``.yaml`` describing the architecture; it is part of the model, not
+    stray junk).
     """
     ignored_orphans = {
         "download_checks.json",
         "mdx_model_data.json",
         "vr_model_data.json",
     }
+    # Config extensions that count as a companion when they resolve to an expected
+    # model's stem. The two RoFormer models use *different* naming conventions,
+    # confirmed against real downloads on 2026-08-20:
+    #   model_bs_roformer_ep_317_sdr_12.9755.yaml          -> same stem
+    #   mel_band_roformer_karaoke_..._sdr_10.1956_config.yaml -> stem + "_config"
+    companion_suffixes = {".yaml", ".yml", ".json"}
+    companion_stem_affixes = ("_config",)
     expected = {
         m.model_file for m in MODELS.values() if m.backend == "audio-separator"
     }
@@ -344,12 +382,139 @@ def check_model_cache(cache_root: Path) -> Dict[str, Any]:
             present.append(name)
         else:
             missing.append(name)
-    orphans = sorted((found_files - expected) - ignored_orphans)
+    expected_stems = {Path(name).stem for name in expected}
+
+    def _is_companion(name: str) -> bool:
+        path = Path(name)
+        if path.suffix.lower() not in companion_suffixes:
+            return False
+        stem = path.stem
+        if stem in expected_stems:
+            return True
+        for affix in companion_stem_affixes:
+            if stem.endswith(affix) and stem[: -len(affix)] in expected_stems:
+                return True
+        return False
+
+    orphans = sorted(
+        name
+        for name in (found_files - expected) - ignored_orphans
+        if not _is_companion(name)
+    )
 
     return {
         "present": present,
         "missing": missing,
         "orphans": orphans,
         "complete": not missing,
+        "path": str(cache_root),
+    }
+
+
+# ---------------------------------------------------------------- model integrity
+#
+# Presence is not integrity. The backup verified "clean" for a month while
+# collecting the wrong asset set (assessment F1b); the same trap applies here, so
+# the cache is checked by hash, not by filename.
+
+
+def sha256_file(path: Path, chunk: int = 1 << 20) -> str:
+    """Return the SHA-256 of a file, read in chunks (these are ~600-900 MB)."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for block in iter(lambda: fh.read(chunk), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def build_model_manifest(cache_root: Path) -> Dict[str, Any]:
+    """Hash every audio-separator model present in the cache.
+
+    Companion configs are included too: a RoFormer checkpoint without its sidecar
+    ``.yaml`` will not load, so the pair is what needs recording.
+    """
+    expected = {
+        m.model_file: m for m in MODELS.values() if m.backend == "audio-separator"
+    }
+    entries: Dict[str, Any] = {}
+    for name, model in sorted(expected.items()):
+        path = cache_root / name
+        if not path.exists():
+            continue
+        entries[name] = {
+            "model_id": model.id,
+            "size_bytes": path.stat().st_size,
+            "sha256": sha256_file(path),
+            "license": model.license,
+            "source": model.source,
+        }
+        # Both companion conventions seen in the wild (see check_model_cache).
+        for companion in (
+            path.with_suffix(".yaml"),
+            path.with_name(path.stem + "_config.yaml"),
+        ):
+            if companion.exists():
+                entries[companion.name] = {
+                    "model_id": model.id,
+                    "companion_of": name,
+                    "size_bytes": companion.stat().st_size,
+                    "sha256": sha256_file(companion),
+                }
+    return {"models": entries}
+
+
+def verify_model_cache(
+    cache_root: Path, manifest: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Verify cached model files against recorded hashes.
+
+    Returns ``verified`` / ``missing`` / ``corrupt`` / ``unrecorded`` and an ``ok``
+    flag. ``corrupt`` is the case that a presence-only check cannot see: a file
+    that is there, is the right name, and is wrong.
+    """
+    if manifest is None:
+        if not MODEL_MANIFEST_PATH.exists():
+            return {
+                "ok": False,
+                "reason": f"no manifest at {MODEL_MANIFEST_PATH}",
+                "verified": [],
+                "missing": [],
+                "corrupt": [],
+                "unrecorded": [],
+            }
+        manifest = json.loads(MODEL_MANIFEST_PATH.read_text(encoding="utf-8"))
+
+    recorded = manifest.get("models", {})
+    verified: List[str] = []
+    missing: List[str] = []
+    corrupt: List[str] = []
+
+    for name, entry in sorted(recorded.items()):
+        path = cache_root / name
+        if not path.exists():
+            missing.append(name)
+            continue
+        if path.stat().st_size != entry.get("size_bytes"):
+            corrupt.append(name)
+            continue
+        if sha256_file(path) != entry.get("sha256"):
+            corrupt.append(name)
+            continue
+        verified.append(name)
+
+    expected_files = {
+        m.model_file for m in MODELS.values() if m.backend == "audio-separator"
+    }
+    unrecorded = sorted(
+        n for n in expected_files if n not in recorded and (cache_root / n).exists()
+    )
+
+    return {
+        "ok": not missing and not corrupt and not unrecorded,
+        "reason": "ok" if not (missing or corrupt or unrecorded) else "see fields",
+        "verified": verified,
+        "missing": missing,
+        "corrupt": corrupt,
+        "unrecorded": unrecorded,
         "path": str(cache_root),
     }

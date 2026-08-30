@@ -1,0 +1,46 @@
+{
+  "models": {
+    "UVR-BVE-4B_SN-44100-1.pth": {
+      "model_id": "uvr-bve-4b",
+      "size_bytes": 223650277,
+      "sha256": "56165bdfa0dd5df7930ff76652200dc287e1bfef622bba5c812c736dc22067fe",
+      "license": "UVR",
+      "source": "https://github.com/Anjok07/ultimatevocalremovergui"
+    },
+    "UVR-MDX-NET-Voc_FT.onnx": {
+      "model_id": "uvr-mdx-net-voc-ft",
+      "size_bytes": 66762490,
+      "sha256": "534b2070fcc7df514b13ef660dc8cbb328679c2374d04354a5c42bb14ecce111",
+      "license": "UVR",
+      "source": "https://github.com/Anjok07/ultimatevocalremovergui"
+    },
+    "mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt": {
+      "model_id": "mel-band-roformer-karaoke",
+      "size_bytes": 913096801,
+      "sha256": "1de20d459332fe8869aeb01327a31df0032262706e1365114e852dc271779813",
+      "license": "unverified — see source; weights by aufr33/viperx, terms undeclared",
+      "source": "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt"
+    },
+    "mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956_config.yaml": {
+      "model_id": "mel-band-roformer-karaoke",
+      "companion_of": "mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt",
+      "size_bytes": 1726,
+      "sha256": "b35077d94861f068097cce1a5e54633c055e7dcc2613eade4e4dc7c7c9c3f48b"
+    },
+    "model_bs_roformer_ep_317_sdr_12.9755.ckpt": {
+      "model_id": "bs-roformer-317",
+      "size_bytes": 639331213,
+      "sha256": "5b84f37e8d444c8cb30c79d77f613a41c05868ff9c9ac6c7049c00aefae115aa",
+      "license": "unverified — see source; architecture MIT (lucidrains), weight terms undeclared",
+      "source": "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/model_bs_roformer_ep_317_sdr_12.9755.ckpt"
+    },
+    "model_bs_roformer_ep_317_sdr_12.9755.yaml": {
+      "model_id": "bs-roformer-317",
+      "companion_of": "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
+      "size_bytes": 2273,
+      "sha256": "2bfdd16c656bd9519aba757cc4f8834b7ede675eb1e00ec4772d74ae1c41af7f"
+    }
+  },
+  "generated_at": "2026-08-20",
+  "note": "Version-controlled integrity record for the audio-separator model cache. Presence alone is not integrity: verify_model_cache() re-hashes. Licences marked 'unverified' are deliberate - see toolshop/stem_models.py."
+}
