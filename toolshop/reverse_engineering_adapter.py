@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from . import key_detection
+from . import structure
 
 try:
     from wav_reverse_engineer.audio_analyzer.audio_processor import AudioProcessor
@@ -75,6 +76,15 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
     spectral_centroid = float(_to_scalar(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))))
     spectral_bandwidth = float(_to_scalar(np.mean(librosa.feature.spectral_bandwidth(y=y, sr=sr))))
 
+    # Structure (H2-M2, #048). T7 Sample Forge's automatic sectioning was deferred
+    # in #018 as "dossier emits none yet" - because the only segmenter in the repo
+    # raised on every call and returned []. It emits sections now.
+    try:
+        structure_result = structure.segment_track(y, sr)
+    except Exception:
+        logger.warning("structure segmentation failed for %s", path, exc_info=True)
+        structure_result = None
+
     # Harmonic/percussive ratio
     y_harm, y_perc = librosa.effects.hpss(y)
     harm_energy = float(_to_scalar(np.mean(y_harm**2)))
@@ -95,6 +105,7 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
         "spectral_centroid": round(spectral_centroid, 2),
         "spectral_bandwidth": round(spectral_bandwidth, 2),
         "harmonic_ratio": round(harmonic_ratio, 4),
+        "structure": structure_result,
         "analysis_backend": "basic_librosa",
     }
 

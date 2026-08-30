@@ -3,6 +3,19 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
+> **H2-M2 DONE 2026-08-31 — structure segmentation. See CHANGELOG #048.**
+>
+> | Item | Result |
+> |---|---|
+> | **The old detector had NEVER run** | `librosa.segment.agglomerative(chroma, k=None)` is invalid and raises on every input; a bare `except Exception: return []` hid it. Confirmed on a real 171 s track: **0 sections**. The `sections` field has been empty for every track ever analysed, and the labelling beneath it was unreachable. **This is why T7 Sample Forge's auto-sectioning was deferred in #018 as "dossier emits none yet"** — a silently failing feature, not a missing one. |
+> | **No fabricated labels** | The dead code assigned `"intro" if i == 0 else "verse" if i % 2 == 1 else "chorus"` — index parity as musical analysis. Segments now carry a `segment_class` (A/B/C) + `repetitions`, derived from audio. A test asserts "chorus"/"verse"/"intro"/"outro"/"bridge" never appear in output. |
+> | **Two bugs found by reading output, not trusting it** | (1) A **0.5 s "segment"** on a 31 s track — sub-4 s slivers now merge, and re-lettering happens *after* merging (a collapsed track came back labelled "B"). (2) **Repetition detection was structurally impossible**: class count was `min(n_classes, n_segments)`, so 4 segments with 4 clusters gave every segment its own class — synthetic ABAB classified as **ABCD**. Capped at `n_segments // 2`, it now returns **ABAB**. Surfaced by investigating a failing test instead of loosening it. |
+> | **Verified on real tracks** | 171 s → 9 segments `ABCBABBAB` · 250 s → `AAABABACCAA` · 31 s → single span. Shortest 4.0 s, no gaps or overlaps. |
+> | **Dossier now emits structure** | Alongside #047's key fields. `#018 deferral unblocked.` |
+> | **Tests** | 15 — boundary guards, tiling, repetition vs known ABAB, min-duration invariant, lettering-from-A, anti-fabrication. **Suite: 1023 passed / 2 skipped / 0 failed** (+15, no regressions). |
+>
+> ---
+>
 > **H2 STARTED 2026-08-31. H2-M1 DONE — K-S key/mode. See CHANGELOG #047.**
 > Horizon plan: `plans/2026-08-31-h2-dossier-v2-horizon.md` (M1 key · M2 structure · M3 beats ·
 > M4 loudness · M5 faster-whisper lyrics · M6 schema v2 + regenerate 222).

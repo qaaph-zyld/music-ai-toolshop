@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import logging
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from . import key_detection
 
@@ -39,25 +42,28 @@ def _check_librosa() -> None:
 
 
 def _detect_sections(y: Any, sr: int) -> List[Dict[str, Any]]:
-    """Detect structural sections using librosa agglomerative novelty."""
-    try:
-        bound_frames = librosa.segment.agglomerative(
-            librosa.feature.chroma_cqt(y=y, sr=sr), k=None
-        )
-        bound_times = librosa.frames_to_time(bound_frames, sr=sr)
-    except Exception:
-        return []
+    """Detect structural sections.
 
-    sections: List[Dict[str, Any]] = []
-    for i, start in enumerate(bound_times):
-        end = bound_times[i + 1] if i + 1 < len(bound_times) else None
-        label = "intro" if i == 0 else "verse" if i % 2 == 1 else "chorus"
-        sections.append({
-            "start": round(float(start), 3),
-            "end": round(float(end), 3) if end else None,
-            "label": label,
-        })
-    return sections
+    Delegates to `toolshop.structure` (H2-M2, #048). The previous body called
+    ``librosa.segment.agglomerative(chroma, k=None)`` - invalid, raises on every
+    input - inside a bare ``except Exception: return []``, so it returned an empty
+    list for every track ever analysed. The intro/verse/chorus labels below it
+    (assigned from ``i % 2``) were unreachable, and would have been fabricated
+    anyway.
+
+    Sections now carry a repetition ``segment_class`` derived from the audio
+    instead of an invented name.
+    """
+    from . import structure
+
+    try:
+        result = structure.segment_track(y, sr)
+    except Exception:
+        # Still defensive at the call site, but the failure is no longer invisible:
+        # structure.segment_track raises, and its own tests assert it does.
+        logger.warning("structure segmentation failed", exc_info=True)
+        return []
+    return result["segments"]
 
 
 def _compute_stem_energies(stems_dir: Path, hop_length: int = 512) -> Dict[str, List[float]]:

@@ -1,5 +1,56 @@
 # Changelog
 
+### Answer #048 — H2-M2: structure segmentation. The old one never ran, once.
+**Timestamp:** 2026-08-31
+**Action Type:** Defect fix + new module. Second milestone of H2.
+
+**The existing detector had never produced a single section.**
+`video_features._detect_sections` called `librosa.segment.agglomerative(chroma, k=None)`.
+`k=None` is not valid — it raises `ValueError: Exactly one of n_clusters and distance_threshold
+has to be set` on **every** input. A bare `except Exception: return []` swallowed it. Confirmed on a
+real 171 s track: **0 sections returned**, and the exception surfaced only by removing the swallow.
+
+So the `sections` field has been empty for every track ever analysed, and the labelling beneath it was
+unreachable dead code. **This is also why T7 Sample Forge's automatic sectioning was deferred in
+#018 as "dossier emits none yet"** — not a missing feature, a silently failing one.
+
+**On labels — deliberately not "chorus".** The dead code assigned
+`"intro" if i == 0 else "verse" if i % 2 == 1 else "chorus"`: index parity presented as musical
+analysis. A consumer cannot distinguish a fabricated label from a real one, which makes it worse than
+no label. What *is* derivable is **repetition**, so segments carry a `segment_class` (A/B/C…) and a
+`repetitions` count, plus `most_repeated_class` as a hint the caller may interpret. A test asserts the
+words "chorus", "verse", "intro", "outro", "bridge" never appear in the output.
+
+**New `toolshop/structure.py`:** beat-synchronous chroma → agglomerative boundaries → repetition
+clustering. The CPU-cheap librosa/MSAF route the roadmap specifies, not Demucs-dependent allin1.
+Raises on failure rather than returning `[]` — silent failure is exactly how the original survived.
+
+**Two bugs found by looking at output rather than trusting it:**
+
+1. **A 0.5 s "segment"** on a 31 s track — a boundary artefact, not structure, and precisely the kind
+   of sliver Sample Forge would slice on. Sub-4 s spans now merge into a neighbour (same class where
+   possible). Re-lettering happens *after* merging, else a collapsed track came back labelled "B".
+
+2. **Repetition detection was structurally impossible.** Class count was
+   `min(n_classes, n_segments)` — with 4 segments and 4 clusters every segment necessarily got its own
+   class. Synthetic ABAB material classified as **ABCD**. Capped at `n_segments // 2`, it now returns
+   **ABAB** with repetitions [2,2,2,2]. This surfaced from a failing test that was investigated rather
+   than adjusted around; loosening the assertion would have shipped a segmenter that could never
+   detect a repeat.
+
+**Verified on real tracks:** 171 s → 9 segments `ABCBABBAB`; 250 s → `AAABABACCAA`; 31 s → single
+span. Shortest segment 4.0 s, no gaps or overlaps.
+
+**The dossier now emits structure** alongside #047's key fields — `key` + `key_confidence` +
+`key_alternate` + `key_margin` + `structure`. #018's deferral is unblocked.
+
+**Tests: 15.** Boundary-count guards (never `None`), tiling without gaps, repetition classification
+against known ABAB material, the minimum-duration invariant, lettering-from-A, and the anti-fabrication
+check.
+
+---
+
+
 ### Answer #047 — H2-M1: Krumhansl-Schmuckler key/mode replaces a broken heuristic
 **Timestamp:** 2026-08-31
 **Action Type:** Defect fix + new module. First milestone of H2 (Dossier v2).
