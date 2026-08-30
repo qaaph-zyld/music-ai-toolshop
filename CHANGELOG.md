@@ -1,5 +1,41 @@
 # Changelog
 
+### Answer #044 — Debt 13b, actually fixed. Corrects the claim in #041.
+**Timestamp:** 2026-08-30
+**Action Type:** Correction + real fix
+
+**#041 claimed debt 13b was fixed. It was not.** That claim is wrong and is corrected here.
+
+`toolshop.lyricsdb.build_database()` writes `_dedup_log.json` into whatever it is handed as `root`.
+#041 patched **`test_lyricsdb.py`** to use a throwaway copy, ran *that one file*, saw a clean tree,
+and recorded "Debt 13b FIXED" in the CHANGELOG, STATUS and a commit message.
+
+A later full-suite run left the fixture dirty again. On inspection, **six** test modules hand
+`build_database()` the tracked `tests/fixtures/lyrics_min/` — `test_lyricsdb`, `test_fingerprint`,
+`test_brief_generator`, `test_draft_scorer`, `test_rhyme_miner`, `test_rimer_db`. The claim was wrong
+by a factor of six.
+
+**The error was the verification scope, not the code.** The narrow check passed honestly; the broad
+conclusion drawn from it was false. That is the same shape as the M3 cold-cache mistake in #042 —
+measure one thing, generalise to another — and it is more dangerous than an outright error because
+the evidence looks real.
+
+**Why it matters beyond tidiness:** a dirty tree after every test run means `toolshop closeout`'s
+clean-tree check has been reporting on noise. That is the gate the whole close-out discipline rests
+on — the one meant to catch uncommitted lanes like `melody_carrier`. A gate that is always slightly
+dirty is a gate people learn to ignore.
+
+**The real fix:** new `tests/_fixture_support.py` owns a single throwaway copy of the fixture; all six
+modules import `LYRICS_MIN_FIXTURE` from it. Centralised deliberately rather than patching the second
+instance — a seventh module cannot reintroduce the bug, because no test has a reason to reach for the
+tracked path any more.
+
+**Verified at the scope that matches the claim this time:** full suite → **991 passed, 2 skipped,
+0 failed** → `git status tests/fixtures/` **clean**. Not one file; the whole suite.
+
+---
+
+
 ### Answer #043 — S4/M4: mastering e2e VERIFIED, plus two findings the run exposed
 **Timestamp:** 2026-08-30
 **Action Type:** Milestone — verification run (no `mastering_tool/` code changed)

@@ -54,6 +54,14 @@ Caught by orchestrator spot-check 3+ sessions running: uncommitted work left in 
   and a 1.40x speedup; controlled re-runs gave 1.22x and **1.00x**. Any timing comparison needs a
   discarded warm-up run and the baseline repeated at the end — if the two baselines disagree by more
   than ~10%, the machine is not a stable instrument and no conclusion holds.
+- **Verify at the scope of the claim.** Debt 13b was patched in one test file, checked in that one
+  file, and recorded as fixed — while five other modules still had the bug. If the claim is "the
+  suite leaves a clean tree", the check is the *suite*, not a file. The narrow check passes honestly
+  and the broad conclusion is still false, which is worse than an outright error because the evidence
+  looks real.
+- **Fix the class, not the instance.** When a second occurrence of a bug turns up, centralise the fix
+  so a third cannot appear (see `tests/_fixture_support.py`). Patching occurrence #2 just schedules
+  occurrence #3.
 - **Validate a clip result on a full input before shipping it.** The 1.40x survived a 30 s clip and
   died on a 3 min track. Short-input measurements exaggerate anything with fixed overhead.
 - **Kill the watcher with the process it watches.** Stopping a long job while leaving an

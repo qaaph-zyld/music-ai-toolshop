@@ -238,7 +238,8 @@ def test_populate_rhymes_persists_multis_and_internal(tmp_path):
     from toolshop.lyricsdb import build_database
     from toolshop.rhyme_miner import populate_rhymes
 
-    FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "lyrics_min"
+    # Debt 13b: use the throwaway copy, not the tracked fixture.
+    from _fixture_support import LYRICS_MIN_FIXTURE as FIXTURE_ROOT
     db_path = tmp_path / "test_rhyme.db"
     build_database(root=FIXTURE_ROOT, db_path=db_path)
     conn = sqlite3.connect(db_path)

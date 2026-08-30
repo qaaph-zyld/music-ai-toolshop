@@ -18,20 +18,9 @@ from toolshop.lyricsdb import (
     DEFAULT_DB_PATH,
 )
 
-# Debt 13b (fixed 2026-08-20): `build_database()` writes `_dedup_log.json` back
-# into whatever it is given as `root`. Pointing these tests at the *tracked*
-# fixture directory therefore left `tests/fixtures/lyrics_min/_dedup_log.json`
-# modified after every plain `pytest` run — which quietly defeated
-# `toolshop closeout`'s clean-tree check, the gate the whole close-out discipline
-# rests on. Tests now run against a throwaway copy.
-#
-# Copied once at import rather than per-test so all 17 call sites below keep
-# working unchanged; the tracked fixture is never written to.
-_TRACKED_FIXTURE = Path(__file__).parent / "fixtures" / "lyrics_min"
-_FIXTURE_TMPDIR = Path(tempfile.mkdtemp(prefix="toolshop_lyrics_min_"))
-FIXTURE_ROOT = _FIXTURE_TMPDIR / "lyrics_min"
-shutil.copytree(_TRACKED_FIXTURE, FIXTURE_ROOT)
-atexit.register(shutil.rmtree, _FIXTURE_TMPDIR, True)
+# Debt 13b: the throwaway copy now lives in _fixture_support so all six modules
+# that call build_database() share it - see that module for the full story.
+from _fixture_support import LYRICS_MIN_FIXTURE as FIXTURE_ROOT
 
 
 # ── Section label parser ──────────────────────────────────────────────

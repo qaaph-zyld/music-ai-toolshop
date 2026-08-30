@@ -17,7 +17,9 @@ from toolshop.brief_generator import (
 )
 from toolshop.rimer_db import build_rimer_db
 
-FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "lyrics_min"
+# Debt 13b: never point build_database() at the TRACKED fixture - it writes
+# _dedup_log.json back into `root` and dirties the tree. See _fixture_support.
+from _fixture_support import LYRICS_MIN_FIXTURE as FIXTURE_ROOT
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
