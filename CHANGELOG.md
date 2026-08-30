@@ -1,5 +1,64 @@
 # Changelog
 
+### Answer #045 — S5/M5: meta-layer registration, Voicebox ADR, root cleanup. Reorg descoped.
+**Timestamp:** 2026-08-30
+**Action Type:** Milestone — last H1 item. Two repos touched.
+
+**M5 was three things. Two were nearly done, one should not be done at all yet.**
+
+| Part | State |
+|---|---|
+| AGENTS.md live | Already done, and much richer now (close-out / lane / measurement discipline) |
+| Meta-layer KB entry | Already existed — `Music-AI-Toolshop_LESSONS.md`, 902 lines |
+| Meta-layer project table | **Was missing. Done here.** |
+| core/tool package layout | **Descoped — D12, see below** |
+| Voicebox ADR (roadmap §G3) | **Was missing. Written here.** |
+| Repo-root one-off scripts | **Decided here**, after two deferrals |
+
+**REGISTRATION IS NOT DETECTION — three separate mechanisms, all now closed.**
+The roadmap's exit criterion is *"session_brief detects project"*. Adding the project to
+`CANONICAL_PROJECTS` does **not** achieve that; `session_brief` never consults it. Three maps had to
+be updated in `ai_dev_meta_layer`:
+
+1. `framework/project_inventory.py::CANONICAL_PROJECTS` — path resolution. **Required**, not merely
+   convenient: the fallback only walks `Corporate_Projects/`, and this project sits at the
+   `D:\Projects` root. Registered as `music_ai_toolshop` because the lookup normalises dashes to
+   underscores — a key written with dashes would have been dead code.
+2. `scripts/knowledge_router.py::PROJECT_KEYWORDS` — text detection.
+3. `scripts/knowledge_router.py::FILE_PATH_HEURISTICS` — file-path detection (was returning `{}`).
+
+Verified all three empirically, and checked for over-matching: `mrp` and `yt_extractor` still route
+to themselves. Had this stopped at "added to the table", it would have been the **fourth** false
+claim of the session — after the cold-cache speedup (#042) and debt 13b (#044).
+
+**`ai_dev_meta_layer` test baseline taken before and after**, because it is not this project's repo to
+break: **30 failed / 508 passed both times** — identical. Those failures are pre-existing there.
+**The meta-layer repo is committed but deliberately NOT pushed** — pushing a second repo is the
+user's call, not a side effect of this session.
+
+**[D12] Package reorg descoped — recommendation, needs the user's ruling.**
+`toolshop/` holds 55 flat modules and 63 test files import from it. Declined because:
+its own exit criterion is *"imports/CLI unchanged"* (a refactor that by definition delivers nothing
+observable); the roadmap itself says *"gradual … never a big-bang rewrite"*; a 55-module move behind
+re-export shims is exactly where a green suite can lie; and H2 Dossier v2 — not file arrangement — is
+what the creation loop has waited on since July. Proposed instead: move modules into subpackages
+*opportunistically*, when a lane is next touched substantially, with that lane's tests as the net.
+`daw/` and `melody_carrier/` already show the pattern working.
+
+**Voicebox ADR** (`specs/2026-08-30-adr-voicebox-archived.md`): records a removal that happened in P0
+without one. Notes honestly that the upstream URL was never captured before untracking, and says to
+identify it from the on-disk tree rather than trusting a reconstructed link — and that GPT-SoVITS,
+not Voicebox, is the likely path if the lane ever reopens.
+
+**Root scripts decided, not deferred again.** Three with zero importers moved to `scripts/`
+(`check_batch_status`, `recover_batch_status`, `diagnose_voice_analysis`). Four stay at the root
+because tests import them or `.ps1` launchers call them by path
+(`generate_crhymetv_catalogue`, `run_reverse_engineering_batch`, `run_papapedro_pilot` + launchers).
+Acting where it is free, abstaining where it is not.
+
+---
+
+
 ### Answer #044 — Debt 13b, actually fixed. Corrects the claim in #041.
 **Timestamp:** 2026-08-30
 **Action Type:** Correction + real fix
