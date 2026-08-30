@@ -1,5 +1,57 @@
 # Changelog
 
+### Answer #050 — H2-M4: premaster acceptance profile. Resolves D11.
+**Timestamp:** 2026-08-31
+**Action Type:** Feature + an open decision closed with evidence
+
+**New `toolshop/premaster.py`** grades a track against
+`mastering_tool/PREMASTER_ACCEPTANCE_SPEC.md` v1.0 and reports PASS/FLAG/FAIL per gate. The dossier
+previously carried only `spectral_centroid`, `spectral_bandwidth` and `harmonic_ratio` — **none of the
+six measurable gates**: phase coherence (full-band and <120 Hz), peak headroom, crest factor, PSR and
+DC offset.
+
+**D11 IS RESOLVED, and the answer is neither of the options I offered.**
+S4 (#043) found the `german_drill` masters landing at PSR 6.2/6.3 against a QC gate of >= 8, from
+sources 9 dB apart, and I raised it as a product decision: *the target is wrong, or the gate is*.
+Measuring the two premasters against the acceptance spec shows it is **neither**:
+
+| gate | Brat za Brata (-23.1 LUFS) | Daceta (-14.0 LUFS) |
+|---|---|---|
+| 1 full-band corr min | 0.045 PASS | **-0.548 FAIL** |
+| 2 <120 Hz corr mean | 0.943 PASS | 0.778 PASS |
+| 3 sample peak | -13.35 PASS | -3.69 PASS |
+| 4 crest factor | 12.53 PASS | 11.81 FLAG |
+| **5 PSR** | **8.98 FLAG** | **8.16 FLAG** |
+| 6 DC offset | 0.000 PASS | 0.000 PASS |
+| **overall** | **FLAG** | **FAIL** |
+
+The spec requires a premaster to arrive at **PSR >= 11** for the competitive (-8 LUFS) profile to
+preserve PSR >= 7.5 at the master. Both arrived at ~8-9. **The masters came out under-dynamic because
+the material arrived under-dynamic** — precisely the failure mode the spec was written to catch, and
+its own reasoning covers it: density spent in the mix cannot be recovered downstream.
+
+So the `german_drill` target is not wrong, and the PSR gate is not wrong. **The mixes are the thing to
+change.** Daceta additionally fails phase coherence outright (-0.548 against a >= -0.20 pass), which
+is a mix property mastering can attenuate but never resolve — the spec's first stated finding.
+
+This is the value of putting the gates in the dossier: the same measurement that describes a track now
+also says whether it is fit to master, *before* the irreversible loudness stage.
+
+**Measurement honesty, enforced by tests:**
+- Gates 1-2 need stereo. On a mono file they report `NOT_MEASURED` with a reason and do not affect the
+  overall verdict — a mono file has no phase relationship to fail, and scoring it PASS would be a lie.
+- True peak is a **4x-oversampled approximation**, not a certified BS.1770-4 meter. The field is named
+  `true_peak_dbfs_approx` so no caller mistakes it for one.
+- Gate 7 (declared provenance) has no signal correlate and is reported `manual` rather than guessed.
+- Every gate carries its own threshold string, because a verdict without its threshold is unauditable.
+
+**Tests: 20** — anti-phase detection via a polarity-flipped channel, mono reporting NOT_MEASURED, DC
+offset detection, crest factor dropping under hard clipping, true peak never below sample peak, and
+grading boundaries on both directions.
+
+---
+
+
 ### Answer #049 — H2-M3: beat grid + downbeats (JSON + MIDI click)
 **Timestamp:** 2026-08-31
 **Action Type:** Feature + gap fix. Third milestone of H2.

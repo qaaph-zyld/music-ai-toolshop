@@ -3,6 +3,19 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
+> **H2-M4 DONE 2026-08-31 — premaster acceptance profile. D11 RESOLVED. See CHANGELOG #050.**
+>
+> | Item | Result |
+> |---|---|
+> | **New `toolshop/premaster.py`** | Grades a track against `mastering_tool/PREMASTER_ACCEPTANCE_SPEC.md` v1.0, PASS/FLAG/FAIL per gate. The dossier previously had **none of the six measurable gates** — only spectral centroid/bandwidth/harmonic ratio. |
+> | **D11 RESOLVED — and it was neither option I offered** | I raised it as "the -8 LUFS target is wrong, or the PSR >= 8 gate is". Measuring the two S4 premasters: they arrived at **PSR 8.98 and 8.16** against the spec's **>= 11** requirement. **The masters were under-dynamic because the material was.** Neither target nor gate needs changing — **the fix is upstream in the mix**, exactly as the spec's own reasoning states. Daceta additionally **FAILS phase coherence** (-0.548 vs >= -0.20), which mastering can attenuate but never resolve. |
+> | **Gate results** | Brat za Brata → **FLAG** (PSR 8.98 only). Daceta → **FAIL** (phase -0.548; crest 11.81 FLAG; PSR 8.16 FLAG). |
+> | **Measurement honesty, test-enforced** | Phase gates need stereo → a mono file reports `NOT_MEASURED` with a reason and does not affect the verdict (scoring it PASS would be a lie). True peak is a **4x-oversampled approximation**, named `true_peak_dbfs_approx` so nobody mistakes it for a certified BS.1770-4 meter. Gate 7 (provenance) has no signal correlate → reported `manual`. Every gate carries its threshold, because a verdict without one is unauditable. |
+> | **Tests** | 20 — anti-phase via polarity flip, mono NOT_MEASURED, DC detection, crest collapsing under clipping, TP never below sample peak, grading boundaries both directions. |
+> | **Dossier now carries four real fields** | `key` · `structure` · `beat_grid` · `premaster`. **Suite: 1060 passed / 2 skipped / 0 failed** (+20, no regressions). |
+>
+> ---
+>
 > **H2-M3 DONE 2026-08-31 — beat grid + downbeats. See CHANGELOG #049.**
 >
 > | Item | Result |

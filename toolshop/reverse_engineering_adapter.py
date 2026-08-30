@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional
 
 from . import beatgrid
 from . import key_detection
+from . import premaster
 from . import structure
 
 try:
@@ -96,6 +97,16 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
         logger.warning("structure segmentation failed for %s", path, exc_info=True)
         structure_result = None
 
+    # Premaster acceptance profile (H2-M4, #050). Graded against
+    # mastering_tool/PREMASTER_ACCEPTANCE_SPEC.md. Reads the file directly rather
+    # than reusing `y`: gates 1-2 are phase coherence and need the stereo pair,
+    # which the mono load above has already summed away.
+    try:
+        premaster_result = premaster.analyze_premaster(path)
+    except Exception:
+        logger.warning("premaster profile failed for %s", path, exc_info=True)
+        premaster_result = None
+
     # Harmonic/percussive ratio
     y_harm, y_perc = librosa.effects.hpss(y)
     harm_energy = float(_to_scalar(np.mean(y_harm**2)))
@@ -118,6 +129,7 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
         "spectral_bandwidth": round(spectral_bandwidth, 2),
         "harmonic_ratio": round(harmonic_ratio, 4),
         "structure": structure_result,
+        "premaster": premaster_result,
         "analysis_backend": "basic_librosa",
     }
 
