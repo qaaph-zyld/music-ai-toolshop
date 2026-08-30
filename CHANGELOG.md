@@ -1,5 +1,58 @@
 # Changelog
 
+### Answer #047 — H2-M1: Krumhansl-Schmuckler key/mode replaces a broken heuristic
+**Timestamp:** 2026-08-31
+**Action Type:** Defect fix + new module. First milestone of H2 (Dossier v2).
+
+**The defect, measured before touching anything** (8 real tracks, 45 s each):
+
+`bpm_adapter` chose the tonic as `argmax(mean_chroma)` — the loudest pitch class, which is the tonic
+only by coincidence — and decided mode with `chroma_mean[key_idx] > 0.5`. Modality is a *relationship*
+between scale degrees, above all the third; that expression tests how loud one bin is.
+
+| Observation | Result |
+|---|---|
+| Reported `major` | **7 of 8** |
+| Peak chroma range | 0.471 – 0.854 |
+| The single `minor` | peak 0.471 — minor only because it fell under an arbitrary threshold |
+
+So `mode` was **"major unless the peak happens to be low"** — a near-constant, not a detection. For a
+catalogue that is overwhelmingly drill and trap, near-universally minor, it was wrong in the direction
+that matters most. This is the roadmap's "G major vs Gm" defect.
+
+**FOUR implementations, not two.** Initial scoping found two; a second pass found four — and the one
+first missed was **`reverse_engineering_adapter.py`, the dossier path itself**, emitting the identical
+broken pair straight into `dossier.json`. The others: `bpm_adapter`, `video_features` (same `> 0.5`
+rule), and `cleaning_stages._detect_key` — whose mode logic compared the minor third against the major
+third and was therefore *better* than the one the dossier used. All four now call one detector.
+(AGENTS.md "fix the class, not the instance", earning its place the day after it was written.)
+
+**New `toolshop/key_detection.py`:** correlates chroma against the 24 rotated Krumhansl-Kessler
+profiles. Pure numpy, no new dependency. Returns key, mode, **confidence, the runner-up, and the
+margin** — K-S reliably confuses relative major and minor (C major and A minor share a pitch-class
+set), so hiding the runner-up would make the dossier look more certain than it is. The roadmap asked
+for confidence fields; this is why. `dossier.json` now carries `key_confidence`, `key_alternate`,
+`key_margin`.
+
+**Tests: 17, against known answers** — synthetic major and minor scales in all twelve keys, a
+relative-major/minor pair pinning the ambiguity, low confidence on chromatic input, and the one that
+pins the defect directly: scaling a chroma vector by 0.2 or 5.0 changes every magnitude but no musical
+relationship, so the answer must not move. The old rule flipped; this one does not.
+
+**Measured diff on the 8 tracks: mode changed on 4/8 (all major → minor), key on 2/8.**
+Stated precisely: **this is a measured difference, not a proof of accuracy.** There is no ground truth
+for those tracks here. The old code is demonstrably broken and K-S is a standard method — that
+justifies the change; it does not license an accuracy claim. Margins ran 0.03–0.27, one genuinely
+ambiguous at 0.032.
+
+**A bug I introduced and the suite caught:** wrapping the input in `np.array()` inside
+`video_features` broke 5 tests. That module's tests patch its `np` wholesale, so the wrapper handed
+the detector a MagicMock. `chroma_mean` was already a 12-float list; the wrapper was unnecessary as
+well as wrong. Fixed, with a comment so it is not re-added.
+
+---
+
+
 ### Answer #046 — D12 resolved: package reorg descoped. H1 CLOSED.
 **Timestamp:** 2026-08-30
 **Action Type:** Decision record

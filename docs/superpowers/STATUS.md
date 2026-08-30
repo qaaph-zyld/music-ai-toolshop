@@ -3,6 +3,22 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
+> **H2 STARTED 2026-08-31. H2-M1 DONE — K-S key/mode. See CHANGELOG #047.**
+> Horizon plan: `plans/2026-08-31-h2-dossier-v2-horizon.md` (M1 key · M2 structure · M3 beats ·
+> M4 loudness · M5 faster-whisper lyrics · M6 schema v2 + regenerate 222).
+>
+> | Item | Result |
+> |---|---|
+> | **The defect, measured first** | `mode = chroma_mean[key] > 0.5` returned **`major` for 7 of 8** real tracks — it tested how loud one bin was, not the relationship between scale degrees. The lone `minor` had peak 0.471, i.e. minor by arbitrary threshold. Tonic was `argmax(chroma)` — the loudest pitch class, tonic only by coincidence. For a drill/trap catalogue (near-universally minor) this was wrong in the worst direction. |
+> | **FOUR implementations, not two** | Initial scoping found two. A second pass found four — and the one first missed was **`reverse_engineering_adapter.py`, the dossier path itself**, writing the broken pair straight into `dossier.json`. `cleaning_stages._detect_key` compared minor-3rd vs major-3rd and was *better* than what the dossier used. All four now share one detector. |
+> | **New `toolshop/key_detection.py`** | Krumhansl-Schmuckler over 24 rotated profiles. Pure numpy, no new dependency. Emits **confidence, runner-up, and margin** — K-S reliably confuses relative major/minor, and hiding that would make the dossier look more certain than it is. `dossier.json` gains `key_confidence` / `key_alternate` / `key_margin`. |
+> | **Tests: 17, against known answers** | Synthetic scales in all 12 keys, relative-key ambiguity pinned, low confidence on chromatic input, and a scale-invariance test that pins the exact defect (×0.2 vs ×5.0 must not change the answer — the old rule flipped). |
+> | **Measured diff** | mode changed on **4/8** (all major→minor), key on **2/8**. **Stated as a diff, not an accuracy claim** — there is no ground truth for those tracks. The old code is broken and K-S is standard; that justifies the change, not a correctness claim. |
+> | **Test suite** | **1008 passed, 2 skipped, 0 failed** (451s) — +17 on the 991 baseline, no regressions. |
+> | **A bug I introduced, caught by the suite** | An `np.array()` wrapper in `video_features` broke 5 tests — that module's tests patch its `np` wholesale, so the detector received a MagicMock. Unnecessary as well as wrong; fixed with a comment. |
+>
+> ---
+>
 > **S5 / M5 DONE 2026-08-30 — meta-layer registered, Voicebox ADR, root cleanup. See CHANGELOG #045.**
 > **H1 IS CLOSED** (M1-M6 all done). **D12 RESOLVED 2026-08-30 — user agreed to descope the package
 > reorg**; replaced by the opportunistic-subpackage rule now in AGENTS.md. H1 needs nothing further.

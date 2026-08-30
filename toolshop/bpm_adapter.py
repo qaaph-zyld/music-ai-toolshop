@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from . import key_detection
+
 try:
     import librosa
     import numpy as np
@@ -45,15 +47,15 @@ def analyze_track(path: Path) -> Dict[str, Any]:
     tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
     bpm = float(np.atleast_1d(tempo)[0])
 
-    # Key estimation via chroma
+    # Key estimation: Krumhansl-Schmuckler (H2-M1, #047).
+    # Was argmax(mean_chroma) for the tonic and `mean_chroma[key] > 0.5` for mode -
+    # the latter returned "major" for 7 of 8 measured tracks because it tested how
+    # loud one bin was, not the relationship between scale degrees. See
+    # toolshop/key_detection.py for the measurement.
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
-    chroma_mean = np.mean(chroma, axis=1)
-    key_idx = int(np.argmax(chroma_mean))
-    keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-    key = keys[key_idx]
-
-    # Simple major/minor heuristic
-    mode = "major" if chroma_mean[key_idx] > 0.5 else "minor"
+    estimate = key_detection.detect_key_from_chroma(np.mean(chroma, axis=1))
+    key = estimate.key
+    mode = estimate.mode
 
     return {
         "file": str(path),

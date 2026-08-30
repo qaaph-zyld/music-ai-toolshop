@@ -10,6 +10,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from . import key_detection
+
 try:
     import librosa
     import numpy as np
@@ -115,9 +117,13 @@ def extract_features(
 
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
     chroma_mean = [round(float(v), 4) for v in np.mean(chroma, axis=1)]
-    key_idx = int(np.argmax(chroma_mean))
-    key = _KEYS[key_idx]
-    mode = "major" if chroma_mean[key_idx] > 0.5 else "minor"
+    # Krumhansl-Schmuckler (H2-M1, #047) - was the same argmax + `> 0.5` defect.
+    # chroma_mean is already a plain list of 12 floats; detect_key_from_chroma
+    # does its own asarray. Do NOT wrap it in np.array() here - tests patch this
+    # module's `np` wholesale, so that would hand the detector a MagicMock.
+    _key_est = key_detection.detect_key_from_chroma(chroma_mean)
+    key = _key_est.key
+    mode = _key_est.mode
 
     sections = _detect_sections(y, sr)
 

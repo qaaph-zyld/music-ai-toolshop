@@ -11,6 +11,8 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from . import key_detection
+
 try:
     from wav_reverse_engineer.audio_analyzer.audio_processor import AudioProcessor
     from wav_reverse_engineer.audio_analyzer.feature_extractor import FeatureExtractor
@@ -62,11 +64,12 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
     tempo = _to_scalar(tempo)
     beat_count = len(beat_frames) if hasattr(beat_frames, "__len__") else int(_to_scalar(beat_frames))
 
-    # Key
+    # Key: Krumhansl-Schmuckler (H2-M1, #047). This is the dossier path, so the
+    # old argmax-tonic + `chroma_mean[key] > 0.5` mode went straight into
+    # dossier.json - "major" for 7 of 8 measured tracks. See toolshop/key_detection.py.
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
     chroma_mean = np.mean(chroma, axis=1)
-    key_idx = int(_to_scalar(np.argmax(chroma_mean)))
-    keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+    key_estimate = key_detection.detect_key_from_chroma(chroma_mean)
 
     # Spectral features
     spectral_centroid = float(_to_scalar(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))))
@@ -84,8 +87,11 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
         "sample_rate": sr,
         "bpm": round(float(tempo), 2),
         "beat_count": beat_count,
-        "key": keys[key_idx],
-        "mode": "major" if chroma_mean[key_idx] > 0.5 else "minor",
+        "key": key_estimate.key,
+        "mode": key_estimate.mode,
+        "key_confidence": round(key_estimate.confidence, 4),
+        "key_alternate": f"{key_estimate.alternate_key} {key_estimate.alternate_mode}",
+        "key_margin": round(key_estimate.margin, 4),
         "spectral_centroid": round(spectral_centroid, 2),
         "spectral_bandwidth": round(spectral_bandwidth, 2),
         "harmonic_ratio": round(harmonic_ratio, 4),

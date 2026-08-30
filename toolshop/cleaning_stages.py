@@ -89,25 +89,17 @@ class PreprocessingStage:
         return StageResult(audio, sr, metadata, report)
 
     def _detect_key(self, chromagram: np.ndarray) -> str:
-        """Simple key detection from chromagram."""
-        # Mean chroma values across time
-        chroma_mean = chromagram.mean(axis=1)
+        """Key detection from a chromagram.
 
-        # Note names
-        notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+        Delegates to the shared Krumhansl-Schmuckler detector (H2-M1, #047). This
+        used to be a second, independent implementation: argmax for the tonic, and
+        a minor-third-vs-major-third comparison for mode. That mode logic was
+        musically sensible - better than the one in `bpm_adapter` it sat beside -
+        but two detectors meant two answers for one question. One detector now.
+        """
+        from . import key_detection
 
-        # Find root note (highest chroma value)
-        root_idx = chroma_mean.argmax()
-        root_note = notes[root_idx]
-
-        # Simple major/minor detection based on 3rd and 6th
-        third_idx = (root_idx + 4) % 12  # Major 3rd
-        minor_third_idx = (root_idx + 3) % 12  # Minor 3rd
-
-        if chroma_mean[minor_third_idx] > chroma_mean[third_idx]:
-            return f"{root_note} minor"
-        else:
-            return f"{root_note} major"
+        return key_detection.detect_key_from_chroma(chromagram.mean(axis=1)).label
 
 
 class PauseRemovalStage:
