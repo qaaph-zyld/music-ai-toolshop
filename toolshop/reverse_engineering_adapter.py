@@ -11,6 +11,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from . import beatgrid
 from . import key_detection
 from . import structure
 
@@ -60,10 +61,20 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
     y, sr = librosa.load(str(path), sr=22050, mono=True)
     duration = librosa.get_duration(y=y, sr=sr)
 
-    # BPM
-    tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
-    tempo = _to_scalar(tempo)
-    beat_count = len(beat_frames) if hasattr(beat_frames, "__len__") else int(_to_scalar(beat_frames))
+    # BPM + beat grid (H2-M3, #049). This used to call beat_track and keep only
+    # the COUNT, discarding the grid itself - the thing Sample Forge, the E5
+    # universal pack and any DAW click actually need.
+    try:
+        grid = beatgrid.analyze_beats(y, sr)
+        beat_result = grid.to_dict()
+        tempo = grid.tempo
+        beat_count = len(grid.beat_times)
+    except Exception:
+        logger.warning("beat grid analysis failed for %s", path, exc_info=True)
+        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
+        tempo = _to_scalar(tempo)
+        beat_count = len(beat_frames) if hasattr(beat_frames, "__len__") else int(_to_scalar(beat_frames))
+        beat_result = None
 
     # Key: Krumhansl-Schmuckler (H2-M1, #047). This is the dossier path, so the
     # old argmax-tonic + `chroma_mean[key] > 0.5` mode went straight into
@@ -97,6 +108,7 @@ def _basic_analysis(path: Path) -> Dict[str, Any]:
         "sample_rate": sr,
         "bpm": round(float(tempo), 2),
         "beat_count": beat_count,
+        "beat_grid": beat_result,
         "key": key_estimate.key,
         "mode": key_estimate.mode,
         "key_confidence": round(key_estimate.confidence, 4),

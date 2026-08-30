@@ -3,6 +3,19 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
+> **H2-M3 DONE 2026-08-31 — beat grid + downbeats. See CHANGELOG #049.**
+>
+> | Item | Result |
+> |---|---|
+> | **The gap** | The dossier called `beat_track`, kept only `beat_count`, and **discarded the beat times** — the grid Sample Forge, E5 and any DAW click actually need. **Downbeats existed nowhere in the repo.** |
+> | **Both export halves** | Grid in `dossier.json`; `toolshop track analyze --click-midi OUT.mid` writes a click with downbeats on a distinct louder note — the fastest way to *hear* a wrong phase. |
+> | **Downbeats declared as inference** | librosa has no downbeat model. 4/4 assumed, phase chosen by onset energy. Output always carries `time_signature_assumed` + `downbeat_confidence`. Real tracks: **0.084 (phases nearly tied)** vs 0.444 — the first track's bars could be a beat out and the dossier says so. Same rule as #048: a bar line the caller cannot question is a fabrication. |
+> | **Cross-check** | `60 / median_beat_interval` reproduced the reported tempo **exactly** on both real tracks (136.0, 129.2). |
+> | **Tests** | 17 on synthetic clicks at known tempi. **Suite: 1040 passed / 2 skipped / 0 failed** (+17). |
+> | **Dossier now carries 3 real fields** | `key` (+confidence/alternate/margin) · `structure` · `beat_grid`. All three added this session; all three replaced something broken or discarded. |
+>
+> ---
+>
 > **H2-M2 DONE 2026-08-31 — structure segmentation. See CHANGELOG #048.**
 >
 > | Item | Result |

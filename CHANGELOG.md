@@ -1,5 +1,54 @@
 # Changelog
 
+### Answer #049 — H2-M3: beat grid + downbeats (JSON + MIDI click)
+**Timestamp:** 2026-08-31
+**Action Type:** Feature + gap fix. Third milestone of H2.
+
+**The gap.** `reverse_engineering_adapter` already called `librosa.beat.beat_track`, kept
+`len(beat_frames)` as `beat_count`, and **discarded the beat times** — the grid itself, which is what
+Sample Forge slicing, T9's E5 universal pack and any DAW click actually need. It was computed and
+thrown away on every analysis. **Downbeats did not exist anywhere in the repo.**
+
+**New `toolshop/beatgrid.py`** delivers both halves of the roadmap's "JSON + MIDI click": the grid
+lands in `dossier.json`, and `toolshop track analyze --click-midi OUT.mid` writes a click track with
+downbeats on a distinct, louder note — which is also the fastest way for a human to *hear* whether the
+phase estimate is wrong.
+
+**Downbeats are inference, and say so.** librosa has no downbeat model. This assumes **4/4** and picks
+the phase whose beats carry the most onset energy. Cheap and derivable, but not detection, so every
+output carries `time_signature_assumed` and a `downbeat_confidence` (normalised gap to the runner-up
+phase). The field earned its place immediately on real tracks:
+
+| track | tempo | bars | downbeat_confidence |
+|---|---|---|---|
+| 171 s | 136.0 | 95 | **0.084 — phases nearly tied** |
+| 32 s | 129.2 | 17 | 0.444 |
+
+The first track's bar lines could easily be a beat out, and the dossier now says so instead of
+presenting them flatly. Same discipline as #048's refusal to emit invented "chorus" labels: a bar line
+the caller cannot question is a fabrication, just a subtler one.
+
+**Internal cross-check:** `60 / median_beat_interval` should reproduce the reported tempo. On both
+real tracks it matched exactly (136.0 and 129.2) — cheap evidence the grid is coherent, not merely
+present.
+
+**Tests: 17**, on synthetic click tracks at known tempi — tempo recovery (octave errors tolerated,
+arbitrary values not), monotonic beat times, downbeats a subset of beats and one bar apart, phase
+selection provably preferring the accented beats, confidence discriminating accented from flat, the
+`4/4`-assumption declaration, MIDI round-trip through `BeatGrid.from_dict`, and one click per beat.
+
+**The dossier now carries three real fields**, all three added this session and all three replacing
+something broken or discarded:
+
+    key       : B minor | conf 0.5572 | alt B major | margin 0.1174
+    structure : 9 segments | ABCBABBAB
+    beat_grid : 381 beats, 95 bars, tempo 136.0, downbeat_conf 0.0836, 4/4
+
+Suite: **1040 passed / 2 skipped / 0 failed** (+17, no regressions).
+
+---
+
+
 ### Answer #048 — H2-M2: structure segmentation. The old one never ran, once.
 **Timestamp:** 2026-08-31
 **Action Type:** Defect fix + new module. Second milestone of H2.

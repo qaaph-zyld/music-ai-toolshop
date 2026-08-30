@@ -270,6 +270,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--output-dir", type=Path, default=None, help="Output directory for JSON"
     )
     track_analyze_parser.add_argument(
+        "--click-midi",
+        type=Path,
+        default=None,
+        metavar="OUT.mid",
+        help="Also export the beat grid as a MIDI click track (downbeats accented)",
+    )
+    track_analyze_parser.add_argument(
         "--effects", action="store_true", help="Run effects analysis (if available)"
     )
     track_analyze_parser.add_argument(
@@ -1650,6 +1657,16 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 separation=args.separation,
                 backend=args.backend,
             )
+            if getattr(args, "click_midi", None):
+                from . import beatgrid as _bg
+
+                grid_dict = result.get("beat_grid")
+                if grid_dict:
+                    out = _bg.write_click_midi(_bg.BeatGrid.from_dict(grid_dict), args.click_midi)
+                    print(f"Click track written: {out}")
+                else:
+                    print("No beat grid in the analysis - click track not written.")
+
             if args.summary:
                 reverse_engineering_adapter.print_summary(result)
             else:
