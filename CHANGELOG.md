@@ -1,5 +1,60 @@
 # Changelog
 
+### Answer #043 — S4/M4: mastering e2e VERIFIED, plus two findings the run exposed
+**Timestamp:** 2026-08-30
+**Action Type:** Milestone — verification run (no `mastering_tool/` code changed)
+
+**Verdict: the pipeline works.** Two full `german_drill` runs, both exit 0, both producing complete
+`master/` (32f + 16-bit + 320 MP3) and `verification/` (QC report, codec translation matrix,
+spectrogram, determinism MD5). This closes the item pending since 2026-07-13, where the stage-E
+soft-clip fix had only been verified in isolation.
+
+**The July plan's premises had gone stale and were corrected:**
+- Its source directory `D:\MusicData	oolshop\Distro Kidea
+on-mastered\` no longer exists (#030).
+- It called for driving the tray EXE. The EXE is a GUI wrapper; the engine is `master_pipeline_v3.sh`,
+  which takes a CLI. Driving the script is reproducible and tests the same chain — a GUI click-through
+  would have proven less.
+
+**The 2-pass auto-gain fix (submodule, 2026-08-18) is confirmed working**, and independently:
+`ffmpeg ebur128` on the finished masters matched the pipeline's own report **exactly** (-8.3 and
+-8.7 LUFS). The tool is not grading its own homework generously.
+
+**FINDING 1 — the first auto-gain pass is systematically biased, not just imprecise.**
+Two sources 9 dB apart both landed at the *same* place after pass 1:
+
+    Brat za Brata  source -23.1 LUFS  stage D -18.1  pregain 11.6 dB -> master -12.2  (delta -4.2)
+    Daceta         source -14.0 LUFS  stage D -12.7  pregain  6.2 dB -> master -12.3  (delta -4.3)
+
+A constant ~4.2 dB shortfall regardless of input means pass 1's model does not account for the
+limiter's gain reduction. The second pass corrects it, so output is right — but **every run pays for
+two full limiter passes** when folding a measured limiter-loss constant into the first estimate would
+usually make it one. Reported, **not fixed**: `mastering_tool` is a daily-use product and this does
+not block the run (AGENTS.md — verification runs make minimal fixes only).
+
+**FINDING 2 — the PSR gate is unreachable at the `german_drill` target, structurally.**
+PSR came out **6.2** and **6.3** against a gate of **>= 8**, from sources 9 dB apart. This was
+initially assumed to be an artifact of deliberately choosing a very quiet premaster; the control run
+disproves that. At -8.0 LUFS the profile cannot satisfy a PSR >= 8 gate on this material. Either the
+target or the gate is wrong, and which one is a **product decision, not a code fix**.
+
+Related: the codec round-trip re-check flags **AAC-256 overshooting the -0.8 dBTP ceiling** in both
+runs (+3.0 dBFS from the quiet source, +1.5 dBFS from the louder one). Opus overshoots marginally in
+both; MP3-320 passes on the louder source. A master that clips 1.5-3.8 dB after AAC encoding is a
+real release concern.
+
+**Both findings are the QC layer working.** It caught what it exists to catch; the verification value
+is that it now has evidence behind it rather than a single unrepeated run.
+
+**Source note for reproducibility:** most WAVs in `Distro_Kidea/` are `*_MASTER_32f.wav` — already
+mastered. The `MixAll` files are the actual premasters. Outputs under gitignored
+`data/toolshop/m4_verify{,_control}/`; no audio committed, none deleted.
+
+**No `mastering_tool/` code changed, so no submodule pointer bump.**
+
+---
+
+
 ### Answer #042 — S3/M3: stems CPU. A small real win, and a retracted large one.
 **Timestamp:** 2026-08-30
 **Action Type:** Milestone — measurement, one adopted change, one retraction

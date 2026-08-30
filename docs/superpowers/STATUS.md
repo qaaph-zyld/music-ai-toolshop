@@ -3,6 +3,23 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
+> **S4 / M4 DONE 2026-08-30 — mastering e2e VERIFIED + 2 findings. See CHANGELOG #043.**
+>
+> | Item | Result |
+> |---|---|
+> | **Pipeline** | **Two full `german_drill` runs, both exit 0**, complete `master/` (32f + 16-bit + 320 MP3) and `verification/` (QC, codec translation matrix, spectrogram, determinism MD5). Closes the item pending since 2026-07-13 (stage-E soft-clip previously verified in isolation only). |
+> | **Stale plan corrected** | July plan's source dir died with `D:\MusicData` (#030); and it called for driving the tray **GUI**. The engine is `master_pipeline_v3.sh` with a clean CLI — driving the script is reproducible and tests the same chain. |
+> | **2-pass auto-gain** | **Confirmed working.** Independent `ffmpeg ebur128` matched the pipeline's own report **exactly** (-8.3 / -8.7 LUFS) — it is not grading its own homework generously. |
+> | **FINDING 1 — auto-gain pass 1 is systematically biased** | Sources 9 dB apart both landed at -12.2 / -12.3 LUFS after pass 1 (delta -4.2 / -4.3). A *constant* shortfall means pass 1 ignores limiter gain reduction, so **every run pays for two full limiter passes**. Folding in a measured limiter-loss constant would usually make it one. **Reported, not fixed** — daily-use product, does not block the run. |
+> | **FINDING 2 — PSR gate unreachable at this target** | PSR **6.2** and **6.3** vs a gate of **>= 8**, from sources 9 dB apart. First assumed to be an artifact of a deliberately quiet premaster; **the control run disproved that**. At -8.0 LUFS `german_drill` cannot satisfy PSR >= 8. Target or gate is wrong — a **product decision**, not a code fix. |
+> | **Codec overshoot** | AAC-256 exceeds the -0.8 dBTP ceiling in both runs (**+3.0** dBFS quiet source, **+1.5** louder). Opus marginal in both; MP3-320 passes on the louder source. A master clipping 1.5-3.8 dB after AAC is a real release concern. |
+> | **Submodule** | **No `mastering_tool/` code changed** → no pointer bump. |
+>
+> **Open for the user (D11):** the PSR-gate vs `german_drill` target tension, and the AAC ceiling
+> overshoot. Both are product calls, both now have two-run evidence behind them.
+>
+> ---
+>
 > **S3 / M3 DONE 2026-08-30 — stems CPU. One real win, one retraction. See CHANGELOG #042.**
 >
 > | Item | Result |
