@@ -41,8 +41,34 @@ Everything else in the lane is proven. This is the one path that is not.
 
 ## P1 — M6: make the corpus true  ⏱ ~25 h CPU + ~4 h analysis, resumable
 
-Every field added in M1–M4 exists **only for tracks analysed since**. The existing 444-dossier corpus
-still carries the `mode` that was a loudness threshold and the `sections` that were always `[]`.
+> ⚠️ **RESIZED 2026-09-01 — this section's premise, scope and cost were all wrong. See `JOURNAL.md`
+> `J-020`–`J-029` and `specs/2026-09-01-dossier-schema-v2.md`. Corrections inline below; the
+> original wording is struck through so the wrong belief stays visible.**
+>
+> 1. **The corpus is 222 dossiers, not 444.** `*_analysis.json` also matches the `_voice_analysis.json`
+>    sidecar, so the glob counted every track twice: 222 dossiers + 222 voice sidecars. PapaPedro —
+>    the reason the handoff gave for revising 222 up to 444 — contributes **no dossiers at all**.
+> 2. **The cost inherits the same double count.** Real audio is ~13.6 h over 221 tracks, so
+>    transcription is **~13 h — an overnight, not a weekend.**
+> 3. **A plain re-run would add nothing.** `beat_grid`, `structure`, `premaster` and the K-S key block
+>    are emitted **only by `_basic_analysis`** (`reverse_engineering_adapter.py:52-133`), while the
+>    corpus batch hard-codes `backend="advanced"` (`run_reverse_engineering_batch.py`). Verified
+>    across all 222 dossiers: `sections` 0, `structure` 0, `beat_grid` 0, `premaster` 0, `lyrics` 0.
+>    **M6's real blocker is a backend defect, not a batch run.**
+> 4. **`sections` is *absent*, not `[]`.** The ambiguity is three-valued — never analysed / analysed
+>    and empty / analysed and populated — and an empty list cannot carry that.
+> 5. **The loudness-threshold `mode` is still live code**, not history:
+>    `feature_extractor.py:190` reads `mode = 'major' if chroma_vals[key_idx] > 0.5 else 'minor'` —
+>    chroma energy at the tonic bin against a fixed threshold. Corpus-wide that yields **215 major /
+>    7 minor**.
+> 6. **The corpus is German, not Balkan** — `Sa4 – Täterprofil`, `LETZTE ANSAGE`, `129ers`, `Capuz`.
+>    `transcribe.py` defaults to `language="sr"` and `model="small"`, while every M5 number is a
+>    `large-v3` number. Both must be pinned explicitly in any migration.
+> 7. **A `--limit 20` sample run would overwrite `total_tracks`** in the corpus status file,
+>    destroying the baseline a count check compares against.
+
+~~Every field added in M1–M4 exists **only for tracks analysed since**. The existing 444-dossier corpus
+still carries the `mode` that was a loudness threshold and the `sections` that were always `[]`.~~
 M6 is what makes this period's work true of the corpus rather than only of future runs.
 
 Now sized properly: transcription is **~25 h** for 28.3 h of audio at RTF ~1.13, and **reproducible**

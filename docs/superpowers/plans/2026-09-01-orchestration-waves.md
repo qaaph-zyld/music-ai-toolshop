@@ -109,6 +109,61 @@ Both specs read, both sets of journal entries reviewed. Blocking decision #3 is 
 
 ---
 
+## Wave 1 — COMPLETE 2026-09-01. What it actually returned
+
+Both agents came back, both deliverables written, the venv and the corpus untouched. Every
+load-bearing claim was re-run by the orchestrator before merging — the spot-check tables are in
+`JOURNAL.md` at each merge point. **Neither agent returned the answer its brief anticipated.**
+
+**Agent A — GO, conditional**, on a sidecar venv, `whisperx==3.4.5`, and a `--require-alignment`
+guard. But the verdict is the least interesting part:
+
+- **`J-015` corrects P3's premise.** `align()` consumes segments already carrying `text`, `start`
+  *and* `end` — it **refines a segmentation, it does not produce one**. It does **not** sidestep the
+  31%; fed the ASR segmentation, the gap propagates. Closing it needs **a windowing layer we build**.
+  Inside the covered 69% the win is real: correct words instead of guessed, ~20 ms frames instead of
+  coarse spans.
+- **`J-016`** — `lyrics.db` holds **none of our own material**: 1425 songs, all `corpus='genius-pro'`,
+  `language` NULL on every row, **no audio join key**.
+- **`J-014`** — there is **no `sr` alignment model**; `hr` is the proxy and `load_align_model` raises
+  on unknown codes, so today's `DEFAULT_LANGUAGE="sr"` would crash.
+- **`J-011`/`J-012`** — the real collision is **torch**, not protobuf. The protobuf trap the brief
+  called the likely NO-GO **did not fire**.
+
+> **So Wave 1 did not shrink blocking decision #3 — it sharpened it.** The brief's whole rationale
+> for running A first was that forced alignment would route our own material around the 69%
+> question. It does not. That question now has to be answered on its merits.
+
+**Agent B — M6 resized, not designed.** The spec exists, but the finding that matters is that the
+milestone as written could not have worked:
+
+- **`J-024` is the headline.** `beat_grid`, `structure`, `premaster` and the K-S key block are
+  emitted **only by `_basic_analysis`**, while the corpus batch hard-codes `backend="advanced"`.
+  **A plain re-run would have added nothing** — and the count check would have reported a clean
+  222 in / 222 out while doing it. **M6's blocker is a backend defect, not a batch run.**
+- **`J-020`** — the corpus is **222 dossiers, not 444**. The glob `*_analysis.json` also matched the
+  `_voice_analysis.json` sidecar. PapaPedro, the stated reason for revising 222 up to 444,
+  contributes **no dossiers at all**.
+- **`J-021`** — the cost inherits the same double count: **~13 h, an overnight**, not a weekend.
+- **`J-025`** — the loudness-threshold `mode` is **live code**, not history: `feature_extractor.py:190`,
+  yielding 215 major / 7 minor across the corpus.
+- **`J-028`** — the corpus is **German**, and `transcribe.py` defaults to `language="sr"`,
+  `model="small"` while every M5 number is `large-v3`.
+- **`J-029`** — a `--limit 20` sample run would **overwrite `total_tracks`** in the corpus status
+  file, destroying the baseline the count check compares against.
+
+### What this does to Wave 2 and Wave 3
+
+- **Wave 3's premise is gone.** There is no point scheduling a long batch until the backend emits the
+  fields. Wave 3 is deferred behind a backend fix, and when it runs it is an **overnight**.
+- **Wave 2's first item is no longer the migration.** It is: make the default backend emit the four
+  fields, or make the batch use the backend that does — and decide which, because
+  `_advanced_analysis` presumably exists for a reason.
+- **`flow_analyzer` v2 keeps its Wave 2 slot** and its hard constraint (`J-000d`, no
+  `Word.probability`), but its input story is now the windowing layer, not whisperX out of the box.
+
+---
+
 ## Wave 2 — implementation  ⏱ days · gated
 
 Contents depend on Wave 1's findings; the shape does not:

@@ -736,7 +736,8 @@ min/track on this machine before merge; the migration has none yet), and lyrics 
 `toolshop dossier diff --v1 <dir> --v2 <dir> --out diff.md`, two levels.
 
 **Level 1 — corpus field matrix.** One row per field, so a reviewer sees the shape of the change
-before any individual track:
+before any individual track. *(The counts below are an illustration of the format — no migration has
+been run. The only first-hand number in this block is `sections`: 0/222 files have the key.)*
 
 ```
 field                | unchanged | changed | added | removed | absent both
@@ -759,17 +760,19 @@ sections             |         0 |       0 |     0 |       0 |         20   <- n
 Plus, for changed numeric fields, the distribution of relative change (min / median / p95 / max) —
 because "7 keys changed" is a different story from "7 keys changed and all by a semitone".
 
-**Level 2 — per-track detail**, only for tracks with a `mode`/`key`/`bpm` change or any regression:
+**Level 2 — per-track detail**, only for tracks with a `mode`/`key`/`bpm` change or any regression.
+*(Again a format illustration; the v1 values quoted — `G# minor`, 99.38 BPM for `Bonez_F_r_Mary` —
+come from `catalogue.csv`, the v2 values do not, because nothing has been migrated.)*
 
 ```
 ### 2024_09_19_Bonez_F_r_Mary_QWTgsZ0BVh0
   key   G#  -> C#      key_confidence 0.71  key_margin 0.09  alt "D# minor"
   mode  minor -> minor  [v1 mode was a loudness threshold; agreement here is coincidence]
-  bpm   142.01 -> 142.01   (0.00%)
+  bpm   99.38 -> 99.38   (0.00%)
   structure  added: 9 segments, ABCBABBAB, most_repeated B, shortest 6.2 s
   premaster  FAIL (peak -0.1 dBFS, PSR 6.2)  verdict_applies=false  [mastered rip]
   lyrics     de p=0.97 | vocal_stem | 171 words | coverage 0.66 | longest gap 18.4 s
-  legacy     preserved, sha256 a91f... , v1 key "G#" mode "major"
+  legacy     preserved, sha256 a91f... , v1 key "G#" mode "minor" (loudness threshold)
 ```
 
 ### 8.4 Change vs regression — the reviewer's rule table
