@@ -460,3 +460,28 @@ unless the definition is stated. The feasibility spec states `elapsed / audio` e
 estimate. Worth a one-line definition next to the figure wherever it is quoted — cheap now, an
 embarrassing conclusion later. Machine of record for all of these: Intel i7-4770 (4C/8T, 3.4 GHz,
 Haswell — AVX2/FMA, **no AVX-512, no VNNI**), 15.9 GB RAM.
+
+---
+
+## Session 2026-09-01 (continued)
+
+### J-004 — `git add -A` during a live orchestration commits another agent's half-finished work under the wrong subject · 2026-09-01 · orchestration
+**Status:** verified — **first-hand, and self-inflicted, this session**
+**Expected:** `git add -A docs/superpowers/` would stage the Agent A merge I had just finished —
+the journal, the corrected plan, and A's spec.
+**Found:** it also swept **1,158 lines of Agent B's in-progress output** — `journal_inbox/agentB.md`
+(242 lines) and `specs/2026-09-01-dossier-schema-v2.md` (916 lines) — into a commit whose subject
+reads *"Wave 1 Agent A merged"*. Agent B was **still running**; the files were mid-write. The commit
+message describes none of it.
+**Evidence:** first-hand. `git show --stat ce52adb` lists five files across two agents; the subject
+names one. The agent had produced no completion notification at the time of the commit.
+**Consequence:** the commit is pushed and stands; not rewritten, because a false-clean history is
+worse than an honest wrong one. **This is precisely the failure `AGENTS.md`'s lane-discipline rule
+was written against** — commit `31224e5` shipped a 6,390-line package under *"chore: update
+mastering_tool submodule"*. That rule assumed a human writing a misleading subject. Orchestration
+adds a mechanism nobody wrote it for: **a wildcard stage is not scoped to the work you did when
+other agents are writing into the same tree concurrently.** No hook catches this — the tree is
+clean, the push succeeds, the gate passes.
+**Rule adopted:** while any agent is live, **stage explicit paths, never `-A` and never a directory.**
+The orchestrator's own scope memory says the same thing for a different reason (don't sweep
+incidental files); this is that rule with a second, sharper edge.
