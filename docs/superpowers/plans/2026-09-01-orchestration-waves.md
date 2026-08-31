@@ -48,7 +48,7 @@ advisory:
 
 | Rule | Why it exists |
 |---|---|
-| Each agent is assigned a **reserved `J-NNN` number range** before dispatch. | Parallel agents cannot collide. Two sessions once collided on CHANGELOG `#018`; this is the same failure with the same fix. |
+| Each agent is assigned a **reserved `J-NNN` number range** before dispatch, and writes to its **own fragment** in `docs/superpowers/journal_inbox/`, never to `JOURNAL.md` directly. The orchestrator merges. | Reserved ranges stop *semantic* collision — two sessions once collided on CHANGELOG `#018`. But parallel agents appending to one file also collide *mechanically*: last writer wins and the other's entries vanish silently. A reserved range does not fix that; separate files do. |
 | An entry needs **`Expected`** as well as `Found`. | A finding with no prior expectation is a note, not a finding. The delta *is* the content. |
 | **Refuted hypotheses are mandatory entries**, not optional. | `J-000f` cost a full session to obtain. A negative result not written down gets re-bought. |
 | Evidence is **first-hand or tagged `unverified — source: <path>`**. | `AGENTS.md`, verified-verdicts rule. Relayed numbers have already misled this project once. |
@@ -135,9 +135,24 @@ Runs by itself. Nothing that measures time may run beside it. Counts verified be
 | # | Decision | Blocks | Can an agent proceed without it? |
 |---|---|---|---|
 | 1 | **Which Suno track, and who records the take** | **P0 — the highest-value item in the plan** | No. This is a person in a room with a microphone. |
-| 2 | DR target: external drive / cloud / both | P2 | No — but the **Suno-coverage test and the restore test can be written now** against a parameterised target. |
+| 2 | ~~DR target~~ **RULED 2026-09-01: a second copy in corresponding folders on `D:\Projects`.** | P2 | Yes — the target is now known and the work is unblocked. See the caveat below. |
 | 3 | Is 69% coverage acceptable for flow v1 | P3, P4 | **Wave 1 Agent A is designed to shrink this decision rather than wait on it.** |
 | 4 | Push the two Wave 0 commits | close-out | No. |
+
+### Caveat on the G5 ruling, recorded once and then accepted
+
+The ruling is a second copy in corresponding folders on `D:\Projects`. Stated plainly so the record
+is not misleading: **this is redundancy, not disaster recovery.** It protects against accidental
+deletion, an overwrite, and single-file corruption — all real and all worth having. It does not
+protect against the failure `J-000h` was written about, which is the **2010 disk itself dying**, because
+both copies are on that disk. G5 therefore stays **open as a risk** even once P2 ships.
+
+Two things follow, and they are what makes the ruling worth executing rather than arguing with:
+
+- The **Suno-coverage test is the more valuable half of P2 anyway** and is unaffected by the target.
+  `backup.py` once verified clean for a month while collecting **zero** Suno data; a second copy of
+  nothing is nothing. That test earns its keep on any target.
+- The **restore test** is likewise unaffected. A copy that has never been restored is a hope.
 
 **P0 remains the highest-value item here and this plan does not pretend otherwise.** Everything
 below it is real work; none of it is a track. The wave structure exists so that the moment a take
