@@ -18,13 +18,43 @@ So `source` is always recorded, and `--require-stem` turns a fall-back-to-mix
 into a hard failure. That is AGENTS.md's fallback discipline applied to the axis
 that actually degrades here.
 
-**Language.** Auto-detected by default and recorded with its probability. The
-corpus is mixed: CrhymeTV is largely German, the Balkan material Serbian and
-Bosnian. Whisper is strong on German and usable on Serbian; word-level timing
-quality on non-English rap is measured, not assumed.
+**Language.** Named explicitly, not auto-detected. The corpus is mixed - CrhymeTV
+is largely German, the Balkan material Serbian and Bosnian - and on a real
+Serbian stem auto-detection chose "hr" at p=0.31, a weak prior. Callers working
+German material should pass `language="de"`.
 
-MEASURED: not yet. No model is claimed as "the right one" until models have been
-timed on this machine against real material, per AGENTS.md's min/track rule.
+MEASURED 2026-08-31, large-v3 int8 CPU, 249 s real Serbian vocal stem, idle
+machine, warm-up discarded, two runs. Three configurations, in the order they
+were tried:
+
+                        backend defaults   + sr/no-cond/VAD   + temperature=0
+    language            hr, p=0.31         sr, p=1.00         sr, p=1.00
+    coverage            57%                62%                **69%**
+    words               202 / 233          154 / 194          **188 / 188**
+    longest span        36.5 s             39.0 s             **22.3 s**
+    runtime drift       31.9% (void)       27.5% (void)       **7.0% (valid)**
+    min/track           12.13 / 15.99      4.32 / 5.51        **3.83 / 3.56**
+    reproducible        no                 no                 **yes, byte-identical**
+
+**min/track ~3.6-3.8** - the governance number, and the first valid one: the
+first two configurations drifted 27-32% between runs and no conclusion could be
+drawn from them. Comfortably under AGENTS.md's 15-minute overnight threshold.
+
+**Two lessons worth carrying out of this module.**
+
+*Confidence is not correctness.* The backend-default run reported **0.836 mean
+word probability** while dropping 43% of the track and looping inside a 36 s
+block. `Word.probability` measures the decoder's certainty, not whether it is
+right; nothing downstream may treat it as a truth signal.
+
+*A clip screen overstated the fix.* A 90 s A/B of the middle configuration showed
++23 points of coverage and a 22.3 s -> 5.2 s collapse in span length. On the full
+track the same change delivered **+5 points and a span that got worse**. Only
+`temperature=0`, validated directly on the full input, actually held.
+
+**Known limit:** 69% coverage, 45 words/min against rap's typical 100-200, and a
+22.3 s span whose internal word timings cannot be trusted. The timings that exist
+are reproducible and correctly placed; they do not cover the whole vocal.
 """
 
 from __future__ import annotations
@@ -60,6 +90,57 @@ DEFAULT_MODEL = "small"
 
 #: int8 is the CPU path. float32 exists but is far slower for no useful gain.
 DEFAULT_COMPUTE_TYPE = "int8"
+
+#: Decode the corpus language explicitly rather than auto-detecting.
+#: MEASURED 2026-08-31 on a real Serbian vocal stem: auto-detect chose **"hr" at
+#: p=0.31** - a weak prior, on a language the model conflates with sr/bs anyway.
+#: Naming the language removes that variable. None restores auto-detection.
+DEFAULT_LANGUAGE: Optional[str] = "sr"
+
+#: **Off, deliberately.** With conditioning on, the same run emitted a single
+#: **36.5-second "segment"** containing one phrase twice - Whisper's well-known
+#: repetition loop, where the decoder feeds its own output back as context and
+#: gets stuck. A 36 s span makes every word timing inside it meaningless, which
+#: defeats the entire purpose of this module. Off costs a little cross-sentence
+#: coherence and buys timings that can be trusted.
+DEFAULT_CONDITION_ON_PREVIOUS_TEXT = False
+
+#: Decoding temperature. `None` leaves faster-whisper's own default, which is a
+#: **fallback ladder** `(0.0, 0.2, 0.4, 0.6, 0.8, 1.0)`: when a segment trips the
+#: log-probability or compression-ratio thresholds the decoder re-runs it hotter.
+#:
+#: That ladder is why this module is not reproducible. MEASURED 2026-08-31 on an
+#: idle machine, same input, same weights, back-to-back: **259 s / 154 words** then
+#: **331 s / 194 words** - 27.5% apart in runtime and 26% in word count. A corpus
+#: cannot be regenerated from settings that do not produce the same answer twice.
+#:
+#: A scalar (`0.0`) disables the ladder: one greedy pass, no retries. **That is
+#: the default here**, because measuring it settled the question on every axis at
+#: once - full track, idle machine, back-to-back runs:
+#:
+#:                        ladder (default)      temperature=0.0
+#:     output              154 / 194 words      **byte-identical** (sha256 equal)
+#:     runtime drift       27.5%  (void)        **7.0%  (valid)**
+#:     min/track           4.32 / 5.51          **3.83 / 3.56**
+#:     RTF                 0.75-0.96x           **1.09-1.17x** (beats realtime)
+#:     coverage            62%                  **69%**
+#:     longest span        39.0 s               **22.3 s**
+#:
+#: Reproducible, faster, *and* better. The ladder was re-decoding hard segments
+#: hotter and producing worse output more slowly. Set this to `None` to restore
+#: the backend ladder if a caller ever wants it.
+DEFAULT_TEMPERATURE: Optional[Any] = 0.0
+
+#: Silero VAD settings. MEASURED: the defaults dropped **~80 s of a 249 s track**
+#: across four gaps (19.0 / 28.1 / 10.2 / 22.2 s), i.e. 43% of the track produced
+#: no output at all. Rap over a separated stem has breathy, artefact-laden pauses
+#: that read as non-speech, so the threshold is lowered and the minimum silence
+#: lengthened before a gap is cut.
+DEFAULT_VAD_PARAMETERS: Dict[str, Any] = {
+    "threshold": 0.20,
+    "min_silence_duration_ms": 1000,
+    "speech_pad_ms": 400,
+}
 
 #: Filename markers identifying an isolated vocal stem. audio-separator emits
 #: `<name>_(Vocals)_<model>.wav`; demucs emits `vocals.wav` in a per-track dir.
@@ -141,6 +222,10 @@ class Transcript:
     source_path: str
     elapsed_seconds: float
     backend: str = "faster-whisper"
+    #: The decode settings that produced this. Recorded because the same model on
+    #: the same input is **not** reproducible: two runs returned 202 and 233 words.
+    #: Without these, a corpus row cannot be compared with another corpus row.
+    decode_settings: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def words(self) -> List[Word]:
@@ -188,6 +273,7 @@ class Transcript:
             "minutes_per_track": round(self.minutes_per_track, 2),
             "word_count": self.word_count,
             "mean_word_probability": round(self.mean_word_probability, 4),
+            "decode_settings": self.decode_settings,
             "segments": [s.to_dict() for s in self.segments],
         }
 
@@ -255,12 +341,15 @@ def find_vocal_stem(
 def transcribe_file(
     audio_path: Path,
     model: str = DEFAULT_MODEL,
-    language: Optional[str] = None,
+    language: Optional[str] = DEFAULT_LANGUAGE,
     compute_type: str = DEFAULT_COMPUTE_TYPE,
     prefer_stem: bool = True,
     require_stem: bool = False,
     vad_filter: bool = True,
     beam_size: int = 5,
+    condition_on_previous_text: bool = DEFAULT_CONDITION_ON_PREVIOUS_TEXT,
+    temperature: Optional[Any] = DEFAULT_TEMPERATURE,
+    vad_parameters: Optional[Dict[str, Any]] = None,
     stem_search_dirs: Optional[Sequence[Path]] = None,
     model_cache_dir: Optional[Path] = None,
 ) -> Transcript:
@@ -296,13 +385,32 @@ def transcribe_file(
         model, device="cpu", compute_type=compute_type, download_root=cache
     )
 
+    if vad_parameters is None:
+        vad_parameters = dict(DEFAULT_VAD_PARAMETERS)
+    decode_settings: Dict[str, Any] = {
+        "language": language,
+        "beam_size": beam_size,
+        "vad_filter": vad_filter,
+        "vad_parameters": dict(vad_parameters) if vad_filter else None,
+        "condition_on_previous_text": condition_on_previous_text,
+        "temperature": temperature,
+    }
+    # Passing temperature=None would override the backend default with a null, so
+    # the argument is only included when the caller actually set one.
+    extra: Dict[str, Any] = {}
+    if temperature is not None:
+        extra["temperature"] = temperature
+
     started = time.perf_counter()
     segment_iter, info = whisper.transcribe(
         str(source_path),
         language=language,
         word_timestamps=True,
         vad_filter=vad_filter,
+        vad_parameters=vad_parameters if vad_filter else None,
         beam_size=beam_size,
+        condition_on_previous_text=condition_on_previous_text,
+        **extra,
     )
     # faster-whisper streams lazily; nothing is computed until the iterator is
     # drained, so the timer must wrap the drain, not the call.
@@ -319,6 +427,7 @@ def transcribe_file(
         source=source,
         source_path=str(source_path),
         elapsed_seconds=elapsed,
+        decode_settings=decode_settings,
     )
 
 

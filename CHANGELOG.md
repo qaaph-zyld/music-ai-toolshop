@@ -126,9 +126,40 @@ precedent. A task chip was raised.
 **H2-M5 groundwork: `toolshop/transcribe.py`.** faster-whisper adapter, CPU int8, prefers a vocal
 stem and records which source ran; `--require-stem` refuses the silent fall-back to the full mix.
 `--require-advanced` is deliberately *not* offered — there is no heuristic ASR fallback, so the
-guard would be vacuous; the axis that actually degrades is the source. **M5 is not complete:**
-faster-whisper is not installed and no model has been downloaded, so there is **no measured
-min/track number** and the milestone stays open under the CPU-budget rule.
+guard would be vacuous; the axis that actually degrades is the source.
+
+**large-v3 installed and MEASURED** (int8 CPU, 249 s real Serbian vocal stem, idle machine, warm-up
+discarded, two runs each). It took three configurations to get a number worth having:
+
+| | backend defaults | + sr / no-cond / VAD | + temperature=0 |
+|---|---|---|---|
+| language | hr, p=0.31 | sr, p=1.00 | sr, p=1.00 |
+| coverage | 57% | 62% | **69%** |
+| words | 202 / 233 | 154 / 194 | **188 / 188** |
+| longest span | 36.5 s | 39.0 s | **22.3 s** |
+| runtime drift | 31.9% **void** | 27.5% **void** | **7.0% valid** |
+| min/track | 12.13 / 15.99 | 4.32 / 5.51 | **3.83 / 3.56** |
+| reproducible | no | no | **byte-identical** |
+
+**min/track ~3.6–3.8**, the first valid figure — the earlier two drifted 27–32% between runs, so
+nothing could be concluded from them. Well under the 15-minute overnight threshold. At RTF ~1.13 the
+**444-dossier corpus (28.3 h of audio) is ~25 h of CPU**, not the multi-day job the void measurement
+implied.
+
+**`temperature=0` was the whole fix.** faster-whisper's default is a fallback ladder
+(0.0, 0.2 … 1.0) that re-decodes any segment tripping its logprob/compression thresholds. On rap it
+trips constantly, so the decoder spent extra time producing *worse* output, nondeterministically.
+Disabling it made the module reproducible, ~35% faster, and better on coverage and span at once.
+
+**Two lessons, recorded in the module docstring.** *Confidence is not correctness*: the default run
+reported **0.836 mean word probability** while dropping 43% of the track. *A clip screen overstated
+the fix*: a 90 s A/B of the middle configuration promised +23 points of coverage and a 22.3 → 5.2 s
+span collapse; on the full track that same change delivered **+5 points and a worse span**. Only the
+change validated directly on full input survived — the same trap as the earlier "1.40×" speedup.
+
+**M5 does not close on fitness.** 69% coverage and 45 words/min against rap's 100–200 means roughly a
+third of the vocal yields no timings, and one 22.3 s span has untrustworthy internal timing. Adapter,
+guard, measurement and tests are delivered; *coverage* is a model-and-material limit, tracked separately.
 
 **`toolshop/paths.py`** centralises the `TOOLSHOP_DATA_DIR` resolver that was copy-pasted in five
 modules (`backup`, `remix_adapter`, `remix_cli`, `stems_cli`, `video_cli`). Per "fix the class, not

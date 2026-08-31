@@ -257,3 +257,58 @@ class TestTranscribeWithMockedBackend:
         result = transcribe.transcribe_file(track, prefer_stem=False,
                                             stem_search_dirs=[tmp_path / "stems"])
         assert result.source == "full_mix"
+
+
+# ── Integration test (skip-guarded) ───────────────────────────────────
+
+#: A 30 s excerpt of the Serbian vocal stem M5 was measured on. Kept out of the
+#: repo (data boundary); the test skips when it is absent.
+REAL_STEM = (
+    Path(__file__).resolve().parents[1] / "data" / "toolshop" / "Stemmeca_alatkka"
+    / "toolshop_stems_borba_hq"
+    / ("Srpskki Istocnicci - Borba 015_(Vocals)_model_bs_roformer_ep_317_sdr_12_"
+       "(Vocals)_mel_band_roformer_karaoke_aufr33_viperx_sdr_10.wav")
+)
+
+
+@pytest.mark.slow
+def test_real_serbian_vocal_transcribes_with_usable_timings():
+    """Live faster-whisper on real Serbian rap — the check M5 actually needs.
+
+    Mocked tests prove the plumbing; they cannot show that word timings on
+    non-English rap are usable, which is the whole premise of the milestone. So
+    this asserts on the *timings*, not on "a string came back": words must be
+    ordered, non-overlapping, inside the clip, and carry real confidences.
+    """
+    pytest.importorskip("faster_whisper", reason="[lyrics-asr] extra not installed")
+    if not REAL_STEM.exists():
+        pytest.skip(f"real stem not present: {REAL_STEM}")
+
+    import soundfile as sf
+
+    # A 30 s excerpt keeps the test minutes-not-tens-of-minutes on CPU.
+    data, sr = sf.read(str(REAL_STEM), frames=30 * 44100)
+    clip = Path(__file__).parent / "_tmp_real_clip.wav"
+    sf.write(str(clip), data, sr)
+    try:
+        result = transcribe.transcribe_file(
+            clip, model="large-v3", prefer_stem=False, vad_filter=True
+        )
+    finally:
+        clip.unlink(missing_ok=True)  # never leave the tree dirty
+
+    assert result.word_count > 0, "no words recognised in 30 s of rap vocal"
+    assert result.source == "full_mix"
+    assert result.language_probability > 0.0
+
+    words = result.words
+    for word in words:
+        assert 0.0 <= word.start <= word.end <= 31.0, f"timing out of range: {word}"
+        assert 0.0 <= word.probability <= 1.0
+
+    starts = [w.start for w in words]
+    assert starts == sorted(starts), "word timings must be monotonic"
+    assert result.mean_word_probability > 0.3, (
+        "mean word confidence below 0.3 would mean the timings are not usable "
+        "downstream, which is what M5 exists to deliver"
+    )
