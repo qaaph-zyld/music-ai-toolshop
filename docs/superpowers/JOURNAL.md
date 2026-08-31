@@ -147,3 +147,41 @@ the defect rather than merely passing alongside it.
 `except`, not the typo — **a fallback that swallows `NameError` turns a crash into a silent zero
 result**, which is the failure mode this repo has now hit twice (see the silent-fallback incident
 behind AGENTS.md's `--require-advanced` rule).
+
+### J-002 — The plan doc and `pyproject.toml` disagreed about protobuf, and the plan was wrong · 2026-09-01 · deps
+**Status:** verified — **first-hand, this session**
+**Expected:** `plans/2026-09-01-next-moves.md` P5 states the protobuf conflict was *"RESOLVED
+2026-08-31 — pinned back to 4.21.2"*, reasoning that 4.21.2 honours the only hard pin (`classla`).
+I believed it and briefed a subagent with it.
+**Found:** **the opposite is true**, and the plan was superseded the same day it was written.
+`pyproject.toml:29` reads *"protobuf must be >= 5.x. Keep it at 7.36.0"*; installed is **7.36.0**.
+Pinning down to 4.21.2 **breaks stem separation** —
+`audio_separator.separator.architectures.mdx_separator` imports `onnx`, which needs
+`google.protobuf.runtime_version`, absent before 5.x. `classla`'s pin is the one deliberately
+violated, because classla imports and its 20 tests pass at 7.36.0.
+**Evidence:** first-hand. `grep -n -A16 protobuf pyproject.toml` → lines 29–45 carry the reasoning
+and the `MEASURED 2026-08-31` note. `importlib.metadata.version('protobuf')` → `7.36.0`. The
+correction is recorded in `CHANGELOG.md` #053 item 5.
+**Consequence:** the subagent was corrected mid-flight before it could act on the stale claim.
+The generalisable lesson is about the *records*, not the pin: **a plan written the same day as the
+CHANGELOG entry that overturns it will not know it is stale, and nothing in the toolchain flags
+it.** P5 of `next-moves.md` should be read as history, not as current state. Superseded-by pointers
+between plan and CHANGELOG would have caught this; that is a cheap convention worth adopting.
+
+### J-003 — A package can be "not installed" and importable at the same time · 2026-09-01 · deps
+**Status:** retracted my own claim within minutes of making it — **first-hand, this session**
+**Expected:** `importlib.metadata.version('onnx')` returning `PackageNotFoundError` means `onnx` is
+missing from the venv, which would mean stem separation is broken right now.
+**Found:** **`onnx` is present and working.** The *distribution* is named `onnx-weekly`; the *import*
+name is `onnx`. A metadata query keyed on the import name reports absent while the module imports
+fine at `1.23.0.dev20260706`, and the entire separation path imports clean.
+**Evidence:** first-hand. `importlib.metadata.version('onnx')` → `PackageNotFoundError`, while
+`import onnx` → `1.23.0.dev20260706`, and `onnx2torch`, `audio_separator`,
+`audio_separator.separator.architectures.mdx_separator` all import OK.
+**Consequence:** a false alarm retracted before it cost anything, and a correction sent to the
+subagent I had already told. **This is the same shape of error as the one #053 caught** — that one
+tested `onnxruntime` when the breakage was in `onnx`, and a bare `import audio_separator` when the
+breakage was in a submodule. Mine ran a metadata query when the question was whether an import
+works. Both times the instrument answered a *neighbouring* question convincingly. The rule this
+yields: **when the claim is "can the code run this", the check is running it, not asking a registry
+about it.**
