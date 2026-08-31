@@ -16,7 +16,8 @@
 | 10 | music-video | ✅ Active | `toolshop video` - FFmpeg compositing, ASS lyrics, audio-reactive shaders, stock footage (#028) |
 | 11 | melody-carrier | ✅ Active | `toolshop melody-carrier` - audio→MIDI→carrier WAVs for Suno cover mode (#039) |
 | 12 | lyrics-writing | ✅ Active | `toolshop lyrics` - L5 rimer DB, brief generator, draft scorer + 10 craft modules (#036, #037) |
-| — | ai_modules | ⚠ Undecided | 6,390 LOC committed 2026-08-18; tests not collected; **disposition pending (D6)** |
+| 13 | vocal-swap | ✅ Active | `toolshop vocal-swap` - Suno track + your vocal → mixed and mastered, 8 resumable stages with M4 gates (#052) |
+| — | ai_modules | ✅ Resolved | **Dissolved 2026-08-31 (D6, #051).** Keepers moved into `toolshop/`; `musicgen`/`lora_finetuning` shelved to G9; the rest removed. |
 | - | mastering_tool | ✅ Active | Git submodule: LUFS, reference, vocal doctor, chain DSL |
 | - | Voicebox | 🟡 External | Vendored fork removed; re-clone when GPU gate opens |
 | - | MAirina_Tucc | 🟡 Separate | Serbian rhyme tool + React UI |

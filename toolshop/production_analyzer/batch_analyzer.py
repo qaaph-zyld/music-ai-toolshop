@@ -15,6 +15,8 @@ from dataclasses import dataclass, asdict
 import numpy as np
 from collections import defaultdict
 
+from .. import paths
+
 
 @dataclass
 class AudioFingerprint:
@@ -99,7 +101,17 @@ class RustBridge:
 class BatchAnalyzer:
     """Batch analyze audio files for production reverse engineering."""
     
-    def __init__(self, db_path: str = "production_analysis.db"):
+    #: Filename under the data directory. The default used to be the bare
+    #: relative string ``"production_analysis.db"``, which resolves against the
+    #: caller's CWD - so simply running the test suite dropped a database in the
+    #: repo root and left the tree dirty, defeating `toolshop closeout`'s
+    #: clean-tree gate. That is debt 13b's shape. Resolved through
+    #: `toolshop.paths` so the default is always absolute.
+    DB_FILENAME = "production_analysis.db"
+
+    def __init__(self, db_path: Optional[str] = None):
+        if db_path is None:
+            db_path = str(paths.subdir("production_analysis", create=True) / self.DB_FILENAME)
         self.db_path = db_path
         self.bridge = RustBridge()
         self._init_db()

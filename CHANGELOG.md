@@ -1,5 +1,155 @@
 # Changelog
 
+### Answer #052 — Vocal-swap lane: two tracks in, a mastered track out. Plus H2-M5 groundwork.
+**Timestamp:** 2026-08-31
+**Action Type:** New lane (`toolshop/vocal_swap/`) + `toolshop/transcribe.py` + `toolshop/paths.py`
+
+**The deliverable.** `toolshop vocal-swap run <suno_track> <vocal_take>` takes a Suno track and a
+vocal recording and produces a mastered track with the AI vocal replaced:
+
+    separate (instrumental) -> vocal prep -> align -> mix -> premaster gates (M4) -> master -> verify
+
+Eight stages, each writing an artifact and a manifest entry, so a rerun resumes rather than
+redoing 30 minutes of stem separation to change a mix balance. `toolshop/batch.py`'s resume
+discipline, applied to the stages of one track instead of a list of tracks.
+
+**Where it refuses to continue** — a pipeline that always emits a file is not robust, it is quiet:
+
+| refusal | why |
+|---|---|
+| preflight | unreadable inputs, wrong preset, bad profile, unusable WSL — checked *before* the 30-minute stage. All problems reported together, not one per run. |
+| alignment | `--require-alignment` makes an untrustworthy alignment fatal |
+| premaster gates | a **FAIL does not reach the mastering chain**. A limiter fed a broken premaster produces a loud broken master. |
+
+Each is overridable explicitly (`--master-on-gate-fail`, `--offset-seconds`); none silently.
+
+**Four defects found by measurement, not by review.**
+
+1. **Cross-correlation alignment is ambiguous on periodic music, and confidence hides it.**
+   MEASURED on a 120 BPM click train displaced 0.75 s: peaks at **0.9173** (lag −11 frames),
+   0.9135 (−54), 0.9012 (+11), **0.8972 (−32, the true offset)**. The wrong peak won by 0.02 with a
+   confidence of 0.92. Rap instrumentals are strongly periodic, so this is the *normal* case, and it
+   is exactly how a vocal lands a bar out. Fixed by reporting `peak_margin` — the gap to the best
+   *distinct* rival — and treating a small margin as untrustworthy.
+
+2. **A tempo-estimate comparison cannot detect the mismatches that matter.**
+   MEASURED: `librosa.beat.beat_track` read two click trains of *identical rhythm* (140 vs 70 BPM,
+   the same performance at half time) as 143.55 and 69.84 — a **2.7% error on identical material**.
+   Any tolerance tight enough to catch a real mismatch rejects good takes. Replaced with direct
+   drift measurement (align head and tail separately, compare), which resolves ~12 ms:
+
+   | tempo diff | confidence | drift | caught by |
+   |---|---|---|---|
+   | 0.2% | **0.491 — passes the confidence check** | −70 ms | **drift only** |
+   | 0.4% | 0.215 | −116 ms | both |
+   | 1.0% | 0.091 | −302 ms | both |
+   | 2.0% | 0.131 | unmeasurable | confidence only |
+
+   At 0.2% a confidence-only check accepts a take that slips 70 ms across the track. Every case in
+   the sweep now ends `trustworthy=False`.
+
+3. **An 11-sample filter artefact would have turned every mix down 3.5 dB.**
+   `sosfiltfilt` pads by reflection, so a take ending mid-waveform rings at the boundary. MEASURED:
+   a 1 kHz tone at exactly 0.300 peak came back from an 80 Hz high-pass at **0.449 in its last 11
+   samples**, interior correct to five figures. `mix()` sets bus gain from the peak, so that
+   artefact alone set the premaster 3.5 dB low. Fixed with an edge fade sized from the cutoff
+   (2 periods — 25 ms at 80 Hz), because a flat 5 ms fade still left +1.0 dB.
+
+4. **The premaster gate read a key that does not exist.** `analyze_premaster` returns `verdict`;
+   the pipeline read `overall`, so every run reported `UNKNOWN` and the gate could never fire.
+   Caught by a test asserting the verdict was one of PASS/FLAG/FAIL. This is the M4 gate — the
+   safety mechanism the whole design leans on — and it was inert.
+
+**5. What you align *against* matters more than how — found on real material.**
+On `Srpskki Istocnicci - Borba 015` (4:09), where the true offset is **exactly 0** because the
+instrumental and vocal were separated from one file:
+
+| reference | offset returned | confidence | margin | verdict |
+|---|---|---|---|---|
+| instrumental | **+1.416 s — wrong** | 0.107 | 0.005 | ambiguous, **refused** |
+| another vocal of the same performance | 0.000 s — correct | 1.000 | 0.789 | trustworthy |
+
+A rap vocal places syllables between the beats and falls silent for whole sections, so it shares
+little onset structure with an instrumental. The estimator was wrong by 1.4 s **and said so** — the
+refusal machinery working as designed on real input. The fix is free: separation already emits the
+Suno track's own vocal stem, and two vocals of the same song share syllable placement directly.
+`--align-reference` defaults to `auto` (use the stem when present, else the instrumental *with a
+warning on the stage record*). The vocal-vs-vocal row compares two separations of the same
+performance, 0.0045 peak apart — it shows no systematic bias, **not** that the method survives two
+genuinely different takes. No such pair exists in the corpus yet.
+
+**Verified end to end on real material.** `Srpskki Istocnicci - Borba 015` (4:09), instrumental and
+vocal separated from one file, offset declared 0:
+
+| stage | time | result |
+|---|---|---|
+| preflight | 0.0 s | ok |
+| mix | 12.3 s | vocal +1.8 dB to sit +1.5 LU over the instrumental |
+| premaster | 6.1 s | **FLAG** — 5 of 6 measurable gates PASS; only PSR 9.03 (spec wants >= 11) |
+| master | 116.7 s | 32f / 16-bit / 320 MP3 all delivered |
+| verify | 2.7 s | **pass** — **-8.698 LUFS** vs the `serbian_drill` target of -8.5, TP **-1.371 dBTP** under the -1.0 ceiling |
+
+**~138 s/track** end to end excluding separation, so the swap itself is not an overnight job — only
+the separation stage in front of it is. Sample peak landed at **-6.023 dBFS** against the -6.0 bus
+target, so the gain staging is accurate on real audio and not just on tones. PSR 9.03 sits with the
+8.98 and 8.16 measured on the S4 premasters in #050, where the finding was that the material, not
+the chain, is under-dynamic — consistent, and upstream of this lane.
+
+**Gain staging is in LUFS, not peaks.** Both sources are measured with a BS.1770 meter and the vocal
+placed a stated number of LU relative to the instrumental (default +1.5, a starting point, bracketed
+per track as `family_policy.sh` instructs). The bus is left at −6 dBFS with no compression: the
+mastering chain expects headroom and an intact crest factor, and anything done here to make the
+premaster sound finished would fail M4's own crest/PSR gates.
+
+**Reported, not fixed — the mastering chain quantizes to 16-bit at the limiter.** Running a real
+master through the bridge made the chain's own intermediates inspectable, and they show precision
+being lost mid-chain:
+
+    01_prep 88 MB FLOAT · 02_eq FLOAT · 03_comp FLOAT · 04_stereo FLOAT · 05_pregain FLOAT
+    06_limited  44 MB  **PCM_16**  <- lost here
+    06e2_mp3src 88 MB FLOAT
+
+Both ffmpeg calls in `stage_clip_limit.sh` that write `$OUT` (lines 84 and 88) omit `-c:a pcm_f32le`,
+so ffmpeg defaults to `pcm_s16le` for a `.wav` target. Every *other* ffmpeg call in the chain passes
+it explicitly; these two are the exception. Three consequences:
+
+1. `${NAME}_MASTER_32f.wav` is a `cp` of `06_limited.wav`, so the "32-bit float" deliverable **is
+   PCM_16** — mislabeled.
+2. `${NAME}_MASTER_16.wav` applies TPDF dither to an **already 16-bit** file. The real float→16
+   quantization happened earlier, inside the limiter stage, **undithered** — so the dither stage is
+   adding noise rather than doing the job it exists for.
+3. The MP3 path derives from the same 16-bit file.
+
+`mastering_tool` is a daily-use submodule, so this is reported and not touched, following #043's
+precedent. A task chip was raised.
+
+**H2-M5 groundwork: `toolshop/transcribe.py`.** faster-whisper adapter, CPU int8, prefers a vocal
+stem and records which source ran; `--require-stem` refuses the silent fall-back to the full mix.
+`--require-advanced` is deliberately *not* offered — there is no heuristic ASR fallback, so the
+guard would be vacuous; the axis that actually degrades is the source. **M5 is not complete:**
+faster-whisper is not installed and no model has been downloaded, so there is **no measured
+min/track number** and the milestone stays open under the CPU-budget rule.
+
+**`toolshop/paths.py`** centralises the `TOOLSHOP_DATA_DIR` resolver that was copy-pasted in five
+modules (`backup`, `remix_adapter`, `remix_cli`, `stems_cli`, `video_cli`). Per "fix the class, not
+the instance", the sixth consumer went here instead of pasting again. The existing five are **not**
+migrated in this commit — rewriting five unrelated modules inside a lane diff is the repo-wide move
+D12 descoped. Recorded as follow-up.
+
+**Tests:** 116 new, all passing — `test_vocal_swap_align.py` (17), `test_vocal_swap_mix.py` (21),
+`test_vocal_swap_mastering_bridge.py` (20), `test_vocal_swap_pipeline.py` (25), `test_transcribe.py`
+(27), `test_paths.py` (6). The mastering chain is mocked (it is another OS); everything up to and
+including the premaster gates runs for real on synthetic audio.
+
+**Still not done:** the end-to-end run above used a real *track* but a **stem standing in for a
+recorded take** — instrumental and vocal came from the same file, so the alignment stage was handed
+a declared offset rather than solving a real one. Aligning two genuinely different performances is
+the one path still unverified on real input, and it is the path `--align-reference` was added for.
+No min/track number exists for the **separation** stage under this lane (it was skipped via
+`--instrumental`).
+
+---
+
 ### Answer #051 — D6 resolved: `ai_modules/` dissolved. My own recommendation overturned by evidence.
 **Timestamp:** 2026-08-31
 **Action Type:** Decision executed — with a correction to the recommendation that produced it

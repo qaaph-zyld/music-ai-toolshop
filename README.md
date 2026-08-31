@@ -114,8 +114,41 @@ Override the destination with `TOOLSHOP_BACKUP_DIR`.
 
 ## Commands Reference
 
-Fourteen command groups: `suno` · `analyze` · `yt` · `track` · `voice` · `stem` · `stems` · `clean` ·
-`remix` · `doctor` · `closeout` · `daw` · `video` · `melody-carrier` · `lyrics`.
+Fifteen command groups: `suno` · `analyze` · `yt` · `track` · `voice` · `stem` · `stems` · `clean` ·
+`remix` · `doctor` · `closeout` · `daw` · `video` · `melody-carrier` · `vocal-swap` · `lyrics`.
+
+### Vocal Swap (`toolshop vocal-swap`)
+
+Replace a Suno track's AI vocal with your own, mixed and mastered (#052). Two tracks in, a mastered
+track out.
+
+```powershell
+# Check the machine can run it (deps, WSL, ffmpeg, mastering script)
+.venv\Scripts\python.exe -m toolshop.cli vocal-swap doctor
+
+# Full run: separate -> align -> mix -> premaster gates -> master -> verify
+.venv\Scripts\python.exe -m toolshop.cli vocal-swap run suno.mp3 my_take.wav --profile serbian_drill
+
+# Stop at the premaster and inspect the M4 gates before committing to a master
+.venv\Scripts\python.exe -m toolshop.cli vocal-swap run suno.mp3 my_take.wav --skip-master
+
+# Refuse an untrustworthy alignment instead of mixing a vocal a bar out
+.venv\Scripts\python.exe -m toolshop.cli vocal-swap run suno.mp3 my_take.wav --require-alignment
+
+# Resume a previous run / inspect it
+.venv\Scripts\python.exe -m toolshop.cli vocal-swap status data\toolshop\vocal_swap\<name>
+```
+
+Every stage writes an artifact and a manifest entry, so a rerun resumes rather than redoing stem
+separation. The run **stops** if preflight fails, if `--require-alignment` is set and the alignment
+is untrustworthy, or if the M4 premaster gates return FAIL — a limiter fed a broken premaster just
+produces a loud broken master. Each stop is overridable explicitly, none silently.
+
+Alignment reports `confidence` **and** `peak_margin`; on periodic material (most rap instrumentals)
+a high confidence can still sit on the wrong beat, and the margin is what exposes it. If it reports
+an ambiguous alignment, pass `--offset-seconds` rather than trusting the estimate.
+
+Install with the `swap` extra: `pip install -e .[swap]`. Mastering needs WSL with ffmpeg.
 
 ### DAW Bridge (`toolshop daw`)
 

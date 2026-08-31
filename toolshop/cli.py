@@ -836,6 +836,12 @@ def build_parser() -> argparse.ArgumentParser:
     mc_cli_module.add_parser(subparsers)
 
     # =========================================================================
+    # VOCAL SWAP COMMANDS
+    # =========================================================================
+    from .vocal_swap import swap_cli as swap_cli_module
+    swap_cli_module.add_parser(subparsers)
+
+    # =========================================================================
     # LYRICS (Genius) COMMANDS
     # =========================================================================
     lyrics_parser = subparsers.add_parser(
@@ -2074,6 +2080,15 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     elif args.command == "melody-carrier":
         from .melody_carrier import melody_cli as mc_cli_module
         code = mc_cli_module.run(args)
+        if code != 0:
+            raise SystemExit(code)
+
+    # =========================================================================
+    # VOCAL SWAP
+    # =========================================================================
+    elif args.command == "vocal-swap":
+        from .vocal_swap import swap_cli as swap_cli_module
+        code = swap_cli_module.run(args)
         if code != 0:
             raise SystemExit(code)
 

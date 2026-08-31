@@ -3,6 +3,35 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
+> **NEW LANE 2026-08-31 — vocal swap: two tracks in, a mastered track out. See CHANGELOG #052.**
+>
+> | Item | Result |
+> |---|---|
+> | **`toolshop vocal-swap run <suno> <vocal>`** | Eight resumable stages: separate → vocal prep → align → mix → **M4 premaster gates** → master (WSL `master_pipeline_v3.sh`) → verify. Manifest flushed per stage, so a rerun never redoes 30 minutes of separation to change a mix balance. |
+> | **Three explicit refusals** | preflight (all problems at once, before the expensive stage) · alignment (`--require-alignment`) · **premaster FAIL never reaches the mastering chain**. Each overridable explicitly, none silently. |
+> | **Alignment confidence was a trap** | On a 120 BPM click train displaced 0.75 s the correlation peaked at **0.9173 on the wrong lag** and 0.8972 on the true one. Rap instrumentals are periodic, so this is the normal case and it is how a vocal lands a bar out. `peak_margin` (gap to the best distinct rival) now carries the verdict, not confidence. |
+> | **Tempo comparison replaced by drift measurement** | `beat_track` misread *identical* rhythms by **2.7%**, so no usable tolerance exists. Head/tail drift resolves ~12 ms. Sweep: at **0.2% tempo difference confidence reads 0.491 (passing) while the take drifts 70 ms** — drift is the only thing that catches it; above 2% correlation collapses and confidence catches it instead. |
+> | **The alignment *reference* was the real defect** | On real Serbian material with a true offset of **exactly 0**, aligning against the **instrumental** returned **+1.416 s** (confidence 0.107, margin 0.005) — wrong, and **correctly refused**. A rap vocal shares little onset structure with an instrumental. Separation already emits the Suno vocal stem, so `--align-reference auto` now uses that instead and warns when it falls back. Not yet verified on two genuinely different performances. |
+> | **An 11-sample artefact was setting every mix 3.5 dB low** | `sosfiltfilt` edge ring returned 0.449 on a 0.300-peak tone; bus gain is peak-driven. Fixed with an edge fade sized from the cutoff. |
+> | **The M4 gate was inert** | The pipeline read `report["overall"]`; `analyze_premaster` returns `verdict`. Every run reported UNKNOWN and the gate could never fire. Caught by a test, not by review. |
+> | **Tests** | 116 new, all passing. Mastering mocked (another OS); everything through the premaster gates runs for real. |
+> | **VERIFIED end to end on real material** | `Srpskki Istocnicci - Borba 015` (4:09): mix 12.3 s · premaster gates **FLAG** (5 of 6 PASS; only PSR 9.03 vs spec >= 11) · master 116.7 s · verify **pass** at **-8.698 LUFS** vs the -8.5 `serbian_drill` target, TP -1.371 dBTP under the -1.0 ceiling. **~138 s/track** excluding separation. Sample peak -6.023 dBFS against the -6.0 bus target — gain staging accurate on real audio. |
+> | **Still NOT verified** | The take was a **stem standing in for a recording**, so alignment was handed a declared offset. Aligning two genuinely different performances is unverified on real input. No min/track number for the **separation** stage (skipped via `--instrumental`). |
+> | **REPORTED, not fixed — mastering loses 32-bit float at the limiter** | Chain intermediates: 01-05 all **FLOAT**, `06_limited.wav` **PCM_16**. Both `$OUT` writes in `stage_clip_limit.sh` (lines 84, 88) omit `-c:a pcm_f32le` while every other ffmpeg call in the chain passes it. So `_MASTER_32f.wav` is **mislabeled** (it is PCM_16), and `_MASTER_16.wav` applies TPDF dither to **already-quantized** audio — the real float→16 step happened undithered inside the limiter. Daily-use submodule; reported per #043 precedent. |
+> | **Debt 13b recurrence fixed** | The suite itself was dropping `production_analysis.db` in the repo root — `BatchAnalyzer`'s relative default — which defeats `closeout`'s clean-tree gate. Now resolved through `toolshop/paths.py`; the stray file was **moved**, not deleted. |
+>
+> ---
+>
+> **H2-M5 PARTIAL 2026-08-31 — `toolshop/transcribe.py` written, not measured. See CHANGELOG #052.**
+>
+> | Item | Result |
+> |---|---|
+> | **Adapter exists** | faster-whisper, CPU int8, prefers a vocal stem and records which source ran. `--require-stem` refuses the silent fall-back to the full mix — `--require-advanced` is deliberately absent because there is no heuristic ASR fallback for it to guard. |
+> | **M5 REMAINS OPEN** | faster-whisper is **not installed**, no model downloaded, **no min/track number**. Under the CPU-budget rule the milestone cannot close without one. Needs a ~250 MB (`small`) to ~1.5 GB (`large-v3`) download. |
+> | **`toolshop/paths.py`** | Central `TOOLSHOP_DATA_DIR` resolver; the same six lines were pasted in five modules. The sixth consumer went here. The five are **not** migrated — recorded as follow-up, per D12. |
+>
+> ---
+>
 > **D6 RESOLVED 2026-08-31 — `ai_modules/` dissolved. G0 MET. See CHANGELOG #051.**
 >
 > | Item | Result |
