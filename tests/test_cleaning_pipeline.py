@@ -134,11 +134,70 @@ class TestPauseRemovalStage:
         stage = PauseRemovalStage(min_silence=0.3)
         result = stage.process(result)
 
-        # TODO: PauseRemovalStage removes all silence regardless of min_silence;
-        # min_silence only controls which gaps are recorded in removed_regions.
-        # 200ms gap creates 2 non-silent intervals and removes ~0.2s.
+        # A 200 ms gap is BELOW min_silence=0.3, so it is a natural pause and must
+        # survive. This assertion was weakened to `time_removed < 0.25` with a TODO
+        # (debt 1c) rather than fixing the stage, which made a passing test certify
+        # the opposite of the behaviour the parameter promises.
         assert result.report["segments_kept"] == 2
-        assert result.report["time_removed"] < 0.25
+        assert result.report["time_removed"] < 0.05, (
+            "a pause shorter than min_silence must be preserved, not removed"
+        )
+        assert result.report["removed_regions"] == []
+
+    def test_long_pause_is_truncated_to_max_keep(self, tmp_path):
+        """A gap above min_silence is shortened to max_keep, not deleted.
+
+        The other half of the contract. `removed_regions` has always reported
+        `kept: min(duration, max_keep)`; this asserts the audio agrees with it.
+        """
+        sr = 44100
+        audio = np.concatenate(
+            [
+                np.ones(int(sr * 0.5)) * 0.5,
+                np.zeros(int(sr * 1.5)),  # 1.5 s gap, well above min_silence
+                np.ones(int(sr * 0.5)) * 0.5,
+            ]
+        )
+        test_file = tmp_path / "long_gap.wav"
+        sf.write(test_file, audio, sr)
+
+        result = PreprocessingStage().process(str(test_file))
+        result = PauseRemovalStage(min_silence=0.3, max_keep=0.5).process(result)
+
+        region = result.report["removed_regions"]
+        assert len(region) == 1, "the long gap should be recorded as removed"
+        assert region[0]["kept"] == pytest.approx(0.5, abs=0.01)
+
+        # 1.5 s gap truncated to 0.5 s => about 1.0 s removed.
+        assert result.report["time_removed"] == pytest.approx(1.0, abs=0.1)
+
+    def test_min_silence_actually_changes_the_audio(self, tmp_path):
+        """The regression guard: min_silence must affect output, not just the report.
+
+        Debt 1c was invisible to every existing test because the parameter still
+        appeared in `removed_regions`. Two settings over identical input must
+        produce different durations, or the parameter is decorative again.
+        """
+        sr = 44100
+        audio = np.concatenate(
+            [
+                np.ones(int(sr * 0.5)) * 0.5,
+                np.zeros(int(sr * 0.4)),  # 400 ms
+                np.ones(int(sr * 0.5)) * 0.5,
+            ]
+        )
+        test_file = tmp_path / "gap.wav"
+        sf.write(test_file, audio, sr)
+
+        def duration_with(min_silence):
+            result = PreprocessingStage().process(str(test_file))
+            return PauseRemovalStage(
+                min_silence=min_silence, max_keep=0.1
+            ).process(result).metadata["duration"]
+
+        # min_silence=0.2 -> the 400 ms gap is "long", truncated to max_keep=0.1
+        # min_silence=1.0 -> the same gap is "natural", kept whole
+        assert duration_with(1.0) > duration_with(0.2) + 0.2
 
 
 class TestBreathDetectionStage:

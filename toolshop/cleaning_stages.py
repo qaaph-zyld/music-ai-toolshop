@@ -118,12 +118,31 @@ class PauseRemovalStage:
         self.crossfade_ms = crossfade_ms
 
     def process(self, result: StageResult) -> StageResult:
-        """Remove long silences while preserving natural pauses."""
+        """Remove long silences while preserving natural pauses.
+
+        **Debt 1c, fixed.** `librosa.effects.split` returns only the non-silent
+        intervals, and this method used to concatenate them straight together -
+        which drops *every* gap, however short. `min_silence` was read only when
+        building `removed_regions`, so it changed the report and never the audio:
+        the stage removed all silence at any setting, and a 200 ms breath was
+        deleted exactly like a 5 s dead patch.
+
+        The report was the tell. It has always recorded
+        ``"kept": min(gap_duration, max_keep)`` for each removed region - a value
+        describing behaviour the code did not implement, since nothing was kept.
+
+        The contract those two parameters describe, now actually applied:
+
+        * gap **<** `min_silence`  -> preserved in full; it is a natural pause.
+        * gap **>=** `min_silence` -> truncated to `max_keep` seconds.
+
+        The retained audio is taken from the original gap rather than written as
+        zeros, so what is left is the room tone that was already there. Splicing
+        digital silence into a vocal take is audible in a way the original pause
+        is not.
+        """
         audio = result.audio
         sr = result.sample_rate
-
-        # Convert threshold from dB to amplitude
-        threshold_amp = 10 ** (self.threshold_db / 20)
 
         # Detect non-silent intervals
         intervals = librosa.effects.split(
@@ -166,20 +185,28 @@ class PauseRemovalStage:
 
             processed_segments.append(segment)
 
-            # Record gap after this segment (except last)
+            # Decide what happens to the gap after this segment (except last).
             if i < len(intervals) - 1:
                 next_start = intervals[i + 1][0]
                 gap_duration = (next_start - end) / sr
 
                 if gap_duration >= self.min_silence:
+                    keep_seconds = min(gap_duration, self.max_keep)
                     removed_regions.append(
                         {
                             "start": end / sr,
                             "end": next_start / sr,
                             "duration": gap_duration,
-                            "kept": min(gap_duration, self.max_keep),
+                            "kept": keep_seconds,
                         }
                     )
+                else:
+                    # Short enough to be a natural pause: keep all of it.
+                    keep_seconds = gap_duration
+
+                keep_samples = int(round(keep_seconds * sr))
+                if keep_samples > 0:
+                    processed_segments.append(audio[end : end + keep_samples])
 
         # Concatenate all segments
         if processed_segments:

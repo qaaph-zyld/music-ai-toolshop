@@ -12,8 +12,8 @@ produces a track that is off by half a bar:
    real warping at worst.
 
 This module solves case 1 properly and **detects** case 2 rather than pretending
-to solve it. `estimate_offset` returns a confidence, `tempo_match` reports the
-tempo ratio, and the pipeline's `--require-alignment` turns a low-confidence
+to solve it. `estimate_offset` returns a confidence, reports drift and tempo where they
+are measurable, and the pipeline's `--require-alignment` turns a low-confidence
 result into a hard failure instead of a quietly bad mix. Recording which path ran
 is necessary but not sufficient - the caller must be able to demand the good one.
 
@@ -78,6 +78,25 @@ MIN_WINDOW_CONFIDENCE = 0.25
 #: narrower than a beat at any musical tempo (0.1 s = 1/5 beat at 120 BPM).
 PEAK_GUARD_S = 0.1
 
+#: Below this periodicity a tempo estimate is not a measurement.
+#:
+#: MEASURED 2026-08-31 across synthetic and real material:
+#:
+#:     synthetic click grid        0.957   -> tempo 117.45
+#:     Borba instrumental          0.545   -> tempo  92.29
+#:     Borba full mix              0.503   -> tempo 123.05
+#:     ZELDI nova full mix         0.349   -> tempo  89.10
+#:     ---------------------------------- threshold 0.30
+#:     ZELDI vocal stem            0.238   -> unknown
+#:     Borba vocal stem            0.211   -> unknown
+#:     white noise                 0.075   -> unknown
+#:
+#: Every mix and instrumental sits above; every isolated vocal sits below. The
+#: nearest music (0.349) clears it by only ~0.05, so a sparse mix could fall on
+#: the wrong side - and that direction is the safe one, since the result is
+#: "unknown" rather than a fabricated verdict.
+MIN_TEMPO_CONFIDENCE = 0.30
+
 #: Minimum gap between the best peak and the best distinct rival. Below this the
 #: offset is ambiguous - typically by whole beats or bars on periodic material.
 #: NOT calibrated against a labelled set of real takes; it is a *reporting*
@@ -118,6 +137,12 @@ class AlignmentResult:
     #: How the mismatch verdict was reached: "drift" | "tempo" | "none".
     mismatch_basis: str = "none"
 
+    #: Periodicity of each source's onset envelope, 0-1. Below
+    #: `MIN_TEMPO_CONFIDENCE` the corresponding tempo is reported as None rather
+    #: than as librosa's prior. Isolated vocal stems land here routinely.
+    instrumental_tempo_confidence: float = 1.0
+    vocal_tempo_confidence: float = 1.0
+
     #: Gap between the winning correlation peak and the best distinct rival.
     #: Small means several placements fit equally well - usually whole beats or
     #: bars apart on periodic material. See `_normalised_cross_correlation`.
@@ -155,14 +180,53 @@ class AlignmentResult:
             round(error_pct, 3) if error_pct is not None else None
         )
         for key in ("instrumental_tempo", "vocal_tempo", "tempo_ratio",
-                    "drift_seconds", "drift_span_seconds"):
+                    "drift_seconds", "drift_span_seconds",
+                    "instrumental_tempo_confidence", "vocal_tempo_confidence"):
             if data.get(key) is not None:
                 data[key] = round(data[key], 4)
         return data
 
 
+def tempo_confidence(env, frames_per_second: float = ANALYSIS_SR / HOP_LENGTH) -> float:
+    """How periodic is this onset envelope, 0-1. Low means "no tempo here".
+
+    **Why a tempo needs a confidence.** `librosa.beat.beat_track` always returns a
+    number. On material with no percussive onsets it returns its `start_bpm=120`
+    prior rather than a measurement, and it does so silently. MEASURED 2026-08-31:
+    two unrelated isolated vocal stems - different songs, different artists - both
+    came back at **117.4538 BPM**, identical to four decimal places. A synthetic
+    click grid at exactly 120 BPM reports the same 117.4538, which identifies the
+    number: it is the 120 BPM prior after frame quantisation. The prior was leaking
+    out dressed as data, and it drove `tempo_mismatch` verdicts against takes whose
+    tempo had never been measured at all.
+
+    This is the normalised autocorrelation of the onset envelope at its best lag in
+    the 40-240 BPM range. A drum loop peaks high because onsets recur on a grid; an
+    isolated vocal peaks low because syllables do not.
+    """
+    import librosa
+    import numpy as np
+
+    env = np.asarray(env, dtype=np.float64)
+    if env.size < 4:
+        return 0.0
+    ac = librosa.autocorrelate(env - env.mean())
+    if ac.size == 0 or ac[0] <= 0:
+        return 0.0
+    ac = ac / ac[0]
+    min_lag = max(1, int(frames_per_second * 60.0 / 240.0))
+    max_lag = min(len(ac) - 1, int(frames_per_second * 60.0 / 40.0))
+    if max_lag <= min_lag:
+        return 0.0
+    return float(np.clip(ac[min_lag : max_lag + 1].max(), 0.0, 1.0))
+
+
 def _onset_envelope(path: Path, sr: int = ANALYSIS_SR):
-    """Load `path` mono and return (onset_envelope, tempo)."""
+    """Load `path` mono and return (onset_envelope, tempo, tempo_confidence).
+
+    `tempo` is **None** when the envelope is not periodic enough to support one -
+    reported as unknown rather than as librosa's prior wearing a number's clothes.
+    """
     import librosa
     import numpy as np
 
@@ -170,15 +234,23 @@ def _onset_envelope(path: Path, sr: int = ANALYSIS_SR):
     if y.size == 0:
         raise ValueError(f"no audio samples in {path}")
     env = librosa.onset.onset_strength(y=y, sr=loaded_sr, hop_length=HOP_LENGTH)
+
+    confidence = tempo_confidence(env, loaded_sr / HOP_LENGTH)
     tempo = None
-    try:
-        raw_tempo, _ = librosa.beat.beat_track(
-            onset_envelope=env, sr=loaded_sr, hop_length=HOP_LENGTH
+    if confidence >= MIN_TEMPO_CONFIDENCE:
+        try:
+            raw_tempo, _ = librosa.beat.beat_track(
+                onset_envelope=env, sr=loaded_sr, hop_length=HOP_LENGTH
+            )
+            tempo = float(np.atleast_1d(raw_tempo)[0])
+        except Exception:  # pragma: no cover - librosa edge cases on short input
+            logger.warning("tempo estimation failed for %s", path, exc_info=True)
+    else:
+        logger.info(
+            "tempo for %s not measurable (periodicity %.3f < %.3f); reporting unknown",
+            path, confidence, MIN_TEMPO_CONFIDENCE,
         )
-        tempo = float(np.atleast_1d(raw_tempo)[0])
-    except Exception:  # pragma: no cover - librosa edge cases on very short input
-        logger.warning("tempo estimation failed for %s", path, exc_info=True)
-    return env, tempo
+    return env, tempo, confidence
 
 
 def _normalised_cross_correlation(a, b, max_lag: int) -> Tuple[int, float, float]:
@@ -308,8 +380,8 @@ def estimate_offset(
     drift_tolerance_s: float = DEFAULT_DRIFT_TOLERANCE_S,
 ) -> AlignmentResult:
     """Estimate how far the vocal must move to sit on the instrumental."""
-    instr_env, instr_tempo = _onset_envelope(Path(instrumental))
-    vocal_env, vocal_tempo = _onset_envelope(Path(vocal))
+    instr_env, instr_tempo, instr_tempo_conf = _onset_envelope(Path(instrumental))
+    vocal_env, vocal_tempo, vocal_tempo_conf = _onset_envelope(Path(vocal))
 
     frames_per_second = ANALYSIS_SR / HOP_LENGTH
     max_lag = int(max_offset_s * frames_per_second)
@@ -374,6 +446,162 @@ def estimate_offset(
         drift_span_seconds=drift_span,
         mismatch_basis=basis,
         peak_margin=peak_margin,
+        instrumental_tempo_confidence=instr_tempo_conf,
+        vocal_tempo_confidence=vocal_tempo_conf,
+    )
+
+
+#: Absolute amplitude below which a file is treated as silent, regardless of what
+#: relative-dB analysis says about it. ~-86 dBFS: quieter than any real room tone,
+#: louder than a float-rounding residue.
+SILENCE_FLOOR = 5e-5
+
+#: Level below the loudest part of a take that still counts as "sound", for
+#: first-onset detection. 40 dB clears separation hiss and room tone while
+#: catching a quiet first syllable.
+ONSET_TOP_DB = 40.0
+
+#: How far a late-track window may sit from the onset-derived offset and still
+#: count as the same alignment. 0.15 s is several times the ~20 ms at which a
+#: listener hears a vocal as late, so it forgives estimation noise while still
+#: catching an arrangement that has drifted seconds away.
+ONSET_CORROBORATION_TOLERANCE_S = 0.15
+
+#: A detected onset must have at least this much audio after it to count, so a
+#: click, a breath or a separation artefact cannot pass as the first word.
+MIN_ONSET_RUN_S = 0.25
+
+
+def first_sound_at(path: Path, top_db: float = ONSET_TOP_DB) -> Optional[float]:
+    """Seconds until the first sustained sound in `path`, or None if silent."""
+    import librosa
+
+    import numpy as np
+
+    y, sr = librosa.load(str(path), sr=ANALYSIS_SR, mono=True)
+    if y.size == 0:
+        return None
+
+    # `librosa.effects.split` measures dB *relative to the loudest sample*, so on
+    # an all-silent file every sample ties the maximum and the whole array comes
+    # back as one "non-silent" run - reporting sound at 0.00 s. An absolute floor
+    # has to be checked first, or an empty stem yields a confident wrong offset.
+    if float(np.max(np.abs(y))) < SILENCE_FLOOR:
+        return None
+
+    runs = librosa.effects.split(y, top_db=top_db)
+    minimum = int(MIN_ONSET_RUN_S * sr)
+    for start, end in runs:
+        if end - start >= minimum:
+            return float(start) / sr
+    return None
+
+
+def _corroborate_offset(reference: Path, vocal: Path, offset: float):
+    """Does the offset still hold late in the track? -> (verified, lag, confidence).
+
+    Shifts the take onto the reference's timeline and correlates the LAST third.
+    If the pair really shares an arrangement, the residual lag there is ~0. A large
+    residual means the two diverge structurally, which no single offset can fix.
+
+    `verified` is False when the tail correlates too weakly to judge - unknown is
+    reported as unknown, never as agreement.
+    """
+    import numpy as np
+
+    ref_env, _, _ = _onset_envelope(Path(reference))
+    take_env, _, _ = _onset_envelope(Path(vocal))
+    fps = ANALYSIS_SR / HOP_LENGTH
+
+    shift = int(round(offset * fps))
+    if shift < 0:
+        take_env = take_env[abs(shift):]
+    elif shift > 0:
+        take_env = np.concatenate([np.zeros(shift), take_env])
+
+    usable = min(len(ref_env), len(take_env))
+    if usable / fps < MIN_DRIFT_ANALYSIS_S:
+        return (False, None, 0.0)
+
+    window = usable // 3
+    if window < int(4.0 * fps):
+        return (False, None, 0.0)
+
+    lag, conf, _ = _normalised_cross_correlation(
+        np.asarray(ref_env[usable - window : usable]),
+        np.asarray(take_env[usable - window : usable]),
+        int(DEFAULT_MAX_OFFSET_S * fps),
+    )
+    if conf < MIN_WINDOW_CONFIDENCE:
+        return (False, None, conf)          # too weak to judge either way
+    residual = lag / fps
+    return (abs(residual) <= ONSET_CORROBORATION_TOLERANCE_S, residual, conf)
+
+
+def estimate_offset_by_onset(reference: Path, vocal: Path) -> Optional[AlignmentResult]:
+    """Align two vocals by where each one starts singing.
+
+    **Why this beats correlation for vocal-against-vocal.** Two takes of the same
+    song open on the same word, so the gap between their first onsets *is* the
+    offset - a direct measurement, not a search. Cross-correlation instead scores
+    every possible placement, and on sparse vocal material dozens score alike.
+
+    MEASURED 2026-08-31 on a real pair. The Suno vocal began at 1.49 s, the
+    artist's take at 13.79 s, so the take had to move **-12.31 s**. Cross-
+    correlation returned **+12.70 s** - the mirror placement, off by 25 s - with
+    `peak_margin` 0.0005, meaning it was choosing between near-identical peaks
+    and effectively picked at random. It flagged itself ambiguous and was right to,
+    but a flag is not an answer.
+
+    Returns None when either side has no detectable onset, so the caller can fall
+    back rather than receive a fabricated number.
+    """
+    ref_at = first_sound_at(Path(reference))
+    vocal_at = first_sound_at(Path(vocal))
+    if ref_at is None or vocal_at is None:
+        return None
+
+    offset = ref_at - vocal_at
+
+    # **Corroborate before claiming the track is aligned.** The onset gap measures
+    # the FIRST WORD. Reporting that as full confidence in the whole alignment is
+    # the same scope error this module keeps catching elsewhere: on a real pair the
+    # opening matched to -0.09 s while later windows wandered to -15.09, +8.10 and
+    # -13.56 s, because the two arrangements diverged after the first section. Same
+    # tempo, different structure - and the mix sounded wrong while the result said
+    # "trustworthy".
+    corroboration = _corroborate_offset(reference, vocal, offset)
+    verified, tail_lag, tail_conf = corroboration
+    if verified:
+        confidence, note = 1.0, ""
+    elif tail_lag is None:
+        confidence = 0.30  # below DEFAULT_MIN_CONFIDENCE on purpose
+        note = (
+            " The opening matches, but later material correlates too weakly to "
+            "confirm the rest of the track - treat as unverified and check by ear."
+        )
+    else:
+        confidence = 0.30
+        note = (
+            " The opening matches but the track does NOT stay aligned: a later "
+            "window sits {:+.2f}s away. The arrangements probably differ, which no "
+            "single offset can fix."
+        ).format(tail_lag)
+
+    return AlignmentResult(
+        offset_seconds=offset,
+        confidence=confidence,
+        instrumental_tempo=None,
+        vocal_tempo=None,
+        tempo_ratio=None,
+        tempo_mismatch=False,
+        method="first_onset",
+        notes=(
+            "aligned on first sung sound: reference starts at {:.2f}s, take at "
+            "{:.2f}s. Assumes both open on the same word - check by ear if the "
+            "take has a false start or the reference has an intro ad-lib."
+        ).format(ref_at, vocal_at) + note,
+        peak_margin=1.0,
     )
 
 

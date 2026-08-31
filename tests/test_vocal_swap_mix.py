@@ -57,17 +57,43 @@ class TestGainStaging:
         placed = result.vocal_lufs_before + result.vocal_gain_db
         assert placed == pytest.approx(result.instrumental_lufs - 6.0, abs=0.1)
 
-    def test_bus_hits_the_peak_target(self):
-        instrumental = _tone(3.0, amp=0.4)
-        vocal = _tone(3.0, freq=440.0, amp=0.4)
-        audio, result = mix_mod.mix(instrumental, vocal, bus_peak_dbfs=-6.0)
-        assert result.output_peak_dbfs == pytest.approx(-6.0, abs=0.01)
-        assert mix_mod.peak_dbfs(audio) == pytest.approx(-6.0, abs=0.01)
+    def test_bus_hits_the_loudness_target(self):
+        """The bus is levelled in LUFS, because peak does not predict loudness.
+
+        Peak normalisation handed the mastering chain premasters between -16.7 and
+        -21.5 LUFS for the same peak, and it undershot its target in proportion.
+        """
+        instrumental = _tone(6.0, amp=0.4)
+        vocal = _tone(6.0, freq=440.0, amp=0.4)
+        audio, result = mix_mod.mix(instrumental, vocal, bus_lufs_target=-17.0)
+        assert result.output_lufs == pytest.approx(-17.0, abs=0.2)
+        assert result.bus_limited_by == "lufs"
+
+    def test_peak_ceiling_overrides_the_loudness_target(self):
+        """A high-crest mix must not breach the ceiling chasing loudness."""
+        instrumental = _tone(6.0, amp=0.4)
+        vocal = _tone(6.0, freq=440.0, amp=0.4)
+        audio, result = mix_mod.mix(
+            instrumental, vocal, bus_lufs_target=0.0, bus_peak_dbfs=-3.5
+        )
+        assert result.output_peak_dbfs == pytest.approx(-3.5, abs=0.01)
+        assert result.bus_limited_by == "peak_ceiling"
+        assert result.output_lufs < -3.5, "loudness must fall short, not clip"
+
+    def test_which_constraint_bound_is_recorded(self):
+        """Never inferred: 'why is this premaster quiet' must be answerable."""
+        instrumental = _tone(6.0, amp=0.4)
+        vocal = _tone(6.0, freq=440.0, amp=0.4)
+        _, quiet = mix_mod.mix(instrumental, vocal, bus_lufs_target=-30.0)
+        _, loud = mix_mod.mix(instrumental, vocal, bus_lufs_target=0.0)
+        assert quiet.bus_limited_by == "lufs"
+        assert loud.bus_limited_by == "peak_ceiling"
 
     def test_headroom_is_left_for_mastering(self):
         """A premaster at 0 dBFS is a bug; the chain needs room to work."""
-        audio, result = mix_mod.mix(_tone(3.0, amp=0.9), _tone(3.0, 440.0, 0.9))
-        assert result.output_peak_dbfs < -3.0
+        audio, result = mix_mod.mix(_tone(6.0, amp=0.9), _tone(6.0, 440.0, 0.9))
+        # Gate 3 of the M4 premaster spec passes at <= -3.0 dBFS.
+        assert result.output_peak_dbfs <= -3.0
         assert np.max(np.abs(audio)) < 1.0
 
 

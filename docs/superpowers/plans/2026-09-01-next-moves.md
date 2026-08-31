@@ -85,13 +85,33 @@ Transcription is reproducible and fast, but covers **69%** of the vocal at 45 wo
 typical 100–200. About a third of the track yields no timings, and one 22.3 s span has untrustworthy
 internal timing. Since M5 exists to feed syllables-per-bar analysis, that is a real limit.
 
-Untried levers, cheapest first:
+**MEASURED 2026-08-31 — three variants, full track each. Neither hypothesis survived.**
 
-- [ ] `vad_filter=False` — VAD is the prime suspect for the remaining 31.6 s gap.
-- [ ] Transcribe a **less aggressively separated** source. The current stem went through two
-      separation passes; those artefacts plausibly read as non-speech.
-- [ ] Chunked retry: re-decode only the gap regions with different settings.
-- [ ] `[USER DECISION]` If none help: is 69% acceptable for flow-analysis v1, or does T4 wait?
+| variant | coverage | words | max span | gaps | min/track |
+|---|---|---|---|---|---|
+| **A defaults (stem)** | **69.1%** | **188** (45/min) | **22.3 s** | 3 | 4.08 |
+| B `vad_filter=False` | 46.4% | 127 (31/min) | 25.9 s | 4 | 6.17 |
+| C full mix | 68.4% | 147 (35/min) | 51.5 s | 0 | 2.78 |
+
+- [x] ~~`vad_filter=False`~~ — **wrong, and badly**: coverage fell 22.7 points and the run got 50%
+      slower. VAD was not over-filtering; without it the decoder wanders through silence.
+- [x] ~~Less aggressively separated source~~ — **wrong**: the full mix tied on coverage (68.4%) with
+      *fewer* words and a **51.5 s** span. Its zero gaps are not a win — it "covers" the track by
+      emitting long continuous blocks whose internal timings are unusable. Separation artefacts were
+      not the problem.
+- [x] A reproduced **69.1% / 188 words exactly**, re-confirming determinism across sessions.
+
+**Diagnosis: the ceiling is the model on this material, not the plumbing.** Neither of the two
+plausible mechanical causes survived contact. Remaining levers are different in kind — `initial_prompt`
+priming with artist vocabulary, chunk-level retry, a different model, or fine-tuning.
+
+- [ ] **The better answer for our own tracks: forced alignment, not recognition.** For material where
+      the lyrics are already known — everything we write — whisperX forced alignment aligns *known
+      text* to audio instead of guessing at it, which sidesteps the 31% entirely. ASR is only truly
+      needed for the 444-track corpus of *other people's* songs. `specs/2026-07-15-oss-integration-map.md`
+      already lists whisperX for exactly this, alignment-only, no diarization, no HF token.
+- [ ] `[USER DECISION]` Is 69% acceptable for flow-analysis v1 on the *corpus*, given our own tracks
+      should go the forced-alignment route instead?
 
 ---
 
@@ -115,15 +135,27 @@ Two capabilities are built and **unconsumed**:
 
 ## P5 — Hygiene, opportunistic
 
-- [ ] **debt 1c** (`min_silence` in `PauseRemovalStage`) — a small targeted fix in the shipped
-      `cleaning_stages.py`. The `vocal_cleanup` code that looked like its fix had never executed (#051).
+- [x] ~~**debt 1c** (`min_silence` in `PauseRemovalStage`)~~ **FIXED 2026-08-31.** The stage
+      concatenated `librosa.effects.split`'s intervals straight together, dropping *every* gap
+      however short; `min_silence` was read only when building `removed_regions`, so it changed the
+      report and never the audio. The report was the tell — it had always claimed
+      `"kept": min(duration, max_keep)` for behaviour the code did not implement. Now: a gap below
+      `min_silence` is preserved whole, one above is truncated to `max_keep`, and the retained audio
+      is the original room tone rather than inserted zeros. The weakened test (`time_removed < 0.25`
+      with a TODO) was restored to its intent, plus a guard asserting two `min_silence` settings
+      produce different durations — the assertion whose absence let this survive.
 - [ ] **Migrate the five `TOOLSHOP_DATA_DIR` resolvers** (`backup`, `remix_adapter`, `remix_cli`,
       `stems_cli`, `video_cli`) onto `toolshop/paths.py` — **each when its lane is next touched
       substantially**, per D12. Never as a repo-wide move.
-- [ ] `[USER DECISION]` **protobuf conflict.** `ctranslate2` forced protobuf 4.21.2 → 7.36.0;
-      `classla` pins `==4.21.2`. classla imports and its 20 tests pass, so nothing observable is
-      broken — but the pin is violated. Either pin protobuf back and verify ctranslate2 still runs
-      inference, or accept and record the deviation.
+- [x] ~~`[USER DECISION]` **protobuf conflict.**~~ **RESOLVED 2026-08-31 — pinned back to 4.21.2.**
+      The constraints are **mutually unsatisfiable**: `classla==4.21.2`, `onnxruntime>=4.25.8`,
+      `onnx-weekly>=6.31.1`. No version satisfies all three, so one is always violated — and at
+      4.21.2 (the state predating the ASR install) it was already onnxruntime's. Note `ctranslate2`
+      does not depend on protobuf at all, so it was never the package at risk.
+      **Verified by running the work at BOTH versions**, not by reading metadata: onnxruntime parses
+      a real 67 MB `.onnx` (stem separation), ctranslate2 runs real inference (identical output,
+      `sr` p=1.00), classla and audio-separator import — all green either way. 4.21.2 kept because it
+      honours the only *hard* pin. Recorded in `pyproject.toml`.
 
 ---
 

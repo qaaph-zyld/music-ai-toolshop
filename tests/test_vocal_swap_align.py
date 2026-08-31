@@ -187,6 +187,186 @@ def test_short_material_falls_back_to_tempo(tmp_path):
     assert result.mismatch_basis in ("tempo", "none")
 
 
+class TestTempoConfidence:
+    """A tempo estimate must be a measurement, not librosa's prior in disguise.
+
+    MEASURED 2026-08-31 — periodicity of the onset envelope across real material:
+
+        synthetic click grid   0.957   -> tempo reported
+        Borba instrumental     0.545   -> tempo reported
+        Borba full mix         0.503   -> tempo reported
+        ZELDI nova full mix    0.349   -> tempo reported
+        --------------------------------- threshold 0.30
+        ZELDI vocal stem       0.238   -> unknown
+        Borba vocal stem       0.211   -> unknown
+        white noise            0.075   -> unknown
+
+    The bug this closes: `beat_track` returned **117.4538 BPM** for two unrelated
+    isolated vocals. A 120 BPM click grid reports the same 117.4538, which
+    identifies it as the `start_bpm=120` prior after frame quantisation — the
+    prior leaking out as data and driving `tempo_mismatch` verdicts on takes whose
+    tempo was never measured.
+    """
+
+    def test_periodic_material_scores_high(self, tmp_path):
+        track = _click_track(tmp_path / "grid.wav", 0.5, 30.0)
+        env, tempo, conf = align._onset_envelope(track)
+        assert conf > 0.8
+        assert tempo is not None, "a strict click grid must yield a tempo"
+
+    def test_unstructured_audio_scores_low_and_reports_no_tempo(self, tmp_path):
+        rng = np.random.default_rng(0)
+        path = tmp_path / "noise.wav"
+        sf.write(str(path), rng.normal(0, 0.1, 20 * SR).astype(np.float32), SR)
+
+        env, tempo, conf = align._onset_envelope(path)
+        assert conf < align.MIN_TEMPO_CONFIDENCE
+        assert tempo is None, "no periodicity must mean no tempo, not the prior"
+
+    def test_confidence_is_bounded(self, tmp_path):
+        track = _click_track(tmp_path / "grid.wav", 0.5, 20.0)
+        env, _, _ = align._onset_envelope(track)
+        assert 0.0 <= align.tempo_confidence(env) <= 1.0
+
+    def test_degenerate_input_does_not_raise(self):
+        assert align.tempo_confidence(np.zeros(3)) == 0.0
+        assert align.tempo_confidence(np.zeros(500)) == 0.0
+
+    def test_unmeasurable_tempo_cannot_produce_a_mismatch_verdict(self, tmp_path):
+        """The actual regression: no tempo means no tempo verdict.
+
+        Two short noise files cannot support a tempo, so `mismatch_basis` must be
+        "none" — previously both would have been assigned the 120 BPM prior, the
+        ratio would have been a clean 1.0, and the estimator would have reported a
+        confident agreement it had not measured.
+        """
+        rng = np.random.default_rng(1)
+        a, b = tmp_path / "a.wav", tmp_path / "b.wav"
+        sf.write(str(a), rng.normal(0, 0.1, 6 * SR).astype(np.float32), SR)
+        sf.write(str(b), rng.normal(0, 0.1, 6 * SR).astype(np.float32), SR)
+
+        result = align.estimate_offset(a, b)
+        assert result.instrumental_tempo is None and result.vocal_tempo is None
+        assert result.tempo_ratio is None
+        assert result.tempo_mismatch is False
+        assert result.mismatch_basis == "none"
+
+    def test_confidences_are_reported_for_audit(self, tmp_path):
+        instrumental = _rhythm_track(tmp_path / "i.wav", 20.0)
+        vocal = _rhythm_track(tmp_path / "v.wav", 20.0)
+        data = align.estimate_offset(instrumental, vocal).to_dict()
+        assert 0.0 <= data["instrumental_tempo_confidence"] <= 1.0
+        assert 0.0 <= data["vocal_tempo_confidence"] <= 1.0
+
+
+class TestOnsetAlignment:
+    """Aligning two vocals on their first sung sound.
+
+    The case this exists for, MEASURED 2026-08-31 on a real pair: the Suno vocal
+    opened at 1.49 s and the artist's take at 13.79 s, so the take had to move
+    **-12.31 s**. Cross-correlation returned **+12.70 s** — the mirror placement,
+    25 s wrong — at a peak margin of 0.0005, i.e. choosing at random between
+    near-identical peaks. Onset matching returns -12.307 s directly.
+    """
+
+    def _voice(self, path: Path, lead_silence_s: float, length_s: float = 30.0,
+               seed: int = 4, sr: int = SR) -> Path:
+        """A structured phrase after some silence — a stand-in for a sung entry.
+
+        Deliberately NOT white noise. Corroboration checks that the offset still
+        holds late in the track, which needs shared structure to verify against;
+        noise has none, so a noise fixture would exercise the "cannot corroborate"
+        branch rather than the aligned one.
+        """
+        total = int(length_s * sr)
+        audio = np.zeros(total, dtype=np.float32)
+        rng = np.random.default_rng(seed)
+        # Sustained bursts, not clicks: `first_sound_at` deliberately ignores runs
+        # shorter than MIN_ONSET_RUN_S so a click or breath cannot pass as the
+        # first word, and a sung syllable is far longer than a click anyway.
+        note = int(0.30 * sr)
+        pos = int(lead_silence_s * sr)
+        while pos + note < total:
+            t = np.arange(note) / sr
+            freq = float(rng.choice([180.0, 220.0, 260.0, 300.0]))
+            body = (0.4 * np.sin(2 * np.pi * freq * t)).astype(np.float32)
+            body *= np.hanning(note).astype(np.float32)
+            audio[pos : pos + note] += body
+            pos += note + int(float(rng.choice([0.15, 0.25, 0.4])) * sr)
+        sf.write(str(path), audio, sr)
+        return path
+
+    def test_offset_is_the_gap_between_first_sounds(self, tmp_path):
+        reference = self._voice(tmp_path / "ref.wav", lead_silence_s=1.5)
+        take = self._voice(tmp_path / "take.wav", lead_silence_s=6.0)
+
+        result = align.estimate_offset_by_onset(reference, take)
+
+        # reference starts 4.5 s earlier, so the take must move -4.5 s
+        assert result.offset_seconds == pytest.approx(-4.5, abs=0.1)
+        assert result.method == "first_onset"
+        assert result.trustworthy
+
+    def test_take_earlier_than_reference_gives_a_positive_offset(self, tmp_path):
+        reference = self._voice(tmp_path / "ref.wav", lead_silence_s=5.0)
+        take = self._voice(tmp_path / "take.wav", lead_silence_s=1.0)
+        result = align.estimate_offset_by_onset(reference, take)
+        assert result.offset_seconds == pytest.approx(4.0, abs=0.1)
+
+    def test_identical_entries_align_at_zero(self, tmp_path):
+        reference = self._voice(tmp_path / "ref.wav", lead_silence_s=3.0)
+        take = self._voice(tmp_path / "take.wav", lead_silence_s=3.0)
+        assert align.estimate_offset_by_onset(reference, take).offset_seconds == \
+            pytest.approx(0.0, abs=0.05)
+
+    def test_divergent_arrangements_are_not_reported_as_aligned(self, tmp_path):
+        """The real failure: the opening matches, the rest does not.
+
+        MEASURED on a real pair — same tempo (129.2 BPM both), but the take sang
+        across 150.56 s where the Suno vocal sang across 185.48 s. The opening
+        aligned to -0.09 s while later windows sat at -15.09, +8.10 and -13.56 s.
+        Onset matching alone called that `trustworthy`, and the mix sounded wrong.
+        """
+        reference = self._voice(tmp_path / "ref.wav", lead_silence_s=1.0, seed=1)
+        # Same entry point, completely different phrasing after it.
+        take = self._voice(tmp_path / "take.wav", lead_silence_s=1.0, seed=99)
+
+        result = align.estimate_offset_by_onset(reference, take)
+
+        assert result.offset_seconds == pytest.approx(0.0, abs=0.1)
+        assert not result.trustworthy, (
+            "matching first words must not certify the whole track"
+        )
+        assert "opening matches" in result.notes
+
+    def test_silence_returns_none_rather_than_a_number(self, tmp_path):
+        silent = tmp_path / "silent.wav"
+        sf.write(str(silent), np.zeros(5 * SR, dtype=np.float32), SR)
+        voice = self._voice(tmp_path / "v.wav", lead_silence_s=1.0)
+
+        assert align.estimate_offset_by_onset(silent, voice) is None
+        assert align.estimate_offset_by_onset(voice, silent) is None
+
+    def test_a_click_is_not_mistaken_for_the_first_word(self, tmp_path):
+        """A separation artefact before the entry must not set the offset."""
+        sr = SR
+        audio = np.zeros(int(10 * sr), dtype=np.float32)
+        click_at = int(0.5 * sr)
+        audio[click_at : click_at + int(0.02 * sr)] = 0.5   # 20 ms, below the floor
+        entry = int(4.0 * sr)
+        rng = np.random.default_rng(5)
+        audio[entry:] = rng.normal(0, 0.3, len(audio) - entry).astype(np.float32)
+        path = tmp_path / "clicky.wav"
+        sf.write(str(path), audio, sr)
+
+        assert align.first_sound_at(path) == pytest.approx(4.0, abs=0.15)
+
+    def test_first_sound_of_silence_is_none(self, tmp_path):
+        path = tmp_path / "quiet.wav"
+        sf.write(str(path), np.zeros(3 * SR, dtype=np.float32), SR)
+        assert align.first_sound_at(path) is None
+
+
 def test_declared_offset_is_trusted():
     result = align.declared_offset(2.25)
     assert result.offset_seconds == 2.25

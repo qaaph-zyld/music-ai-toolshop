@@ -1,5 +1,122 @@
 # Changelog
 
+### Answer #053 — Vocal swap meets real material. Six defects found by using it, two of my claims retracted.
+**Timestamp:** 2026-08-31
+**Action Type:** Field use of the #052 lane on four real track pairs, and the fixes that use forced out
+
+**Three tracks went through the lane end to end**, and every fix below came from a failure heard or
+measured, not from review.
+
+| track | pairing | alignment | gates | master |
+|---|---|---|---|---|
+| ZELDI (first) | 171.72 s vs 229.21 s — **57.5 s apart** | refused, ambiguous | PASS | flag |
+| ZELDI nova | trimmed, −30 s of singing cut | declared 0 (wrong) | PASS | flag |
+| **ZELDI suno_new** | **228.24 s vs 229.21 s** | +0.348 s, corroborated | FLAG | **pass** |
+| **Na tebe sam** | 193.32 s vs 180.92 s | **−12.307 s** (onset) | FLAG | **pass** |
+
+**Separation min/track measured at last** — the figure #052 could not supply because its e2e run used
+`--instrumental`. **231.6 s for a 183.76 s track** and **267.6 s for 171.72 s**, i.e. **3.9–4.5
+min/track** on the `karaoke` preset. AGENTS.md's known-context claims *"~30 min/track default MDX
+preset"*; that line carries a "verify before relying" caveat and it is now verified as **~6× slower
+than reality**.
+
+---
+
+**1. Cross-correlation returned the mirror placement, and onset matching fixes it.**
+On `Na tebe sam`: the Suno vocal opens at 1.49 s, the artist's take at 13.79 s, so the take must move
+**−12.31 s**. Cross-correlation returned **+12.70 s** — 25 s wrong — at `peak_margin` 0.0009, meaning
+it was choosing between near-identical peaks and effectively picked at random. It flagged itself
+ambiguous and was right to, but a flag is not an answer.
+
+Two vocals of the same song open on the same word, so the gap between their first sung sounds **is**
+the offset — a measurement, not a search. `estimate_offset_by_onset` does that, and the pipeline
+falls back to it only when the reference is the Suno vocal *and* correlation admits ambiguity (an
+instrumental shares no such property). On `ZELDI suno_new` the two methods **agree within 23 ms**
+(+0.348 vs +0.325), which is far stronger evidence than either alone.
+
+**2. Onset alignment certified a track from its first word — caught by the artist's ear.**
+`Na tebe sam` came back `trustworthy` and sounded wrong. `estimate_offset_by_onset` returned
+`confidence=1.0` unconditionally: it measures the FIRST WORD and then claimed the whole alignment.
+The same scope error this module keeps catching elsewhere, committed one function after the rule was
+written down.
+
+Measured on that pair: tempos **match** (129.2 BPM instrumental, 129.2 vocal), but the take sings
+across **150.56 s** where the Suno vocal sings across **185.48 s**. Per-window lags after applying the
+offset:
+
+    0-34s   -0.09s      <- the opening aligns
+    34-67s  -15.09s
+    67-101s  +8.10s
+    101-135s -13.56s
+    135-169s  -6.25s
+
+Same tempo, **different arrangement** — which no offset and no uniform stretch can fix (1.232 would
+compress the delivery 23%, far past the ~6% a phase vocoder survives). `_corroborate_offset` now
+re-checks the last third of the track after applying the offset; a residual beyond 0.15 s, or a tail
+too weak to judge, drops confidence below the trust threshold and says which. The pair now reports
+`trustworthy False` with the reason instead of a clean bill of health.
+
+**3. `librosa.beat.beat_track` was reporting its prior as data.** Two unrelated vocal stems both came
+back at **117.4538 BPM**. A synthetic 120 BPM click grid reports the same 117.4538, identifying it as
+`start_bpm=120` after frame quantisation. `tempo_confidence` (normalised autocorrelation of the onset
+envelope) now gates it, calibrated on seven sources: click grid 0.957 · Borba instrumental 0.545 ·
+Borba mix 0.503 · ZELDI mix 0.349 — **threshold 0.30** — ZELDI vocal 0.238 · Borba vocal 0.211 ·
+noise 0.075. Every mix above, every isolated vocal below. Confirmed on real input: the Suno vocal
+stem measured 0.2103 and correctly reported `tempo: None`.
+
+**4. A silent file reported "first sound at 0.00 s".** Found by the test written for defect 1.
+`librosa.effects.split` measures dB *relative to the loudest sample*, so on an all-silent file every
+sample ties the maximum and the whole array returns as one non-silent run. An empty stem would have
+produced a confident, completely wrong offset. Fixed with an absolute silence floor.
+
+**5. `vocal-swap doctor` reported PASS while stem separation could not run.** Two faults, and I
+caused one of them. Pinning protobuf back to 4.21.2 (a decision taken on my own "all green" report)
+broke `onnx`, which `audio_separator.separator.architectures.mdx_separator` imports — separation died
+at the lane's first stage. Separately `torchvision` was **missing from the venv entirely** (proven by
+a dependency snapshot taken before any install); `onnx2torch` imports it eagerly, so `load_model` had
+been failing all along.
+
+**My verification was the failure.** I declared "all green" from five checks, none of which touched
+the failing path: I tested `onnxruntime` when the breakage was in `onnx`, and `import audio_separator`
+when the breakage was in a submodule of it. **A 1,190-test suite, a doctor PASS, and an end-to-end
+pipeline run were all green while separation was completely non-functional** — the suite mocks the
+backend and the e2e run passed `--instrumental`. `doctor` now imports `mdx_separator` itself and
+names the remedy. protobuf is pinned **>= 5.x**; `pyproject.toml` records why, replacing the note
+that had recorded the wrong conclusion.
+
+**6. debt 1c fixed — open since July.** `PauseRemovalStage` concatenated `librosa.effects.split`'s
+intervals straight together, dropping *every* gap however short; `min_silence` was read only when
+building `removed_regions`, so it changed the report and never the audio. The report was the tell: it
+had always claimed `"kept": min(duration, max_keep)` for behaviour the code did not implement. Now a
+gap below `min_silence` survives whole, one above is truncated to `max_keep`, and the retained audio
+is the original room tone rather than inserted zeros. The weakened test (`time_removed < 0.25` with a
+TODO) is restored, plus a guard that two `min_silence` values must produce different durations.
+
+---
+
+**RETRACTED: the LUFS bus change did not do what I claimed.** I argued from three uncontrolled runs
+that premaster loudness drove the mastering chain's shortfall, and changed the bus from peak
+normalisation to a LUFS target. The controlled A/B — same track, same vocal, only the bus level
+differing — gives:
+
+    premaster -21.46 LUFS  ->  master -9.55
+    premaster -18.96 LUFS  ->  master -9.47
+
+**2.5 dB more input produced 0.08 LU more output.** The chain's auto-gain absorbs nearly all of it,
+and the verdict flipping flag→pass was a 0.03 LU threshold crossing, i.e. noise. Three points across
+*different songs* looked monotonic; the controlled test refutes the causation. The LUFS levelling is
+kept because it is the more defensible instrument and `bus_limited_by` now records which constraint
+bound — but it does not fix the shortfall, and the earlier claim was wrong.
+
+**Also retracted:** #052 recorded that aligning against the Suno vocal stem was the fix for
+vocal-vs-instrumental failure. It is *better* — it is the reference both good runs used — but on
+`Na tebe sam` it was still ambiguous enough to return a 25 s error. The reference was necessary and
+not sufficient; onset matching is what closed it.
+
+**Tests:** 30 alignment (+13), mix updated for the LUFS contract, cleaning +2. Suite green.
+
+---
+
 ### Answer #052 — Vocal-swap lane: two tracks in, a mastered track out. Plus H2-M5 groundwork.
 **Timestamp:** 2026-08-31
 **Action Type:** New lane (`toolshop/vocal_swap/`) + `toolshop/transcribe.py` + `toolshop/paths.py`

@@ -6,12 +6,14 @@ sparse instrumental can share a peak level and be 6 dB apart perceptually. So
 both are measured with an ITU-R BS.1770 integrated loudness meter and the vocal
 is placed a stated number of dB relative to the instrumental.
 
-**The mix bus is deliberately left quiet.** Output targets -6 dBFS peak with no
-bus compression or limiting, because the next stage is a real mastering chain
-that expects headroom and an intact crest factor. Anything done here to make the
-premaster sound "finished" is work the limiter then has to fight - and it would
-fail the M4 premaster gates on crest factor and PSR, which is exactly what those
-gates are for.
+**The bus is levelled in LUFS too, under a peak ceiling.** It used to be peak
+normalised, which handed the mastering chain wildly different loudnesses for the
+same peak and made it undershoot its target on sparse mixes - see
+`DEFAULT_BUS_LUFS` for the three masters that showed it. There is still no bus
+compression or limiting: the next stage is a real mastering chain that expects
+headroom and an intact crest factor, and anything done here to make the premaster
+sound "finished" is work the limiter then has to fight - and would fail the M4
+gates on crest factor and PSR, which is exactly what those gates are for.
 
 Default balance is a **starting point, not a mastered decision** - the same
 caveat `family_policy.sh` attaches to its genre presets.
@@ -35,8 +37,35 @@ MIX_SR = 44100
 #: per track, exactly as the mastering profiles instruct.
 DEFAULT_VOCAL_BALANCE_DB = 1.5
 
-#: Peak the summed bus is normalised to, leaving mastering its headroom.
-DEFAULT_BUS_PEAK_DBFS = -6.0
+#: Loudness the summed bus is normalised to, in LUFS.
+#:
+#: **Peak normalisation was the wrong instrument, and three masters proved it.**
+#: The bus used to be normalised to a peak of -6 dBFS, which says nothing about how
+#: loud the mix actually is: a sparse, vocal-forward mix has a high crest factor, so
+#: at an identical peak it lands several LU quieter than a dense one. The mastering
+#: chain then had to make up the difference, and did not fully:
+#:
+#:     premaster LUFS   ->  master LUFS   shortfall vs -8.5 target
+#:     -16.69               -8.70          0.20   pass
+#:     -21.00               -9.58          1.08   flag
+#:     -21.46               -9.55          1.05   flag
+#:
+#: Monotonic across all three: the quieter the premaster, the more the chain
+#: undershoots. -17.0 is chosen as the level of the one premaster that passed, so
+#: it is a measured setting rather than a round number.
+#:
+#: This is the same argument the vocal balance already made one function above -
+#: gain staging belongs in LUFS - which had simply not been applied to the bus.
+DEFAULT_BUS_LUFS = -17.0
+
+#: Hard peak ceiling for the bus, in dBFS. The LUFS target above yields to this.
+#:
+#: -3.5 keeps premaster gate 3 (`sample_peak_dbfs <= -3.0` passes) comfortably
+#: satisfied while leaving the mastering chain the headroom its stage A expects.
+#: On high-crest material the ceiling binds before the LUFS target is reached, and
+#: `MixResult.bus_limited_by` records which constraint actually decided the level -
+#: never inferred.
+DEFAULT_BUS_PEAK_DBFS = -3.5
 
 #: Ducking depth. 0 disables it. Modest by default: heavy ducking on a rap mix
 #: pumps audibly, and the instrumental is already an artefact of stem separation.
@@ -66,6 +95,10 @@ class MixResult:
     vocal_balance_db: float
     duck_db: float
     bus_gain_db: float
+    bus_lufs_target: float
+    #: "lufs" when the loudness target set the level, "peak_ceiling" when the
+    #: ceiling bound first. High-crest mixes hit the ceiling.
+    bus_limited_by: str
     output_peak_dbfs: float
     output_lufs: float
     #: Seconds the vocal runs past the end of the instrumental, if any. Non-zero
@@ -237,6 +270,7 @@ def mix(
     sr: int = MIX_SR,
     vocal_balance_db: float = DEFAULT_VOCAL_BALANCE_DB,
     duck_db: float = DEFAULT_DUCK_DB,
+    bus_lufs_target: float = DEFAULT_BUS_LUFS,
     bus_peak_dbfs: float = DEFAULT_BUS_PEAK_DBFS,
     vocal_hpf_hz: float = DEFAULT_VOCAL_HPF_HZ,
     output_path: Optional[Path] = None,
@@ -268,8 +302,27 @@ def mix(
 
     summed = np.asarray(instr_ducked, dtype=np.float32) + vocal_scaled
 
+    # Bus level: aim for a loudness, but never breach the peak ceiling. Whichever
+    # constraint binds is recorded, because "why is this premaster quiet?" is not
+    # answerable from the audio alone.
     current_peak = peak_dbfs(summed)
-    bus_gain_db = (bus_peak_dbfs - current_peak) if np.isfinite(current_peak) else 0.0
+    current_lufs = integrated_lufs(summed, sr)
+
+    if np.isfinite(current_lufs):
+        wanted_db = bus_lufs_target - current_lufs
+        limited_by = "lufs"
+    else:
+        # Unmeasurable loudness: fall back to the ceiling rather than guessing.
+        wanted_db = (bus_peak_dbfs - current_peak) if np.isfinite(current_peak) else 0.0
+        limited_by = "peak_ceiling"
+
+    if np.isfinite(current_peak):
+        headroom_db = bus_peak_dbfs - current_peak
+        if wanted_db > headroom_db:
+            wanted_db = headroom_db
+            limited_by = "peak_ceiling"
+
+    bus_gain_db = float(wanted_db)
     summed = (summed * (10.0 ** (bus_gain_db / 20.0))).astype(np.float32)
 
     result = MixResult(
@@ -282,6 +335,8 @@ def mix(
         vocal_balance_db=vocal_balance_db,
         duck_db=duck_db,
         bus_gain_db=bus_gain_db,
+        bus_lufs_target=bus_lufs_target,
+        bus_limited_by=limited_by,
         output_peak_dbfs=peak_dbfs(summed),
         output_lufs=integrated_lufs(summed, sr),
         vocal_overhang_seconds=overhang_samples / float(sr),

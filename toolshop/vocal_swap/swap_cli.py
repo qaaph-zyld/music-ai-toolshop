@@ -67,8 +67,13 @@ def add_parser(subparsers: argparse._SubParsersAction) -> None:
                       help=f"Vocal loudness relative to the instrumental, LU (default: {mix_mod.DEFAULT_VOCAL_BALANCE_DB:g})")
     mixg.add_argument("--duck", type=float, default=mix_mod.DEFAULT_DUCK_DB,
                       help="Duck the instrumental under the vocal by this many dB (default: 0, off)")
+    mixg.add_argument("--bus-lufs", type=float, default=mix_mod.DEFAULT_BUS_LUFS,
+                      help=f"Premaster loudness target, LUFS (default: {mix_mod.DEFAULT_BUS_LUFS:g}). "
+                           "Levelling the bus by loudness rather than peak stops the mastering "
+                           "chain undershooting on sparse mixes")
     mixg.add_argument("--bus-peak", type=float, default=mix_mod.DEFAULT_BUS_PEAK_DBFS,
-                      help=f"Premaster peak target, dBFS (default: {mix_mod.DEFAULT_BUS_PEAK_DBFS:g})")
+                      help=f"Premaster peak CEILING, dBFS (default: {mix_mod.DEFAULT_BUS_PEAK_DBFS:g}); "
+                           "the loudness target yields to it")
 
     mas = run_p.add_argument_group("master")
     mas.add_argument("--profile", default=mastering_bridge.DEFAULT_PROFILE,
@@ -121,6 +126,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         max_offset_s=args.max_offset,
         vocal_balance_db=args.vocal_balance,
         duck_db=args.duck,
+        bus_lufs_target=args.bus_lufs,
         bus_peak_dbfs=args.bus_peak,
         profile=args.profile,
         skip_master=args.skip_master,
@@ -198,10 +204,23 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
             present = False
         report["packages"][module] = {"present": present, "extra": extra}
 
+    # `find_spec("audio_separator")` succeeding proves almost nothing: the
+    # separation backend is only reached through
+    # `audio_separator.separator.architectures.mdx_separator`, which imports
+    # `onnx` and (via onnx2torch) `torchvision`. Both were broken here while this
+    # doctor reported PASS and the lane's own end-to-end test passed
+    # `--instrumental`, so nothing ever touched the real path. Importing the
+    # architecture module is the cheapest check that actually covers the claim.
+    report["separation_backend"] = _check_separation_backend()
+
     report["mastering"] = mastering_bridge.check_environment()
 
     missing = [m for m, info in report["packages"].items() if not info["present"]]
-    report["ok"] = not missing and bool(report["mastering"].get("ok"))
+    report["ok"] = (
+        not missing
+        and bool(report["mastering"].get("ok"))
+        and bool(report["separation_backend"].get("ok"))
+    )
 
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -211,6 +230,13 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     for module, info in report["packages"].items():
         mark = "ok " if info["present"] else "MISSING"
         print(f"  [{mark:>7}] {module}  (extra: {info['extra']})")
+    sep = report["separation_backend"]
+    print(f"  [{'ok     ' if sep.get('ok') else 'BROKEN '}] separation backend "
+          f"(mdx_separator import)")
+    if not sep.get("ok"):
+        print(f"      ! {sep.get('error')}")
+        if sep.get("hint"):
+            print(f"      -> {sep['hint']}")
     print()
     mast = report["mastering"]
     for key in ("wsl_available", "script_exists_windows", "ffmpeg_in_wsl", "script_visible_in_wsl"):
@@ -221,6 +247,32 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     if missing:
         print(f"Install missing packages:  pip install -e .[swap]")
     return 0 if report["ok"] else 1
+
+
+def _check_separation_backend() -> Dict[str, Any]:
+    """Import the module separation actually goes through, and report why not.
+
+    Deliberately an *import*, not a model load: it is fast enough for a doctor
+    command and it is where every failure seen so far has surfaced.
+    """
+    result: Dict[str, Any] = {"ok": False, "error": None}
+    try:
+        import audio_separator.separator.architectures.mdx_separator  # noqa: F401
+        result["ok"] = True
+    except Exception as exc:  # ImportError, and whatever a broken dep raises
+        name = getattr(exc, "name", None)
+        result["error"] = f"{type(exc).__name__}: {exc}"
+        if name == "torchvision":
+            result["hint"] = (
+                "onnx2torch imports torchvision. Install the build matching your "
+                "torch:  pip install --no-deps torchvision==0.21.0  (torch 2.6.0)"
+            )
+        elif "runtime_version" in str(exc):
+            result["hint"] = (
+                "the installed protobuf is too old for the `onnx` package; "
+                "onnx needs protobuf >= 5.x"
+            )
+    return result
 
 
 def _cmd_status(args: argparse.Namespace) -> int:

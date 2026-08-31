@@ -104,6 +104,7 @@ class SwapConfig:
     #: Mix.
     vocal_balance_db: float = mix_mod.DEFAULT_VOCAL_BALANCE_DB
     duck_db: float = mix_mod.DEFAULT_DUCK_DB
+    bus_lufs_target: float = mix_mod.DEFAULT_BUS_LUFS
     bus_peak_dbfs: float = mix_mod.DEFAULT_BUS_PEAK_DBFS
 
     #: Master.
@@ -407,6 +408,20 @@ def _stage_align(cfg: SwapConfig, work_dir: Path, reference: Path, vocal: Path,
         result = align_mod.estimate_offset(
             reference, vocal, max_offset_s=cfg.max_offset_s
         )
+        # Cross-correlation is unreliable on sparse vocal material: on a real pair
+        # it returned the mirror placement, +12.70 s where the truth was -12.31 s,
+        # with a peak margin of 0.0005. When the reference is the Suno vocal and
+        # correlation admits it is ambiguous, aligning on the first sung sound is a
+        # direct measurement rather than a search. Only for vocal-vs-vocal: it
+        # assumes both sides open on the same word, which an instrumental does not.
+        if reference_kind == "ai_vocal" and not result.trustworthy:
+            onset = align_mod.estimate_offset_by_onset(reference, vocal)
+            if onset is not None:
+                onset.notes = (
+                    "cross-correlation was ambiguous (offset {:+.2f}s, margin "
+                    "{:.4f}); {}"
+                ).format(result.offset_seconds, result.peak_margin, onset.notes)
+                result = onset
 
     if cfg.require_alignment and not result.trustworthy:
         raise PipelineError(
@@ -462,6 +477,7 @@ def _stage_mix(
         sr=mix_mod.MIX_SR,
         vocal_balance_db=cfg.vocal_balance_db,
         duck_db=cfg.duck_db,
+        bus_lufs_target=cfg.bus_lufs_target,
         bus_peak_dbfs=cfg.bus_peak_dbfs,
         vocal_hpf_hz=cfg.vocal_hpf_hz,
         output_path=target,
