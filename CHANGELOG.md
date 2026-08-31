@@ -1,5 +1,56 @@
 # Changelog
 
+### Answer #051 — D6 resolved: `ai_modules/` dissolved. My own recommendation overturned by evidence.
+**Timestamp:** 2026-08-31
+**Action Type:** Decision executed — with a correction to the recommendation that produced it
+
+**`ai_modules/` no longer exists.** 6,390 LOC and a stray binary DB, committed 2026-08-18 under a
+commit message about a submodule chore, with 1,440 lines of tests outside `pytest.ini`'s collection
+path that had **never run**.
+
+**The first thing done was to run them.** That changed the disposition materially.
+
+| module | LOC | imports? | tests | disposition |
+|---|---|---|---|---|
+| `vocal_cleanup` | 912 + 953 test | **NO** | **35, none ever passed** | **REMOVED** |
+| `stem_extractor` | 213 | yes | 0 | REMOVED — duplicate of T1 |
+| `suno_library` | 657 | yes | 1 passing | REMOVED — duplicate of `toolshop suno` |
+| `musicgen` | 194 | yes | 1 passing | SHELVED — G9 GPU shelf |
+| `lora_finetuning` | 1000 | yes | 0 | SHELVED — G9 GPU shelf |
+| `production_analyzer` | 1022 | yes | 1 passing | **MOVED** → `toolshop/production_analyzer` |
+| `pattern_generator` | 283 | yes | 0 | **MOVED** → `toolshop/pattern_generator` |
+
+**I recommended ABSORBING `vocal_cleanup`. That was wrong, and running it proved it.**
+The assessment (F2) proposed absorbing it into T4 because its `SilenceDetector(min_duration_sec=...)`
+looked like the standing fix for debt 1c. It does not import: `pipeline.py` does
+`from silence_detector import SilenceDetector` — a bare top-level import that only resolves if the
+interpreter is sitting inside that folder. Its 35 tests do the same *inside each test body*, so after
+fixing the module imports every test still failed on its own.
+
+**912 lines of implementation and 953 of tests, and not one line has ever executed.** Unverified code
+is not a proven fix for anything, so the absorb rationale collapses. If `min_silence` needs fixing,
+the honest move is a small targeted change in the shipped `cleaning_stages.py` — not adopting 1,865
+unrun lines on the strength of a promising-looking signature.
+
+**The two keepers moved into `toolshop/`** rather than justifying a second top-level package, per the
+D12 opportunistic-subpackage rule. Both were genuinely portable (relative imports already, or
+stdlib-only). `production_analyzer` reverse-engineers processing chains by comparing variants — a
+real capability distinct from the dossier's per-track analysis, and T8's when that lane opens.
+Its test moved into `tests/` and **passes there — 7 tests, running for the first time.**
+
+**Shelved, not deleted-and-forgotten:** `musicgen` and `lora_finetuning` violate the CPU-only lock
+today. Their code is recoverable from git history and they are recorded against G9, where the shelf
+already carries min-spec notes.
+
+**`production_analysis.db` was moved to `data/toolshop/production_analysis/`, not deleted** — the
+data-boundary rule is move-or-quarantine, never delete.
+
+**G0's last open condition is closed.** Every lane in the repo now has a record, and every line of
+code in it is either executed by the suite or explicitly shelved.
+
+---
+
+
 ### Answer #050 — H2-M4: premaster acceptance profile. Resolves D11.
 **Timestamp:** 2026-08-31
 **Action Type:** Feature + an open decision closed with evidence

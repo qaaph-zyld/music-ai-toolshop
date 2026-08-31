@@ -6,9 +6,9 @@ from unittest.mock import Mock, patch, MagicMock
 import numpy as np
 
 # Add parent to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# (D6, #051) No sys.path hack needed - the module now lives in the toolshop package.
 
-from ai_modules.production_analyzer import (
+from toolshop.production_analyzer import (
     BatchAnalyzer, 
     ChainClassifier, 
     ProcessingChain,
@@ -84,7 +84,7 @@ class TestFeatureVector(unittest.TestCase):
     
     def test_feature_vector_creation(self):
         """Test FeatureVector dataclass from classifier."""
-        from ai_modules.production_analyzer.classifier import FeatureVector
+        from toolshop.production_analyzer.classifier import FeatureVector
         
         vector = FeatureVector(
             centroid_norm=0.5,
@@ -107,7 +107,7 @@ class TestGracefulDegradation(unittest.TestCase):
     def test_classifier_without_sklearn(self):
         """Test classifier works (at least instantiates) without sklearn."""
         # Import should work even if sklearn not available
-        from ai_modules.production_analyzer.classifier import SKLEARN_AVAILABLE
+        from toolshop.production_analyzer.classifier import SKLEARN_AVAILABLE
         
         # Just verify the flag exists - actual functionality depends on sklearn
         self.assertIsInstance(SKLEARN_AVAILABLE, bool)
@@ -115,7 +115,7 @@ class TestGracefulDegradation(unittest.TestCase):
     def test_module_imports_cleanly(self):
         """Test entire module imports without errors."""
         # Re-import to verify no import-time errors
-        from ai_modules.production_analyzer import BatchAnalyzer, ChainClassifier
+        from toolshop.production_analyzer import BatchAnalyzer, ChainClassifier
         
         self.assertTrue(callable(BatchAnalyzer))
         self.assertTrue(callable(ChainClassifier))

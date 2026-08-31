@@ -3,6 +3,19 @@
 > Orchestrator-owned. Updated at each strategy review. Backlog of record: `specs/2026-07-15-longterm-roadmap-v2.md`;
 > 12-month vision layer above it: `specs/2026-07-22-longterm-goals-12mo-full-studio.md` (v1.0).
 >
+> **D6 RESOLVED 2026-08-31 — `ai_modules/` dissolved. G0 MET. See CHANGELOG #051.**
+>
+> | Item | Result |
+> |---|---|
+> | **My own recommendation was overturned by running the code** | The assessment (F2) proposed **absorbing `vocal_cleanup`** because its `SilenceDetector` looked like the fix for debt 1c. **It does not import** — `from silence_detector import ...`, a bare top-level import that only resolves from inside its own folder — and its **35 tests have never passed**, each re-importing the same flat way inside its own body. **912 LOC + 953 LOC of tests, never executed once.** Unverified code is not a proven fix for anything. If `min_silence` needs fixing, that is a small targeted change in the shipped `cleaning_stages.py`. |
+> | **REMOVED** | `vocal_cleanup` (never ran), `stem_extractor` (dup of T1), `suno_library` (dup of `toolshop suno`). |
+> | **SHELVED → G9** | `musicgen`, `lora_finetuning` — violate the CPU-only lock; recoverable from git history. |
+> | **MOVED → `toolshop/`** | `production_analyzer` (+ its test into `tests/` — **7 passing, first run ever**) and `pattern_generator`, per D12's opportunistic rule rather than justifying a second top-level package. Both were genuinely portable. |
+> | **Data** | `production_analysis.db` **moved** to `data/toolshop/production_analysis/`, not deleted (move-or-quarantine). |
+> | **G0 MET** | Every lane has a record; every line of code in the repo is either exercised by the suite or explicitly shelved. **Suite: 1067 passed / 2 skipped / 0 failed.** |
+>
+> ---
+>
 > **H2-M4 DONE 2026-08-31 — premaster acceptance profile. D11 RESOLVED. See CHANGELOG #050.**
 >
 > | Item | Result |
