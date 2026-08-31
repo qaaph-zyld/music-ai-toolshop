@@ -1,5 +1,7 @@
 """Tests for Production Analyzer AI module."""
+import shutil
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
@@ -119,6 +121,83 @@ class TestGracefulDegradation(unittest.TestCase):
         
         self.assertTrue(callable(BatchAnalyzer))
         self.assertTrue(callable(ChainClassifier))
+
+
+try:
+    import librosa as _librosa
+    import soundfile as _sf
+    _HAS_AUDIO = True
+except ImportError:  # pragma: no cover - environment without the audio deps
+    _HAS_AUDIO = False
+
+
+@unittest.skipUnless(_HAS_AUDIO, "requires librosa + soundfile")
+class TestAnalyzeSingleFile(unittest.TestCase):
+    """`_analyze_single_file` against a real WAV.
+
+    Every other test in this module works on dataclasses and mocks, so the
+    feature-extraction path was never executed. That is why a typo in it -
+    ``np.mean(flatness)`` where ``np.mean(flatness_data)`` was meant, an
+    UnboundLocalError on every call - survived adoption into `toolshop/` in
+    #051: the broad ``except Exception`` turned it into a silent ``None`` and
+    `analyze_directory` just returned an empty list for every input.
+    """
+
+    def setUp(self):
+        self._tmp = Path(tempfile.mkdtemp(prefix="toolshop_prodanalyzer_"))
+        self.addCleanup(shutil.rmtree, self._tmp, True)
+        # Own database, so the test never writes to the shared data directory.
+        self.analyzer = BatchAnalyzer(db_path=str(self._tmp / "test.db"))
+
+    def _write_wav(self, name="test_master.wav", seconds=0.5, sr=22050):
+        """A short, spectrally non-degenerate signal: two tones plus a little noise."""
+        t = np.linspace(0, seconds, int(sr * seconds), endpoint=False)
+        y = 0.3 * np.sin(2 * np.pi * 220 * t) + 0.1 * np.sin(2 * np.pi * 3500 * t)
+        y += 0.01 * np.random.default_rng(0).standard_normal(t.shape)
+        path = self._tmp / name
+        _sf.write(str(path), y.astype(np.float32), sr)
+        return path
+
+    def test_returns_fingerprint_with_finite_flatness(self):
+        fp = self.analyzer._analyze_single_file(str(self._write_wav()))
+
+        self.assertIsNotNone(
+            fp, "feature extraction raised and the try/except swallowed it"
+        )
+        self.assertIsInstance(fp, AudioFingerprint)
+        self.assertTrue(np.isfinite(fp.flatness))
+        # Spectral flatness is a geometric/arithmetic mean ratio: (0, 1].
+        self.assertGreater(fp.flatness, 0.0)
+        self.assertLessEqual(fp.flatness, 1.0)
+
+    def test_every_feature_is_finite(self):
+        """Guards the whole family, not only the one variable that was wrong."""
+        fp = self.analyzer._analyze_single_file(str(self._write_wav()))
+        self.assertIsNotNone(fp)
+
+        for field in (
+            "centroid", "rolloff", "flux", "flatness", "crest_factor",
+            "rms_db", "peak_db", "lufs_estimate", "zcr", "bandwidth",
+            "duration_sec",
+        ):
+            with self.subTest(field=field):
+                value = getattr(fp, field)
+                self.assertIsInstance(value, float)
+                self.assertTrue(np.isfinite(value), f"{field} is not finite: {value}")
+
+        self.assertEqual(fp.sample_rate, 22050)
+        self.assertAlmostEqual(fp.duration_sec, 0.5, places=2)
+        self.assertEqual(fp.variant_type, "master")
+
+    def test_analyze_directory_yields_a_fingerprint(self):
+        """The user-visible symptom of the bug: zero fingerprints for every input."""
+        self._write_wav("song_mixdown.wav")
+
+        fingerprints = self.analyzer.analyze_directory(str(self._tmp))
+
+        self.assertEqual(len(fingerprints), 1)
+        self.assertEqual(fingerprints[0].variant_type, "mix")
+        self.assertTrue(np.isfinite(fingerprints[0].flatness))
 
 
 if __name__ == '__main__':

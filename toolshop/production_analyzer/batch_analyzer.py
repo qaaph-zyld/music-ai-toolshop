@@ -200,7 +200,7 @@ class BatchAnalyzer:
             
             # Spectral flatness
             flatness_data = librosa.feature.spectral_flatness(y=y)
-            flatness = float(np.mean(flatness))
+            flatness = float(np.mean(flatness_data))
             
             # Time-domain features
             rms = float(np.sqrt(np.mean(y**2)))
