@@ -105,11 +105,28 @@ internal timing. Since M5 exists to feed syllables-per-bar analysis, that is a r
 plausible mechanical causes survived contact. Remaining levers are different in kind — `initial_prompt`
 priming with artist vocabulary, chunk-level retry, a different model, or fine-tuning.
 
-- [ ] **The better answer for our own tracks: forced alignment, not recognition.** For material where
-      the lyrics are already known — everything we write — whisperX forced alignment aligns *known
-      text* to audio instead of guessing at it, which sidesteps the 31% entirely. ASR is only truly
-      needed for the 444-track corpus of *other people's* songs. `specs/2026-07-15-oss-integration-map.md`
-      already lists whisperX for exactly this, alignment-only, no diarization, no HF token.
+- [ ] ~~**The better answer for our own tracks: forced alignment, not recognition.** … which sidesteps
+      the 31% entirely.~~ **PREMISE CORRECTED 2026-09-01 — see `JOURNAL.md` `J-015`, `J-016` and
+      `specs/2026-09-01-forced-alignment-feasibility.md`.** Forced alignment is still the right route,
+      but **it does not sidestep the 31% by itself.** whisperX's `align()` consumes segments that
+      already carry `text`, `start` *and* `end` — it **refines a segmentation, it does not produce
+      one**. Fed the existing ASR segmentation, the uncovered 31% has no anchor and the gap
+      propagates. The naive fix (one segment spanning the track) is arithmetically ruled out: `align()`
+      has no chunking, self-attention goes quadratic, and a 249 s track needs ~10 GB of attention
+      matrix on a 15.9 GB machine.
+      **What it does buy, inside the covered 69%:** the words become *correct* rather than guessed,
+      and timings sharpen from whisper's coarse spans to wav2vec2's ~20 ms frames — which is exactly
+      what syllables-per-bar and on/off-beat placement need. Closing the 31% needs **a windowing layer
+      we build**, on top of whisperX.
+      Two further corrections to this section's assumptions: there is **no `sr` alignment model**
+      (`hr` is the reachable proxy, and `load_align_model` raises on an unknown code, so passing
+      `DEFAULT_LANGUAGE = "sr"` would crash); and **`lyrics.db` holds none of our own material** —
+      1425 songs, all `corpus='genius-pro'`, `language` NULL on every row, and **no audio join key**.
+      "The lyrics are already known" is true of the *artist* and false of the *database*.
+      Alignment-only genuinely needs **no HF token** (verified: the alignment checkpoint is ungated,
+      the gated repo is diarization) — but it does **not** avoid pip-installing `pyannote.audio`,
+      which is why the recommendation is a sidecar venv. `specs/2026-07-15-oss-integration-map.md`'s
+      risk row should be split accordingly: "no token" verified, "avoids heavy deps" false.
 - [ ] `[USER DECISION]` Is 69% acceptable for flow-analysis v1 on the *corpus*, given our own tracks
       should go the forced-alignment route instead?
 
@@ -147,7 +164,15 @@ Two capabilities are built and **unconsumed**:
 - [ ] **Migrate the five `TOOLSHOP_DATA_DIR` resolvers** (`backup`, `remix_adapter`, `remix_cli`,
       `stems_cli`, `video_cli`) onto `toolshop/paths.py` — **each when its lane is next touched
       substantially**, per D12. Never as a repo-wide move.
-- [x] ~~`[USER DECISION]` **protobuf conflict.**~~ **RESOLVED 2026-08-31 — pinned back to 4.21.2.**
+- [x] ⚠️ **STALE — DO NOT ACT ON THIS ITEM. Superseded by `CHANGELOG.md` #053 item 5 the same day it
+      was written, and by `pyproject.toml:29-48`, which read "protobuf must be >= 5.x. Keep it at
+      7.36.0."** Pinning *down* to 4.21.2 **breaks stem separation**: `mdx_separator` imports `onnx`,
+      which needs `google.protobuf.runtime_version`, absent before 5.x — the vocal-swap lane dies at
+      its first stage. `classla`'s pin is the one deliberately violated. This stale paragraph misled
+      the orchestrator *and* a subagent on 2026-09-01 before either checked `pyproject.toml`; see
+      `JOURNAL.md` `J-002` and `J-017`. Kept, struck through, rather than deleted — the wrong belief
+      stays visible. Original text follows.
+      ~~`[USER DECISION]` **protobuf conflict.** **RESOLVED 2026-08-31 — pinned back to 4.21.2.**~~
       The constraints are **mutually unsatisfiable**: `classla==4.21.2`, `onnxruntime>=4.25.8`,
       `onnx-weekly>=6.31.1`. No version satisfies all three, so one is always violated — and at
       4.21.2 (the state predating the ASR install) it was already onnxruntime's. Note `ctranslate2`

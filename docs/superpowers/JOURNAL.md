@@ -185,3 +185,278 @@ breakage was in a submodule. Mine ran a metadata query when the question was whe
 works. Both times the instrument answered a *neighbouring* question convincingly. The rule this
 yields: **when the claim is "can the code run this", the check is running it, not asking a registry
 about it.**
+
+---
+
+## Wave 1 Agent A — whisperX forced-alignment feasibility (merged 2026-09-01)
+
+> Merged from `journal_inbox/agentA.md`. Full write-up:
+> `specs/2026-09-01-forced-alignment-feasibility.md`. Verdict **GO**, conditional on a sidecar venv,
+> a version pin, and a `--require-alignment` guard.
+>
+> **Orchestrator spot-check.** Agent handoffs are verified here, not accepted (`AGENTS.md`). I
+> re-ran the claims that are cheap to check and they hold:
+>
+> | Claim | My check | Result |
+> |---|---|---|
+> | `lyrics.db` is all other people's songs, `language` NULL | `sqlite3` count by `corpus`, by `language` | **holds** — `genius-pro` 1425, `language` NULL ×1425 |
+> | No audio join key | `source_path` sample + audio-extension count | **holds** — every path is a `.json` under `D:\MusicData\...\genius\`; **0** audio extensions |
+> | `DEFAULT_LANGUAGE = "sr"` would be passed through | read `toolshop/transcribe.py:98` | **holds** |
+> | This project's "RTF" is inverted from convention | arithmetic against the plan's own figures | **holds** — 28.3 h ÷ 1.13 = 25.04 h, i.e. `audio/elapsed`, so 1.09–1.17 means *faster* than realtime, where conventional RTF would mean slower |
+>
+> **Not independently verified by me:** everything read out of whisperX's own source (`align()`'s
+> signature and required fields, the absence of `sr`/`bs`/`mk`/`sh` from `DEFAULT_ALIGN_MODELS_HF`,
+> the lazy `diarize` import) — whisperX is not installed, deliberately. The agent cites tag `v3.4.5`
+> and `main` and quotes the lines. Treat as **strongly evidenced, not re-run.** The dependency
+> resolutions come from `pip install --dry-run --report`, which resolves against the real venv
+> without modifying it; the venv is unchanged — `whisperx` and `pyannote` absent, torch still 2.6.0,
+> protobuf still 7.36.0.
+---
+
+### J-010 — whisperX adds no colliding protobuf constraint; the trap does not fire · 2026-09-01 · deps
+**Status:** refuted — **first-hand, this session**
+**Expected:** the briefing named protobuf as "the thing most likely to turn GO into NO-GO." With three
+already-unsatisfiable pins (`classla==4.21.2`, `onnxruntime>=4.25.8`, `onnx-weekly>=6.31.1`), a fourth
+constraint from whisperX's dependency tail looked likely to collide — and a drag below protobuf 5.x
+would kill stem separation, stage one of the vocal-swap lane.
+**Found:** **no collision.** Every protobuf-touching package whisperX would add sets a *lower* bound
+already satisfied by the installed 7.36.0. Under a torch pin, protobuf is not in the install set at all.
+**Evidence:** first-hand.
+`.venv\Scripts\python.exe -m pip install --dry-run --report whisperx_report.json whisperx`, then
+parsing `requires_dist` out of the report:
+```
+opentelemetry-proto 1.44.0      -> protobuf<8.0,>=5.0
+googleapis-common-protos 1.75.2 -> protobuf<8.0.0,>=6.33.5
+optuna 4.9.0                    -> protobuf>=5.28.1   (extra "optional" only)
+transformers 4.57.6             -> protobuf           (extras only)
+```
+And with `-c torch==2.6.0,torchvision==0.21.0,torchaudio==2.6.0,urllib3==2.7.0,protobuf==7.36.0`:
+`protobuf in install set? False   after = 7.36.0`. Only `tensorboardX -> protobuf>=3.20` and
+`sentencepiece` (extras) appear at all.
+**Consequence:** the presumed NO-GO condition is withdrawn. Recorded so a future session does not
+re-buy this dry-run. Noted in passing: the *unpinned* resolution would raise the effective protobuf
+floor to `>=6.33.5` via `googleapis-common-protos`, foreclosing any future retreat below 6.x — one more
+reason to pin.
+
+---
+
+### J-011 — The real collision is torch: unpinned whisperX breaks classla, `whisperx==3.4.5` does not · 2026-09-01 · deps
+**Status:** verified — **first-hand, this session**
+**Expected:** protobuf was the risk; torch was a secondary check ("does whisperX pull torch, and this
+machine is CPU-only").
+**Found:** torch is the collision, and it is severe but entirely avoidable. Unpinned, pip selects
+**whisperx 3.8.6**, which requires `torch~=2.8.0` — colliding head-on with `classla 2.2.1`'s
+`torch<=2.6` (installed torch is exactly 2.6.0). The same transaction performs two *major downgrades*:
+`transformers 5.14.1 -> 4.57.6` and `huggingface-hub 1.23.0 -> 0.36.2` (whisperx 3.8.6 requires
+`huggingface-hub<1.0.0`), plus `urllib3 2.7.0 -> 1.26.20`, which breaks `selenium`.
+**Evidence:** first-hand. Requirement metadata:
+```
+whisperx 3.8.6       -> torch~=2.8.0, torchaudio~=2.8.0, torchvision~=0.23.0, huggingface-hub<1.0.0
+pyannote-audio 4.0.7 -> torch>=2.8.0, torchaudio>=2.8.0
+classla 2.2.1        -> torch<=2.6
+```
+Computed violation set for the unpinned resolution (52 dists):
+```
+classla  2.2.1 requires "protobuf==4.21.2"            but would get 7.36.0   (pre-existing)
+classla  2.2.1 requires "torch<=2.6"                  but would get 2.8.0    ** NEW **
+classla  2.2.1 requires "requests==2.28.0"            but would get 2.34.2   ** NEW **
+selenium 4.46.0 requires "urllib3[socks]>=2.6.3,<3.0" but would get 1.26.20  ** NEW **
+```
+Re-running with `-c torch==2.6.0, torchvision==0.21.0, torchaudio==2.6.0, urllib3==2.7.0,
+protobuf==7.36.0` backtracks to **whisperx 3.4.5**: 44 dists, **52.4 MB** of wheels (summed from
+`Content-Length` over every wheel URL in the report), and only two changes — `ctranslate2 4.8.1 ->
+4.4.0` and `requests 2.28.0 -> 2.34.2`.
+**Consequence:** "pin the version" is not hygiene here, it is the difference between adoptable and
+NO-GO. Also a `pip` trap worth carrying: with only torch pinned, pip selects **torchaudio 2.11.0**
+against torch 2.6.0 — torchaudio declares no torch pin, so pip permits a pairing that fails at import
+on C++ ABI. Pin `torchaudio` explicitly, always.
+
+---
+
+### J-012 — No whisperX release keeps both torch 2.6 and ctranslate2 4.8.1; a sidecar venv dissolves the fork · 2026-09-01 · deps
+**Status:** verified — **first-hand, this session**
+**Expected:** with torch held at 2.6 there would be some whisperX version that changed nothing else.
+**Found:** there is not. Every whisperX that accepts `torch<=2.6` also requires `ctranslate2<4.5.0`,
+so holding torch forces `ctranslate2 4.8.1 -> 4.4.0`. Adding `ctranslate2==4.8.1` to the constraints
+makes the resolution impossible. The choice in `.venv` is therefore genuinely binary: move torch (breaks
+classla) or move ctranslate2 (swaps the ASR inference engine underneath **J-000e's byte-identical
+reproducibility** — the property that makes a 444-track corpus regeneration worth doing at all).
+**Evidence:** first-hand.
+`.venv\Scripts\python.exe -m pip install --dry-run -c strict.txt --report whisperx_strict.json whisperx`
+→ `ERROR: ResolutionImpossible`, with:
+```
+whisperx 3.4.0 depends on ctranslate2<4.5.0
+whisperx 3.3.6 depends on ctranslate2<4.5.0
+...
+whisperx 3.2.0 depends on ctranslate2==4.4.0
+The user requested (constraint) ctranslate2==4.8.1
+The user requested (constraint) torch==2.6.0
+```
+Note `faster-whisper 1.2.1` metadata *accepts* 4.4.0 (`ctranslate2<5,>=4.0`) — so nothing breaks
+declaratively. The risk is that byte-identical reproducibility across a CTranslate2 minor-version
+change is an **assumption**, and this project's own history (the "all green at 4.21.2" report that
+tested the wrong package) is exactly about metadata checks standing in for behavioural ones.
+**Consequence:** recommendation is a **separate sidecar venv**, which removes both horns for free. The
+interface is unusually clean: `TranscriptSegment.to_dict()` already emits `{"start","end","text",
+"words"}`, which is exactly whisperX's `SingleSegment` shape, so the boundary is the transcript JSON
+already stored in `data/toolshop/lyrics/transcripts/`.
+
+---
+
+### J-013 — Alignment-only genuinely needs no HF token; pyannote is installed but never imported · 2026-09-01 · transcribe
+**Status:** verified — **first-hand, this session**
+**Expected:** the OSS integration map asserts "use alignment-only path (no diarization) unless needed"
+as the mitigation for "pyannote needs HF token" — asserted, never checked. The brief explicitly said
+confirm, don't assume.
+**Found:** **confirmed, and the mitigation is narrower than written.** The token requirement is real and
+belongs to the diarization *model*, not to whisperX. But alignment-only does **not** avoid pip
+installing `pyannote.audio` — it is a core dependency in both 3.4.5 (`pyannote-audio<4.0.0,>=3.3.2`)
+and 3.8.6 (`>=4.0.0`), dragging speechbrain, lightning, optuna, SQLAlchemy, alembic and ~25 more.
+What it avoids is *importing* it.
+**Evidence:** first-hand, two independent checks.
+HuggingFace model API (`?blobs=true`):
+```
+classla/wav2vec2-xls-r-parlaspeech-hr   gated: False   private: False   downloads: 823787
+pyannote/speaker-diarization-3.1        gated: auto    private: False   downloads: 9578771
+```
+The alignment checkpoint is **ungated**; the gated repo is the diarization pipeline.
+And `whisperx/__init__.py` at tag `v3.4.5` uses a `_lazy_import` helper — `diarize` is imported *inside*
+`assign_word_speakers()`, not at module load, so `pyannote.audio` never enters `sys.modules` on the
+alignment path.
+**Consequence:** the OSS map's risk row should be split — "no token" is verified; "avoids heavy deps" is
+false, and is the reason the sidecar venv matters. Also usable offline: `load_align_model` takes
+`model_dir`, so the 1262.0 MB checkpoint can live under `TOOLSHOP_MODEL_DIR` with `HF_HUB_OFFLINE=1`.
+
+---
+
+### J-014 — There is no Serbian alignment model; Croatian is the reachable proxy, published by classla · 2026-09-01 · transcribe
+**Status:** verified — **first-hand, this session**
+**Expected:** alignment models are per-language and the OSS map calls Serbian "usable (multilingual)" —
+a property of *Whisper*, which is multilingual. Alignment models are not.
+**Found:** `DEFAULT_ALIGN_MODELS_HF` has **no `sr`, no `bs`, no `mk`, no `sh`** — in either `v3.4.5` or
+`main`. `load_align_model` raises `ValueError` on an unknown code. So passing
+`transcribe.DEFAULT_LANGUAGE` (`"sr"`, `toolshop/transcribe.py:98`) straight through **would crash**.
+`hr` is present and is the reachable proxy: BCMS is one dialect continuum and Croatian/Serbian Latin
+share the identical Gaj alphabet, so the CTC character vocabulary covers Serbian Latin unchanged.
+**Evidence:** first-hand, `whisperx/alignment.py` at tag `v3.4.5`:
+```
+"hr": "classla/wav2vec2-xls-r-parlaspeech-hr",
+```
+Neighbours present: `sl`, `sk`, `cs`, `pl`, `ru`, `uk`. Absent: `sr`, `bs`, `mk`, `sh`.
+Signature: `load_align_model(language_code, device, model_name=None, model_dir=None)` — so an arbitrary
+HF id can be substituted later without touching whisperX.
+**Consequence:** an explicit `sr -> hr` mapping is a wiring requirement, and the substitution must be
+*recorded* in the transcript, not inferred. Two caveats found alongside: ParlaSpeech-HR is
+**parliamentary speech** (clean, formal, slow) and drill at 100–200 wpm is far out of domain — untested;
+and `align()` maps out-of-vocabulary characters to a **wildcard column**, so it will return
+confident-looking timings for wrong-script text. Cyrillic must be transliterated first (`cyrtranslit`
+is already declared, `pyproject.toml:23`). Pleasing coincidence: the Croatian model is published by
+**CLASSLA** — the same organisation whose Python package is the dependency whose protobuf pin we
+deliberately violate.
+
+---
+
+### J-015 — whisperX aligns *within* a segmentation you supply; it does not align a bare lyric sheet · 2026-09-01 · transcribe
+**Status:** verified — **first-hand, this session.** Partially refutes the premise in
+`plans/2026-09-01-next-moves.md` P3.
+**Expected:** the plan states forced alignment "aligns *known text* to audio instead of guessing at it,
+which sidesteps the 31% entirely."
+**Found:** **not by itself.** `align()` consumes `Iterable[SingleSegment]` where each segment must
+already carry `text`, `start` **and** `end`. It *refines* a segmentation; it does not produce one. Fed
+the existing ASR segmentation, the 31% with no segment still gets no alignment anchor — the gap
+propagates. And the naive workaround (one segment spanning the track) is arithmetically ruled out:
+`align()` has **no chunking and no max segment length**, so self-attention goes quadratic. A 249.48 s
+track is ~12,474 frames at 50 fps; the attention matrix alone is `12474² × 4 B` ≈ **622 MB per head**,
+≈ **10 GB** across 16 heads on a **15.9 GB** machine — OOM or thrash.
+**Evidence:** first-hand. Signature and required fields from `whisperx/alignment.py`:
+```
+def align(transcript: Iterable[SingleSegment], model, align_model_metadata, audio, device, ...)
+# required per segment: "text", "start", "end"   (optional: "avg_logprob")
+```
+Confirmed "no chunking or max-length limit" in `align()`. RAM figure measured on this machine
+(`Win32_ComputerSystem.TotalPhysicalMemory` = 15.9 GB); frame count derived from the measured
+`audio_duration` 249.48 s in `data/toolshop/lyrics/transcripts/borba-015.large-v3.temp0.json`.
+**Consequence:** the win is real but smaller and differently shaped than the plan claims. Within the
+covered 69%, substituting known lyrics makes the words *correct* and sharpens timings from whisper's
+coarse spans to ~20 ms frames — exactly what syllables-per-bar needs. Closing the 31% requires **our
+own windowing layer** (~20–30 s windows, lyrics assigned by ASR anchors). That is build work on top of
+whisperX, not a whisperX feature, and the plan should be corrected to say so. Silver lining:
+`toolshop.transcribe.TranscriptSegment` is already `(start, end, text, words)` and its `to_dict()`
+emits exactly `SingleSegment`'s shape — no adapter shim needed for the data itself.
+
+---
+
+### J-016 — `lyrics.db` holds no own-material lyrics and no audio join key · 2026-09-01 · lyrics-db
+**Status:** verified — **first-hand, this session**
+**Expected:** the brief asked whether `data/toolshop/lyrics/lyrics.db` "already holds the lyrics in a
+usable shape for our own tracks," implying it plausibly did.
+**Found:** it does not. The schema is *well* suited to the job — `sections -> lines(text_raw, text_norm,
+word_count, syllable_count) -> tokens` is exactly the hierarchy an aligner wants, and `lines` even
+carries syllable counts. But the contents are entirely **other people's songs**, and there is no link
+to audio.
+**Evidence:** first-hand, read-only (`mode=ro`) query against `data/toolshop/lyrics/lyrics.db`:
+```
+corpus counts:   [('genius-pro', 1425)]        <- one corpus, no 'own'
+language counts: [(None, 1425)]                <- language NULL on every row
+categories:      jala-solo 200, maya-berovic-solo 145, rasta-solo 109, devito-solo 106,
+                 corona-solo 92, senidah-solo 82, coby-solo 82, buba-solo 75, ...
+total songs 1425 · total lines 65912 · distinct target_artist 18
+songs whose source_path points at audio: 0
+sample source_path: D:\MusicData\toolshop\lyrics\genius\ana-nikolic-solo\ana-nikolić-200100.json
+```
+**Consequence:** the premise "for everything the artist writes, the lyrics are already known" is true of
+the **artist** and false of the **database**. Our lyrics live as loose Markdown (the
+`to_be_moved/*_LYRICS.md` family). Adoption needs a prerequisite unrelated to whisperX: an ingestion
+path writing `corpus='own'`, a populated `language`, and — the missing piece — **an audio join key**,
+which `songs` has no column for.
+
+---
+
+### J-017 — `plans/2026-09-01-next-moves.md` P5 and `pyproject.toml` recorded opposite protobuf resolutions · 2026-09-01 · records
+**Status:** verified — **first-hand, this session.** Found independently before the orchestrator's
+correction arrived; both agree.
+**Expected:** the briefing (sourced from the plan doc) stated the protobuf question was "resolved
+2026-08-31 by pinning protobuf back to 4.21.2 because that honours the only *hard* pin."
+**Found:** the opposite is true, and the plan doc is stale. `pyproject.toml` records that pinning **down**
+to 4.21.2 **breaks stem separation** — `audio_separator...mdx_separator` imports `onnx`, which needs
+`google.protobuf.runtime_version`, absent before 5.x — so the vocal-swap lane dies at its first stage.
+classla's pin is the one deliberately violated. The installed state agrees with `pyproject.toml`, not
+with the plan.
+**Evidence:** first-hand.
+`pyproject.toml:29-33`: `"NOTE — protobuf must be >= 5.x. Keep it at 7.36.0. ... classla's is the one to
+violate: it imports and its 20 tests pass at 7.36.0."`
+`pyproject.toml:35-39` records the measured breakage at 4.21.2.
+Installed: `protobuf 7.36.0`. Requirement metadata read via `importlib.metadata.requires`:
+`onnxruntime 1.27.0 -> protobuf>=4.25.8`; `onnx-weekly -> protobuf>=6.31.1`;
+`classla 2.2.1 -> protobuf==4.21.2, torch<=2.6`.
+**Consequence:** `plans/2026-09-01-next-moves.md` P5 needs correcting — it was superseded the same day by
+CHANGELOG #053 and still reads as current. The generalisable lesson is AGENTS.md's **"no record ahead of
+code"** rule inverted: a record left *behind* the code is just as expensive, and here it propagated
+into an agent briefing and would have driven a wrong verdict. A resolved `[USER DECISION]` in a plan
+should point at the file that now holds the truth.
+
+---
+
+### J-018 — This project's "RTF" is a speed factor (audio/elapsed), inverted from the conventional definition · 2026-09-01 · measurement
+**Status:** verified — **first-hand, this session**
+**Expected:** the briefed figure "RTF 1.09–1.17×, 3.6–3.8 min/track" read as conventional RTF
+(`elapsed / audio`), i.e. slower than realtime. Under that reading it is inconsistent with the stored
+artifacts, which show 229.61 s of compute for 249.48 s of audio.
+**Found:** the project computes `audio_duration / elapsed` — a *speed factor*, faster than realtime.
+249.48 / 229.61 = **1.087** ≈ the quoted 1.09; 249.48 / 213.2 = **1.17**. Under the conventional
+definition the same runs are RTF **0.92–0.98**. Both numbers are correct; only the label is ambiguous.
+**Evidence:** first-hand, read out of `data/toolshop/lyrics/transcripts/*.json`:
+```
+borba-015.large-v3.temp0.json  dur=249.48  el=229.61  cov=69.1%  words=188
+borba-015.coverage-A.json      dur=249.48  el=245.03  cov=69.1%  words=188
+borba-015.coverage-B.json      dur=249.48  el=370.49  cov=46.4%  words=127
+borba-015.coverage-C.json      dur=249.48  el=166.96  cov=68.4%  words=147
+old-config-baseline.large-v3   dur=249.48  el=727.79  cov=56.7%  words=202  lang=hr
+```
+This also re-confirms J-000e first-hand across sessions: the two temperature-0 runs both give exactly
+**69.1% / 188 words**.
+**Consequence:** any comparison against a published whisperX or faster-whisper RTF will be inverted
+unless the definition is stated. The feasibility spec states `elapsed / audio` explicitly for every
+estimate. Worth a one-line definition next to the figure wherever it is quoted — cheap now, an
+embarrassing conclusion later. Machine of record for all of these: Intel i7-4770 (4C/8T, 3.4 GHz,
+Haswell — AVX2/FMA, **no AVX-512, no VNNI**), 15.9 GB RAM.
