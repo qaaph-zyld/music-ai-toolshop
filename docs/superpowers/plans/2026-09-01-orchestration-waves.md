@@ -164,7 +164,39 @@ milestone as written could not have worked:
 
 ---
 
-## Wave 2 — implementation  ⏱ days · gated
+## Wave 2 — DISPATCHED 2026-09-01, after two user rulings
+
+The gate was taken. Both rulings changed the wave from what the section below anticipated, so read
+this in preference to it.
+
+**Ruling 1 — the backend fix: investigate before choosing a shape.** `_advanced_analysis` exists for
+a reason and nobody has established what it gives up. Committing to (a) port the fields into advanced,
+(b) run both and merge, or (c) switch to basic, without knowing that, is guessing.
+
+**Ruling 2 — the 69%: build the windowing layer.** Not "accept 69% and ship v1 on the covered
+portion", and not "park flow v2". The gap gets closed.
+
+| Agent | Task | Journal range | Mode |
+|---|---|---|---|
+| **C** | Backend trade-off: what `wav_reverse_engineer` actually produces vs `_basic_analysis`, and therefore which fix. Includes hunting for *other* fields whose corpus-wide distribution betrays a defect the way `mode`'s 215/7 does. | `J-040`–`J-049` | read-only |
+| **D** | Design the windowing layer + its test plan: window sizing from the quadratic-attention arithmetic, lyric-to-window assignment across a 31% gap with no anchors, and what it refuses when it cannot tell. | `J-050`–`J-059` | read-only, **no installs** |
+
+`J-030`–`J-039` stays reserved for the P0 run.
+
+### Why Wave 2 is still read-only
+
+The windowing layer cannot be *built* without whisperX, and whisperX is not installed. Installing it
+means a ~52 MB wheel set plus a **1262 MB** alignment checkpoint, into a **sidecar venv** — the
+Wave 1 recommendation, because no whisperX release accepts both `torch<=2.6` (which `classla` needs)
+and `ctranslate2>=4.5` (which sits under `J-000e`'s byte-identical reproducibility).
+
+**That download is a user decision, not an orchestrator one**, so Wave 2 stops at a design and a test
+plan written against a mocked aligner — which `AGENTS.md` requires regardless ("Mock model calls;
+real-model tests get `@pytest.mark.slow`"). Implementation is Wave 3.
+
+---
+
+## Wave 2 (original sketch, superseded above) — implementation  ⏱ days · gated
 
 Contents depend on Wave 1's findings; the shape does not:
 
