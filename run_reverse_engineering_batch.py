@@ -208,10 +208,23 @@ def process_track(
         export_json=True,
         output_dir=track_out,
         effects=True,
-        instruments=True,
+        # MEASURED OFF 2026-09-01 across all 221 corpus dossiers (CHANGELOG #054,
+        # JOURNAL.md J-041..J-045). Each of these was switched on and produced
+        # nothing usable, at full compute cost:
+        #   instruments - never reaches its ML backend (panns_inference absent);
+        #                 the heuristic's vocal test is broken, so 82.4% of the
+        #                 corpus returns the identical label set.
+        #   notes       - 22.9% fmin-floor artefact, and `duration` is hard-coded
+        #                 to 0.1 for all 191,339 entries in the corpus.
+        #   separation  - the separated audio is computed and then DISCARDED; the
+        #                 emitted block is one byte-identical constant across all
+        #                 221 dossiers.
+        # Turned off here rather than deleted from the adapter: the capability
+        # stays available behind its flag, the batch just stops paying for it.
+        instruments=False,
         chords=True,
-        notes=True,
-        separation="hpss",
+        notes=False,
+        separation=None,
         backend="advanced",
     )
     track_info["analysis_json"] = str(track_out / f"{track_path.stem}_analysis.json")

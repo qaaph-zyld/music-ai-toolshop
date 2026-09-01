@@ -1,5 +1,79 @@
 # Changelog
 
+### Answer #054 — M6 could not have worked. The corpus is half the size we thought, and the backend it ran on emits none of the fields it was meant to add.
+**Timestamp:** 2026-09-01
+**Action Type:** Orchestrated investigation of the M6 premise, and the fixes it forced
+
+M6 was written as *"re-run the 444-dossier corpus so the fields added in M1-M4 exist for it too."*
+Every load-bearing noun in that sentence was wrong, and a wave of investigation found it before the
+machine spent a weekend proving it.
+
+| Claim in the plan | Measured |
+|---|---|
+| 444 dossiers | **222.** `*_analysis.json` also matches the `_voice_analysis.json` sidecar, so the glob counted every track twice. PapaPedro, the stated reason for revising 222 *up* to 444, contributes **no dossiers at all**. |
+| ~25 h CPU | **~13 h** - the estimate inherited the same double count. An overnight, not a weekend. |
+| A re-run adds the four fields | **A re-run adds nothing.** `beat_grid`, `structure`, `premaster` and the K-S key block were emitted **only by `_basic_analysis`**, while the batch hard-codes `backend="advanced"`. Confirmed across all 222 dossiers: `sections` 0, `structure` 0, `beat_grid` 0, `premaster` 0, `lyrics` 0. |
+| `sections` is `[]` | **Absent.** The ambiguity is three-valued - never analysed / analysed and empty / analysed and populated - and an empty list cannot carry that. |
+| The loudness `mode` is history | **Live code.** `feature_extractor.py:190` is `mode = 'major' if chroma_vals[key_idx] > 0.5 else 'minor'`, giving **215 major / 7 minor** corpus-wide. |
+
+**The count check would not have saved us.** It was designed to catch a batch that skips input. This
+batch would have processed all 222, written all 222, and reported a clean 222 in / 222 out - while
+adding nothing. A verification that only checks *how many* cannot see *what*.
+
+---
+
+**1. `logger` was never defined, so the handlers guarding M6's fields raised `NameError`.**
+`_basic_analysis` wrapped beat-grid, structure and premaster in `except` blocks that call
+`logger.warning`. There is no `import logging` in the module and no assignment. Any failure in those
+three stages raised `NameError` **from inside the handler meant to absorb it** - converting a
+recoverable stage failure into a crash, in exactly the three field-groups M6 depends on.
+
+It survived because **both existing tests that touch `_basic_analysis` mock it out entirely**. The
+function body had never executed under test. Fixed, with three tests that force each stage to raise
+and assert degradation; verified by removing the logger again (**4 failed**) and restoring it
+(**14 passed**).
+
+This is the **third** undefined-name defect this project has found behind an exception handler -
+`production_analyzer` (swallowed `NameError` -> zero fingerprints, fixed this session), the #053
+`doctor` incident, now this. The pattern is not that we make typos. **Error paths are the
+least-executed code in the repo and the suite systematically mocks past them.**
+
+**2. The four field-groups now come from one shared helper, reached by both backends.**
+New `_m6_fields(y, sr, path)`. Copying the computation into the advanced path would have scheduled a
+third divergence; per AGENTS.md, fix the class. Each group degrades independently - one failing no
+longer takes the others with it, which is now asserted.
+
+**K-S `key`/`mode` deliberately overwrite the advanced backend's own.** Its `mode` is the 0.5
+chroma-threshold above, and it is contradicted by **that same backend's `chord_progression` on 170 of
+212 tracks** (85% minor chords against 96.8% "major"). `bpm`/`beat_count` are deliberately **not**
+taken from the grid in the advanced path: changing the tempo every other field was computed against
+would be a silent rewrite of the whole dossier.
+
+**3. Three capabilities were switched on, produced nothing usable, and were paid for anyway.**
+Measured across all 221 corpus dossiers:
+
+| capability | what it actually produced |
+|---|---|
+| `separation="hpss"` | The separated audio is computed and **discarded**. The emitted block is **one byte-identical constant** across all 221 dossiers. |
+| `instruments` | Never reaches its ML backend (`panns_inference` absent); the heuristic's vocal test is broken by a `librosa.pyin` tuple bug, so **82.4%** of the corpus returns the identical label set. |
+| `notes` | 22.9% fmin-floor artefact, and `duration` is **hard-coded to `0.1`** for all **191,339** entries. |
+
+Turned off in the batch rather than deleted from the adapter - the capability stays behind its flag,
+the batch stops paying for it. `chords`, `tuning_offset`, `onset_strength` and two `effects` scalars
+carry real information and are kept.
+
+**Also found, not yet fixed:** `effects.rt60_seconds` correlates **r = 0.946** with track duration at
+a median of **200.1 s**. A 200-second reverb tail is physically impossible; the field measures track
+length. It has never once been right, in a dossier treated as a source of truth for 221 tracks.
+
+---
+
+**Files:** `toolshop/reverse_engineering_adapter.py`, `run_reverse_engineering_batch.py`,
+`tests/test_reverse_engineering_adapter.py`, `docs/superpowers/JOURNAL.md` (new, append-only),
+`docs/superpowers/specs/2026-09-01-{forced-alignment-feasibility,dossier-schema-v2,backend-tradeoff,alignment-windowing-layer}.md`,
+`docs/superpowers/plans/2026-09-01-{orchestration-waves,P0-execution-card}.md`, `STATUS.md`,
+`plans/2026-09-01-next-moves.md`, `.gitignore`.
+
 ### Answer #053 — Vocal swap meets real material. Six defects found by using it, two of my claims retracted.
 **Timestamp:** 2026-08-31
 **Action Type:** Field use of the #052 lane on four real track pairs, and the fixes that use forced out

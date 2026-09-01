@@ -98,3 +98,7 @@ test-renderer-output.txt
 *-output.txt
 audio-inventory.txt
 
+
+# whisperX forced-alignment sidecar (Wave 3). Isolated so torch and
+# ctranslate2 in .venv stay untouched — see JOURNAL.md J-012.
+.venv-align/

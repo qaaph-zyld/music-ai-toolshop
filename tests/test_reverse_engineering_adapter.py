@@ -303,3 +303,91 @@ def test_basic_analysis_emits_the_four_m6_fields(tmp_path):
     result = rea._basic_analysis(_tone_wav(tmp_path / "tone.wav"))
     for field in ("beat_grid", "structure", "premaster", "key"):
         assert field in result, f"{field} missing from _basic_analysis output"
+
+
+# --- the four M6 field-groups reach BOTH backends (CHANGELOG #054, J-024) ----
+#
+# beat_grid, structure, premaster and the K-S key block were emitted only by
+# _basic_analysis, while the corpus batch hard-coded backend="advanced". All 222
+# corpus dossiers therefore carry none of them, and M6's "just re-run the corpus"
+# would have added nothing while its count check reported 222 in / 222 out.
+
+
+@patch("toolshop.reverse_engineering_adapter.FeatureExtractor")
+@patch("toolshop.reverse_engineering_adapter.AudioProcessor")
+def test_advanced_analysis_emits_the_four_m6_fields(mock_ap, mock_fe, tmp_path):
+    from toolshop import reverse_engineering_adapter as rea
+
+    mock_ap.load_audio.return_value = (MagicMock(), 22050)
+    mock_fe.extract_features.return_value = {
+        "duration": 10.0, "tempo": 120.0, "beat_count": 20,
+        "key": "C", "mode": "major", "spectral_centroid": 1.0,
+        "spectral_bandwidth": 1.0, "harmonic_ratio": 0.5,
+    }
+    fake_m6 = {
+        "beat_grid": {"tempo": 87.3}, "structure": [{"label": "verse"}],
+        "premaster": {"verdict": "FLAG"}, "key": "G", "mode": "minor",
+        "key_confidence": 0.71, "key_alternate": "Bb major", "key_margin": 0.08,
+        "bpm": 87.3, "beat_count": 999,
+    }
+    with patch.object(rea, "_m6_fields", return_value=fake_m6):
+        result = rea._advanced_analysis(tmp_path / "t.wav")
+
+    for field in ("beat_grid", "structure", "premaster", "key_confidence"):
+        assert field in result, f"{field} missing from the advanced backend"
+
+
+@patch("toolshop.reverse_engineering_adapter.FeatureExtractor")
+@patch("toolshop.reverse_engineering_adapter.AudioProcessor")
+def test_ks_key_overrides_the_threshold_mode(mock_ap, mock_fe, tmp_path):
+    """feature_extractor.py:190 is `chroma_vals[key_idx] > 0.5` -> 215 major / 7
+    minor across the corpus, contradicted by the same backend's own chords on
+    170 of 212 tracks. K-S must win."""
+    from toolshop import reverse_engineering_adapter as rea
+
+    mock_ap.load_audio.return_value = (MagicMock(), 22050)
+    mock_fe.extract_features.return_value = {
+        "duration": 10.0, "tempo": 120.0, "beat_count": 20,
+        "key": "C", "mode": "major", "spectral_centroid": 1.0,
+        "spectral_bandwidth": 1.0, "harmonic_ratio": 0.5,
+    }
+    with patch.object(rea, "_m6_fields", return_value={"key": "G", "mode": "minor"}):
+        result = rea._advanced_analysis(tmp_path / "t.wav")
+
+    assert result["mode"] == "minor", "the threshold mode survived K-S"
+    assert result["key"] == "G"
+
+
+@patch("toolshop.reverse_engineering_adapter.FeatureExtractor")
+@patch("toolshop.reverse_engineering_adapter.AudioProcessor")
+def test_advanced_keeps_its_own_tempo(mock_ap, mock_fe, tmp_path):
+    """The grid must not silently replace the tempo every other field was
+    computed against."""
+    from toolshop import reverse_engineering_adapter as rea
+
+    mock_ap.load_audio.return_value = (MagicMock(), 22050)
+    mock_fe.extract_features.return_value = {
+        "duration": 10.0, "tempo": 120.0, "beat_count": 20,
+        "key": "C", "mode": "major", "spectral_centroid": 1.0,
+        "spectral_bandwidth": 1.0, "harmonic_ratio": 0.5,
+    }
+    with patch.object(rea, "_m6_fields", return_value={"bpm": 87.3, "beat_count": 999}):
+        result = rea._advanced_analysis(tmp_path / "t.wav")
+
+    assert result["bpm"] == 120.0
+    assert result["beat_count"] == 20
+
+
+def test_m6_fields_degrade_independently(tmp_path):
+    """One group failing must not take the others with it."""
+    from toolshop import reverse_engineering_adapter as rea
+    import librosa
+
+    wav = _tone_wav(tmp_path / "tone.wav")
+    y, sr = librosa.load(str(wav), sr=22050, mono=True)
+    with patch.object(rea.structure, "segment_track", side_effect=RuntimeError("boom")):
+        out = rea._m6_fields(y, sr, wav)
+
+    assert out["structure"] is None
+    assert out["premaster"] is not None or "premaster" in out
+    assert "key" in out, "a structure failure took the key block with it"

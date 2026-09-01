@@ -1564,3 +1564,24 @@ track with both, and producing it is a prerequisite that has nothing to do with 
 same missing ingestion path J-016 named. **Cheapest unblock: transcribe one track that already has a
 sheet** (`ABGEZOCKT`, `ULICNI_KODEKS`), rather than writing a sheet for Borba. Recorded so a future
 session does not discover mid-run that its acceptance test has no input.
+
+---
+
+### J-009 — A count check cannot see a no-op; it verifies *how many*, never *what* · 2026-09-01 · M6
+**Status:** verified — first-hand, this session
+**Expected:** M6's designed safeguard was a count verification, written against the failure mode
+`next-moves.md` named explicitly: *"a batch that succeeds having skipped half its input."* That is a
+real failure and the check catches it.
+**Found:** it would not have caught **this** failure. The corpus batch runs `backend="advanced"`,
+which emitted **none** of the four field-groups M6 existed to add. A full re-run would have read all
+222 dossiers, written all 222, and reported a clean **222 in / 222 out** — passing its own
+verification while adding **nothing**. ~13 h of CPU, a green check, and no change.
+**Evidence:** first-hand. All 222 corpus dossiers scanned: `sections` 0, `structure` 0, `beat_grid` 0,
+`premaster` 0, `lyrics` 0. `run_reverse_engineering_batch.py` passes `backend="advanced"`;
+`_advanced_analysis` emitted none of them before this session's fix.
+**Consequence:** the fix is `_m6_fields`, shared by both backends. But the transferable lesson is
+about **verification design**: a check on *cardinality* is blind to *content*. The sample-diff
+protocol Agent B specified — 10–20 tracks compared field-by-field against their old dossiers, with
+criteria that can stop the full run — is the check that would have caught this, and it was already in
+the spec. **The cheap check and the real check were both designed; only the cheap one was load-bearing.**
+Before the corpus run: the diff gate must be the blocker, not the count.
