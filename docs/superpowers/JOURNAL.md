@@ -1205,3 +1205,32 @@ So the ~0.7× RTF of J-047 is not the price of seven fields. A large share of it
 the structural reason the recommendation keeps only the chord block and two `effects` scalars, and it
 means a trimmed advanced path would be materially faster than the measured 0.7× — though **by how
 much is unmeasured**, and that measurement is a prerequisite named in the spec.
+
+---
+
+### J-008 — I broke `J-004`'s rule within the hour, because the rule named the wrong thing · 2026-09-01 · orchestration
+**Status:** verified — first-hand, self-inflicted, **second occurrence**
+**Expected:** `J-004` established the rule after I swept a live agent's work into the wrong commit:
+*"while any agent is live, stage explicit paths, never `-A` and never a directory."* I then staged
+`docs/superpowers/JOURNAL.md`, the spec, **and `docs/superpowers/journal_inbox/`** — a directory —
+while Agent D was still writing into it. 300 lines of `agentD.md` went into a commit about Agent C.
+**Found:** the rule was correct and I still broke it, which means the rule was not the fix. Two
+reasons, and the second is the real one:
+1. I read my own staging list as "explicit paths" because every entry was typed out. A typed
+   directory is still a directory.
+2. **`journal_inbox/` is, by construction, the one directory live agents write into.** It exists for
+   exactly that. So of all the paths in the repo, it is the single one where a directory-level stage
+   is guaranteed to collide whenever anything is running. `J-004` phrased the rule generically and so
+   pointed at nothing in particular.
+**Evidence:** first-hand. `git show --stat 8fd2cc7` → three files, one of them
+`docs/superpowers/journal_inbox/agentD.md | 300 ++++`. Agent D had produced no completion
+notification.
+**Consequence:** not rewritten — same reasoning as `J-004`, a false-clean history is worse than an
+honest wrong one, and this is now a documented pair rather than an isolated slip. **Rule sharpened:**
+never stage `journal_inbox/` as a directory at all; stage the specific fragment being merged, by
+name, and only after its agent has reported completion. The generic form of the rule survives but it
+is the specific one that will actually fire.
+The generalisable point is about rule-writing, not git: **a rule stated at the level of the category
+("don't stage directories") does not fire at the moment of the mistake, because at that moment you
+are thinking about a particular path, not about the category.** `J-004` needed to name
+`journal_inbox/`. It did not, so it did not work.
