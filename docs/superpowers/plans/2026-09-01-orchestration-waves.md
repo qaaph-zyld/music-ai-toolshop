@@ -52,7 +52,7 @@ advisory:
 | An entry needs **`Expected`** as well as `Found`. | A finding with no prior expectation is a note, not a finding. The delta *is* the content. |
 | **Refuted hypotheses are mandatory entries**, not optional. | `J-000f` cost a full session to obtain. A negative result not written down gets re-bought. |
 | Evidence is **first-hand or tagged `unverified — source: <path>`**. | `AGENTS.md`, verified-verdicts rule. Relayed numbers have already misled this project once. |
-| The journal is appended **during** the work, not at the end. | A finding reconstructed at close-out is a memory of a finding. The hemija review found 3 factual errors in a handoff written exactly that way. |
+| The journal is appended **during** the work, not at the end — and the spec is drafted section by section. | Two reasons, and I only knew the first when I wrote this rule. **Quality:** a finding reconstructed at close-out is a memory of a finding; the hemija review found 3 factual errors in a handoff written exactly that way. **Durability:** an agent that batches its output converts any interruption into *total* loss — Wave 2's first attempt lost ~40 agent-minutes to a rate limit with nothing on disk (`J-005`). Say this explicitly in every brief. |
 
 ---
 
