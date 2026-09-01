@@ -238,3 +238,68 @@ def test_analyze_track_export_json(mock_feature_extractor, mock_audio_processor,
         data = json.load(f)
     assert data["file"] == str(test_file)
     assert data["analysis_backend"] == "wav_reverse_engineer"
+
+
+# --- _basic_analysis error handlers (JOURNAL.md J-006) -----------------------
+#
+# Every test above mocks `_basic_analysis` out, so its body had never executed.
+# It guards its three most valuable field-groups - beat grid, structure and
+# premaster, the whole of H2-M1..M4 - behind `except` handlers that called an
+# undefined `logger`. A stage failure therefore raised NameError from inside the
+# handler meant to absorb it. These tests run the real function.
+
+import logging
+import math
+import wave
+
+import pytest
+
+
+def _tone_wav(path, seconds=1.0, sr=22050, freq=220.0):
+    """A real, readable wav. `_basic_analysis` loads from disk, so it needs one."""
+    frames = bytearray()
+    for i in range(int(sr * seconds)):
+        v = int(20000 * math.sin(2 * math.pi * freq * i / sr))
+        frames += int(v).to_bytes(2, "little", signed=True)
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes(bytes(frames))
+    return path
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "toolshop.reverse_engineering_adapter.beatgrid.analyze_beats",
+        "toolshop.reverse_engineering_adapter.structure.segment_track",
+        "toolshop.reverse_engineering_adapter.premaster.analyze_premaster",
+    ],
+)
+def test_basic_analysis_degrades_instead_of_raising(target, tmp_path):
+    """A failing stage must be absorbed, not converted into NameError."""
+    from toolshop import reverse_engineering_adapter as rea
+
+    wav = _tone_wav(tmp_path / "tone.wav")
+    with patch(target, side_effect=RuntimeError("stage exploded")):
+        result = rea._basic_analysis(wav)
+
+    assert result["analysis_backend"] == "basic_librosa"
+    assert result["file"] == str(wav)
+
+
+def test_basic_analysis_logger_is_defined():
+    """The regression itself: the handlers referenced a name that did not exist."""
+    from toolshop import reverse_engineering_adapter as rea
+
+    assert isinstance(getattr(rea, "logger", None), logging.Logger)
+
+
+def test_basic_analysis_emits_the_four_m6_fields(tmp_path):
+    """M6 depends on these coming from _basic_analysis; nothing asserted it did."""
+    from toolshop import reverse_engineering_adapter as rea
+
+    result = rea._basic_analysis(_tone_wav(tmp_path / "tone.wav"))
+    for field in ("beat_grid", "structure", "premaster", "key"):
+        assert field in result, f"{field} missing from _basic_analysis output"

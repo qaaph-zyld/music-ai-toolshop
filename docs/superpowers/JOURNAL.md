@@ -775,3 +775,43 @@ a memory of a finding). **It turns out to be a durability rule as well**, and I 
 reason without noticing it bought the other. Agent briefs must now say so explicitly: **write the
 fragment as each finding lands, and draft the spec section by section.** An agent that batches its
 output converts any interruption into total loss.
+
+---
+
+### J-006 — The handlers protecting M6's three field-groups all raised `NameError` · 2026-09-01 · reverse-engineering
+**Status:** verified and **fixed** — first-hand, this session
+**Expected:** `_basic_analysis` degrades gracefully. Each of beat-grid, structure and premaster sits
+inside `try/except` with a `logger.warning(...)` and a fallback — visibly defensive code.
+**Found:** **`logger` was never defined in the module.** Three references (lines 74, 97, 107), no
+`import logging`, no assignment. So any failure in those three stages raised `NameError` *from inside
+the handler meant to absorb it* — a recoverable stage failure converted into a crash, in exactly the
+three field-groups M6 depends on (`J-024`).
+It survived because **both existing tests that touch `_basic_analysis` mock it out entirely**
+(`@patch("toolshop.reverse_engineering_adapter._basic_analysis")`). The function body had never
+executed under test. A green suite said nothing about it.
+**Evidence:** first-hand. `grep -n logger toolshop/reverse_engineering_adapter.py` → three
+`logger.warning` calls; `grep -n "^import logging\|logging.getLogger"` → nothing. After adding the
+logger and three tests that force each stage to raise: **14 passed**. With the logger removed again:
+**4 failed, 10 passed** — the three degradation tests plus the direct one.
+**Consequence:** fixed, with tests that run the real function instead of mocking it. Third
+undefined-name defect this project has found hiding behind an exception handler — `J-001`
+(`production_analyzer`, swallowed `NameError` → zero fingerprints), the `#053` doctor incident, and
+now this. **The pattern is not "we make typos"; it is that error paths are the least-executed code in
+the repo and the suite systematically mocks past them.** A handler nothing ever triggers is
+indistinguishable from a handler that crashes.
+
+### J-007 — My own verification probe read the wrong field and returned a confident zero · 2026-09-01 · method
+**Status:** retracted mid-check — first-hand, this session
+**Expected:** spot-checking Agent C's claim that the chord data contradicts the declared `mode`, my
+probe read each chord entry's `chord` key.
+**Found:** the field is `name`. Every lookup returned `None`, every track filtered out, and the probe
+printed a clean **`tracks with chords: 0 | agree: 0 | DISAGREE: 0`** — which reads like a refutation
+of the agent and is in fact a measurement of nothing. Re-run against `name`: **212 tracks with
+chords, 170 disagree with the declared `mode`, 42 agree** — matching the agent's 170/212 exactly.
+**Evidence:** first-hand, both runs. Correct probe: `chord_progression[].name`, minor detected by
+`re.search(r'm(?!aj)', name)`.
+**Consequence:** the agent's claim stands, and is corpus-scale confirmation of `J-025` using the
+backend's **own chord output as the control** — `mode` says 96.8% major while the chords say
+predominantly minor on 80% of tracks. Method note for me, the third instance today after `J-003`:
+**a verification that returns an empty result is not a negative finding until you have proved the
+probe can produce a positive one.** An empty result and a broken query look identical.

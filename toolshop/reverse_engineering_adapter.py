@@ -7,9 +7,18 @@ to pure librosa-based analysis otherwise.
 from __future__ import annotations
 
 import json
+import logging
 import warnings
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+#: `_basic_analysis` guards beat-grid, structure and premaster behind `except`
+#: handlers that log and fall back. Every one of those handlers referenced an
+#: undefined `logger` and so raised `NameError` instead of degrading - turning a
+#: recoverable stage failure into a crash, in exactly the three field-groups M6
+#: depends on. The two tests that touch `_basic_analysis` mock it out entirely,
+#: so the body had never run. See JOURNAL.md J-006.
+logger = logging.getLogger(__name__)
 
 from . import beatgrid
 from . import key_detection
