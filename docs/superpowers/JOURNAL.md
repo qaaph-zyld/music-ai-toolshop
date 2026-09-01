@@ -1653,3 +1653,66 @@ one to the other.
 the installed package by a test that skips where the sidecar is absent — **a hardcoded list copied
 from a dependency is a fact with an expiry date, and the only honest way to hold one is to make it
 self-checking.**
+
+### J-063 — `rt60_seconds` measured track length, and a presence-check test protected it · 2026-09-01 · reverse-engineering
+**Status:** verified and **fixed** — first-hand, this session
+**Expected:** `rt60_seconds` was a reverb measurement with a quality problem — plausible in kind,
+wrong in degree. `J-042` flagged the r = 0.946 correlation with duration; I expected to find a
+scaling bug or a units error.
+**Found:** **it was never a reverb measurement at all.** The estimator ran Schroeder backward
+integration over the *whole track*. Schroeder measures the decay of an impulse response; a song is
+not one. On continuous audio the energy-decay curve is dominated by how much of the file remains, so
+the fitted slope is set by **duration** and the output is a fixed multiple of it — median **1.18×**
+the track length across the corpus.
+**Evidence:** first-hand, on synthetic **white noise, which has no reverb whatsoever**:
+`10 s → 14.78 s`, `20 s → 29.40 s`, `40 s → 58.85 s` — **ratio 1.47×, every time**. That is not a
+degraded measurement; it is a measurement of the wrong thing entirely. Corpus: r = 0.946 with
+`duration_seconds`, n = 221, median ratio 1.1828, stdev 0.34.
+**Consequence:** fixed as CHANGELOG #056 — per-onset decay windows, median of qualifying fits,
+`None` with a reason when nothing qualifies. Accuracy against known decays is now **0.1–0.8%**;
+restoring the original fails **16 of 18** new tests.
+
+Three things worth carrying:
+
+1. **The test was the vulnerability, not the absence of one.** A test existed. It asserted
+   `assertIn('rt60_seconds', res)`. A presence check passes on *any* number, so it certified a field
+   that was never right — and it lived outside `pytest.ini`'s `testpaths`, so it never ran either.
+   **A test that cannot fail is worse than no test**, because the coverage looks real.
+2. **The diagnostic that settled it was the simplest possible input.** Not the corpus, not a real
+   track — *white noise*, whose true RT60 is known a priori to be nothing. A signal whose correct
+   answer you know in advance turns a suspicious correlation into a proof in one command.
+3. **The refusal cross-checked against an unrelated gate.** The new estimator returns `None` on
+   `brat_za_brata_premaster`, and #050 independently graded that same track under-dynamic at
+   **PSR 8.98** against a spec requiring ≥ 11. A track compressed flat enough to fail the dynamics
+   gate is one that never decays far enough to measure a tail. **Two measurements built for different
+   purposes agreeing is stronger evidence than either alone** — and it is the kind of check that only
+   exists once a field is allowed to say "I cannot measure this".
+
+### J-064 — The backend that produced all 221 dossiers was not under version control · 2026-09-01 · repo
+**Status:** verified and **fixed** — first-hand, this session
+**Expected:** committing the RT60 fix would be routine. `wav_reverse_engineer` is imported by
+`toolshop/reverse_engineering_adapter.py` and ran the whole corpus, so I assumed it was tracked —
+a vendored package, a submodule, or a pip dependency.
+**Found:** **none of those. It is untracked local code inside a gitignored directory.**
+`.gitignore` excluded `projects/` wholesale; the package is imported straight off disk
+(`importlib.metadata` reports `PackageNotFoundError`), there is no nested `.git`, and it is not a
+submodule. The backend behind 221 dossiers existed as a **single uncommitted copy on the 2010 disk**
+— the same spindle `J-000h` is about. `git commit` simply refused the file and I only noticed
+because the commit did not appear.
+**And exactly one file had been force-added:** `audio_analyzer/feature_extractor.py` — the file
+carrying the `mode = chroma_vals[key_idx] > 0.5` defect. `git ls-files` on the package returned that
+one path and nothing else. So the repo already contained the confusing half-state, and it explains
+something: **that defect was visible in the record precisely because its file was the one tracked
+file, while the rest of the backend was invisible.** What gets reviewed is what gets committed.
+**Evidence:** first-hand. `git check-ignore -v` → `.gitignore:14:projects/`;
+`git ls-files <pkg>` → 1 path; `python -c "import wav_reverse_engineer"` resolves to the ignored
+tree. Package source measured at **172 KB across 37 files**; the 55 MB the directory reports is
+almost entirely one WAV.
+**Consequence:** the package source is now tracked via stepwise negation patterns, with audio,
+`__pycache__` and `.egg-info` still excluded — 35 files added, verified by dry run before staging.
+The vendored `tests/` file that never runs now carries a header saying so, so a future reader cannot
+mistake it for coverage.
+The transferable lesson: **"is it in git?" is not answered by "is it imported and working".** A
+dependency can be load-bearing, in daily use, and produce a 221-item corpus while being one disk
+failure from gone. The tell was a commit that silently added nothing — which is only visible if you
+check the commit landed rather than assuming it did.

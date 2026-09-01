@@ -1,0 +1,21 @@
+# Optional heavy dependencies for extended analysis
+# Install only if you need instrument recognition via PANNs or Spleeter separation
+# pip install -r requirements-optional.txt
+
+# For PANNs tagging (instrument/sound event recognition)
+# CPU install is fine, GPU optional
+panns-inference>=0.1.0
+torch>=1.12.0
+
+# For vocal/instrumental separation (2/4/5 stems)
+# Spleeter pulls tensorflow; install may be heavy on Windows
+spleeter>=2.4.0
+
+# High-accuracy pitch tracking
+torchcrepe>=0.0.22
+
+# SOTA source separation
+demucs>=4.0.0
+
+# Essentia (optional, manual install often required on Windows)
+# essentia

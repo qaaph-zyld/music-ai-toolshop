@@ -1,0 +1,10 @@
+analyze:
+  effects: true
+  instruments: true
+  separate: hpss          # none|hpss|spleeter2|spleeter4|spleeter5|demucs
+  export_stems: false
+  chord_backend: chordino # simple|chordino
+  pitch_backend: torchcrepe # yin|torchcrepe
+  essentia: false
+  cache: true
+  cache_dir: .cache

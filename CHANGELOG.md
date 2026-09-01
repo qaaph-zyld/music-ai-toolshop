@@ -1,5 +1,78 @@
 # Changelog
 
+### Answer #056 — `rt60_seconds` was measuring track length. Every dossier's reverb figure was wrong.
+**Timestamp:** 2026-09-01
+**Action Type:** Fixing the RT60 estimator found defective during the #054 backend investigation
+
+**The estimator ran Schroeder backward-integration over the whole track.** Schroeder's method
+measures the decay of an *impulse response*; a song is not one. On continuous audio the energy-decay
+curve is dominated by "how much of the file is left", so the fitted slope is set by the file's
+**duration** and the answer is a fixed multiple of it.
+
+Measured across the 221-dossier corpus: `rt60_seconds` correlates **r = 0.946** with
+`duration_seconds`, median **200.1 s**, median ratio **1.18x**. **A reverb tail longer than the song.**
+
+Minimal reproduction - **white noise, which has no reverb whatsoever**:
+
+    10 s -> 14.78 s      20 s -> 29.40 s      40 s -> 58.85 s        ratio 1.47x, every time
+
+**Why it survived.** The only assertion was `assertIn('rt60_seconds', res)` - a presence check that
+passes on any number at all. And it lived in
+`projects/05-track-reverse-engineering/.../wav_reverse_engineer/tests/`, outside `pytest.ini`'s
+`testpaths = tests`, so it was **never collected** either. This is the AGENTS.md lane-discipline rule
+firing exactly as written: tests outside `tests/` do not run.
+
+---
+
+**The fix: measure where something actually decays, and refuse where nothing does.**
+
+RT60 is now estimated on **short windows following onsets**, each fitted separately, with the
+**median** of the qualifying windows reported. A window is rejected unless the decay is monotone, the
+dB curve is straight (R^2 >= 0.98 - a Schroeder curve on non-decaying audio is not a line), the result
+lands in a plausible 0.05-3.0 s band, and - **the guard the old code lacked** - the -25 dB crossing
+happens before 90% of the window. If it only happens at the very end, the "decay" being measured is
+the window running out of samples, which is the original bug in miniature.
+
+Fewer than four qualifying windows returns **`None` with a reason**, not `0.0`. Zero is a
+plausible-looking value that a caller will happily average; `None` is not. This follows
+`toolshop/premaster.py`'s `NOT_MEASURED` convention - scoring an unmeasurable gate would be a lie.
+
+`analyze_effects` now emits `rt60_windows` and `rt60_reason` alongside the value, so a reader can
+distinguish *no reverb measurable* from *not attempted*.
+
+**Accuracy, against synthetic decays of known RT60:**
+
+| true RT60 | measured | error |
+|---|---|---|
+| 0.2 s | 0.198 | **0.8%** |
+| 0.3 s | 0.300 | **0.1%** |
+| 0.5 s | 0.501 | **0.2%** |
+| 0.8 s | 0.799 | **0.1%** |
+| 1.2 s | 1.196 | **0.4%** |
+| 2.0 s | 1.888 | 5.6% - the *fixture* truncates bursts at 1 s, not the estimator |
+
+**Validated on full-length real tracks, not just synthetic bursts** (per the measurement-discipline
+rule that a clip result must be confirmed on a full input):
+
+| track | length | new | old would say |
+|---|---|---|---|
+| `daceta_premaster` | 162.0 s | **0.441 s** from 12 windows | 232.1 s (1.43x) |
+| `brat_za_brata_premaster` | 123.1 s | **`None`** - 0 usable windows | 144.9 s (1.18x) |
+
+The refusal on Brat za Brata is a **cross-check, not a gap**: #050 graded that same track
+under-dynamic at **PSR 8.98** against a spec requiring >= 11. A track compressed flat enough to fail
+the dynamics gate is a track that never decays far enough to measure a tail on. Two independent
+measurements agreeing. Cost is **0.4 s/track** either way.
+
+**Not retroactive.** The 221 existing dossiers still carry the old figure. They are rewritten by M6,
+which is the same regeneration `#054` unblocked.
+
+**Verification:** 18 new tests in `tests/` where they will actually run. Restoring the original
+implementation fails **16 of 18**.
+
+**Files:** `projects/05-track-reverse-engineering/track_reverse_engineering/wav_reverse_engineer/audio_analyzer/effects_analyzer.py`,
+`tests/test_effects_analyzer.py`.
+
 ### Answer #055 — `sr` has no alignment model. The substitution is now explicit, recorded, and refusable.
 **Timestamp:** 2026-09-01
 **Action Type:** Wiring the forced-alignment language mapping in `toolshop/transcribe.py`

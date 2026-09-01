@@ -1,0 +1,16 @@
+librosa>=0.10.0
+numpy>=1.20.0
+matplotlib>=3.5.0
+scipy>=1.7.0
+pydub>=0.25.1
+pretty_midi>=0.2.10
+scikit-learn>=1.0.0
+soundfile>=0.10.3
+python-rtmidi>=1.4.9
+streamlit>=1.35.0
+pyloudnorm>=0.1.0
+pyyaml>=6.0.1
+
+# Web app visualization
+altair>=5.0.0
+pandas>=1.5.0

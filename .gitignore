@@ -11,7 +11,26 @@ build/
 venv/
 
 # Output data (WAV library, lyrics, etc.) - kept private
-projects/
+# `projects/` is local scratch EXCEPT for wav_reverse_engineer, which is the
+# advanced dossier backend the corpus batch actually runs — it produced all 221
+# corpus dossiers while being untracked, unversioned and single-copy. 172 KB of
+# source. See JOURNAL.md J-064.
+#
+# Git cannot re-include a path whose parent directory is excluded, hence the
+# stepwise `dir/*` + `!dir/child/` pairs.
+projects/*
+!projects/05-track-reverse-engineering/
+projects/05-track-reverse-engineering/*
+!projects/05-track-reverse-engineering/track_reverse_engineering/
+projects/05-track-reverse-engineering/track_reverse_engineering/*
+!projects/05-track-reverse-engineering/track_reverse_engineering/wav_reverse_engineer/
+
+# Inside the package: source only. No audio (repo rule), no build artefacts.
+**/wav_reverse_engineer/**/__pycache__/
+**/wav_reverse_engineer/**/*.egg-info/
+**/wav_reverse_engineer/**/*.wav
+**/wav_reverse_engineer/**/*.mp3
+**/wav_reverse_engineer/**/*.flac
 results/
 
 # Session/scratch artifacts

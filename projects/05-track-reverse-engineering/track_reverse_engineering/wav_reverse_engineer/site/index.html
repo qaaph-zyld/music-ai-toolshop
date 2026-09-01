@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WAV Reverse Engineering Tool</title>
+  <style>
+    :root { --bg:#0b1220; --fg:#e8eefc; --muted:#9fb3c8; --acc:#6ea8fe; }
+    body { margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:linear-gradient(180deg,#0b1220,#0e1424 40%,#0b1220); color:var(--fg); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 48px 20px 80px; }
+    h1 { font-size: 40px; margin: 0 0 8px; }
+    p.lead { color: var(--muted); font-size: 18px; line-height: 1.6; }
+    .card { background: #121a2d; border: 1px solid #1c2741; border-radius: 12px; padding: 24px; margin-top: 24px; }
+    h2 { margin: 0 0 12px; font-size: 22px; }
+    code { background: #0e1a2e; color: #cfe1ff; padding: 2px 6px; border-radius: 6px; }
+    pre { background: #0e1a2e; color: #cfe1ff; padding: 12px; border-radius: 8px; overflow:auto; }
+    .btn { display:inline-block; background: var(--acc); color:#081227; padding: 10px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    ul { margin: 8px 0 0 20px; }
+    footer { margin-top: 48px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>WAV Reverse Engineering Tool</h1>
+    <p class="lead">Analyze audio tracks for tempo, key, chords, notes, instruments, effects, and stems. This site documents the project and how to run the interactive Streamlit app locally.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Quick Start (CLI)</h2>
+        <p>Install dependencies and analyze a file from the command line.</p>
+<pre><code>pip install -r wav_reverse_engineer/requirements.txt
+python wav_reverse_engineer/cli.py analyze path/to/track.wav -o output --effects --instruments --separate hpss --export-json</code></pre>
+      </div>
+      <div class="card">
+        <h2>Run the Web App</h2>
+        <p>Launch the Streamlit UI for a user-friendly experience.</p>
+<pre><code>pip install -r wav_reverse_engineer/requirements.txt
+# Optional heavy extras: panns-inference, torch, spleeter
+pip install -r wav_reverse_engineer/requirements-optional.txt
+streamlit run wav_reverse_engineer/webapp/app.py</code></pre>
+        <p>Then upload a WAV/MP3 and explore analysis, effects, instruments, and stems.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Features</h2>
+      <ul>
+        <li>Visualization: waveform, spectrogram, mel, chroma, beat/pitch tracking</li>
+        <li>Tempo, key/mode, MFCCs, spectral features</li>
+        <li>Chord detection and progression summarization</li>
+        <li>Note onsets and pitch (YIN)</li>
+        <li>Advanced effects: RT60, spectral tilt, THD, compression index, loudness</li>
+        <li>Instrument recognition (PANNs if available; heuristic fallback)</li>
+        <li>Source separation: HPSS (built-in) or Spleeter (2/4/5 stems)</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Repository</h2>
+      <p>GitHub: <a class="btn" href="https://github.com/qaaph-zyld/track_reverse_engineering" target="_blank" rel="noreferrer">Open Repo</a></p>
+    </div>
+
+    <footer>
+      <p>Netlify-deployed static docs. The interactive app runs locally via Streamlit.</p>
+    </footer>
+  </div>
+</body>
+</html>
