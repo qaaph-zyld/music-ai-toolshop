@@ -815,3 +815,393 @@ backend's **own chord output as the control** — `mode` says 96.8% major while 
 predominantly minor on 80% of tracks. Method note for me, the third instance today after `J-003`:
 **a verification that returns an empty result is not a negative finding until you have proved the
 probe can produce a positive one.** An empty result and a broken query look identical.
+
+---
+
+## Wave 2 Agent C — backend trade-off (merged 2026-09-01)
+
+> Merged from `journal_inbox/agentC.md`. Full write-up: `specs/2026-09-01-backend-tradeoff.md`.
+> **Recommendation: (a) narrowed — port the four field-groups into `_advanced_analysis`, and switch
+> off `separation`, `instruments` and `notes` while doing it.**
+>
+> **Orchestrator spot-check.** Re-run here before merging:
+>
+> | Claim | My check | Result |
+> |---|---|---|
+> | `logger` undefined → `_basic_analysis` handlers crash | `grep` for references vs definition; then fix + tests both ways | **holds** — see `J-006`, now fixed |
+> | `separation` is a constant | distinct JSON blocks across the corpus | **holds** — **1** distinct block, 221 dossiers |
+> | `notes.duration` hard-coded | value distribution over 191,339 entries | **holds** — every sampled entry is `0.1` |
+> | `rt60_seconds` tracks duration, not reverb | Pearson r and median over 221 | **holds** — **r = 0.946**, median **200.1 s** |
+> | Chords refute the declared `mode` on 170/212 | corpus scan of `chord_progression[].name` | **holds** — 212 with chords, **170 disagree**, 42 agree (my first probe read the wrong field and returned a false zero — `J-007`) |
+>
+> **Not re-run by me:** the `librosa.pyin` tuple bug in the instrument heuristic and its predicted
+> 0.7667 vocals floor; the mtime-differenced cost figure (≈0.7× realtime, median 114 s/track). Both
+> are argued in the spec with their working shown. Treat as evidenced, not re-run.
+>
+> **What this does to the ruling.** The user chose "investigate before choosing a shape" precisely
+> because `_advanced_analysis` was assumed to be the richer backend that we would be giving something
+> up to leave. **The investigation dissolved that premise.** Of the seven fields only advanced emits,
+> `separation` is a constant, `instruments` never reaches its ML backend and its heuristic is broken,
+> and `notes` is largely an fmin-floor artefact with a hard-coded duration. Four fields carry real
+> information. A **200-second reverb tail** is not a marginal quality issue — it is a field that has
+> never once been right, in a dossier that has been treated as a source of truth for 221 tracks.
+>
+> One correction to the recommendation as stated: option (c) was rejected partly because
+> `_basic_analysis`'s handlers crash. **That is no longer true** — `J-006` fixed it. (c) is still the
+> wrong choice, but for the honest reason: it would drop `chord_progression`, `tuning_offset` and
+> `onset_strength`, which do carry information. The blocker was removed; the argument stands without it.
+> **No code was written, no batch was run, nothing under `data/` or `results/` was modified.**
+> Companion design: `docs/superpowers/specs/2026-09-01-backend-tradeoff.md`.
+
+---
+
+### J-040 — The corpus contains no output of the *current* `_basic_analysis`, so there is no real side-by-side · 2026-09-01 · M6
+**Status:** refuted — **first-hand, this session. Refutes a premise of my own task.**
+**Expected:** the corpus's single `basic_librosa` dossier gives a genuine side-by-side against the 221
+`wav_reverse_engineer` ones, so the field-level diff can be read off disk.
+**Found:** it does not. That file has **11 keys and none of the M1–M4 fields** — no `beat_grid`, no
+`structure`, no `premaster`, no `key_confidence`. It is output of a *pre-M1* `_basic_analysis`, written
+`2026-07-15T21:35:04`, 464 bytes, while M1–M4 landed later. **Zero files in the corpus were produced by
+the `_basic_analysis` that exists today**, so the on-disk diff measures the old fallback, not the
+candidate.
+
+The two diffs are therefore different questions and must not be conflated:
+
+| Diff | advanced-only | basic-only |
+|---|---|---|
+| **on disk** (221 vs 1, both stale) | `chord_progression`, `effects`, `instruments`, `notes`, `onset_strength`, `separation`, `tuning_offset` (7) | **none** |
+| **in code today** (`:52-133` vs `:137-210`) | the same 7 | `beat_grid`, `structure`, `premaster`, `key_confidence`, `key_alternate`, `key_margin` (6) |
+
+**Evidence:** first-hand census over `results/crhymetv_re/per_track/*/*_analysis.json`
+(222 files, 0 unreadable, `*_voice_analysis.json` excluded), run in `.venv`:
+
+    advanced: 221 basic: 1
+    only advanced : ['chord_progression', 'effects', 'instruments', 'notes',
+                     'onset_strength', 'separation', 'tuning_offset']
+    only basic    : []
+    BASIC dossier mtime: 2026-07-15T21:35:04.234117  size: 464
+      keys : ['analysis_backend','beat_count','bpm','duration_seconds','file','harmonic_ratio',
+              'key','mode','sample_rate','spectral_bandwidth','spectral_centroid']
+      has beat_grid/structure/premaster/key_confidence: [False, False, False, False]
+
+**Consequence:** option (c) "switch the batch to `basic`" is a switch to code with **zero corpus-scale
+exercise**, not to a path the corpus has already validated. J-046 shows what is sitting in it. The
+field-level diff in the spec is taken from source, not from disk, for exactly this reason.
+
+---
+
+### J-041 — `separation: "hpss"` is a byte-identical constant across all 221 dossiers; the separation is computed and thrown away · 2026-09-01 · M6
+**Status:** verified — **first-hand, this session**
+**Expected:** `separation="hpss"` is one of five capabilities the batch switches on
+(`run_reverse_engineering_batch.py:210-214`), so it contributes per-track information.
+**Found:** it contributes **none**. `separate_hpss` returns `{"harmonic": y_h, "percussive": y_p}`
+(`.../audio_analyzer/source_separation.py:7-9`), and the adapter stores only
+`list(stems.keys())` — the audio is discarded at `reverse_engineering_adapter.py:196-199`. Every one
+of the 221 dossiers therefore carries the same string:
+
+    221 x {"method": "hpss", "stems": ["harmonic", "percussive"]}
+
+That is a full `librosa.effects.hpss` pass over every track to serialise a constant that could be a
+literal. **It is the third hpss of the track** (J-049).
+**Evidence:** first-hand, census of `json.dumps(d["separation"], sort_keys=True)` over the 221
+advanced dossiers — exactly 1 distinct value, count 221; plus `file:line` above.
+**Consequence:** `separation` is dropped from the v2 recommendation, and it is the clearest single
+instance of the pattern in J-042/J-044 — a flag that is on, produces output, and carries no
+information. **Checking the flags would have counted this as a working capability.**
+
+---
+
+### J-042 — `instruments` never reaches its ML backend, and a `librosa.pyin` tuple bug makes the "vocals" tag unconditional · 2026-09-01 · M6
+**Status:** verified — **first-hand, this session. Two defects stacked.**
+**Expected:** `instruments=True` runs PANNs audio tagging and yields a per-track instrument profile.
+**Found (a) — the ML path is dead in this venv.** `InstrumentRecognizer.__init__` imports
+`panns_inference` inside a bare `try/except` and sets `self._panns = None` on failure
+(`.../instrument_recognizer.py:6-13`); `recognize` then silently falls through to
+`_heuristic_predict`. `panns_inference` is **not installed**:
+
+    panns_inference MISSING ModuleNotFoundError No module named 'panns_inference'
+    torch OK 2.6.0+cpu   librosa OK 0.11.0   pyloudnorm OK
+
+So 221/221 dossiers are heuristic output from a fixed 5-label vocabulary
+(`drums/percussion`, `guitar/piano`, `vocals`, `bass`, `unknown`), and nothing in the dossier records
+that the ML path was skipped. This is precisely the silent-fallback failure AGENTS.md's
+"fallback paths must be declarable" rule was written against — there is no `--require-advanced`
+equivalent here and no field naming which path ran.
+
+**Found (b) — the heuristic's vocal test is arithmetically broken.** At
+`.../instrument_recognizer.py:38-41`:
+
+```python
+f0 = librosa.pyin(audio, fmin=80, fmax=1000, sr=sr, frame_length=2048, hop_length=256)
+voiced = np.isfinite(f0)
+voiced_ratio = float(np.mean(voiced)) if f0 is not None else 0.0
+```
+
+`librosa.pyin` returns a **3-tuple** `(f0, voiced_flag, voiced_prob)`. `np.isfinite` on the tuple
+coerces it to shape `(3, N)`; rows 2 and 3 are finite everywhere, so
+`voiced_ratio == (true_ratio + 2) / 3`, floored at **0.667**. The vocals score
+`min(1.0, 0.3 + 0.7 * voiced_ratio)` therefore cannot fall below **0.7667**. Verified on a synthetic
+signal that is 50% tone / 50% silence, in `.venv`:
+
+    type(f0) = tuple len = 3
+    np.asarray(f0).shape = (3, 173)
+    voiced_ratio AS WRITTEN     = 0.8401
+    voiced_ratio IF f0[0] USED  = 0.5202          <-- (0.5202 + 2)/3 = 0.8401 exactly
+    vocals score AS WRITTEN     = 0.8881
+    theoretical floor 0.3+0.7*(2/3) = 0.7667
+
+The corpus matches the prediction exactly — **no vocals score anywhere in 217 tracks falls below the
+0.7667 floor**, and the tag fires almost unconditionally:
+
+    score[vocals]  n=217  min=0.80697 med=0.86563 max=0.97578
+    label freq: vocals 217, guitar/piano 207, drums/percussion 195, bass 6, unknown 1
+    label-SET frequency:
+       182 x ('drums/percussion', 'guitar/piano', 'vocals')     <-- 82.4% of the corpus, identical
+        20 x ('guitar/piano', 'vocals')
+         7 x ('drums/percussion', 'vocals')
+
+**Evidence:** first-hand — the `file:line` above, the venv import probe, the synthetic `pyin` run, and
+the corpus census of `instruments[].label` / `.score` over 221 dossiers.
+**Consequence:** `instruments` is a near-constant on this corpus (82.4% share one label set) and its
+strongest label is produced by a bug. It is not evidence that a track has vocals. Nothing downstream
+should read it — note `run_reverse_engineering_batch.py:224` writes these labels into every
+`recipe.md`, so 221 recipes carry it. Dropped from the v2 recommendation.
+
+---
+
+### J-043 — The advanced backend's `mode` is contradicted by the advanced backend's own chord detector, on the same chroma · 2026-09-01 · M6
+**Status:** verified — **first-hand, this session. Independent corpus-scale confirmation of J-025.**
+**Expected:** J-025 established `mode` is broken (215/222 major on German rap) by reading
+`feature_extractor.py:190`. My prior was that only an *external* detector could demonstrate the error.
+**Found:** the refutation is already inside the same dossier. `detect_chords`
+(`.../feature_extractor.py:196-247`) labels each frame from the *same* `chroma_cqt` with the *same*
+`> 0.5` threshold, and its verdict is the opposite:
+
+    chord entries: minor=3315  major=585   minor_frac=0.8500
+    tracks whose chords are 100% minor: 70 / 212
+    per-track minor chord frac: p25=0.706 med=0.909 p75=1.000
+    mode field: major 214 / minor 7   (of 221 advanced)
+
+    CROSS-CHECK, per track, `mode` vs that track's own chord majority:
+      agrees: 42    disagrees: 170          <-- 80.2% self-contradiction
+
+The `key` field fares no better against the same block — the modal chord root equals `key` on only
+**88 of 212** tracks (41.5%), i.e. the backend's tonic disagrees with its own most-played chord root
+on ~3 tracks in 5.
+
+85% minor is the musically expected answer for a German drill/rap catalogue; 96.8% major is not.
+The two numbers come from one chroma matrix in one function call, so this is not a disagreement
+between estimators — it is one of them being wrong, and the corpus says which.
+**Evidence:** first-hand census over the 221 advanced dossiers (212 with a non-empty
+`chord_progression`; 9 have `[]`), plus `file:line` above.
+**Consequence:** raises the confidence of J-025 from "a defect visible in the source" to "a defect the
+corpus refutes using the backend's own output". Strengthens the case for porting the K-S key into
+`_advanced_analysis` (spec §Recommendation). It also means the *chord* block, unlike `key`/`mode`, is
+producing a musically plausible signal and should be carried forward, not discarded.
+
+---
+
+### J-044 — 23% of the corpus's 191,339 detected notes are the pitch-detector's floor, and every note has the same hard-coded duration · 2026-09-01 · M6
+**Status:** verified — **first-hand, this session**
+**Expected:** `notes=True` yields a note-level transcription — the most detailed block in the dossier
+(median 777 notes/track) and the one most plausibly worth its cost.
+**Found:** it is dominated by a floor artefact and two hard-coded values.
+
+`detect_notes` (`.../feature_extractor.py:249-317`) runs `librosa.yin` on a **2048-sample window** —
+one frame — at each onset, with `fmin=65.41` (C2), and keeps `f0[0]`. YIN on a single frame of a full
+mastered mix returns the floor whenever it finds no periodicity, which on drum-heavy material is
+often:
+
+    total notes: 191339
+    C2 (== the fmin floor, 65.41 Hz): 43766 = 22.87% of all notes
+    tracks whose single most common pitch is C2: 186 / 221
+    per-track C2 fraction: p25=0.157 med=0.232 p75=0.302 max=0.550
+    frequencies at or below fmin (65.41 Hz): 35242 / 191339
+    note frequency: min=65.237  p05=65.237   <-- the 5th percentile IS the floor
+
+Separately, two fields are not measurements at all:
+- `duration` is the literal `0.1` for **all 191,339 notes** (`feature_extractor.py:313`, comment
+  `# Default duration, could be improved`).
+- `confidence` is `np.clip(np.mean(np.abs(segment)) * 2, 0, 1)` (`:307`) — segment *loudness*, not
+  pitch confidence. A loud drum hit scores high precisely where the pitch is least trustworthy.
+
+**Evidence:** first-hand census over all `notes[]` entries in the 221 advanced dossiers, plus
+`file:line` above.
+**Consequence:** `notes` is the single largest block in the dossier and roughly a quarter of it is the
+detector saying "I found nothing". The onset *times* are real; the pitches, durations and confidences
+are not. Recommended for v2 as onset times only, or dropped — see the spec. Same class as J-041 and
+J-042: **switched on, produces volume, carries little.**
+
+---
+
+### J-045 — `effects.rt60_seconds` measures track length, not reverberation · 2026-09-01 · M6
+**Status:** verified — **first-hand, this session**
+**Expected:** `effects` is the block with the most credible per-track physics — RT60, spectral tilt,
+THD, loudness — and would be the main thing lost by leaving the advanced backend.
+**Found:** its headline field is not a measurement of the room. `estimate_rt60`
+(`.../effects_analyzer.py:21-38`) runs Schroeder backward integration over **the entire song** and
+fits the −5 dB → −35 dB slope. On a continuous musical signal the energy-decay curve descends across
+the whole track, so the slope is set by the track's length, not by any decay tail:
+
+    pearson(duration_seconds, rt60_seconds)  = 0.9458
+    spearman(duration_seconds, rt60_seconds) = 0.7923
+    rt60/duration ratio: min 0.346  med 1.183  max 2.316
+    rt60_seconds: min=3.35  med=200.13  p95=611.08  max=3441.9   (seconds)
+    tracks with rt60 > 20 s: 219 / 221
+
+**A median RT60 of 200 seconds is physically impossible** — the most reverberant spaces ever measured
+are ~15 s. The field is, to r=0.95, a restatement of `duration_seconds`, which the dossier already
+carries. Schroeder integration requires an impulse response; it was applied to a song.
+
+Two neighbours in the same block are dimensionally incoherent rather than wrong-by-correlation:
+`compression_index` is `(1/crest) * (1/(var+1e-6))` (`:76-84`) — an unnormalised product carrying
+units of inverse variance, corpus range 4.47 → 194.68 with p95 34.5; and `thd_ratio` (`:41-61`) takes
+the loudest bin of a song's mean spectrum as "f0" and calls the bins at 2f0…5f0 "harmonic distortion",
+which on music are simply other notes (median 0.512 — i.e. "51% THD", which no released master has).
+
+The block is not worthless: `spectral_tilt_db_per_decade` (med −22.9), `loudness_lufs` (med −12.6) and
+`loudness_range` (med 6.3) are real quantities honestly computed. But `loudness_lufs` is measured on
+the **22.05 kHz mono downmix** that `AudioProcessor.load_audio` returns
+(`.../audio_processor.py:34-40`), so it is not the track's true integrated LUFS, and
+`toolshop/premaster.py:111-119` already computes that correctly from the stereo file.
+**Evidence:** first-hand correlation and distribution census over the 221 advanced dossiers, plus
+`file:line` above.
+**Consequence:** of the 6 `effects` sub-fields, 1 is a duration proxy, 2 are dimensionally
+incoherent, 1 is superseded by `premaster`, and 2 are worth keeping. This is the finding that decides
+the trade-off: **advanced provides substantially less than assumed.**
+
+---
+
+### J-046 — `_basic_analysis`'s three fallback handlers all raise `NameError`; `logger` is never defined · 2026-09-01 · M6
+**Status:** verified — **first-hand, this session. A live defect in the candidate for option (c).**
+**Expected:** `_basic_analysis` degrades gracefully — each of `beat_grid`, `structure` and `premaster`
+is wrapped in `try/except` and logs a warning before continuing with `None`.
+**Found:** it cannot. `toolshop/reverse_engineering_adapter.py` uses `logger.warning(...)` at lines
+**74, 97 and 107** — all three inside `except Exception:` blocks — and **the module never imports
+`logging` or defines `logger`.** Verified in `.venv`:
+
+    adapter has logger attr: False
+    adapter module globals with log: []
+    logger. occurrences in _basic_analysis: 3
+    calling logger.warning in adapter namespace -> NameError: name 'logger' is not defined
+
+So any failure in beat-grid, structure or premaster analysis does **not** degrade to `None` — the
+handler itself raises `NameError`, which propagates out of `_basic_analysis` and fails the whole
+track. Worse, when reached via `analyze_track`'s advanced→basic fallback (`:255-261`), the original
+exception is already swallowed into a `warnings.warn`, so the operator sees an unrelated `NameError`
+in place of the real cause.
+
+This has never been caught because it is unreachable in the test suite: both tests that touch the path
+(`tests/test_reverse_engineering_adapter.py:51` and `:64`) **mock `_basic_analysis` out entirely**, and
+J-040 shows no corpus dossier was produced by the current version of the function.
+**Evidence:** first-hand, `file:line` above and the venv probe.
+**Consequence:** **option (c) — switch the batch to `basic` — must not be taken as-is.** It would run
+222 tracks through a function whose only three error handlers are themselves broken, with no corpus
+exercise and no real test coverage. Fixing it is one import line, but the fix must land *before* the
+option is viable, and it should carry a test that exercises a raising stage rather than mocking the
+function away.
+
+---
+
+### J-047 — The advanced backend costs ~0.7× realtime, ~10 h for the corpus; this is recoverable from artifacts, and no `basic` measurement exists at all · 2026-09-01 · M6
+**Status:** verified (advanced) / open (basic) — **first-hand derivation, this session**
+**Expected:** no per-track cost is recoverable, because the batch logs are unstamped and
+`batch_status.json` records no per-item timing — so the trade-off would have to be argued without a
+cost number. (`batch_status.json` carries only `started`, `finished` and one aggregate
+`duration_seconds: 43708.1`, spanning 2026-07-07 → 2026-07-16 across resumed sessions, so it is not a
+per-track figure.)
+**Found:** it is recoverable. The `batch_offset141` run used `--no-stems`, and every track writes
+`<stem>_analysis.json` and then `<stem>_voice_analysis.json`. Differencing the two mtimes isolates the
+voice/effects stage; differencing the previous track's voice file against this track's analysis file
+isolates the advanced analysis stage. 81 tracks, monotonic mtimes, one run:
+
+    === derived from file mtimes, offset141 run (--no-stems), n=80 ===
+    advanced analysis   min=31.8  p25=93.5   med=114.2  mean=169.9  p95=547.5  max=1177.4  s
+    voice/effects       min=71.5  p25=211.3  med=249.1  mean=370.2  p95=1177.7 max=2497.5  s
+    RTF advanced        min=0.6   p25=0.6    med=0.7    p95=0.9     max=1.0    x
+    RTF voice/effects   med=1.5                                                x
+    span: 12.10 h for 81 tracks -> 8.96 min/track wall
+    longest track: dur=1632.2 s -> adv=1177.4 s (rtf 0.721)   [scales linearly, no clip artefact]
+
+At RTF ≈ 0.7 against the 14.71 h corpus (J-021), `_advanced_analysis` alone is **≈ 10 h**. That is not
+a rounding error next to the ~13 h lyrics stage — it is comparable to it.
+
+**Discipline caveats, stated so this is not read as a benchmark.** This is derived from a production
+run's artifacts, not a controlled measurement: no warm-up was discarded, no baseline was repeated,
+the machine's concurrent load is unknown, and each interval includes JSON/recipe writes and status
+flushes. It is an **upper bound on advanced analysis, good to roughly ±20%**, and it satisfies
+AGENTS.md only as a planning figure — not as the "measured min/track before merge" a feature merge
+requires. The RTF is stable across a 22× duration range (7 s → 1632 s) and holds on the 27-minute
+track, which is the check AGENTS.md asks for against clip-inflated numbers.
+
+**`_basic_analysis` has no measurement, and none is derivable** — J-040 shows no corpus artifact was
+ever produced by it. The spec's 30–45 s/track is
+`unverified — source: docs/superpowers/HANDOFF-2026-08-31.md:172`. Obtaining it requires timing
+`beatgrid.analyze_beats` + `structure.segment_track` + `premaster.analyze_premaster` +
+`key_detection` over a stratified handful of corpus tracks in `.venv`, warm-up discarded and baseline
+repeated. **I did not run it** — the brief forbids running analysis jobs, and an estimate presented as
+a measurement is the J-000g error.
+**Evidence:** first-hand, the mtime derivation above (script logic: pair each slug from
+`results/crhymetv_re/batch_offset141.log` with its two output files' `st_mtime`).
+**Consequence:** cost is now a real input to the decision rather than a guess. It kills option (b)
+outright — running both backends means paying the ~10 h advanced cost *and* the basic cost for
+fields J-041/J-042/J-044/J-045 show are largely non-informative.
+
+---
+
+### J-048 — `_advanced_analysis` already computes the exact inputs M1 and M3 need, and discards them · 2026-09-01 · M6
+**Status:** verified — **first-hand, this session. This is what makes option (a) cheap.**
+**Expected:** porting the K-S key and beat grid into `_advanced_analysis` means adding their compute
+cost on top of the advanced backend's existing ~0.7× RTF.
+**Found:** for the key, it adds **nothing**. `FeatureExtractor.extract_features` returns **22 fields**
+and `_advanced_analysis` reads **10** (`reverse_engineering_adapter.py:148-161`). The 12 discarded
+include the two the port needs:
+
+- **`features["chroma"]`** is `np.mean(chroma, axis=1).tolist()`
+  (`.../feature_extractor.py:159-166`) — a 12-element mean chroma vector, C-first from `chroma_cqt`.
+  `key_detection.detect_key_from_chroma` requires exactly *"12 values, one per pitch class, C first"*
+  (`toolshop/key_detection.py:86-97`), and `PITCH_CLASSES` is
+  `['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']` — verified in `.venv`, an exact match.
+  **The K-S key block is a one-line addition over data already in hand, at zero extra compute.**
+- **`features["beat_times"]`** is already computed (`.../feature_extractor.py:139-145`). It is not
+  quite sufficient for `beatgrid.analyze_beats`, which also needs the `onset_env`
+  (`toolshop/beatgrid.py:125-134`) to estimate downbeat phase — and `extract_features` computes that
+  too (`:128-130`) but does not return it. So the beat grid costs one extra `onset_strength` +
+  `beat_track` pass, or nothing at all if the vendored function's return dict is widened by one key.
+
+The other 10 discarded fields are `samples`, `rms_energy`, `zero_crossing_rate`, `sample_rate`,
+`spectral_contrast`, `mfcc` (20 coefficients), `spectral_rolloff`, `beats_per_second`, `onset_times`
+and `pitch_centroid` — all computed, none serialised.
+**Evidence:** first-hand, `file:line` above; `PITCH_CLASSES` printed from `.venv`.
+**Consequence:** the cost objection to option (a) is much weaker than it appears. Only `structure` and
+`premaster` are genuinely new work; `key` is free and `beat_grid` is near-free. Recorded in the spec's
+Recommendation.
+
+---
+
+### J-049 — The advanced backend runs HPSS three times and CQT chroma three times per track · 2026-09-01 · M6
+**Status:** verified — **first-hand, this session**
+**Expected:** the five capability flags each add a distinct analysis, so the backend's cost is roughly
+the sum of five non-overlapping computations.
+**Found:** they overlap heavily, and two of the most expensive primitives run three times each on the
+same audio within a single `_advanced_analysis` call:
+
+| Pass | HPSS (`librosa.effects.hpss`) | CQT chroma (`librosa.feature.chroma_cqt`) |
+|---|---|---|
+| 1 | `_extract_harmonic_features` → `harmonic_ratio` (`feature_extractor.py:150`) | `_extract_harmonic_features` (`:156`) — **result discarded by the adapter** |
+| 2 | `InstrumentRecognizer._heuristic_predict` (`instrument_recognizer.py:26`) | `_estimate_key`, recomputed inside the call the line above already had chroma for (`:174`) |
+| 3 | `separate_hpss` — **output discarded**, J-041 (`source_separation.py:8`) | `detect_chords` (`:213`) |
+
+On top of that, `_heuristic_predict` runs a full-track `librosa.pyin` at `hop_length=256`
+(`instrument_recognizer.py:38`) — probabilistic YIN, the single most expensive call in the backend —
+purely to compute the `voiced_ratio` that J-042 proves is broken; and `detect_notes` issues one
+`librosa.yin` per onset, a median of **777** and a maximum of **5228** calls per track.
+
+So the ~0.7× RTF of J-047 is not the price of seven fields. A large share of it buys a constant
+(J-041), a bug-driven near-constant (J-042), a floor artefact (J-044) and a duration proxy (J-045).
+**Evidence:** first-hand, source read at every `file:line` above; onset counts from the corpus census
+(`n_notes per track: min/med/max = 13 / 777 / 5228`).
+**Consequence:** the backend is not cheap-for-what-it-does; it is expensive for what it does. This is
+the structural reason the recommendation keeps only the chord block and two `effects` scalars, and it
+means a trimmed advanced path would be materially faster than the measured 0.7× — though **by how
+much is unmeasured**, and that measurement is a prerequisite named in the spec.
