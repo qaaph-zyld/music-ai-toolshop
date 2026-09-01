@@ -1585,3 +1585,44 @@ protocol Agent B specified — 10–20 tracks compared field-by-field against th
 criteria that can stop the full run — is the check that would have caught this, and it was already in
 the spec. **The cheap check and the real check were both designed; only the cheap one was load-bearing.**
 Before the corpus run: the diff gate must be the blocker, not the count.
+
+---
+
+## Wave 3 — orchestrator (numbering resumes at J-060; J-010–J-058 were the agents')
+
+### J-060 — The sidecar venv did exactly what it was chosen to do; the main venv is byte-for-byte unmoved · 2026-09-01 · deps
+**Status:** verified — first-hand, this session
+**Expected:** `J-012` argued a sidecar because no whisperX release accepts both `torch<=2.6` (which
+`classla` needs) and `ctranslate2>=4.5` (which sits under `J-000e`'s byte-identical reproducibility).
+The prediction was that isolation would let whisperX resolve freely without disturbing either.
+**Found:** **it held exactly.** After installing `whisperx==3.4.5` into `.venv-align`:
+- **sidecar** resolved to `torch 2.13.0+cpu`, `ctranslate2 4.4.0`, `transformers 5.16.1` — the
+  downgrades and upgrades `J-011`/`J-012` said were unavoidable in-place;
+- **main venv unchanged** — `torch 2.6.0`, `ctranslate2 4.8.1`, `protobuf 7.36.0`,
+  `transformers 5.14.1`, the separation path still imports, and `whisperx` is absent from it.
+**Evidence:** first-hand, both interpreters queried after the install.
+`import audio_separator.separator.architectures.mdx_separator` → OK in the main venv (the path #053's
+protobuf incident broke). `import whisperx` → `ImportError` there, `OK` in the sidecar.
+**Consequence:** the alignment work can proceed without touching the ASR reproducibility baseline.
+Also a **refuted risk**: `J-011` warned that pip pairs `torchaudio` against an incompatible `torch`
+because torchaudio declares no torch pin, and would fail at import on the C++ ABI. The sidecar
+resolved to exactly such a skewed pair — **torch 2.13.0 with torchaudio 2.11.0** — and both import
+clean. The risk is real in principle and did not fire here; do not treat the pairing as proof either
+way without importing it, which is the only reason I know.
+
+### J-061 — `J-014` re-verified by running the code rather than reading the repository · 2026-09-01 · transcribe
+**Status:** verified — first-hand, upgrading a claim previously marked *not re-run*
+**Expected:** Agent A read whisperX's model map from source at tag `v3.4.5` and reported no Serbian
+alignment model. I merged it flagged **"strongly evidenced, not re-run"**, because whisperX was
+deliberately absent and I could not check.
+**Found:** **confirmed against the installed package.** `sr`, `bs`, `mk` and `sh` are all **absent**
+from the union of `DEFAULT_ALIGN_MODELS_HF` and `DEFAULT_ALIGN_MODELS_TORCH` (39 languages);
+`hr` → `classla/wav2vec2-xls-r-parlaspeech-hr` and `sl` → `anton-l/wav2vec2-large-xlsr-53-slovenian`
+are present.
+**Evidence:** first-hand, `.venv-align` interpreter, reading the dicts out of the installed
+`whisperx.alignment`.
+**Consequence:** the `sr → hr` mapping and its recorded-substitution requirement are confirmed
+necessary, not merely likely. `toolshop/transcribe.py:98` sets `DEFAULT_LANGUAGE = "sr"`, which
+`load_align_model` would reject — that wiring is now a known prerequisite rather than a suspicion.
+Method note: installing the dependency **converted a documentary claim into a runtime one.** Worth
+doing deliberately for any claim that will shape a design.
