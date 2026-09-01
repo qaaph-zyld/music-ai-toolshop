@@ -312,3 +312,145 @@ def test_real_serbian_vocal_transcribes_with_usable_timings():
         "mean word confidence below 0.3 would mean the timings are not usable "
         "downstream, which is what M5 exists to deliver"
     )
+
+
+# --- forced-alignment language resolution (JOURNAL.md J-014, J-052, J-061) ----
+#
+# Whisper is multilingual; alignment models are per-language wav2vec2 CTC
+# checkpoints. DEFAULT_LANGUAGE is "sr", which whisperX has no model for at all,
+# so passing it through would raise ValueError inside load_align_model.
+
+from toolshop.transcribe import (  # noqa: E402
+    ALIGNMENT_LANGUAGE_PROXIES,
+    ALIGNMENT_MODEL_LANGUAGES,
+    AlignmentLanguage,
+    AlignmentLanguageUnavailable,
+    alignment_script_conflict,
+    resolve_alignment_language,
+)
+
+
+def test_sr_resolves_to_hr_and_says_so():
+    got = resolve_alignment_language("sr")
+    assert got.resolved == "hr"
+    assert got.requested == "sr"
+    assert got.is_substitution is True
+    assert "hr" in got.reason
+
+
+def test_the_module_default_language_is_the_one_that_needs_the_mapping():
+    """The regression guard: DEFAULT_LANGUAGE must not be passed through raw."""
+    from toolshop import transcribe
+
+    assert transcribe.DEFAULT_LANGUAGE not in ALIGNMENT_MODEL_LANGUAGES
+    assert resolve_alignment_language(transcribe.DEFAULT_LANGUAGE).resolved == "hr"
+
+
+def test_a_supported_language_is_not_marked_as_substituted():
+    got = resolve_alignment_language("de")
+    assert got.resolved == "de"
+    assert got.is_substitution is False
+
+
+@pytest.mark.parametrize("code", ["SR", " sr ", "Sr"])
+def test_language_codes_are_normalised(code):
+    assert resolve_alignment_language(code).resolved == "hr"
+
+
+def test_require_language_match_refuses_the_substitution():
+    """--require-language-match: nothing, rather than sr quietly aligned by hr."""
+    with pytest.raises(AlignmentLanguageUnavailable) as exc:
+        resolve_alignment_language("sr", allow_substitution=False)
+    assert "hr" in str(exc.value)
+
+
+def test_an_unserved_language_refuses_rather_than_guessing():
+    with pytest.raises(AlignmentLanguageUnavailable):
+        resolve_alignment_language("mk")
+
+
+def test_macedonian_is_deliberately_not_proxied_to_croatian():
+    """mk is not BCMS — it is closer to Bulgarian, and Cyrillic. A proxy here
+    would be exactly the confident-wrong output this module refuses."""
+    assert "mk" not in ALIGNMENT_LANGUAGE_PROXIES
+
+
+def test_empty_language_refuses():
+    with pytest.raises(AlignmentLanguageUnavailable):
+        resolve_alignment_language("")
+
+
+def test_every_proxy_target_actually_has_a_model():
+    """A proxy pointing at a language whisperX cannot align is worse than none."""
+    for source, target in ALIGNMENT_LANGUAGE_PROXIES.items():
+        assert target in ALIGNMENT_MODEL_LANGUAGES, f"{source} -> {target} is unserved"
+
+
+def test_provenance_has_no_defaults():
+    """J-054: Transcript.source read full_mix on five separated stems because it
+    had a default. No field in this path gets one."""
+    with pytest.raises(TypeError):
+        AlignmentLanguage(requested="sr")  # type: ignore[call-arg]
+
+
+def test_resolution_is_recorded_for_the_transcript():
+    d = resolve_alignment_language("sr").to_dict()
+    assert d["align_language_requested"] == "sr"
+    assert d["align_language"] == "hr"
+    assert d["align_language_substituted"] is True
+    assert d["align_language_reason"]
+
+
+def test_cyrillic_against_a_latin_model_is_flagged():
+    """align() maps OOV characters to a wildcard and returns confident timings
+    anyway, so this has to be caught before the aligner sees it."""
+    got = resolve_alignment_language("sr")
+    assert alignment_script_conflict("Борба на улици", got) is not None
+    assert alignment_script_conflict("Borba na ulici", got) is None
+
+
+def test_cyrillic_is_fine_for_a_cyrillic_model():
+    assert alignment_script_conflict("Привет", resolve_alignment_language("ru")) is None
+
+
+def test_script_is_checked_per_span_not_per_document():
+    """J-052: one real transcript carries both alphabets in a single run —
+    segments 1-12 Cyrillic, 13-25 Latin. A document-level check gets it half
+    wrong whichever way it decides."""
+    got = resolve_alignment_language("sr")
+    segments = ["Борба на улици", "Borba na ulici"]
+    flagged = [s for s in segments if alignment_script_conflict(s, got)]
+    assert flagged == ["Борба на улици"]
+
+
+def test_the_language_snapshot_still_matches_the_installed_whisperx():
+    """ALIGNMENT_MODEL_LANGUAGES is a snapshot taken from whisperX 3.4.5 on
+    2026-09-01. A snapshot drifts silently, so check it against the real package
+    when the sidecar is present. Skips in CI and on any machine without it —
+    whisperX is deliberately absent from the main venv (J-012)."""
+    import json as _json
+    import subprocess
+    from pathlib import Path as _Path
+
+    sidecar = _Path(__file__).resolve().parents[1] / ".venv-align" / "Scripts" / "python.exe"
+    if not sidecar.exists():
+        pytest.skip("whisperX sidecar venv not present")
+
+    probe = (
+        "import json;"
+        "from whisperx.alignment import DEFAULT_ALIGN_MODELS_HF as H,"
+        " DEFAULT_ALIGN_MODELS_TORCH as T;"
+        "print(json.dumps(sorted(set(H)|set(T))))"
+    )
+    out = subprocess.run(
+        [str(sidecar), "-c", probe], capture_output=True, text=True, timeout=300
+    )
+    if out.returncode != 0:
+        pytest.skip(f"sidecar probe failed: {out.stderr[-200:]}")
+
+    installed = set(_json.loads(out.stdout.strip().splitlines()[-1]))
+    assert installed == set(ALIGNMENT_MODEL_LANGUAGES), (
+        "the hardcoded alignment-language snapshot has drifted from the installed "
+        f"whisperX. only-installed={sorted(installed - set(ALIGNMENT_MODEL_LANGUAGES))} "
+        f"only-snapshot={sorted(set(ALIGNMENT_MODEL_LANGUAGES) - installed)}"
+    )

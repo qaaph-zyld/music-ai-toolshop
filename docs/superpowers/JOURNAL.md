@@ -1626,3 +1626,30 @@ necessary, not merely likely. `toolshop/transcribe.py:98` sets `DEFAULT_LANGUAGE
 `load_align_model` would reject — that wiring is now a known prerequisite rather than a suspicion.
 Method note: installing the dependency **converted a documentary claim into a runtime one.** Worth
 doing deliberately for any claim that will shape a design.
+
+### J-062 — Wiring `sr → hr` meant deciding what *not* to map, which was the harder half · 2026-09-01 · transcribe
+**Status:** verified — first-hand, this session
+**Expected:** the task looked like one dictionary entry: `sr` has no alignment model, `hr` does, map
+one to the other.
+**Found:** the mapping is the easy part. Three decisions around it carry the actual risk:
+1. **`mk` must not be mapped.** It sits next to `sr`/`bs` in every "which Balkan languages does
+   whisperX lack" list, so a table built from *absences* sweeps it in. But Macedonian is not BCMS —
+   closer to Bulgarian, and Cyrillic. `hr` would "work" in the sense of returning timings, which is
+   the failure mode, not the success. A table built from absences is wrong; it has to be built from
+   *linguistic warrant*, entry by entry.
+2. **The substitution must be a record, not a string.** Returning `"hr"` loses the fact that `"sr"`
+   was asked for. `J-054` is the precedent — `Transcript.source` said `full_mix` on five separated
+   stems because it had a default — so `AlignmentLanguage` is frozen with **no defaults on any
+   field**.
+3. **The script check is per span, not per document.** `J-052` found one transcript carrying both
+   alphabets in a single run. A document-level detector gets that file exactly half wrong whichever
+   way it decides.
+**Evidence:** first-hand. Language set read from the installed `whisperx.alignment` in `.venv-align`:
+39 codes, `hr` present, `sr`/`bs`/`mk`/`sh` absent. 15 tests, whole file **44 passed**; injecting
+`sr → sr` and `mk → hr` into the proxy table fails **8**, including
+`test_every_proxy_target_actually_has_a_model` and
+`test_macedonian_is_deliberately_not_proxied_to_croatian`.
+**Consequence:** shipped as CHANGELOG #055. The snapshot of supported languages is checked against
+the installed package by a test that skips where the sidecar is absent — **a hardcoded list copied
+from a dependency is a fact with an expiry date, and the only honest way to hold one is to make it
+self-checking.**

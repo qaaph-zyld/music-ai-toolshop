@@ -1,5 +1,54 @@
 # Changelog
 
+### Answer #055 — `sr` has no alignment model. The substitution is now explicit, recorded, and refusable.
+**Timestamp:** 2026-09-01
+**Action Type:** Wiring the forced-alignment language mapping in `toolshop/transcribe.py`
+
+Whisper is multilingual. **Alignment models are not** - they are per-language wav2vec2 CTC
+checkpoints, one per entry in whisperX's model map. `DEFAULT_LANGUAGE` in this module is `"sr"`, and
+**whisperX has no Serbian model at all**, so passing it through would have raised `ValueError` inside
+`load_align_model` on the first real call.
+
+Verified against the **installed** package in the `.venv-align` sidecar rather than its documentation:
+of 39 alignment languages, `sr`, `bs`, `mk` and `sh` are **absent**; `hr` is present, as
+`classla/wav2vec2-xls-r-parlaspeech-hr`.
+
+**`resolve_alignment_language(code, *, allow_substitution=True)`** returns an `AlignmentLanguage`
+record - never a bare string. Three deliberate choices:
+
+- **The substitution is recorded, not inferred.** `AlignmentLanguage` is frozen and **every field is
+  required**. This is a direct consequence of J-054, where `Transcript.source` reported `full_mix` on
+  five separated stems because it had a default. A reader must never have to guess whether `hr` was
+  asked for or substituted.
+- **`allow_substitution=False` is the `--require-language-match` guard.** It converts a silent proxy
+  into a refusal, for callers who would rather have nothing than have `sr` quietly aligned by a
+  Croatian model.
+- **`mk` is deliberately NOT proxied to `hr`.** Macedonian is not BCMS - it is closer to Bulgarian,
+  and Cyrillic. Mapping it would produce exactly the confident-wrong output this module refuses
+  elsewhere. `sr`/`bs`/`sh` -> `hr` is defensible because BCMS is one dialect continuum sharing the
+  identical Gaj Latin alphabet; a test asserts every proxy target actually has a model.
+
+**`alignment_script_conflict(text, resolved)`** catches the second half of the trap. `align()` maps
+out-of-vocabulary characters to a **wildcard** rather than failing, so Cyrillic text handed to the
+Latin `hr` model returns confident-looking timings for characters it never matched. It is checked
+**per span, not per document**, because one real transcript in this repo carries both alphabets in a
+single run - segments 1-12 Cyrillic, 13-25 Latin (J-052).
+
+**Snapshot drift is tested, not assumed.** `ALIGNMENT_MODEL_LANGUAGES` is a hardcoded snapshot, and
+snapshots rot silently. A test shells out to the sidecar interpreter and asserts the snapshot still
+equals the installed map, skipping where the sidecar is absent (CI, and the main venv, from which
+whisperX is deliberately excluded per J-012).
+
+**Known limitation, stated rather than buried:** ParlaSpeech-HR is *parliamentary speech* - clean,
+formal, slow. Drill at 100-200 wpm is far outside its domain and this substitution is **untested on
+real material**. Recorded in the constant's own docstring.
+
+**Verification:** 15 new tests; the whole file at **44 passed**. Injecting two faults into the proxy
+table (`sr -> sr`, and `mk -> hr`) fails **8** of them, including the two that exist precisely for
+those cases.
+
+**Files:** `toolshop/transcribe.py`, `tests/test_transcribe.py`.
+
 ### Answer #054 — M6 could not have worked. The corpus is half the size we thought, and the backend it ran on emits none of the fields it was meant to add.
 **Timestamp:** 2026-09-01
 **Action Type:** Orchestrated investigation of the M6 premise, and the fixes it forced

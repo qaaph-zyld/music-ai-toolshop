@@ -157,6 +157,152 @@ class StemRequired(RuntimeError):
     """`require_stem` was set but no isolated vocal stem could be found."""
 
 
+class AlignmentLanguageUnavailable(RuntimeError):
+    """No forced-alignment model serves this language, and no proxy was allowed."""
+
+
+# --- Forced-alignment language resolution ------------------------------------
+#
+# Whisper is multilingual; **alignment models are not**. They are per-language
+# wav2vec2 CTC checkpoints, and whisperX ships one per entry in the map below.
+# `DEFAULT_LANGUAGE` here is "sr", which has no model at all - passing it
+# straight to `load_align_model` raises `ValueError`. See JOURNAL.md J-014/J-061.
+
+#: The languages whisperX 3.4.5 ships an alignment model for - the union of its
+#: `DEFAULT_ALIGN_MODELS_HF` and `DEFAULT_ALIGN_MODELS_TORCH`, read out of the
+#: **installed package** in the `.venv-align` sidecar on 2026-09-01, not from its
+#: documentation. Note the absentees: `sr`, `bs`, `mk`, `sh`.
+ALIGNMENT_MODEL_LANGUAGES = frozenset({
+    "ar", "ca", "cs", "da", "de", "el", "en", "es", "eu", "fa", "fi", "fr",
+    "gl", "he", "hi", "hr", "hu", "it", "ja", "ka", "ko", "lv", "ml", "nl",
+    "nn", "no", "pl", "pt", "ro", "ru", "sk", "sl", "te", "tl", "tr", "uk",
+    "ur", "vi", "zh",
+})
+
+#: Languages with no model of their own that a *different* model can serve.
+#:
+#: BCMS is one dialect continuum, and Croatian/Serbian/Bosnian Latin share the
+#: identical Gaj alphabet, so `hr`'s CTC character vocabulary covers them
+#: unchanged. The `hr` checkpoint is `classla/wav2vec2-xls-r-parlaspeech-hr`.
+#:
+#: **`mk` is deliberately absent from this table.** Macedonian is not BCMS - it
+#: is closer to Bulgarian and written in Cyrillic - so `hr` is not a proxy for
+#: it, and pretending otherwise would produce exactly the confident-wrong output
+#: this module refuses elsewhere.
+#:
+#: **Known limitation, not yet mitigated:** ParlaSpeech-HR is *parliamentary
+#: speech* - clean, formal, slow. Drill at 100-200 wpm is far out of its domain
+#: and this substitution is untested on it.
+ALIGNMENT_LANGUAGE_PROXIES: Dict[str, str] = {
+    "sr": "hr",
+    "bs": "hr",
+    "sh": "hr",
+}
+
+#: Cyrillic block. `align()` maps out-of-vocabulary characters to a **wildcard**
+#: rather than failing, so Cyrillic text handed to the Latin `hr` model returns
+#: confident-looking timings for characters it never actually matched. One real
+#: transcript in this repo carries **both** alphabets in a single run - segments
+#: 1-12 Cyrillic, 13-25 Latin (J-052) - so this must be checked per span, never
+#: once per document.
+_CYRILLIC = re.compile(r"[Ѐ-ӿ]")
+
+
+@dataclass(frozen=True)
+class AlignmentLanguage:
+    """Which alignment model will run, and whether that is what was asked for.
+
+    Every field is required. Per J-054 - where `Transcript.source` reported
+    `full_mix` on five separated stems because it had a default - **no
+    provenance field in this path gets one.** A substitution must be recorded,
+    never inferred by a later reader.
+    """
+
+    requested: str
+    resolved: str
+    is_substitution: bool
+    reason: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "align_language_requested": self.requested,
+            "align_language": self.resolved,
+            "align_language_substituted": self.is_substitution,
+            "align_language_reason": self.reason,
+        }
+
+
+def resolve_alignment_language(
+    language: str,
+    *,
+    allow_substitution: bool = True,
+) -> AlignmentLanguage:
+    """Map an ASR language code onto the alignment model that can serve it.
+
+    `allow_substitution=False` is the `--require-language-match` guard: it turns
+    a silent proxy into a refusal, for callers who would rather have nothing than
+    have `sr` quietly aligned by a Croatian model.
+    """
+    code = (language or "").strip().lower()
+    if not code:
+        raise AlignmentLanguageUnavailable(
+            "No language given. Forced alignment needs an explicit language: "
+            "alignment models are per-language, unlike the multilingual ASR model."
+        )
+
+    if code in ALIGNMENT_MODEL_LANGUAGES:
+        return AlignmentLanguage(
+            requested=code,
+            resolved=code,
+            is_substitution=False,
+            reason="whisperX ships an alignment model for this language",
+        )
+
+    proxy = ALIGNMENT_LANGUAGE_PROXIES.get(code)
+    if proxy is None:
+        raise AlignmentLanguageUnavailable(
+            f"No forced-alignment model serves {code!r}, and no proxy is defined "
+            f"for it. Supported: {', '.join(sorted(ALIGNMENT_MODEL_LANGUAGES))}."
+        )
+    if not allow_substitution:
+        raise AlignmentLanguageUnavailable(
+            f"{code!r} has no alignment model of its own; {proxy!r} would be "
+            f"substituted, but substitution was refused. Drop the guard to allow "
+            f"it, or transcribe in {proxy!r} directly."
+        )
+    return AlignmentLanguage(
+        requested=code,
+        resolved=proxy,
+        is_substitution=True,
+        reason=(
+            f"no {code!r} alignment model exists; {proxy!r} substituted "
+            f"(same dialect continuum, identical Gaj Latin alphabet)"
+        ),
+    )
+
+
+def alignment_script_conflict(
+    text: str,
+    alignment_language: AlignmentLanguage,
+) -> Optional[str]:
+    """Reason why `text` cannot be trusted against this model, or None.
+
+    Returns a string rather than raising: the caller decides whether a conflict
+    is fatal or a transliteration prompt. Latin-alphabet models silently accept
+    Cyrillic and return timings anyway, which is the failure this catches.
+    """
+    if not _CYRILLIC.search(text or ""):
+        return None
+    if alignment_language.resolved not in {"ru", "uk"}:
+        return (
+            f"text contains Cyrillic but the {alignment_language.resolved!r} "
+            f"alignment model is Latin-alphabet; out-of-vocabulary characters map "
+            f"to a wildcard and produce confident-looking but unmatched timings. "
+            f"Transliterate first (cyrtranslit is already a declared dependency)."
+        )
+    return None
+
+
 def faster_whisper_available() -> bool:
     """True if the faster-whisper backend can be imported."""
     import importlib.util
