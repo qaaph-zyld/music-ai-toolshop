@@ -750,3 +750,28 @@ recorded nowhere; and `status["last_completed_index"] = idx` is set on the **fai
 **Consequence:** the spec requires the sample run to use a **separate status path and output root**,
 never the corpus one, and specifies that the count verification derive its expected total by
 **re-enumerating the input directory**, never by reading `total_tracks` from the status file.
+
+---
+
+### J-005 — A subagent that writes its deliverables at the end has no partial-credit failure mode · 2026-09-01 · orchestration
+**Status:** verified — **first-hand, this session**
+**Expected:** an agent interrupted part-way through would leave part-way-finished output behind. The
+orchestration's whole recovery story assumed this: fragments in `journal_inbox/` exist precisely so
+work can be merged incrementally.
+**Found:** **nothing survived.** Wave 2 Agents C and D were both killed by a session rate limit after
+roughly twenty minutes of investigation each. `journal_inbox/` held only its own README; neither
+spec existed; `git status` was byte-identical to before dispatch. Both agents had done real work —
+C had got as far as suspecting a defect in the instrument recognizer, D was about to inspect the
+real transcripts — and **all of it was in their heads, none of it on disk.**
+**Evidence:** first-hand. After both failure notifications: `ls docs/superpowers/journal_inbox/` →
+`README.md` only; `ls docs/superpowers/specs/ | grep 2026-09-01` → only the two **Wave 1** specs;
+`git status --short` → unchanged, still just the declared other-session paths.
+**Consequence:** recovered by **resuming both agents from their transcripts** rather than respawning
+them cold — the investigation was preserved after all, but by the harness, not by the design. That
+is luck, not architecture: a resume is not always available.
+The design defect is mine. The journal contract already said *"the journal is appended **during** the
+work, not at the end"* — written against a *quality* failure (a finding reconstructed at close-out is
+a memory of a finding). **It turns out to be a durability rule as well**, and I wrote it for one
+reason without noticing it bought the other. Agent briefs must now say so explicitly: **write the
+fragment as each finding lands, and draft the spec section by section.** An agent that batches its
+output converts any interruption into total loss.
