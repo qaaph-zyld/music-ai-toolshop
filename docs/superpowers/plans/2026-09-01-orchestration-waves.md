@@ -183,6 +183,52 @@ portion", and not "park flow v2". The gap gets closed.
 
 `J-030`–`J-039` stays reserved for the P0 run.
 
+### Wave 2 — COMPLETE 2026-09-01. Both rulings survived; the ground under them moved
+
+**Agent C — the premise behind Ruling 1 dissolved.** You chose "investigate first" because
+`_advanced_analysis` was assumed to be the richer backend we would be giving something up to leave.
+Of the seven fields only it emits: `separation` is **one byte-identical block across all 221
+dossiers**, `instruments` never reaches its ML backend and its heuristic is broken, `notes` is
+largely an fmin-floor artefact with `duration` hard-coded to `0.1` across **191,339** entries, and
+`effects.rt60_seconds` correlates **r = 0.946** with track duration at a median of **200 s**. Four
+fields carry real information. The chord block **refutes the backend's own `mode` on 170 of 212
+tracks** — corpus-scale confirmation of `J-025` using its own output as control.
+→ **Recommendation (a) narrowed:** port the four field-groups into `_advanced_analysis`, switch off
+`separation`/`instruments`/`notes` at the same time.
+
+**A live defect found and fixed in passing — CHANGELOG #054, `J-006`.** `_basic_analysis` guarded
+beat-grid, structure and premaster behind `except` handlers calling an **undefined `logger`**. Any
+stage failure raised `NameError` from inside the handler meant to absorb it, in exactly the three
+field-groups M6 depends on. It survived because both tests touching `_basic_analysis` **mock it out
+entirely**. Fixed with three tests that run the real function; verified both ways.
+
+**Agent D — the layer is designed, and the target moved.** 25 s windows, 2.5 s aligned context each
+side, lyric lines assigned to windows with CTC placing them inside, **ordering enforced by
+construction** via monotone DP (a reordering is not representable, so it needs no detector), every
+verdict resting on a `uniqueness_margin` rather than a similarity score. 20 tests against a
+`FakeAligner`, all runnable with whisperX absent.
+
+> **`J-050` — every coverage number this project has quoted is *segment-time*. Word-level coverage is
+> 49.2%, not 69%.** One nominally-covered segment runs 22.34 s and holds **3 words**, with a 19.26 s
+> internal hole. Ruling 2 was made against a stated gap of 31%; **the real gap is half the track.**
+> The ruling is reinforced rather than undermined — but it was made on an understated number and
+> that should be on the record.
+
+`J-051` is a refutation done properly: the agent proposed gating gaps by energy, tested it, and
+killed it. The gaps are **loud** — p95 **−22.3 dBFS** in the 48 s head against **−21.9** in confirmed
+vocal, one gap **2.2 dB louder** than anything transcribed.
+
+### The blocker Wave 3 inherits
+
+**`J-058` — no track has both a transcript and a lyric sheet. The intersection is empty.** The
+windowing layer therefore **cannot be validated end-to-end on anything we currently hold**, whatever
+we install. Our transcripts are of `borba-015`; our lyric sheets are of other songs.
+
+This closes a loop: the thing that produces a track with *both* is **P0** — record a take over a
+Suno track whose lyrics we wrote. P0 was already the highest-value item because it proves the
+vocal-swap lane. It is now also the only route to a validation fixture for the alignment work.
+**Two independent lines of work now terminate at the same microphone.**
+
 ### Why Wave 2 is still read-only
 
 The windowing layer cannot be *built* without whisperX, and whisperX is not installed. Installing it
