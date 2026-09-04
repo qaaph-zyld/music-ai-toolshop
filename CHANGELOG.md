@@ -1,5 +1,97 @@
 # Changelog
 
+### Answer #057 — Vocal chain reverse-engineering: the differential floor holds for 3 of 4 stages, and fails for the compressor on real material.
+**Timestamp:** 2026-09-04
+**Action Type:** New lane — `toolshop/vocal_chain/`, a measured-reference vocal chain extractor
+
+**The question.** Can a reference vocal's processing chain be measured and re-applied to our own
+takes? The lane was opened against a stated target of Bonez MC / RAF Camora / Gzuz.
+
+**What was already there, and what was not.** `mastering_tool/tools/chain_dsl/` is an already-built
+generic renderer — `HPF -> EQ(bands) -> Deesser -> Compressor -> Clipper -> Limiter`, pedalboard
+0.9.24 in both venvs. So the *render* half was never missing. `toolshop/voice_effects_adapter.py`
+looks like the *measure* half but is a **classifier, not a measurer**: `hp_cutoff_estimate_hz` is the
+literal string `"~150Hz"` (the threshold constant from `freqs < 150` one line above, echoed back as a
+result), and `estimated_ratio` is one of three hardcoded strings from crest-factor buckets. Only 3 of
+its 12 detectors emit a continuous physical magnitude. **The absent piece was the bridge**, not
+either half.
+
+---
+
+**The method: prove the floor before attempting the real problem.**
+
+Differential extraction (dry *and* wet available) and blind extraction (wet only — the actual
+artist-cloning case) are different problems. Differential is the floor: if a chain cannot be
+recovered when both sides are handed over, blind recovery is strictly harder and hopeless. So
+`toolshop/vocal_chain/roundtrip.py` renders a **known** `Chain` and tries to recover its parameters.
+
+| stage | method | synthetic | real 166 s vocal |
+|---|---|---|---|
+| HPF cutoff | H1 estimator, -3 dB crossing | <1.5% err | 90 -> 91.43 Hz |
+| EQ band gain | H1 estimator, sampled at band centres | <0.4% err | +6 -> 5.977 dB |
+| Clipper drive | analytic inversion of `Distortion`'s documented tanh model | ~3e-7 dB | ~3e-7 dB |
+| Comp makeup | median below-threshold offset | ~0 | ~0 |
+| **Comp ratio** | RMS-in/RMS-out hinge fit | **4.0 -> 4.010** | **4.0 -> 1.440 (64% err)** |
+| **Comp threshold** | hinge x-position | signal-dependent offset | -18 -> -27.28 |
+
+**The compressor fails on real material, and fails worse the harder the compression.** Orchestrator
+re-run: 4:1 -> 1.440 (64% under), 8:1 -> 2.499 (68.8% under), both collapsing toward 1. Drill vocals
+are heavily compressed, so the method degrades exactly where this lane needs it.
+
+**Why.** The frame-based hinge fit assumes quasi-static input. A sung vocal violates that
+continuously — phrasing, vibrato, consonant transients — so a 5 ms attack / 80 ms release envelope
+never settles inside a 100 ms analysis frame, and the fit flattens the apparent ratio toward 1. This
+is not a tuning problem: it needs a different *observable* (attack/release-aware envelope, or
+short-frame instantaneous gain-reduction).
+
+**A consolation that did not survive.** The agent reported the absolute threshold carrying a *stable*
+3.766 dB offset with relative deltas recovering exactly (12 dB set -> 12.000 back). On a differently
+constructed staircase the threshold read **-29.79 dB for both a -18 and a -24 setting** — a 6 dB
+delta recovered as **0 dB**. Non-responsive to the parameter, not merely offset. **"Deltas recover"
+is not a property of this method** and is not carried forward.
+
+**Blind extraction deliberately not attempted.** The floor result says it is strictly harder.
+
+---
+
+**Also fixed: `chain_dsl` accepted three parameters it silently discarded.**
+
+`HPF.slope`, `Compressor.knee_db` and `Limiter.lookahead_ms` were declared in `schema.py` and never
+read by `build_pedalboard`. pedalboard 0.9.24 supports **none** of them (`HighpassFilter` exposes only
+`cutoff_frequency_hz` and is documented as a fixed 6 dB/oct first-order filter). Setting `slope=24`
+was accepted and thrown away. All three now raise `UnsupportedParameterError` when set to a
+non-default value on an **active** stage; silent at default, so existing callers are unaffected. Per
+AGENTS.md's "fallback paths must be declarable": the caller must be able to demand the good path or
+be told it is unavailable.
+
+`Limiter.lookahead_ms` **is** genuinely honoured on the masterbus path (the Rust engine consumes it),
+so one schema field was wired on one executor and silently dropped on the other. `open_DAW` left
+alone — parked, needs sign-off.
+
+---
+
+**`@pytest.mark.slow` was inert.** Used in the new test file but never registered in `pytest.ini`, so
+`-m "not slow"` did not deselect it and AGENTS.md's "real-model tests excluded from CI" was not
+actually enforced. Registered; `-m "not slow"` now deselects 1 of 23.
+
+**`testpaths` deliberately NOT widened.** `mastering_tool`'s own 5 tests have never been collected by
+the parent suite. They **pass** when run directly (5 passed, 48.67 s) — nothing was hiding. But
+collecting the whole repo yields **1367 tests and 6 collection errors, run interrupted**, from
+`Voicebox/` and the `projects/05-track-reverse-engineering/.../tests/` tree — the same directory whose
+never-run test hid the #056 RT60 defect. Widening would break the suite for the sake of 5 of 76
+tests. A targeted second invocation is the right shape instead.
+
+**Corpus reality, recorded so it is not rediscovered.** The stated target is not reachable from
+material on this machine: usable non-instrumental full mixes are **Bonez MC 8, RAF Camora 5, Gzuz 0**
+— nearly all guest verses on other artists' albums (a chain measured there belongs to that album's
+engineer), and 100% mp3 at 192-323 kbps, which caps any de-essing or air-band claim. 486 of RAF
+Camora's 600 catalogue hits are a producer drum-kit sample pack. Own dry takes, by contrast, are
+plentiful: 39 32-bit-float mono `Main Vokal` files.
+
+**Suite: 1291 passed / 2 skipped / 0 failed** (+37 = 23 roundtrip + 14 chain_dsl), 31:26.
+
+---
+
 ### Answer #056 — `rt60_seconds` was measuring track length. Every dossier's reverb figure was wrong.
 **Timestamp:** 2026-09-01
 **Action Type:** Fixing the RT60 estimator found defective during the #054 backend investigation

@@ -1,0 +1,47 @@
+{
+  "task": "Vocal Chain Reverse-Engineering — measured reference chain extraction and application",
+  "project_root": "d:/Projects/Music-AI-Toolshop",
+  "orchestration_dir": "ORCHESTRATION",
+  "goal": "A measured reference vocal yields a renderable chain spec; applying that spec to a dry take moves the re-measured parameters toward the reference in a quoted A/B table; pytest exits 0; git status clean.",
+  "orchestrator_model": "opus-5",
+  "subagent_model": "sonnet",
+  "waves": [
+    {
+      "wave": 1,
+      "name": "Capability & Corpus Census (read-only)",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "A",
+          "role": "explorer",
+          "name": "Measurement inventory — what is renderable vs what is only a label",
+          "output": "ORCHESTRATION/wave_vc1/agent_a_measurement_inventory.md"
+        },
+        {
+          "id": "B",
+          "role": "explorer",
+          "name": "Render inventory — DSP blocks that can consume a measured parameter",
+          "output": "ORCHESTRATION/wave_vc1/agent_b_render_inventory.md"
+        },
+        {
+          "id": "C",
+          "role": "explorer",
+          "name": "Corpus census — usable reference material and own dry takes",
+          "output": "ORCHESTRATION/wave_vc1/agent_c_corpus_census.md"
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "name": "Chain spec + extractor + renderer (implementation)",
+      "parallel": false,
+      "gate_after": true,
+      "blocked_on": "wave 1 gate approval",
+      "agents": [
+        {"id": "D", "role": "implementer", "name": "chain_spec schema + extract path"},
+        {"id": "E", "role": "implementer", "name": "renderer + round-trip convergence harness"}
+      ]
+    }
+  ]
+}
