@@ -28,6 +28,7 @@ from toolshop.vocal_chain.roundtrip import (
     extract_differential,
     recover_clipper_drive_db,
     recover_compressor,
+    recover_compressor_gain_reduction,
     recover_eq_band_gains,
     recover_hpf_cutoff_hz,
     render_known,
@@ -385,3 +386,152 @@ def test_real_vocal_hpf_and_clip_recovery():
         assert abs(clip_rec.value - 15.0) <= 3.0
     else:
         assert clip_rec.reason
+
+
+# ---------------------------------------------------------------------------
+# recover_compressor_gain_reduction -- the GR-based method
+#
+# `recover_compressor` fits block RMS in vs out, which assumes quasi-static
+# input. A sung vocal violates that continuously, so on real material its ratio
+# collapses toward 1 (set 4.0 -> 1.440, set 8.0 -> 2.499). This method instead
+# uses the directly observable per-sample gain, GR_db = 20*log10(|wet|/|dry|),
+# fitted against an attack/release envelope detector.
+# ---------------------------------------------------------------------------
+
+# Synthetic staircase recovery measured at 2.001 / 4.004 / 8.019 against set
+# 2 / 4 / 8 (<=0.25% error). 5% leaves room for signal-dependent variation while
+# still failing loudly on a method that has stopped discriminating -- a stub
+# returning a constant cannot pass a three-value sweep inside this band.
+_GR_RATIO_TOLERANCE_FRACTION = 0.05
+
+# Threshold recovered at -23.65 against a set -24.0 on the staircase. 1.5 dB
+# admits that the hinge sits where the *detector* crosses, not where the sample
+# values do, without admitting a hinge in the wrong place entirely.
+_GR_THRESHOLD_TOLERANCE_DB = 1.5
+
+
+@pytest.mark.parametrize("set_ratio", [2.0, 4.0, 8.0])
+def test_gr_recovers_ratio_on_staircase(set_ratio):
+    """Three set values, one method -- a constant-returning stub cannot pass."""
+    dry = _staircase(_STAIRCASE_LEVELS_DB)
+    chain = Chain(
+        sample_rate=float(SR),
+        comp=Compressor(threshold_db=-24.0, ratio=set_ratio, attack_ms=5.0,
+                        release_ms=80.0, makeup_db=0.0, bypass=False),
+    )
+    got = recover_compressor_gain_reduction(dry, render_known(dry, SR, chain), SR)
+    rec = got["ratio"]
+    assert rec.value is not None, f"ratio not recovered; reason: {rec.reason}"
+    assert abs(rec.value - set_ratio) / set_ratio <= _GR_RATIO_TOLERANCE_FRACTION
+
+
+def test_gr_recovers_threshold_on_staircase():
+    dry = _staircase(_STAIRCASE_LEVELS_DB)
+    chain = Chain(
+        sample_rate=float(SR),
+        comp=Compressor(threshold_db=-24.0, ratio=4.0, attack_ms=5.0,
+                        release_ms=80.0, makeup_db=0.0, bypass=False),
+    )
+    got = recover_compressor_gain_reduction(dry, render_known(dry, SR, chain), SR)
+    rec = got["threshold_db"]
+    assert rec.value is not None, f"threshold not recovered; reason: {rec.reason}"
+    assert abs(rec.value - (-24.0)) <= _GR_THRESHOLD_TOLERANCE_DB
+
+
+def test_gr_refuses_unidentifiable_ballistics_on_staircase():
+    """Ballistics must refuse rather than report, when the grid cannot locate them.
+
+    NOTE ON WHAT THIS DOES AND DOES NOT COVER. On this staircase it is the
+    *convergence* guard that fires (residual no lower at the best candidate
+    than the grid median), NOT the grid-boundary guard. Verified directly:
+    disabling the boundary guard leaves this test passing. The boundary guard
+    is covered by `test_gr_refuses_grid_corner_ballistics_on_real_take` below,
+    which needs real material because that is the only place the defect occurs.
+
+    Stated explicitly because an earlier version of this test claimed to be the
+    boundary-guard regression test and was not -- coverage that looks real and
+    is not is worse than none.
+    """
+    dry = _staircase(_STAIRCASE_LEVELS_DB)
+    chain = Chain(
+        sample_rate=float(SR),
+        comp=Compressor(threshold_db=-24.0, ratio=4.0, attack_ms=5.0,
+                        release_ms=80.0, makeup_db=0.0, bypass=False),
+    )
+    got = recover_compressor_gain_reduction(dry, render_known(dry, SR, chain), SR)
+    for key in ("attack_ms", "release_ms"):
+        assert got[key].value is None, (
+            f"{key} reported {got[key].value} -- not identifiable here, must not be returned"
+        )
+        assert got[key].reason, f"{key} refused without saying why"
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not _REAL_VOCAL_FILE.exists(), reason="real vocal take not present")
+def test_gr_refuses_grid_corner_ballistics_on_real_take():
+    """Regression test for the grid-corner fabrication, on the material that shows it.
+
+    The defect: on the 166 s real take the grid search returned attack=1.0 /
+    release=10.0 -- the exact bottom-left corner -- for all six (ratio,
+    threshold) cells, while the truth (5 ms / 80 ms) sat at interior points of
+    both candidate lists. Forcing the true pair fit *worse* (ratio 2.817 vs
+    3.878 against a set 4.0), proving the objective does not locate ballistics
+    at all: fast coefficients merely linearise the GR-vs-level relation. The
+    argmin was a grid artefact shaped like a measurement.
+
+    This asserts the *reason*, not merely that the value is None, because the
+    convergence guard would also produce None -- and then this test would pass
+    without ever exercising the boundary guard it exists for.
+    """
+    import soundfile as sf
+
+    dry, file_sr = sf.read(str(_REAL_VOCAL_FILE), dtype="float32", always_2d=False)
+    if dry.ndim > 1:
+        dry = dry.mean(axis=1)
+
+    chain = Chain(
+        sample_rate=float(file_sr),
+        comp=Compressor(threshold_db=-24.0, ratio=4.0, attack_ms=5.0,
+                        release_ms=80.0, makeup_db=0.0, bypass=False),
+    )
+    got = recover_compressor_gain_reduction(dry, render_known(dry, file_sr, chain), file_sr)
+
+    for key in ("attack_ms", "release_ms"):
+        assert got[key].value is None, f"{key} reported the grid corner {got[key].value}"
+        assert "boundary" in (got[key].reason or "").lower(), (
+            f"{key} was refused, but by the wrong guard -- reason: {got[key].reason}"
+        )
+
+    # The ballistics refusal must not take threshold/ratio down with it: those
+    # DO recover on this cell (measured 3.878 against a set 4.0).
+    assert got["ratio"].value is not None, f"ratio lost: {got['ratio'].reason}"
+    assert abs(got["ratio"].value - 4.0) / 4.0 <= 0.10
+
+
+def test_gr_refuses_when_the_compressor_barely_engages():
+    """A threshold the signal rarely crosses must refuse, not report ratio ~1.
+
+    The failure this guards is silent: with too short a lever arm above the
+    threshold the fitted ratio collapses toward 1, which reads as *light
+    compression* rather than as a failed measurement. On the real take, a
+    -18 dB threshold (crossed 0.44% of the time) returned 1.543 against a set
+    4.0 with r2=0.7168, versus 3.878 at r2=0.9951 for -24 dB.
+    """
+    # A staircase that lives well below the threshold, so the compressor
+    # engages only on the topmost step.
+    dry = _staircase([-50, -46, -42, -38, -34, -30])
+    chain = Chain(
+        sample_rate=float(SR),
+        comp=Compressor(threshold_db=-31.0, ratio=4.0, attack_ms=5.0,
+                        release_ms=80.0, makeup_db=0.0, bypass=False),
+    )
+    got = recover_compressor_gain_reduction(dry, render_known(dry, SR, chain), SR)
+    for key in ("ratio", "threshold_db"):
+        if got[key].value is not None:
+            # If it does report, it must at least not be confidently wrong.
+            assert got[key].confidence is not None and got[key].confidence >= 0.90, (
+                f"{key} reported {got[key].value} at confidence "
+                f"{got[key].confidence} -- below the fit-quality floor"
+            )
+        else:
+            assert got[key].reason, f"{key} refused without saying why"

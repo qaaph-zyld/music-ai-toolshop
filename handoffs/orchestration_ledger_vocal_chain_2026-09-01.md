@@ -252,3 +252,41 @@ Goal: *"a measured reference vocal yields a renderable chain spec, applying that
 | git status clean | **NOT met** — nothing committed this session |
 
 **A chain spec that cannot carry a compressor is not a vocal chain.** Compression is the single most defining stage of a modern rap vocal. The goal stands open.
+
+## Wave 2 · D2 merged — GR-based compressor recovery
+
+**Agent handoff**: `ORCHESTRATION/wave_vc1/agent_d2_handoff.md` — status `IN PROGRESS`, **no results, no tests**. The agent implemented `recover_compressor_gain_reduction` and then stalled in a wake-up loop before running a single cell. Everything below was produced by the orchestrator.
+
+### Third consecutive agent lost to a polling loop
+D1, D3 and D2 all ended by scheduling check-ins on their own test runs instead of waiting on them. D2's brief **explicitly forbade it** and it happened anyway. Treat "do not poll" as an instruction that does not work; the next brief must say *run the command, let it return, report partial results on timeout*.
+
+### The method works — where the data supports it
+
+`GR_db(t) = 20*log10(|wet(t)|/|dry(t)|)` is the **exact** instantaneous gain of a scalar-gain stage, so it carries no framing assumption. Fitted against a one-pole attack/release detector rather than block RMS, it removes the quasi-static assumption that broke `recover_compressor`.
+
+| signal | set ratio | old | new |
+|---|---|---|---|
+| synthetic staircase | 2 / 4 / 8 | — | **2.001 / 4.004 / 8.019** |
+| real take, thr −24 | 2 / 4 / 8 | 1.548 / 2.084 / 2.499 | **1.979 / 3.878 / 7.452** |
+| real take, thr −18 | 2 / 4 / 8 | 1.266 / 1.440 / 1.540 | **None** (refused) |
+
+### Two defects found by the orchestrator, in D2's code
+
+**1. Ballistics were fabricated.** All six real-material cells returned attack=1.0 / release=10.0 — the exact bottom-left grid corner — while the truth (5 ms / 80 ms) sat at *interior* points of both candidate lists. The decisive test: forcing the true pair fits **worse** (ratio 2.817 vs 3.878 against a set 4.0). The objective does not locate ballistics at all; fast coefficients merely linearise the GR-vs-level relation. D2's convergence guard cannot catch this because a monotone residual surface genuinely does beat its own median. **Added a boundary check.**
+
+**2. The −18 dB failure was silent.** Reported ratio 1.543 against a set 4.0 — and a collapse toward 1 reads as *light compression*, not as failure. **Added an r² floor at 0.90** (good cell 0.9951, bad cell 0.7168).
+
+### A refuted fix, recorded so it is not retried
+A **span-above-hinge guard was tried first and does not work.** The hinge search relocates the threshold to wherever the data actually is (it put the −18 dB case at −23.1 dB), so span measured above the *recovered* hinge looks healthy in exactly the cases that failed. It never fired on any of six cells. The comment in `roundtrip.py` records this.
+
+### Test coverage — and a fake-coverage defect in the orchestrator's own tests
+D2 wrote none; the orchestrator wrote six. Mutation testing (both guards disabled) left **all six passing**. Cause: on the staircase it is the *convergence* guard that refuses ballistics, not the boundary guard, so the test labelled "regression test for the grid corner" never touched it. Its docstring asserted coverage it did not have.
+
+Also learned: **on synthetic material the ballistics ARE identifiable** (attack recovers at exactly 5.0). The grid-corner fabrication is real-material-only, so the defect can only be tested on real material.
+
+Split into two tests: the synthetic one now states in its docstring which guard fires and that it does **not** cover the boundary case; a new `@pytest.mark.slow` real-material test asserts on the **reason string** containing "boundary" (asserting only `value is None` would pass via the convergence guard without exercising anything).
+
+**Verified both directions**: boundary guard disabled → `test_gr_refuses_grid_corner_ballistics_on_real_take` **FAILED**; restored → passed.
+
+### Calibration honesty
+The r² floor (0.90) and the boundary check are calibrated on **one take at two thresholds**. Both are flagged PROVISIONAL in the code with the measured numbers behind them. Guards against known failure modes — not validated thresholds.

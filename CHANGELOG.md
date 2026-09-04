@@ -1,5 +1,89 @@
 # Changelog
 
+### Answer #058 - Compressor recovery on real vocals: instantaneous gain reduction works, and two fabricated measurements were removed on the way.
+**Timestamp:** 2026-09-04
+**Action Type:** Following #057's failure - the compressor stage of vocal chain extraction
+
+**#057 left one stage broken.** `recover_compressor` fits block RMS in vs out, which assumes
+quasi-static input. A sung vocal violates that continuously (phrasing, vibrato, consonant
+transients), so a 5 ms attack / 80 ms release envelope never settles inside a 100 ms frame and the
+fit flattens the ratio toward 1: **set 4.0 recovered 1.440, set 8.0 recovered 2.499** - worse the
+harder the compression, which is the wrong direction for drill.
+
+**The fix is a different observable, not a different constant.** In differential mode the
+compressor's gain is *directly observable*: for a pure scalar-gain stage `wet(t) = gain(t)*dry(t)`
+exactly, so `GR_db(t) = 20*log10(|wet(t)|/|dry(t)|)` is the instantaneous gain reduction at every
+sample - no framing, no averaging window. Fitted against a one-pole attack/release detector level
+built from `|dry|` rather than against block RMS:
+
+| signal | set ratio | old | new |
+|---|---|---|---|
+| synthetic staircase | 2 / 4 / 8 | - | **2.001 / 4.004 / 8.019** |
+| real 166 s take, thr -24 | 2 / 4 / 8 | 1.548 / 2.084 / 2.499 | **1.979 / 3.878 / 7.452** |
+| real 166 s take, thr -18 | 2 / 4 / 8 | 1.266 / 1.440 / 1.540 | **None** (refused) |
+
+---
+
+**Two fabricated measurements found in the new code and removed.**
+
+**1. The ballistics were a grid artefact.** The attack/release grid search returned **attack=1.0,
+release=10.0 - the exact bottom-left corner - on all six real-material cells**, while the truth
+(5 ms / 80 ms) sat at *interior* points of both candidate lists. The decisive test: forcing the true
+pair fits **worse** (ratio 2.817 vs 3.878 against a set 4.0). The objective does not locate
+ballistics at all; fast coefficients merely linearise the GR-vs-level relation. The existing
+convergence guard cannot catch this - a monotone residual surface genuinely does beat its own
+median. **Added a boundary check**: an argmin on the edge of the grid means the minimum lies outside
+it, so the parameter was never located.
+
+Note the asymmetry, because it decides how this can be tested: **on synthetic material the ballistics
+ARE identifiable** (attack recovers at exactly 5.0). The fabrication is real-material-only.
+
+**2. The -18 dB failure was silent.** It reported ratio 1.543 against a set 4.0 - and a collapse
+toward 1 reads as *light compression*, not as a failed measurement. The vocal crosses -18 dB only
+**0.44% of the time** (7.64 dB of span) versus **5.17%** and 13.64 dB at -24 dB. **Added an r2 floor
+at 0.90**: the good cell fits at r2=0.9951, the bad one at r2=0.7168.
+
+**A refuted fix, recorded so it is not retried.** A span-above-hinge guard was tried first and does
+**not** work: the hinge search relocates the threshold to wherever the data actually is (it put the
+-18 dB case at -23.1 dB), so span measured above the *recovered* hinge looks healthy in precisely
+the cases that failed. It never fired on any of six cells.
+
+---
+
+**A test that claimed coverage it did not have.** Six tests were written for the new method, then
+mutation-tested by disabling both guards - **all six still passed**. Cause: on the staircase it is
+the *convergence* guard that refuses ballistics, not the boundary guard, so the test labelled
+"regression test for the grid corner" never touched it. Split in two: the synthetic test now states
+in its docstring which guard fires and that it does **not** cover the boundary case; a new
+`@pytest.mark.slow` real-material test asserts on the **reason string** containing "boundary",
+because asserting only `value is None` would pass via the convergence guard without exercising
+anything. **Verified both directions**: guard disabled -> that test FAILS; restored -> passes.
+
+**Calibration honesty.** The r2 floor and the boundary check are calibrated on **one take at two
+thresholds**. Both are flagged PROVISIONAL in the code with the measured numbers behind them. They
+are guards against observed failure modes, not validated thresholds.
+
+---
+
+**A green exit code that was lying.** The first verification run reached 100%, then crashed in
+pytest's `pytest_sessionfinish` (`cleanup_dead_symlinks`, a stale Windows temp symlink) **before
+printing its summary**, and **exited 0**. Counting the progress characters gave
+`{'.': 1297, 's': 2, 'F': 1}` - **a real failure**, in
+`test_the_language_snapshot_still_matches_the_installed_whisperx`, which the exit code hid. That test
+passes in isolation (293 s) and passed on the clean re-run, so it is transient and unrelated to this
+change surface - but it was found by counting dots, not by trusting the exit code. **Quoting an exit
+code is not verification when the harness can crash after the tests and still exit 0.**
+
+**Suite: 1298 passed / 2 skipped / 0 failed** (51:59), delta **+7** against #057's 1291 - exactly the
+seven tests added here, nothing else moved. Verified twice, by summary line and by progress-character
+count, which agree.
+
+**Attribution.** The GR method is Agent D2's. Its handoff is committed unedited and reads
+`IN PROGRESS`: it produced no results and no tests before stalling. Every number above, both guards,
+and all seven tests are the orchestrator's.
+
+---
+
 ### Answer #057 — Vocal chain reverse-engineering: the differential floor holds for 3 of 4 stages, and fails for the compressor on real material.
 **Timestamp:** 2026-09-04
 **Action Type:** New lane — `toolshop/vocal_chain/`, a measured-reference vocal chain extractor
