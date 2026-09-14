@@ -1,3 +1,6 @@
 ﻿[submodule "mastering_tool"]
 path = mastering_tool
 url = https://github.com/qaaph-zyld/mastering_tool.git
+[submodule "suno_prompter"]
+	path = suno_prompter
+	url = https://github.com/qaaph-zyld/suno_prompter.git

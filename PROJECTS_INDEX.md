@@ -19,6 +19,7 @@
 | 13 | vocal-swap | ✅ Active | `toolshop vocal-swap` - Suno track + your vocal → mixed and mastered, 8 resumable stages with M4 gates (#052) |
 | — | ai_modules | ✅ Resolved | **Dissolved 2026-08-31 (D6, #051).** Keepers moved into `toolshop/`; `musicgen`/`lora_finetuning` shelved to G9; the rest removed. |
 | - | mastering_tool | ✅ Active | Git submodule: LUFS, reference, vocal doctor, chain DSL |
+| - | suno_prompter | ✅ Active | Git submodule: rules-as-code Suno prompt engine (`suno.py plan`/`validate`/`rules`, 39-rule rulebook v1.0.2) |
 | - | Voicebox | 🟡 External | Vendored fork removed; re-clone when GPU gate opens |
 | - | MAirina_Tucc | 🟡 Separate | Serbian rhyme tool + React UI |
 

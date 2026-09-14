@@ -1,5 +1,22 @@
 # Changelog
 
+### Answer #059 - suno_prompter added as git submodule: the Suno Prompt Engine joins the toolshop.
+**Timestamp:** 2026-09-14
+**Action Type:** New component - separate product repo mounted as submodule
+
+**Previous state:** the Suno Prompt Engine (`qaaph-zyld/suno_prompter`, private) existed only on
+GitHub - a rules-as-code system that turns `briefs/*.md` into mechanically validated 5-variant
+Suno prompt sets (`suno.py plan` -> agent prose -> `suno.py validate` -> `log`/`report`/`rules accept`).
+
+**Current state:** mounted at `suno_prompter/` as a git submodule at `7acba12` (main), same pattern
+as `mastering_tool`. Verified on the toolshop `.venv` (Python 3.11.9, PyYAML 6.0.3): **29/29 tests
+pass in 1.97s** despite the repo documenting 3.12+ - no 3.12-only syntax exists. Smoke-tested:
+`rules list` renders rulebook v1.0.2 (39 rules); `plan briefs/subota-gori.md` emits a correct
+5-variant spec (BPM 131-139, distinct modes, 3 instrumental / 2 vocal split) into gitignored
+`output/`.
+
+**Files affected:** `.gitmodules`, `suno_prompter/` (gitlink), `PROJECTS_INDEX.md`, `CHANGELOG.md`.
+
 ### Answer #058 - Compressor recovery on real vocals: instantaneous gain reduction works, and two fabricated measurements were removed on the way.
 **Timestamp:** 2026-09-04
 **Action Type:** Following #057's failure - the compressor stage of vocal chain extraction
