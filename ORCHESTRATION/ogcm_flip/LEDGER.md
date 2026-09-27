@@ -85,3 +85,17 @@ W4 relay per grid (transcript + grid source cached) → W5 master + blind A/B (G
 ## Wave 2 — Beat build (blocked: needs W0 outputs + GATE C pick)
 
 ## Wave 3 — Vocal re-lay + master (blocked: needs wave 2; user gate)
+
+## Megaplan execution — native subagent dispatch (started 2026-09-28)
+
+Config: `waves_megaplan.json` · Manifest: `prompts/subagent_dispatch.json` · Plan: `D:\Projects\.workspace_archive\plans\ogcm-flip-megaplan.md` (supersedes remaining-wave prompts where they conflict).
+
+Dispatch mode: **native subagents** (`run_subagent`, profile `wave-implementer`, model `swe-2-max`, sequential — shared git repo). Waves m1→m5; user gates at m2 (GATE C2 audition) and m5 (GATE F blind pick).
+
+| Wave | Status | Agent | Artifact | Notes |
+|------|--------|-------|----------|-------|
+| m1 W-1 fixes | done | A (wave-implementer) | `wave_m1/agent_a_w1_fixes_handoff.md` | commit `5edfa4e`; F1 patterns + manifest 6/6, F2 source-felt relay, F5 docstring; 38 targeted + 1328 full suite pass; A29 kit audit PASS (all peaks ≥ MIN_PEAK); transcript sane |
+| m2 W1′ spike → GATE C2 | done (pack ready, awaiting user pick) | B | `wave_m2/agent_b_bed_spike_handoff.md` | commit (this wave); pip `--no-deps basic-pitch mir_eval` OK; ONNX predict verified on real 10s region (67 events); 3 GATE-C regions transcribed (67/68/170 raw notes); `bed_lanes.py` + `ogcm_bed_spike.py` + 19 tests pass; GATE C2 pack 22 files (Lane A×4 + B×6 + C×12) × 2 grid arms, LU spread 0.0 LU, no clipping, bijection OK; audio pack NOT committed (gitignored) |
+| m3 W2+W3 build | pending | C | — | blocked on GATE C2 pick |
+| m4 W4 relay | pending | D | — | blocked on m3 |
+| m5 W5 master → GATE F | pending | E | — | user blind-pick, then resume agent for closeout |

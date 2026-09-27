@@ -1,5 +1,44 @@
 # Changelog
 
+### Answer #060 - OGCM flip W1′: bed-lane spike (basic-pitch ONNX) → GATE C2 audition pack.
+**Timestamp:** 2026-09-27
+**Action Type:** Implementation — wave W1′ of the OGCM drill-flip megaplan (melodic-bed pivot, pure-code render path).
+
+> **Pivot (megaplan "The Pivot").** The melodic bed is reopened as a three-lane decision resolved by a cheap blind audition before the dual-grid build: Lane A = existing chop pack (status quo), Lane B = interpolated bed (basic-pitch ONNX → MIDI cleanup → numpy voice render), Lane C = hand-programmed dark Dm/C#m motifs → same voices. The user picks lane + grid arm + hook treatment at GATE C2.
+
+**F8 install verified:** `pip install --no-deps basic-pitch mir_eval` succeeded (basic-pitch 0.4.0, mir_eval 0.8.2); on py3.11 basic-pitch's wheel pulls tensorflow<2.15.1 as a HARD dep (requires_dist marker `python_version>="3.11"`) and pins resampy<0.4.3 vs the installed 0.4.3 — `--no-deps` avoids both; runtime deps (librosa/pretty_midi/sklearn/scipy/onnxruntime/resampy 0.4.3) already present. **ONNX path verified:** `basic_pitch.inference.predict` defaults to the bundled `nmp.onnx` model (TF absent → ONNX auto-selected); predicted on a 10 s region of the v2 `(other)` bed → 67 note events. resampy stayed at 0.4.3 (no downgrade needed — the spike did not break).
+
+**Transcription:** top GATE-C regions on the v2 `(other)` bed transcribed to MIDI — `~63-66 s` (67 raw notes), `~12.6 s` (68), `~233-258 s` (170). Raw + cleaned (Dm scale-locked) MIDI saved under `stems/flip_bed_lanes/midi/`.
+
+**New module `toolshop/flip/bed_lanes.py`** (same pure-numpy technique family as `bass808.py`): MIDI cleanup (quantize to the 89.1 felt grid, prune confidence<0.4 and <80 ms notes, scale-lock to landed key) + numpy voices — epiano (sine + overtones + exp decay + tanh), pad (detuned saws + one-pole LPF + slow attack), pluck (Karplus-Strong) — plus pretty_midi I/O and a pyloudnorm-based ADR-009 loudness-match helper. **Bug caught + fixed during the spike:** basic-pitch returns note events in *descending* start order; an over-defensive "non-decreasing onset" pass in `quantize_to_grid` cascaded every note to the latest onset (rendered Lane B silent). Fix: sort by start before quantize; drop the cascade. `events_to_notes` now sorts too.
+
+**New script `scripts/ogcm_bed_spike.py`:** drives basic-pitch → cleanup → renders. Produces Lane B (interpolated bed) 8-bar felt-grid loops and Lane C (3 hand-programmed dark Dm/C#m motifs via pretty_midi → same voices) 8-bar loops. Lane A = existing chop pack (cand_220/121, F#min) — reused, tiled + time-stretched, no new module code.
+
+**GATE C2 audition pack** under `Stemmeca_alatkka/stems/flip_bed_lanes/` (gitignored — NOT committed) following ADR-009: 22 files = all lanes (A×4 + B×6 + C×12) × both grid arms (178.2 written/89.1 felt AND 133.65) as 8-bar loops, loudness-matched to −18 LUFS, **LU spread 0.0 LU** (≤0.3 tolerance), no clipping, file/identity bijection OK; hidden-key mapping in `manifest.json`; `verification.json` records the pre-listening check; `GATE_C2.md` describes the pack WITHOUT revealing which file is which lane.
+
+**STOP at GATE C2:** the user auditions the pack and picks lane + pitch arm + hook treatment. No drum/808/arrange work started.
+
+#### Files Affected:
+- **NEW:** `toolshop/flip/bed_lanes.py` — MIDI cleanup + numpy voices (epiano/pad/pluck) + pretty_midi I/O + LUFS match.
+- **NEW:** `scripts/ogcm_bed_spike.py` — basic-pitch → cleanup → render → ADR-009 blind pack builder.
+- **NEW:** `tests/test_flip_bed_lanes.py` — 19 tests (cleanup stages, voices, MIDI round-trip, loudness match).
+- **MODIFIED:** `pyproject.toml` — `[flip]` extra: added `basic-pitch` (with `--no-deps` install comment, F8), `mir_eval`, `pretty_midi`, `pyloudnorm`.
+- **MODIFIED:** `ORCHESTRATION/ogcm_flip/LEDGER.md` — m2 row → done (pack ready, awaiting user pick).
+- **NOT committed (gitignored data):** `Stemmeca_alatkka/stems/flip_bed_lanes/` — 22 audition WAVs + `manifest.json` + `verification.json` + `GATE_C2.md` + `midi/` (raw + cleaned MIDI).
+
+#### Verification (run this session):
+- `pip install --no-deps basic-pitch mir_eval` → exit 0 (basic-pitch 0.4.0, mir_eval 0.8.2).
+- ONNX predict on 10 s v2 bed region → 67 events (TF absent, ONNX auto-selected).
+- `pytest tests/test_flip_bed_lanes.py -q` → **19 passed**.
+- `pytest tests/ -q --ignore=tests/test_chain_dsl_unwired_params.py` → **1347 passed, 2 skipped** (the excluded file is a pre-existing mastering_tool-submodule collection error, unrelated to this wave).
+- `python scripts/ogcm_bed_spike.py` → exit 0; pack verify: LU spread 0.0 LU (PASS), clipping PASS, bijection PASS, overall PASS.
+
+#### Next Actions Required:
+- **USER GATE C2:** audition `stems/flip_bed_lanes/audition/` (read `GATE_C2.md` first, NOT `manifest.json`), pick lane (A/B/C) + grid arm (89.1 felt / 133.65) + hook treatment (lead_vocal vs backing_vocals).
+- Downstream waves (m3 W2+W3 build) blocked on the GATE C2 pick.
+
+---
+
 ### Answer #060 - OGCM flip lane W0+W1: RoFormer separation registry + `toolshop flip chops` candidate extraction.
 **Timestamp:** 2026-09-27
 **Action Type:** Implementation — first wave of the "Only God Can Judge Me" chop-and-rebuild project
