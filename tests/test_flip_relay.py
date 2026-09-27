@@ -71,22 +71,45 @@ def test_annotate_grid_beat_fraction():
     assert phrases[1].beat_fraction == pytest.approx(2.0)
 
 
+def test_map_phrases_places_at_source_felt_time():
+    """F2: zero-stretch relay — phrases land at their SOURCE absolute time, so
+    both grid arms get an IDENTICAL schedule. The written-grid fields are
+    reporting only (target_beat = source_beat * bpm_written / bpm_source)."""
+    beats = [i * 0.5 for i in range(24)]  # source 120 BPM, 4/4
+    phrases = relay.detect_phrases(_words(), None, SR)
+    relay.annotate_grid(phrases, beats)
+    # phrase 0 starts at 1.0s in the source → must land at 1.0s on BOTH arms
+    pl_fast = relay.map_phrases(phrases, bpm=178.2, bars=4, bpm_source=120.0)
+    pl_slow = relay.map_phrases(phrases, bpm=133.65, bars=4, bpm_source=120.0)
+    assert pl_fast[0].start_s == pytest.approx(phrases[0].start_s, abs=1e-6)
+    assert pl_slow[0].start_s == pytest.approx(phrases[0].start_s, abs=1e-6)
+    # identical schedule regardless of written bpm
+    assert [p.start_s for p in pl_fast] == [p.start_s for p in pl_slow]
+    # written-grid reporting rescales: source_beat 2.0 @120 → 2.0*178.2/120 = 2.97
+    assert pl_fast[0].target_beat_fraction == pytest.approx(
+        (2.0 * 178.2 / 120.0) % 4.0, abs=1e-3
+    )
+
+
 def test_map_phrases_preserves_syncopation():
+    """F2: syncopation is preserved because placement is at source time; the
+    within-bar fraction is reported (not applied) on the written grid."""
     beats = [i * 0.5 for i in range(24)]
     phrases = relay.detect_phrases(_words(), None, SR)
     relay.annotate_grid(phrases, beats)
-    pl = relay.map_phrases(phrases, bpm=140.0, bars=4, preserve_fraction=True)
-    beat_s = 60.0 / 140.0
-    # phrase 0 → bar0 beat2 → t = 2*beat_s; NOT snapped to downbeat
-    assert pl[0].start_s == pytest.approx(2.0 * beat_s)
-    assert pl[0].target_beat_fraction == pytest.approx(2.0)
-    # quantized variant lands on downbeats
-    plq = relay.map_phrases(phrases, bpm=140.0, bars=4, preserve_fraction=False)
-    assert plq[0].start_s == pytest.approx(0.0)
+    pl = relay.map_phrases(phrases, bpm=140.0, bars=4, bpm_source=120.0)
+    # phrase 0 → source 1.0s → placed at 1.0s (NOT snapped to a written downbeat)
+    assert pl[0].start_s == pytest.approx(1.0)
+    # written-grid fraction is reported, non-zero (syncopation preserved)
+    assert pl[0].target_beat_fraction != pytest.approx(0.0, abs=1e-3)
 
 
-def test_map_phrases_flags_overlaps_bounded_warp():
-    # Two phrases back to back in source → on a faster grid they collide.
+def test_map_phrases_flags_overlaps_source_time():
+    """F2: at source-time placement, an overlap means the source itself had a
+    short gap relative to phrase duration — reported, not stretched. The
+    buggy written-bpm semantic (phrases colliding because they were placed at
+    written-beat positions) is gone: placement no longer depends on bpm."""
+    # Two phrases back to back in source → short gap relative to duration.
     words = [
         FakeWord("a", 0.0, 0.4), FakeWord("b", 0.42, 0.8), FakeWord("c", 0.82, 1.6),
         FakeWord("d", 2.0, 2.4),
@@ -94,13 +117,20 @@ def test_map_phrases_flags_overlaps_bounded_warp():
     phrases = relay.detect_phrases(words, None, SR, min_gap_ms=300.0)
     beats = [i * 0.5 for i in range(24)]
     relay.annotate_grid(phrases, beats)
-    pl = relay.map_phrases(phrases, bpm=178.2, bars=4, preserve_fraction=True)
-    if len(pl) >= 2:
-        # if phrase 0 runs into phrase 1's anchor, warp is reported, not applied
-        assert pl[0].warp <= 1.0
-        if pl[0].warp < 1.0 / relay.MAX_WARP:
-            assert not pl[0].warped
-            assert pl[0].notes
+    # Placement is identical at both written bpms — the old collision came
+    # from placing at written-beat positions; that no longer happens.
+    pl_fast = relay.map_phrases(phrases, bpm=178.2, bars=4, bpm_source=120.0)
+    pl_slow = relay.map_phrases(phrases, bpm=133.65, bars=4, bpm_source=120.0)
+    assert [p.start_s for p in pl_fast] == [p.start_s for p in pl_slow]
+    if len(pl_fast) >= 2:
+        # placed starts equal the source phrase starts (zero-stretch)
+        assert pl_fast[0].start_s == pytest.approx(phrases[0].start_s, abs=1e-6)
+        assert pl_fast[1].start_s == pytest.approx(phrases[1].start_s, abs=1e-6)
+        # warp is reported as the gap/duration ratio, never applied
+        assert pl_fast[0].warp <= 1.0
+        if pl_fast[0].warp < 1.0 / relay.MAX_WARP:
+            assert not pl_fast[0].warped
+            assert pl_fast[0].notes
 
 
 def test_strip_phrase_padded_and_faded():

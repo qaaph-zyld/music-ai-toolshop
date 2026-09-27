@@ -196,40 +196,61 @@ def map_phrases(
     preserve_fraction: bool = True,
     anchor_downbeats: bool = True,
     anchor_tol_ms: float = ANCHOR_TOLERANCE_MS,
+    bpm_source: Optional[float] = None,
 ) -> List[RelayPlacement]:
-    """Place phrases onto the target grid.
+    """Place phrases onto the target grid at SOURCE-felt time (F2 fix).
 
-    Each source bar maps 1:1 to a target bar (`start_bar + source_bar`);
-    the phrase's within-bar position is preserved as `beat_fraction` when
-    `preserve_fraction` is set, else quantized to the bar downbeat.
-    Phrases in source bars ≥ `bars` are skipped (arrangement boundary).
+    Zero-stretch relay (spec W4 "preserve identical source material"): each
+    phrase is placed at the *same absolute time* it occupied in the source, so
+    both grid arms (178.2 and 133.65) get an IDENTICAL schedule. The vocal is
+    never time-stretched to fit a written tempo — the grid is the grid, the
+    vocal is the vocal, and they are layered at the source's felt rate. This
+    is the researched alternative to July's global 1.57× stretch failure.
 
-    Warping: none here — phrase durations are intrinsic to the vocal. The
-    *gap* between successive phrases is what compresses/expands. `warp` is
-    reported as the ratio needed to reach the next phrase's anchor before
-    overlap; > MAX_WARP is flagged and left unwarped (the arrangement must
-    re-seat it, the audio must not be smeared).
+    Placement: ``start_s = phrase.start_s`` (the source offset, unchanged).
+    The written-grid fields are REPORTING ONLY — they describe where the
+    phrase sits on the *written* (target-bpm) grid without moving the audio:
+        target_beat = source_beat * bpm_written / bpm_source
+        target_bar  = target_beat // beats_per_bar
+    When ``bpm_source`` is omitted the written-grid fields fall back to the
+    source-beat values (so existing callers that don't pass it still get
+    sane reporting, just not the rescaled view).
+
+    Phrases in source bars ≥ ``bars`` are skipped (arrangement boundary).
+    Warping: none — phrase durations are intrinsic to the vocal. ``warp`` is
+    reported as the ratio the *gap* would need to compress to reach the next
+    phrase's anchor before overlap; > MAX_WARP is flagged and left unwarped
+    (the arrangement must re-seat it, the audio must not be smeared).
     """
-    beat_s = 60.0 / bpm
+    beat_s_written = 60.0 / bpm
     placements: List[RelayPlacement] = []
     for p in phrases:
         if p.source_bar >= bars:
             continue
-        frac = p.beat_fraction if preserve_fraction else 0.0
-        if anchor_downbeats and frac < (anchor_tol_ms / 1000.0) / beat_s:
-            frac = 0.0  # genuinely on the downbeat — don't smear ±30 ms of noise
-        target_beat = (start_bar + p.source_bar) * 4.0 + frac
+        # F2: place at SOURCE-felt absolute time — identical schedule both arms.
+        placed_start_s = float(p.start_s)
+        # Written-grid reporting only (does NOT move the audio).
+        if bpm_source is not None and bpm_source > 0.0:
+            written_beat = p.source_beat * (bpm / bpm_source)
+        else:
+            written_beat = p.source_beat
+        written_bar = int(written_beat // 4)
+        written_frac = float(written_beat % 4)
+        if anchor_downbeats and written_frac < (anchor_tol_ms / 1000.0) / beat_s_written:
+            written_frac = 0.0  # genuinely on the downbeat — don't smear ±30 ms
         placements.append(
             RelayPlacement(
                 phrase_index=p.index,
-                target_bar=start_bar + p.source_bar,
-                target_beat_fraction=frac,
-                start_s=target_beat * beat_s,
+                target_bar=start_bar + written_bar,
+                target_beat_fraction=written_frac,
+                start_s=placed_start_s,
                 warp=1.0,
                 warped=False,
             )
         )
-    # flag overlaps: a phrase that runs into its successor's anchor
+    # flag overlaps: a phrase that runs into its successor's anchor. Because
+    # placement is at source time, an overlap means the source itself had a
+    # short gap relative to phrase duration — reported, not stretched.
     for i in range(len(placements) - 1):
         cur, nxt = placements[i], placements[i + 1]
         ph = phrases[cur.phrase_index]

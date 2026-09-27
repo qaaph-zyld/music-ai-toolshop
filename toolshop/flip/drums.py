@@ -211,7 +211,11 @@ def drill_pattern(bars: int = 4, ghost_snare: bool = True, hat_mode: str = "mix"
     burst in the last bar and periodic gaps.
     """
     events: List[Tuple[float, str, float]] = []
-    # 3+3+2 kick accents across two bars (in sixteenth-note steps).
+    # 3+3+2 kick accents PER BAR (in sixteenth-note steps). The six-step
+    # cycle (0,3,6,8,11,14) repeats every bar here; a true 2-bar kick cycle
+    # belongs to the arrangement layer (wave m3 arrange.py), not this
+    # bar-relative generator. (F5: docstring previously claimed "across two
+    # bars", which contradicted the per-bar loop below.)
     kick_steps_cycle = (0, 3, 6, 8, 11, 14)
     for bar in range(bars):
         # snare — half-time on beat 3 (beat index 2), ghost on and-of-4 (3.5)

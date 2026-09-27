@@ -4,6 +4,31 @@
 **Timestamp:** 2026-09-27
 **Action Type:** Implementation — first wave of the "Only God Can Judge Me" chop-and-rebuild project
 
+> **W-1 corrective update (2026-09-27, post-adversarial-audit).** Findings F1/F2/F5 fixed;
+> F4 (parallel-session scripts) already committed in `8d29270`; F7 (spec name drift) accepted —
+> shipped names `drums/bass808/assemble/relay` kept over spec's `oneshots/voice808/arrange`.
+> - **F1:** `stem_models.py` drumsep `output_patterns` now anchor the *real* DrumSep emissions
+>   `(hh)`→hihat, `(crash)`→cymbals, `(ride)`→ride (canonical piece name `ride`); the model's
+>   `stems` list and the `drumsep-kit` preset outputs grew from 6 to 7 pieces. `v2_drums/manifest.json`
+>   repaired in place (metadata-only, no re-separation) — now declares 6/6 stems (kick/snare/toms/
+>   hihat/cymbals/ride) instead of 3/6; the orphaned `(hh)/(crash)/(ride)` FLACs are claimed.
+> - **F2:** `relay.map_phrases` now places phrases at SOURCE-felt absolute time (`start_s =
+>   phrase.start_s`), so both grid arms (178.2 / 133.65) get an IDENTICAL schedule (zero-stretch
+>   relay, spec W4 "preserve identical source material"). Written-grid fields (`target_beat =
+>   source_beat × bpm_written / bpm_source`) are reporting only. The collision test was rewritten
+>   to assert placed `start_s ≈ source offset` and identical schedules across bpms.
+> - **F5:** `drums.drill_pattern` docstring corrected — the `kick_steps_cycle` (0,3,6,8,11,14
+>   sixteenths) runs PER BAR, not "across two bars"; the true 2-bar cycle belongs to wave m3's
+>   `arrange.py`. Behavior unchanged.
+> - **A29 kit audit:** `flip_kit/kit_manifest.json` kept-hit peaks all pass `MIN_PEAK=0.01`
+>   (cymbal/crash 0.0159–0.0263; openhat/ride 0.0423–0.104; hat/kick/snare/tom 0.19–0.79) despite
+>   crash/ride source stems sitting near the noise floor (src_rms 0.000299 / 0.000766).
+>   `lead_transcript.json` segment sanity: 911 words, 0 negative durations, 0 out-of-order.
+> - **Tests:** `test_stem_models.py` +2 (real-emission resolution, preset declares ride);
+>   `test_flip_relay.py` rewritten collision/syncopation tests assert source-time placement.
+>   Full toolshop suite: 1328 passed, 2 skipped (excluding pre-existing `mastering_tool`
+>   submodule collection error — submodule not initialized this session).
+
 **Previous state:** the July remix path (`toolshop remix`) produced `2pac_drill_flip_whole.wav` —
 the same instrumental time-stretched and pitch-shifted globally. Sonically clean, musically
 unchanged: no chops, no drill drums, no 808 slides, and a global shift that can't land a canonical

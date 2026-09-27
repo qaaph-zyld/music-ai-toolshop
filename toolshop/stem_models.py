@@ -209,7 +209,14 @@ MODELS: Dict[str, StemModel] = {
         id="mdx23c-drumsep",
         backend="audio-separator",
         model_file="MDX23C-DrumSep-aufr33-jarredou.ckpt",
-        stems=["kick", "snare", "hihat", "cymbals", "toms", "drums_other"],
+        # Real DrumSep (MDX23C-DrumSep-aufr33-jarredou) emissions on the 2Pac
+        # drums stem are the parenthesised slots: (kick) (snare) (toms) (hh)
+        # (crash) (ride). The earlier registry guessed (hihat)/(cymbals) and
+        # omitted ride entirely, so hh/crash/ride were orphaned on disk (F1).
+        # Canonical piece names: hihat / cymbals / ride. The (hihat)/(hi-hat)
+        # and (cymbal...) aliases are kept for other DrumSep checkpoints that
+        # spell those slots long-form.
+        stems=["kick", "snare", "hihat", "cymbals", "ride", "toms", "drums_other"],
         output_patterns=[
             # Parenthesised anchors are load-bearing here: the model's own name
             # contains "DrumSep", so a bare "drum" pattern would claim every
@@ -217,10 +224,13 @@ MODELS: Dict[str, StemModel] = {
             # "custom"/"symptom". Only the (stem) slot is trustworthy.
             ("(kick)", "kick"),
             ("(snare)", "snare"),
+            ("(hh)", "hihat"),
             ("(hihat)", "hihat"),
             ("(hi-hat)", "hihat"),
             ("(hi_hat)", "hihat"),
+            ("(crash)", "cymbals"),
             ("(cymbal", "cymbals"),
+            ("(ride)", "ride"),
             ("(toms)", "toms"),
             ("(tom)", "toms"),
             ("(other)", "drums_other"),
@@ -388,13 +398,13 @@ PRESETS: Dict[str, Preset] = {
         id="drumsep-kit",
         description=(
             "MDX23C DrumSep kit-piece split. Run on a *drums stem* (not the mix): "
-            "kick, snare, hihat, cymbals, toms, drums_other."
+            "kick, snare, hihat, cymbals, ride, toms, drums_other."
         ),
         steps=[
             PresetStep(
                 model_id="mdx23c-drumsep",
                 input="source",
-                outputs=["kick", "snare", "hihat", "cymbals", "toms", "drums_other"],
+                outputs=["kick", "snare", "hihat", "cymbals", "ride", "toms", "drums_other"],
             ),
         ],
     ),

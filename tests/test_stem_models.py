@@ -268,6 +268,42 @@ def test_drumsep_tom_pattern_immune_to_input_names():
     assert resolved["toms"].startswith("custom_(toms)")
 
 
+def test_drumsep_real_emissions_resolve_to_canonical_names():
+    """F1: the real DrumSep (MDX23C-DrumSep-aufr33-jarredou) emissions on the
+    2Pac drums stem are the parenthesised slots (hh)/(crash)/(ride), NOT the
+    long-form (hihat)/(cymbals) the registry originally guessed. All three
+    must resolve to canonical piece names hihat/cymbals/ride."""
+    model = _sm.get_model("mdx23c-drumsep")
+    raw = [
+        "drums_(kick)_MDX23C-DrumSep-aufr33-jarredou.flac",
+        "drums_(snare)_MDX23C-DrumSep-aufr33-jarredou.flac",
+        "drums_(toms)_MDX23C-DrumSep-aufr33-jarredou.flac",
+        "drums_(hh)_MDX23C-DrumSep-aufr33-jarredou.flac",
+        "drums_(crash)_MDX23C-DrumSep-aufr33-jarredou.flac",
+        "drums_(ride)_MDX23C-DrumSep-aufr33-jarredou.flac",
+    ]
+    resolved = _sm.resolve_outputs(raw, model)
+    # all three real emission names resolve to canonical piece names
+    assert resolved["hihat"].startswith("drums_(hh)")
+    assert resolved["cymbals"].startswith("drums_(crash)")
+    assert resolved["ride"].startswith("drums_(ride)")
+    # the canonical piece names are declared in the model's stems list
+    assert "ride" in model.stems
+    assert "hihat" in model.stems
+    assert "cymbals" in model.stems
+
+
+def test_drumsep_kit_preset_declars_ride_piece():
+    """F1: the drumsep-kit preset must declare the ride piece in its outputs
+    so a re-run would claim all six emissions (no orphans)."""
+    preset = _sm.get_preset("drumsep-kit")
+    outs = preset.steps[0].outputs
+    assert "ride" in outs
+    assert "hihat" in outs
+    assert "cymbals" in outs
+    assert len(outs) == 7  # kick, snare, hihat, cymbals, ride, toms, drums_other
+
+
 def test_dereverb_maps_tail_and_lead():
     model = _sm.get_model("deverb-mel-band-roformer-anvuew")
     # Actual anvuew emissions are "(noreverb)"/"(reverb)". The first v2 run
