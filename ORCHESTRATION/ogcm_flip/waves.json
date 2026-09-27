@@ -1,0 +1,85 @@
+{
+  "task": "OGCM drill flip — research-first chop-and-rebuild",
+  "project_root": "d:/Projects/Music-AI-Toolshop",
+  "orchestration_dir": "ORCHESTRATION/ogcm_flip",
+  "plan": "d:/Projects/.workspace_archive/plans/ogcm-flip-research-first-rebuild.md",
+  "user_decisions": {
+    "approach": "chop-and-rebuild (not whole-track stretch)",
+    "source": "2Pac - Only God Can Judge Me, re-separate better",
+    "drums_808": "extracted from the track where possible",
+    "deliverable": "new beat + 2Pac acapella re-laid over it"
+  },
+  "waves": [
+    {
+      "wave": "R",
+      "name": "Research",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "R1",
+          "role": "researcher",
+          "name": "Separation stack for a 1996 hip-hop master",
+          "scope": "web-only",
+          "prompt": "prompts/waveR_R1_separation.md",
+          "output": "researcher_ogcm_separation_<stamp>.md (workspace handoffs)"
+        },
+        {
+          "id": "R2",
+          "role": "researcher",
+          "name": "Chop-and-rebuild sample-flip mechanics",
+          "scope": "web-only",
+          "prompt": "prompts/waveR_R2_chop_rebuild.md",
+          "output": "researcher_ogcm_chop_rebuild_<stamp>.md (workspace handoffs)"
+        },
+        {
+          "id": "R3",
+          "role": "researcher",
+          "name": "Drill drums + sliding 808 from extracted material",
+          "scope": "web-only",
+          "prompt": "prompts/waveR_R3_drums_808.md",
+          "output": "researcher_ogcm_drums_808_<stamp>.md (workspace handoffs)"
+        },
+        {
+          "id": "R4",
+          "role": "researcher",
+          "name": "Acapella re-lay at new tempo",
+          "scope": "web-only",
+          "prompt": "prompts/waveR_R4_acapella_relay.md",
+          "output": "researcher_ogcm_acapella_relay_<stamp>.md (workspace handoffs)"
+        }
+      ]
+    },
+    {
+      "wave": 0,
+      "name": "Synthesis + spec freeze",
+      "parallel": false,
+      "gate_after": true,
+      "blocked_by": ["R1", "R2", "R3", "R4"],
+      "note": "Orchestrator synthesizes handoffs, reconciles tempo picks, freezes .workspace_archive/plans/ogcm-flip-*.spec.md. USER GATE."
+    },
+    {
+      "wave": 1,
+      "name": "W0 re-separation",
+      "parallel": false,
+      "blocked_by": ["synthesis"],
+      "note": "Chosen separation chain -> Stemmeca_alatkka/stems/v2/ + bleed/cleanliness evidence. Fallback: existing htdemucs_6s + karaoke pass."
+    },
+    {
+      "wave": 2,
+      "name": "W1-W3 beat build (chops -> drum kit/808 -> beat render)",
+      "parallel": false,
+      "gate_after": true,
+      "blocked_by": ["wave1"],
+      "note": "beatgrid+structure+remix_adapter machinery. USER LISTEN GATE after beat render."
+    },
+    {
+      "wave": 3,
+      "name": "W4 vocal re-lay + W5 master/delivery",
+      "parallel": false,
+      "gate_after": true,
+      "blocked_by": ["wave2"],
+      "note": "transcribe.py word-timings -> phrase alignment; -14 LUFS streaming master + optional club variant."
+    }
+  ]
+}

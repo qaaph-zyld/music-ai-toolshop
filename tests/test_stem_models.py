@@ -204,3 +204,95 @@ def test_verify_without_a_manifest_is_not_silently_ok(tmp_path, monkeypatch):
     result = _sm.verify_model_cache(_fake_cache(tmp_path))
     assert result["ok"] is False
     assert "no manifest" in result["reason"]
+
+
+# ------------------------------------------------- OGCM flip: wave-0 registry
+
+
+def test_ogcm_models_registered():
+    for mid in ("mel-band-roformer-kim-bleedless", "deverb-mel-band-roformer-anvuew", "mdx23c-drumsep"):
+        assert _sm.get_model(mid).backend == "audio-separator"
+
+
+def test_ogcm_flip_preset_chains_vocal_cleanup():
+    preset = _sm.get_preset("ogcm-flip")
+    assert [s.model_id for s in preset.steps] == [
+        "mel-band-roformer-kim-bleedless",
+        "mel-band-roformer-karaoke",
+        "deverb-mel-band-roformer-anvuew",
+    ]
+    produced = {"source"}
+    for step in preset.steps:
+        assert step.input in produced
+        produced.update(step.outputs)
+
+
+def test_drumsep_kit_preset_runs_on_stem():
+    preset = _sm.get_preset("drumsep-kit")
+    assert len(preset.steps) == 1
+    assert preset.steps[0].model_id == "mdx23c-drumsep"
+    assert preset.steps[0].input == "source"
+
+
+def test_drumsep_resolves_kit_pieces():
+    model = _sm.get_model("mdx23c-drumsep")
+    # audio-separator names outputs <input>_(<stem>)_<model>.wav — the model name
+    # itself contains "DrumSep", so a bare "drum" pattern would claim every
+    # output. Patterns must anchor on the parenthesised stem slot.
+    raw = [
+        "drums_(kick)_MDX23C-DrumSep-aufr33-jarredou.wav",
+        "drums_(snare)_MDX23C-DrumSep-aufr33-jarredou.wav",
+        "drums_(hihat)_MDX23C-DrumSep-aufr33-jarredou.wav",
+        "drums_(cymbals)_MDX23C-DrumSep-aufr33-jarredou.wav",
+        "drums_(toms)_MDX23C-DrumSep-aufr33-jarredou.wav",
+        "drums_(other)_MDX23C-DrumSep-aufr33-jarredou.wav",
+    ]
+    resolved = _sm.resolve_outputs(raw, model)
+    assert resolved["kick"].startswith("drums_(kick)")
+    assert resolved["snare"].startswith("drums_(snare)")
+    assert resolved["hihat"].startswith("drums_(hihat)")
+    assert resolved["cymbals"].startswith("drums_(cymbals)")
+    assert resolved["toms"].startswith("drums_(toms)")
+    assert resolved["drums_other"].startswith("drums_(other)")
+
+
+def test_drumsep_tom_pattern_immune_to_input_names():
+    model = _sm.get_model("mdx23c-drumsep")
+    # "custom" contains "tom" — an unanchored pattern would steal this output.
+    raw = [
+        "custom_(kick)_MDX23C-DrumSep-aufr33-jarredou.wav",
+        "custom_(toms)_MDX23C-DrumSep-aufr33-jarredou.wav",
+    ]
+    resolved = _sm.resolve_outputs(raw, model)
+    assert resolved["kick"].startswith("custom_(kick)")
+    assert resolved["toms"].startswith("custom_(toms)")
+
+
+def test_dereverb_maps_tail_and_lead():
+    model = _sm.get_model("deverb-mel-band-roformer-anvuew")
+    # A chained vocal input carries "(Vocals)" inside its own filename; each
+    # output file embeds that name, so "(Vocals)" appears in BOTH raw names and
+    # the "(Instrumental)" rule must claim the reverb tail first.
+    raw = [
+        "song_(Vocals)_karaoke_(Instrumental)_dereverb_mel_band_roformer_less_aggressive.wav",
+        "song_(Vocals)_karaoke_(Vocals)_dereverb_mel_band_roformer_less_aggressive.wav",
+    ]
+    resolved = _sm.resolve_outputs(raw, model)
+    assert resolved["reverb_tail"].startswith("song_(Vocals)_karaoke_(Instrumental)")
+    assert resolved["main_vocals"].startswith("song_(Vocals)_karaoke_(Vocals)")
+
+
+def test_kim_config_prefix_companion_not_orphan(tmp_path):
+    """Kim's MelBand sidecar uses a config_ PREFIX, neither recorded convention."""
+    cache = _fake_cache(tmp_path)
+    (cache / "config_mel_band_roformer_kim_ft_unwa.yaml").write_text("cfg", encoding="utf-8")
+    status = _sm.check_model_cache(cache)
+    assert "config_mel_band_roformer_kim_ft_unwa.yaml" not in status["orphans"]
+
+
+def test_declared_companion_recorded_in_manifest(tmp_path):
+    cache = _fake_cache(tmp_path)
+    (cache / "config_mel_band_roformer_kim_ft_unwa.yaml").write_text("cfg", encoding="utf-8")
+    manifest = _sm.build_model_manifest(cache)
+    entry = manifest["models"]["config_mel_band_roformer_kim_ft_unwa.yaml"]
+    assert entry["companion_of"] == "mel_band_roformer_kim_ft2_bleedless_unwa.ckpt"

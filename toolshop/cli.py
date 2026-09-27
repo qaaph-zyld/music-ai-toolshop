@@ -28,6 +28,7 @@ from . import reverse_engineering_adapter
 from . import voice_effects_adapter
 from mastering_tool.tools.vocal_doctor import diagnose_and_recommend
 from . import stem_extractor_adapter
+from . import stem_models
 from . import cleaning_pipeline_adapter
 from . import doctor as doctor_module
 from . import remix_cli
@@ -509,7 +510,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--preset",
         type=str,
         default="karaoke",
-        choices=["karaoke", "vocals-hq", "full-vocals", "full-vocals-hq", "4stem", "6stem"],
+        choices=stem_models.list_presets(),
         help="Separation preset (default: karaoke)",
     )
     stems_parser.add_argument(
@@ -1477,6 +1478,47 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Output scores as JSON instead of text"
     )
 
+    # =========================================================================
+    # FLIP (sample-flip lane — OGCM drill flip)
+    # =========================================================================
+    flip_parser = subparsers.add_parser(
+        "flip", help="Chop-and-rebuild sample flip tools"
+    )
+    flip_subparsers = flip_parser.add_subparsers(dest="flip_command")
+    flip_subparsers.required = True
+
+    # flip chops --bed WAV [--vocals WAV] --out DIR [--top-n N] [--loops N] [--json]
+    flip_chops_parser = flip_subparsers.add_parser(
+        "chops", help="Rank bar-aligned loop candidates in an instrumental bed"
+    )
+    flip_chops_parser.add_argument(
+        "--bed", type=Path, required=True,
+        help="Instrumental bed audio (e.g. separated instrumental WAV)",
+    )
+    flip_chops_parser.add_argument(
+        "--vocals", type=Path, default=None,
+        help="Optional vocal stem for residual-bleed scoring",
+    )
+    flip_chops_parser.add_argument(
+        "--out", type=Path, required=True,
+        help="Output dir for manifest.json + audition pack",
+    )
+    flip_chops_parser.add_argument(
+        "--top-n", type=int, default=24,
+        help="Manifest size cap (default: 24)",
+    )
+    flip_chops_parser.add_argument(
+        "--loops", type=int, default=2,
+        help="Loop repetitions per audition file (default: 2)",
+    )
+    flip_chops_parser.add_argument(
+        "--bar-lengths", type=str, default="1,2,4,8",
+        help="Comma-separated candidate lengths in bars (default: 1,2,4,8)",
+    )
+    flip_chops_parser.add_argument(
+        "--json", action="store_true", help="Print manifest JSON to stdout"
+    )
+
     return parser
 
 
@@ -2091,6 +2133,44 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         code = swap_cli_module.run(args)
         if code != 0:
             raise SystemExit(code)
+
+    # =========================================================================
+    # FLIP (sample-flip lane)
+    # =========================================================================
+    elif args.command == "flip":
+        if args.flip_command == "chops":
+            import librosa
+            import soundfile as sf
+
+            from .flip import chops as flip_chops
+
+            y_bed, sr = librosa.load(str(args.bed), sr=None, mono=True)
+            y_vocal = None
+            if args.vocals:
+                y_vocal, _ = librosa.load(str(args.vocals), sr=sr, mono=True)
+            bar_lengths = tuple(
+                int(x) for x in str(args.bar_lengths).split(",") if x.strip()
+            )
+            manifest = flip_chops.find_candidates(
+                y_bed, sr, y_vocal=y_vocal, bar_lengths=bar_lengths, top_n=args.top_n
+            )
+            manifest_path = flip_chops.write_manifest(manifest, args.out / "manifest.json")
+            written = flip_chops.write_audition_pack(
+                y_bed, sr, manifest, args.out / "audition", loops=args.loops
+            )
+            print(f"✓ {len(manifest['candidates'])} candidates → {manifest_path}")
+            print(f"✓ {len(written)} audition loops → {args.out / 'audition'}")
+            for i, c in enumerate(manifest["candidates"][:10]):
+                print(
+                    f"  {i+1:2d}. {c['start_s']:7.2f}s–{c['end_s']:7.2f}s "
+                    f"{c['bars']}bar {c['segment_class']}×{c['repetitions']} "
+                    f"score={c['score']:.3f} key={c['tonal_center']} {c['tonal_mode']}"
+                )
+            if args.json:
+                import json as _json
+                print(_json.dumps(manifest, indent=2))
+        else:
+            parser.error("Unknown 'flip' subcommand.")
 
     # =========================================================================
     # LYRICS (Genius)

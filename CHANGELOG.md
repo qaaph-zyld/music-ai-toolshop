@@ -1,5 +1,59 @@
 # Changelog
 
+### Answer #060 - OGCM flip lane W0+W1: RoFormer separation registry + `toolshop flip chops` candidate extraction.
+**Timestamp:** 2026-09-27
+**Action Type:** Implementation — first wave of the "Only God Can Judge Me" chop-and-rebuild project
+
+**Previous state:** the July remix path (`toolshop remix`) produced `2pac_drill_flip_whole.wav` —
+the same instrumental time-stretched and pitch-shifted globally. Sonically clean, musically
+unchanged: no chops, no drill drums, no 808 slides, and a global shift that can't land a canonical
+drill key. Research wave (`ORCHESTRATION/ogcm_flip/`, 4 parallel reports, synthesis at
+`.workspace_archive/handoffs/research_synthesis_ogcm_20260927_1629.md`) replaced that approach with
+separation → bar-level chop candidates → drill grammar → dual-grid blind A/B.
+
+**Current state:**
+- `stem_models.py` registry extended with three verified audio-separator models:
+  MelBand RoFormer Kim bleedless vocal/instrum (`mel_band_roformer_kim_ft2_bleedless_unwa.ckpt`),
+  anvuew dereverb (`dereverb_mel_band_roformer_less_aggressive_anvuew_sdr_18.8050.ckpt`),
+  MDX23C DrumSep (`aufr33-jarredou_DrumSep_model_mdx23c_ep_141_sdr_10.8059.ckpt`). Companion
+  `config_*`/`*.yaml` files declared so `check_model_cache` reports zero orphans.
+  Two presets registered: `ogcm-flip` (instrumental bed → karaoke → dereverb chain) and
+  `ogcm-drumsep` (drums.wav → kit pieces). `toolshop stems` preset choices now generated from the
+  registry instead of a hardcoded list. Model cache verified complete (3 models, ~2.2 GB).
+- New `toolshop/flip/` subpackage: `chops.py` ranks bar-aligned loop candidates on a beat-synchronous
+  chroma SSM (lag-domain diagonal enhancement), scores seam/loopability, lag-domain repetition,
+  boundary novelty, duration prior, and vocal-bleed penalty (beat-synced RMS envelope correlation).
+  Per-chop Krumhansl tonal center + confidence, and a `shift_keys` map reporting the landing key for
+  each UK-dark shift arm (-1/-4/-5 st) — the manifest says "F minor" only when the content actually
+  reads relative-minor. Candidates snap cuts to zero crossings with 8 ms microfades.
+- `toolshop flip chops --bed X --vocals Y --out DIR` writes `manifest.json` + an audition pack
+  (each candidate rendered as a looped WAV).
+- Verified end-to-end on the legacy `instrumental_internal.wav` bed + `vocals.wav`: 24 candidates,
+  sensible seam (0.67–0.99) and bleed (0–0.32) spreads, tonal centers reading F# minor — the
+  expected relative-minor reading of the A-major source. Caveat: `downbeat_confidence` 0.02 — the
+  4/4 grid is internally consistent but bar-1 phase may be shifted; audible check at GATE C.
+
+**Files affected:** `toolshop/stem_models.py`, `toolshop/cli.py`, `toolshop/flip/{__init__,chops}.py`,
+`tests/test_stem_models.py` (26 tests), `tests/test_flip_chops.py` (9 tests), `pyproject.toml`
+(`[flip]` extra), `scripts/preseed_ogcm_models.py`, `ORCHESTRATION/ogcm_flip/` (dispatch + prompts +
+waves.json), `CHANGELOG.md`.
+
+#### Technical Decisions:
+- Registry extension rather than ad-hoc audio-separator calls — manifests, hash checks, and
+  `resolve_outputs` mapping stay centralized.
+- Buffer-based NumPy assembly (no MIDI/SF2 roundtrip) per both R2 research reports.
+- Beat-synced chroma/SSM candidate finding reuses `structure.segment_track` + `beatgrid.analyze_beats`
+  instead of a second segmentation implementation.
+- Tonal-center confidence is reported, not hidden — low-confidence chops are flagged rather than
+  trusted, so GATE C can weight key labels appropriately.
+
+#### Next Actions Required:
+- W0 finish: confirm `stems/v2` chain outputs (RoFormer run in progress), karaoke+dereverb, DrumSep
+  on drums.wav, bleed evidence JSON, handoff.
+- GATE C: audition `flip_chops` pack on the W0 bleedless bed, pick the chop set.
+- W2: one-shot mining + hybrid 808. W3: render both grids (178.2 / 133.65 BPM). W4: phrase re-lay.
+  W5: master + blind A/B.
+
 ### Answer #059 - suno_prompter added as git submodule: the Suno Prompt Engine joins the toolshop.
 **Timestamp:** 2026-09-14
 **Action Type:** New component - separate product repo mounted as submodule

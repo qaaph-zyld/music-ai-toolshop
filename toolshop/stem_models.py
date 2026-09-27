@@ -39,6 +39,10 @@ class StemModel:
     source: Optional[str] = None
     # Format the backend can write directly (audio-separator supports flac/wav).
     default_output_format: str = "wav"
+    # Companion config files that download alongside the checkpoint. Needed when
+    # a model's sidecar does not follow either auto-detected convention (same
+    # stem, or <stem>_config) — e.g. config_*.yaml prefixed names.
+    companion_files: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -154,6 +158,79 @@ MODELS: Dict[str, StemModel] = {
         vram_gb=None,
         license="UVR",
         source="https://github.com/Anjok07/ultimatevocalremovergui",
+    ),
+    "mel-band-roformer-kim-bleedless": StemModel(
+        id="mel-band-roformer-kim-bleedless",
+        backend="audio-separator",
+        model_file="mel_band_roformer_kim_ft2_bleedless_unwa.ckpt",
+        stems=["instrumental", "vocals"],
+        output_patterns=[
+            ("Instrumental", "instrumental"),
+            ("Vocals", "vocals"),
+        ],
+        quality_tier="hq",
+        # NOT YET MEASURED on this machine. bs-roformer-317 measured 26.06 min
+        # for a 2.85 min track (~9.1x realtime, 2026-08-30); this model is a
+        # comparable MDXC-architecture model, so expect the same order until the
+        # ogcm-flip wave-0 run records a real number here.
+        # Model choice: "Kim FT2 Bleedless" (unwa finetune) is the instrumental-
+        # bleedless variant cited by wave-R research (bleedless ≈46.56).
+        cpu_min_per_track=None,
+        vram_gb=None,
+        license="unverified — see source; weights by KimberleyJSN/unwa, terms undeclared",
+        source="https://huggingface.co/pcunwa/Mel-Band-Roformer-Kim (remote registry: 'MelBand Roformer Kim | FT 2 Bleedless by unwa')",
+        companion_files=["config_mel_band_roformer_kim_ft_unwa.yaml"],
+    ),
+    "deverb-mel-band-roformer-anvuew": StemModel(
+        id="deverb-mel-band-roformer-anvuew",
+        backend="audio-separator",
+        model_file="dereverb_mel_band_roformer_less_aggressive_anvuew_sdr_18.8050.ckpt",
+        stems=["main_vocals", "reverb_tail"],
+        output_patterns=[
+            # Run as a polish pass on a vocal stem: the "Instrumental" output is
+            # the rejected reverb tail, the "Vocals" output is the dry vocal.
+            # "(Instrumental)" must resolve FIRST — a chained vocal filename
+            # embeds "(Vocals)" in its input-name portion, so both raw outputs
+            # contain both substrings.
+            ("(Instrumental)", "reverb_tail"),
+            ("(Vocals)", "main_vocals"),
+        ],
+        quality_tier="hq",
+        # Less-aggressive variant chosen deliberately: the aggressive 19.17 SDR
+        # edition strips more ambience but risks hollowing the vocal.
+        cpu_min_per_track=None,
+        vram_gb=None,
+        license="unverified — see source; weights by anvuew, terms undeclared",
+        source="https://huggingface.co/anvuew (remote registry: 'MelBand Roformer | De-Reverb Less Aggressive by anvuew')",
+        companion_files=["dereverb_mel_band_roformer_anvuew.yaml"],
+    ),
+    "mdx23c-drumsep": StemModel(
+        id="mdx23c-drumsep",
+        backend="audio-separator",
+        model_file="MDX23C-DrumSep-aufr33-jarredou.ckpt",
+        stems=["kick", "snare", "hihat", "cymbals", "toms", "drums_other"],
+        output_patterns=[
+            # Parenthesised anchors are load-bearing here: the model's own name
+            # contains "DrumSep", so a bare "drum" pattern would claim every
+            # output, and a bare "tom" pattern would match input names like
+            # "custom"/"symptom". Only the (stem) slot is trustworthy.
+            ("(kick)", "kick"),
+            ("(snare)", "snare"),
+            ("(hihat)", "hihat"),
+            ("(hi-hat)", "hihat"),
+            ("(hi_hat)", "hihat"),
+            ("(cymbal", "cymbals"),
+            ("(toms)", "toms"),
+            ("(tom)", "toms"),
+            ("(other)", "drums_other"),
+            ("(drum", "drums_other"),
+        ],
+        quality_tier="hq",
+        cpu_min_per_track=None,
+        vram_gb=None,
+        license="unverified — see source; weights by aufr33/jarredou, terms undeclared",
+        source="https://github.com/jarredou/models (remote registry: 'MDX23C Model: MDX23C DrumSep by aufr33-jarredou')",
+        companion_files=["config_drumsep_mdx23c.yaml"],
     ),
     "htdemucs": StemModel(
         id="htdemucs",
@@ -280,6 +357,46 @@ PRESETS: Dict[str, Preset] = {
             ),
         ],
     ),
+    "ogcm-flip": Preset(
+        id="ogcm-flip",
+        description=(
+            "OGCM drill-flip chain: Kim MelBand instrumental+vocal, then karaoke "
+            "split (lead vs backing/hook), then anvuew de-reverb on the lead. "
+            "Final stems: instrumental, backing_vocals, lead_vocal."
+        ),
+        steps=[
+            PresetStep(
+                model_id="mel-band-roformer-kim-bleedless",
+                input="source",
+                outputs=["instrumental", "vocals"],
+            ),
+            PresetStep(
+                model_id="mel-band-roformer-karaoke",
+                input="vocals",
+                outputs=["main_vocals", "backing_vocals"],
+            ),
+            PresetStep(
+                model_id="deverb-mel-band-roformer-anvuew",
+                input="main_vocals",
+                outputs=["lead_vocal"],
+                aliases={"main_vocals": "lead_vocal"},
+            ),
+        ],
+    ),
+    "drumsep-kit": Preset(
+        id="drumsep-kit",
+        description=(
+            "MDX23C DrumSep kit-piece split. Run on a *drums stem* (not the mix): "
+            "kick, snare, hihat, cymbals, toms, drums_other."
+        ),
+        steps=[
+            PresetStep(
+                model_id="mdx23c-drumsep",
+                input="source",
+                outputs=["kick", "snare", "hihat", "cymbals", "toms", "drums_other"],
+            ),
+        ],
+    ),
 }
 
 
@@ -369,6 +486,12 @@ def check_model_cache(cache_root: Path) -> Dict[str, Any]:
     #   mel_band_roformer_karaoke_..._sdr_10.1956_config.yaml -> stem + "_config"
     companion_suffixes = {".yaml", ".yml", ".json"}
     companion_stem_affixes = ("_config",)
+    # Third convention: models may declare companions explicitly when the
+    # sidecar shares no stem with the checkpoint (e.g. config_*.yaml prefixes).
+    declared_companions = {
+        c for m in MODELS.values() if m.backend == "audio-separator"
+        for c in m.companion_files
+    }
     expected = {
         m.model_file for m in MODELS.values() if m.backend == "audio-separator"
     }
@@ -393,6 +516,8 @@ def check_model_cache(cache_root: Path) -> Dict[str, Any]:
     expected_stems = {Path(name).stem for name in expected}
 
     def _is_companion(name: str) -> bool:
+        if name in declared_companions:
+            return True
         path = Path(name)
         if path.suffix.lower() not in companion_suffixes:
             return False
@@ -456,10 +581,12 @@ def build_model_manifest(cache_root: Path) -> Dict[str, Any]:
             "license": model.license,
             "source": model.source,
         }
-        # Both companion conventions seen in the wild (see check_model_cache).
+        # Companion conventions seen in the wild (see check_model_cache), plus
+        # any companions declared explicitly on the registry entry.
         for companion in (
             path.with_suffix(".yaml"),
             path.with_name(path.stem + "_config.yaml"),
+            *(cache_root / c for c in model.companion_files),
         ):
             if companion.exists():
                 entries[companion.name] = {
