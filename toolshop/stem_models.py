@@ -124,12 +124,9 @@ MODELS: Dict[str, StemModel] = {
             ("Vocals", "main_vocals"),
         ],
         quality_tier="hq",
-        # NOT YET MEASURED. The `full-vocals-hq` run was stopped after the
-        # bs-roformer first pass so it would not hold up close-out. What is known:
-        # this preset runs bs-roformer (26.06 min measured) *plus* this 870 MB
-        # model, so full-vocals-hq is **>26 min/track** and almost certainly ~50.
-        # That is a lower bound, not a measurement - finish it before quoting a figure.
-        cpu_min_per_track=None,
+        # MEASURED 2026-09-27 on this machine (CPU-only): 17.7 min for a 4.95 min
+        # vocal stem in the ogcm-flip chain — separation log "00:17:42".
+        cpu_min_per_track=17.7,
         vram_gb=None,
         # CORRECTED 2026-08-20. The previous entry claimed
         # source="https://github.com/RVC-Boss/GPT-SoVITS", license="MIT".
@@ -165,17 +162,19 @@ MODELS: Dict[str, StemModel] = {
         model_file="mel_band_roformer_kim_ft2_bleedless_unwa.ckpt",
         stems=["instrumental", "vocals"],
         output_patterns=[
-            ("Instrumental", "instrumental"),
-            ("Vocals", "vocals"),
+            # Actual emissions are lowercase "(vocals)"/"(other)" — the first
+            # v2 run orphaned "(other)" because "(Instrumental)" never matched.
+            # "(other)" first: a chained input name can carry "(vocals)" from
+            # an upstream model.
+            ("(other)", "instrumental"),
+            ("(vocals)", "vocals"),
         ],
         quality_tier="hq",
-        # NOT YET MEASURED on this machine. bs-roformer-317 measured 26.06 min
-        # for a 2.85 min track (~9.1x realtime, 2026-08-30); this model is a
-        # comparable MDXC-architecture model, so expect the same order until the
-        # ogcm-flip wave-0 run records a real number here.
+        # MEASURED 2026-09-27 on this machine (CPU-only): 18.1 min for the
+        # 4.95 min OGCM track (~3.7x realtime) — separation log "00:18:07".
         # Model choice: "Kim FT2 Bleedless" (unwa finetune) is the instrumental-
         # bleedless variant cited by wave-R research (bleedless ≈46.56).
-        cpu_min_per_track=None,
+        cpu_min_per_track=18.1,
         vram_gb=None,
         license="unverified — see source; weights by KimberleyJSN/unwa, terms undeclared",
         source="https://huggingface.co/pcunwa/Mel-Band-Roformer-Kim (remote registry: 'MelBand Roformer Kim | FT 2 Bleedless by unwa')",
@@ -187,18 +186,20 @@ MODELS: Dict[str, StemModel] = {
         model_file="dereverb_mel_band_roformer_less_aggressive_anvuew_sdr_18.8050.ckpt",
         stems=["main_vocals", "reverb_tail"],
         output_patterns=[
-            # Run as a polish pass on a vocal stem: the "Instrumental" output is
-            # the rejected reverb tail, the "Vocals" output is the dry vocal.
-            # "(Instrumental)" must resolve FIRST — a chained vocal filename
-            # embeds "(Vocals)" in its input-name portion, so both raw outputs
-            # contain both substrings.
-            ("(Instrumental)", "reverb_tail"),
-            ("(Vocals)", "main_vocals"),
+            # Actual emissions are "(noreverb)"/"(reverb)". The first v2 run
+            # used "(Vocals)"/"(Instrumental)" and "(Vocals)" matched the
+            # upstream karaoke name embedded in the input-name portion, so
+            # lead_vocal claimed the reverb residue. Paren anchors are
+            # load-bearing: bare "reverb" would match "(noreverb)" too.
+            ("(noreverb)", "main_vocals"),
+            ("(reverb)", "reverb_tail"),
         ],
         quality_tier="hq",
+        # MEASURED 2026-09-27 on this machine (CPU-only): 16.1 min for a 4.95 min
+        # lead-vocal stem — separation log "00:16:07".
         # Less-aggressive variant chosen deliberately: the aggressive 19.17 SDR
         # edition strips more ambience but risks hollowing the vocal.
-        cpu_min_per_track=None,
+        cpu_min_per_track=16.1,
         vram_gb=None,
         license="unverified — see source; weights by anvuew, terms undeclared",
         source="https://huggingface.co/anvuew (remote registry: 'MelBand Roformer | De-Reverb Less Aggressive by anvuew')",
@@ -378,7 +379,7 @@ PRESETS: Dict[str, Preset] = {
             PresetStep(
                 model_id="deverb-mel-band-roformer-anvuew",
                 input="main_vocals",
-                outputs=["lead_vocal"],
+                outputs=["lead_vocal", "reverb_tail"],
                 aliases={"main_vocals": "lead_vocal"},
             ),
         ],

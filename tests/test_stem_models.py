@@ -270,16 +270,29 @@ def test_drumsep_tom_pattern_immune_to_input_names():
 
 def test_dereverb_maps_tail_and_lead():
     model = _sm.get_model("deverb-mel-band-roformer-anvuew")
-    # A chained vocal input carries "(Vocals)" inside its own filename; each
-    # output file embeds that name, so "(Vocals)" appears in BOTH raw names and
-    # the "(Instrumental)" rule must claim the reverb tail first.
+    # Actual anvuew emissions are "(noreverb)"/"(reverb)". The first v2 run
+    # had imaginary "(Vocals)"/"(Instrumental)" patterns and claimed the
+    # reverb residue as lead_vocal — this test pins the real names.
     raw = [
-        "song_(Vocals)_karaoke_(Instrumental)_dereverb_mel_band_roformer_less_aggressive.wav",
-        "song_(Vocals)_karaoke_(Vocals)_dereverb_mel_band_roformer_less_aggressive.wav",
+        "song_(Vocals)_karaoke_(reverb)_dereverb_mel_band_roformer_less_aggressive.wav",
+        "song_(Vocals)_karaoke_(noreverb)_dereverb_mel_band_roformer_less_aggressive.wav",
     ]
     resolved = _sm.resolve_outputs(raw, model)
-    assert resolved["reverb_tail"].startswith("song_(Vocals)_karaoke_(Instrumental)")
-    assert resolved["main_vocals"].startswith("song_(Vocals)_karaoke_(Vocals)")
+    assert resolved["main_vocals"].endswith("_(noreverb)_dereverb_mel_band_roformer_less_aggressive.wav")
+    assert resolved["reverb_tail"].endswith("_(reverb)_dereverb_mel_band_roformer_less_aggressive.wav")
+
+
+def test_kim_bleedless_resolves_lowercase_stems():
+    model = _sm.get_model("mel-band-roformer-kim-bleedless")
+    # Actual emissions are lowercase "(vocals)"/"(other)" — "(Instrumental)"
+    # never matched and orphaned the bed in the first v2 run.
+    raw = [
+        "song_(other)_mel_band_roformer_kim_ft2_bleedless_unwa.wav",
+        "song_(vocals)_mel_band_roformer_kim_ft2_bleedless_unwa.wav",
+    ]
+    resolved = _sm.resolve_outputs(raw, model)
+    assert resolved["instrumental"].endswith("_(other)_mel_band_roformer_kim_ft2_bleedless_unwa.wav")
+    assert resolved["vocals"].endswith("_(vocals)_mel_band_roformer_kim_ft2_bleedless_unwa.wav")
 
 
 def test_kim_config_prefix_companion_not_orphan(tmp_path):
