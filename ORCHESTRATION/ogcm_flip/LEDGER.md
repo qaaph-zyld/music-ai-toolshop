@@ -25,8 +25,10 @@ Handoffs dir: `D:\Projects\.workspace_archive\handoffs\`
 
 ## Wave 0 — Synthesis + spec freeze (APPROVED 2026-09-27 — implementation authorized)
 
-Spec: `D:\Projects\.workspace_archive\plans\ogcm-flip-synthesis.spec.md` (D1–D9);
-implementation plan: `C:\Users\015ZCS\.devin\plans\plan-87307e9665c424d6.md` (mirrored
+Canonical spec: `D:\Projects\.workspace_archive\plans\ogcm-flip.spec.md` (user-adjudicated
+2026-09-27). `ogcm-flip-synthesis.spec.md` and `ogcm-flip-rebuild.spec.md` are SUPERSEDED
+(banners on disk) — kept as reconciliation/analysis records. Implementation plan:
+`C:\Users\015ZCS\.devin\plans\plan-87307e9665c424d6.md` (mirrored
 `.workspace_archive\plans\ogcm-flip-research-first-rebuild.md`).
 
 Adversarial review applied (target: plan) → **approved-with-fixes**, all medium findings fixed
@@ -38,28 +40,41 @@ in plan. Report: `D:\Projects\.workspace_archive\reviews\2026-09-27_1629_ogcm-fl
 - Dependencies: **authorized** — audio-separator models pre-seeded to `~/.cache/toolshop-models`.
 - Code location: **`toolshop/flip/`** subpackage.
 
-## Wave 1 — implementation W0+W1 (IN PROGRESS 2026-09-27)
+## Wave 1 — implementation W0+W1 (executed by polite-piranha; continued by devin session 2026-09-27)
 
 - W0 registry: `stem_models.py` extended — MelBand RoFormer Kim bleedless
   (`mel_band_roformer_kim_ft2_bleedless_unwa.ckpt`), anvuew dereverb, MDX23C DrumSep;
   `ogcm-flip` chain preset + `ogcm-drumsep` preset; dynamic CLI preset choices.
   Cache verified complete, zero orphans. Commit `eecfd0b`.
-- W0 run: full-track `ogcm-flip` chain → `Stemmeca_alatkka/stems/v2/` RUNNING
-  (step 1/3 Kim done 18:07; step 2 karaoke in progress; step 3 dereverb pending).
-- W1 chops: `toolshop/flip/chops.py` + `toolshop flip chops` CLI — 24 candidates on legacy
-  bed, seam/bleed/tonal-center scoring verified; audition pack at
-  `stems/flip_chops_v1/`. Caveat: `downbeat_confidence` 0.02 (grid internally consistent,
-  bar-1 phase may shift — audible check at GATE C).
-- W2 scaffolding: `drums.py` (one-shot mining + fallback classifier + drill grammar) +
-  `bass808.py` (mono-legato glide sub + transient layer + ducking). 15 tests.
+- W0 run DONE: full-track `ogcm-flip` chain → `stems/v2/` — 3 passes ≈52 min CPU
+  (Kim 18.07 / karaoke 17.42 / anvuew dereverb 16.07 min on the 4.95-min track).
+  Incident: registry `output_patterns` imagined `(Vocals)`/`(Instrumental)` — real
+  emissions are `(other)`/`(vocals)` and `(noreverb)`/`(reverb)`; bed orphaned,
+  lead claimed the reverb tail. Fixed patterns + manifest repaired in place (audio
+  was always correct); committed by continuation session → `50f5a25`.
+- Bleed evidence `stems/v2/bleed_evidence.json`: `vocal_active_env_corr_v2` 0.0,
+  `vocal_silent_rms_ratio_v2` 0.0 vs legacy 0.01015, `reverb_tail_peak_ratio` 0.124
+  (modest ambience removal — not hollowed).
+- DrumSep DONE 18:48 (~59 min wall): `stems/v2_drums/` — kick/snare/hh/crash/ride/toms
+  FLACs; kick+snare+hh carry real signal, toms/ride/crash sparse (true to source).
+  Manifest maps kick/snare/toms only — other pieces present as extra outputs.
+- W1 chops: `toolshop/flip/chops.py` + `toolshop flip chops` CLI. **Gating pack =
+  `stems/flip_chops_v2/`** (24 candidates on the v2 bed, top 0.616 vs 0.555 legacy;
+  B×7 segment-class discrimination vs collapsed A×8; tonal centers F#m/Bm/D).
+  Caveat: `downbeat_confidence` 0.02–0.08 — bar-1 phase by ear at GATE C.
+  (v1 pack on legacy bed superseded.)
+- W2 scaffolding: `drums.py` (one-shot mining + `piece_hint` + fallback classifier +
+  drill grammar) + `bass808.py` (mono-legato glide sub + transient layer + ducking).
 - W3/W4 scaffolding: `assemble.py` (bounded-stretch grid placement, single-pass
-  pedalboard) + `relay.py` (gap+energy-dip phrases, beat-fraction preserving map). 13 tests.
-  Commit `7b3f625`.
-- Records: CHANGELOG #060, STATUS.md Flip lane row, `[flip]` extra in pyproject.
+  pedalboard) + `relay.py` (gap+energy-dip phrases, beat-fraction preserving map).
+  Commit `7b3f625`. 59 tests claimed by wave-1 handoff; stem tests re-verified 27 ✓
+  by continuation session.
+- Records: CHANGELOG #060, STATUS.md Flip lane row (updated to v2-complete), `[flip]`
+  extra in pyproject.
 
-Remaining: finish chain (karaoke+dereverb), `ogcm-drumsep` on drums.wav, bleed evidence JSON,
-GATE C audition on v2 stems → chop pick → W2 one-shot mining on DrumSep stems → W3 dual-grid
-renders → W4 relay per grid → W5 master + blind A/B.
+Remaining: GATE C audition on `flip_chops_v2` pack (chop set + pitch arm + hook) →
+W2 one-shot mining on v2_drums stems → W3 dual-grid renders (178.2 + 133.65) →
+W4 relay per grid → W5 master + blind A/B (GATE F).
 
 ## Wave 2 — Beat build (blocked: needs W0 outputs + GATE C pick)
 
