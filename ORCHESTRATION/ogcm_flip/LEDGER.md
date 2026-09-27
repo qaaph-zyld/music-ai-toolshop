@@ -72,9 +72,15 @@ in plan. Report: `D:\Projects\.workspace_archive\reviews\2026-09-27_1629_ogcm-fl
 - Records: CHANGELOG #060, STATUS.md Flip lane row (updated to v2-complete), `[flip]`
   extra in pyproject.
 
+- Continuation-session prep (pick-independent, done while GATE C awaits user
+  audition): `scripts/ogcm_mine_oneshots.py` → `stems/flip_kit/` 18 one-shot
+  WAVs + `kit_manifest.json` (6 pieces × 3 reps); `scripts/ogcm_transcribe_lead.py`
+  → `stems/flip_relay/lead_transcript.json` (911 words, en p=1.00, mean_p 0.812,
+  115.3 s). GATE C staged: `stems/flip_chops_v2/GATE_C.md` + `audition/` loops.
+
 Remaining: GATE C audition on `flip_chops_v2` pack (chop set + pitch arm + hook) →
-W2 one-shot mining on v2_drums stems → W3 dual-grid renders (178.2 + 133.65) →
-W4 relay per grid → W5 master + blind A/B (GATE F).
+W2 kit verify + 808 root config → W3 dual-grid renders (178.2 + 133.65) →
+W4 relay per grid (transcript + grid source cached) → W5 master + blind A/B (GATE F).
 
 ## Wave 2 — Beat build (blocked: needs W0 outputs + GATE C pick)
 
