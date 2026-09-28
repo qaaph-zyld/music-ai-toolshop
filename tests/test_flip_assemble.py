@@ -114,3 +114,21 @@ def test_render_beat_full_stack():
     )
     assert np.abs(res.audio).max() > 0.3
     assert res.audio.size > int(16.0 * (60.0 / 178.2) * SR)
+
+
+def test_render_beat_bed_lane():
+    """m3: a pre-rendered bed lane mixes in under the "bed" gain key."""
+    manifest, bed = _manifest_and_bed()
+    t = np.arange(int(8 * SR)) / SR
+    lane = (0.5 * np.sin(2 * np.pi * 330 * t)).astype(np.float32)
+    res = assemble.render_beat(
+        bed, SR, manifest, [], bpm=120.0, bed_lane=lane,
+        total_beats=16.0, mix_levels={"bed": 0.5},
+    )
+    assert np.abs(res.audio).max() > 0.15
+    # gain=0 silences the lane
+    res0 = assemble.render_beat(
+        bed, SR, manifest, [], bpm=120.0, bed_lane=lane,
+        total_beats=16.0, mix_levels={"bed": 0.0},
+    )
+    assert np.abs(res0.audio).max() == pytest.approx(0.0)

@@ -15,11 +15,18 @@ register.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-GLIDE_MS_DEFAULT = 240.0      # drill octave slides sit ~200–300 ms
+# Drill-spec retune (megaplan W2 + research synthesis): slide *approach*
+# intervals are a minor 3rd or perfect 4th, and the glide window is
+# 90–200 ms (the earlier 240 ms default was the generic-808 figure).
+GLIDE_MS_MIN = 90.0
+GLIDE_MS_MAX = 200.0
+GLIDE_MS_DEFAULT = 140.0     # mid-window; drill slide approaches
+SLIDE_INTERVALS_ST = (3, 5)  # m3 / P4 — the only sanctioned slide sizes
+SLIDES_PER_4BARS = (2, 3)    # 2–3 slides per 4 written bars, landing on kicks
 DECAY_S = 1.6
 RELEASE_MS = 40.0
 ATTACK_MS = 4.0
@@ -149,3 +156,93 @@ def render_808(
 
     out = np.tanh(drive * out) / np.tanh(drive)
     return out.astype(np.float32)
+
+
+# ---------------------------------------------------------------------------
+# Drill 808 line programming (megaplan W2 retune)
+# ---------------------------------------------------------------------------
+
+def plan_808_line(
+    kick_times: Sequence[float],
+    bpm: float,
+    root_note: float,
+    total_s: Optional[float] = None,
+    slides_per_4bars: int = 2,
+    slide_intervals: Sequence[int] = SLIDE_INTERVALS_ST,
+) -> Tuple[List[Note808], List[dict]]:
+    """Program a mono-legato 808 line locked to the kick pattern.
+
+    One 808 note per kick onset (kick+808 = one low-end system). Most notes
+    sit on `root_note`; before each *slide target* kick the previous note is
+    raised by a m3/P4 (`slide_intervals`), so the note whose onset lands ON
+    the target kick glides down into the root — a drill slide that lands on
+    the kick. `slides_per_4bars` controls how many target kicks per 4
+    written bars are chosen (spec window: 2–3, evenly distributed).
+
+    Args:
+        kick_times: sorted kick onset times (s) the 808 should follow.
+        bpm: written-grid tempo (defines the 4-bar block = 16 beats).
+        root_note: MIDI note for the section root (landed key root).
+        total_s: render horizon; last note is held to this if given.
+        slides_per_4bars: slides per 4 written bars (2 or 3).
+        slide_intervals: allowed approach intervals in semitones (m3/P4).
+
+    Returns:
+        ``(notes, slide_events)`` — notes for `render_808` (monophonic:
+        strictly increasing onsets, each ending at the next onset + a small
+        legato overlap) and a slide table ``[{time_s, interval_st, block}]``
+        where each entry's `time_s` is exactly a kick onset.
+    """
+    if slides_per_4bars not in SLIDES_PER_4BARS:
+        raise ValueError(
+            f"slides_per_4bars must be one of {SLIDES_PER_4BARS} "
+            f"(drill spec: 2-3 slides per 4 bars), got {slides_per_4bars}"
+        )
+    kicks = sorted(float(t) for t in kick_times)
+    if not kicks:
+        return [], []
+    beat_s = 60.0 / bpm
+    block_s = 16.0 * beat_s  # 4 written bars
+
+    # Choose slide-target kicks per 4-bar block: the kicks nearest to evenly
+    # spaced fractions of the block — deterministic, spread across the block.
+    fracs = {2: (0.375, 0.875), 3: (0.25, 0.625, 0.875)}[slides_per_4bars]
+    candidate_targets = sorted({
+        min(members, key=lambda i: (abs(kicks[i] - want), i))
+        for blk in sorted({int(t / block_s) for t in kicks})
+        for members in [[i for i, t in enumerate(kicks) if int(t / block_s) == blk]]
+        for want in [blk * block_s + f * block_s for f in fracs]
+    })
+
+    # Slide approach: raise the pitch of the note PRECEDING each target kick
+    # by an alternating m3/P4, so the target (root) onset slides down in.
+    # `used` guards collisions: a raised approach note or a landing target
+    # may not serve as another target's approach (that would corrupt the
+    # interval that actually lands on the kick).
+    raised: Dict[int, int] = {}
+    slides: List[dict] = []
+    used: set = set()
+    n_slides = 0
+    for idx in candidate_targets:
+        prev = idx - 1
+        if idx == 0 or prev in used or idx in used:
+            continue
+        interval = int(slide_intervals[n_slides % len(slide_intervals)])
+        raised[prev] = interval
+        used.add(prev)
+        used.add(idx)
+        slides.append({
+            "time_s": round(kicks[idx], 4),
+            "interval_st": interval,
+            "block": int(kicks[idx] / block_s),
+        })
+        n_slides += 1
+
+    notes: List[Note808] = []
+    for i, t in enumerate(kicks):
+        nxt = kicks[i + 1] if i + 1 < len(kicks) else (total_s or t + 4 * beat_s)
+        dur = max(0.05, nxt - t + 0.02)  # small legato overlap
+        note = root_note + raised.get(i, 0)
+        notes.append(Note808(start_s=t, duration_s=dur, note=float(note), velocity=0.9))
+    slides.sort(key=lambda s: s["time_s"])
+    return notes, slides

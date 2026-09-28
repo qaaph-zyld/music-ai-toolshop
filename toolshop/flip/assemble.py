@@ -113,6 +113,7 @@ def render_beat(
     drum_events: Optional[Sequence[Any]] = None,
     one_shots: Optional[Dict[str, np.ndarray]] = None,
     bass808_audio: Optional[np.ndarray] = None,
+    bed_lane: Optional[np.ndarray] = None,
     src_bpm: Optional[float] = None,
     total_beats: Optional[float] = None,
     mix_levels: Optional[Dict[str, float]] = None,
@@ -130,11 +131,14 @@ def render_beat(
         one_shots: piece→buffer map for `drums.render_drums`.
         bass808_audio: pre-rendered 808 lane (from `bass808.render_808`),
             aligned to the same t=0.
+        bed_lane: pre-rendered melodic-bed lane (wave m3 `arrange.py` builds
+            it from `bed_lanes` voice renders for Lane B/C picks; Lane A
+            chops use `placements` instead). Aligned to t=0, gain key "bed".
         src_bpm: Source tempo for slot-fitting math (default: manifest grid).
         total_beats: Render length; default = end of last placement + 1 bar.
         mix_levels: {"chop": g, "drums": g, "808": g} gains.
     """
-    levels = {"chop": 1.0, "drums": 1.0, "808": 1.0, **(mix_levels or {})}
+    levels = {"chop": 1.0, "drums": 1.0, "808": 1.0, "bed": 1.0, **(mix_levels or {})}
     src_bpm = src_bpm or float(manifest.get("grid", {}).get("tempo", 89.1))
     cand_by_id = {c["id"]: c for c in manifest.get("candidates", [])}
 
@@ -197,6 +201,10 @@ def render_beat(
     if bass808_audio is not None and bass808_audio.size:
         m = min(n, bass808_audio.size)
         sub_lane[:m] = bass808_audio[:m] * levels["808"]
+
+    if bed_lane is not None and bed_lane.size:
+        m = min(n, bed_lane.size)
+        chop_lane[:m] += bed_lane[:m].astype(np.float32) * levels["bed"]
 
     mix = chop_lane + drums_lane + sub_lane
     peak = float(np.abs(mix).max())

@@ -282,6 +282,11 @@ def render_epiano(notes: Sequence[BedNote], sr: int = 22050,
     return out.astype(np.float32)
 
 
+def lowpass(x: np.ndarray, sr: int, cutoff_hz: float) -> np.ndarray:
+    """Public one-pole LPF — used by `arrange` for filtered intro beds."""
+    return _one_pole_lpf(x, sr, cutoff_hz).astype(np.float32)
+
+
 def _one_pole_lpf(x: np.ndarray, sr: int, cutoff_hz: float) -> np.ndarray:
     """One-pole low-pass filter (RC), vectorised via lfilter-equivalent recursion."""
     if cutoff_hz <= 0 or cutoff_hz >= sr / 2.0:

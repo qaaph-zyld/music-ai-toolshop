@@ -1,5 +1,39 @@
 # Changelog
 
+### Answer #060 - OGCM flip m3: W2 kit audit + 808 retune, W3 arrange.py + dual-grid renders (GATE C2 pick applied).
+**Timestamp:** 2026-09-28
+**Action Type:** Implementation — waves W2 (kit audit + 808 retune) and W3 (arrange.py + dual-grid beat renders) of the OGCM drill-flip megaplan, on the GATE C2 pick: arm `felt_89` (178.2 written/89.1 felt) = Lane B interpolated bed (`region_63_66_cleaned_Dm.mid`, epiano, D minor); arm `triplet_133` (133.65) = Lane C programmed motifs as section alternates (`motif_dm_1` pad/Dm verses + `motif_csm_1` epiano/C#m hooks). Lane A (chops) not used; hook sections reserve space for the backing-vocal-driven hook (m4 places vocals).
+
+**Kit audit (A29):** new `drums.audit_kit_manifest` verifies kept-hit peaks vs `MIN_ONESHOT_PEAK=0.01` / `USABLE_ONESHOT_PEAK=0.05` and file existence → `stems/flip_kit/kit_audit.json`. Result: all 6 pieces pass the floor; `cymbal` (crash stem, src_rms 0.0003) flagged **weak** (best rep 0.0263) — declared mitigation: crash accents only on section downbeats, `openhat` (ride, 0.104) carries sustained cymbal duties; the heuristic `classify_hit` remains the declared-only fallback path (`CLASSIFIER_FALLBACK`), never auto-selected.
+
+**808 retune (megaplan W2):** `bass808` glide window tightened to the drill spec — `GLIDE_MS_DEFAULT 240→140` inside the new `GLIDE_MS_MIN/MAX = 90–200 ms`; new `plan_808_line` programs the mono-legato line on the kick pattern with m3/P4 (`SLIDE_INTERVALS_ST=(3,5)`) approach notes, 2–3 slides per 4 written bars landing exactly on kicks, section root = landed key (D2 for Dm, C#2 for C#m sections).
+
+**F5 fixed properly:** `drums.drill_pattern` now emits a TRUE 2-bar kick cycle — cycle bar A = the 3+3+2 row (0,3,6,8,11,14), cycle bar B = (0,6,8,11,13,14) drops the "a"-of-1 accent and adds an "e"-of-4 pickup — instead of the old identical-per-bar loop with a misleading docstring.
+
+**NEW `toolshop/flip/arrange.py` (F3):** the missing arrangement layer — `Section`/`ArmPlan` (`intro` filtered+sparse → `verse` full → `hook` thinned bed + mute-drop → `outro`), per-arm span math `felt_span_written_bars` + LCM `supercycle_bars` (arm A: 8 written bars; arm B: LCM-12 supercycle), `plan_drum_events` (per-section density, mute-drops, section crash accents), `plan_bass`, `build_bed_lane` (tiles rendered motifs per section w/ per-section gain + optional one-pole LPF), `render_arm` (delegates mixing to `assemble.render_beat` via new `bed_lane` param), and `verify_render` (clip count, 1/24-beat grid adherence, mono<120 Hz). Motif library mirrored from the spike script + `write_motif_midi` materialises the picked motifs as `.mid` sources.
+
+**Dual-grid renders** → `Stemmeca_alatkka/stems/flip_renders/` (gitignored): `beat_felt_89.wav` (48 written bars, 65.6 s, supercycle 8) and `beat_triplet_133.wav` (72 written bars, 130.3 s, supercycle 12, Dm/C#m motif alternation) + per-render `beat_<arm>_events.json` (sections, drum events, 808 notes/slides, hook reservations, verification) + `renders_manifest.json`. Both verify: **clip count 0** (peaks 0.937/0.904 — no normaliser rescue needed after headroom-first mix levels), grid adherence PASS (all events on the 1/24-beat lattice, ≤1 sample), mono<120 Hz PASS. Arm-B reads clean — no early-exit.
+
+#### Files Affected:
+- **NEW:** `toolshop/flip/arrange.py` — arrangement layer (plans, mute-drops, span math, render + verify).
+- **NEW:** `scripts/ogcm_render_arms.py` — dual-grid render driver + kit-audit/motif-MIDI materialisation.
+- **NEW:** `tests/test_flip_arrange.py` — 14 tests (span math, plans, 2-bar cycle, 808 spec, bed lane, render verify).
+- **MODIFIED:** `toolshop/flip/drums.py` — true 2-bar kick cycle (F5), `audit_kit_manifest` + `load_kit_buffers`, declared classifier paths.
+- **MODIFIED:** `toolshop/flip/bass808.py` — 90–200 ms glide window (default 140), `plan_808_line` (m3/P4, lands on kicks).
+- **MODIFIED:** `toolshop/flip/assemble.py` — `bed_lane` param (pre-rendered melodic lane, `"bed"` mix key).
+- **MODIFIED:** `toolshop/flip/bed_lanes.py` — public `lowpass` wrapper (filtered intro beds).
+- **MODIFIED:** `tests/test_flip_drums.py` — +5 tests (2-bar cycle, kit audit verdicts/files, glide window, mono-legato overlap, `plan_808_line` spec); `tests/test_flip_assemble.py` — +1 test (bed_lane).
+- **NOT committed (gitignored data):** `stems/flip_renders/*` (wav+json), `stems/flip_kit/kit_audit.json`, `stems/flip_bed_lanes/midi/motif_*.mid`.
+
+#### Verification (run this session):
+- `pytest tests/test_flip_arrange.py tests/test_flip_drums.py tests/test_flip_assemble.py -x -q` → **43 passed** (exit 0).
+- `python scripts/ogcm_render_arms.py` → exit 0; kit audit `{cymbal: weak, hat/kick/openhat/snare/tom: pass}`; felt_89 65.6 s peak 0.937 clips 0 grid PASS mono120 PASS; triplet_133 130.3 s peak 0.904 clips 0 grid PASS mono120 PASS.
+
+#### Next Actions Required:
+- Wave m4 (W4): relay vocals onto both rendered grids; hook sections are marked in the event JSONs (`hook_sections`, reserved for `backing_vocals`).
+
+---
+
 ### Answer #060 - OGCM flip W1′: bed-lane spike (basic-pitch ONNX) → GATE C2 audition pack.
 **Timestamp:** 2026-09-27
 **Action Type:** Implementation — wave W1′ of the OGCM drill-flip megaplan (melodic-bed pivot, pure-code render path).

@@ -39,6 +39,13 @@ SNARE_BAND = (1500.0, 8000.0)
 
 PIECE_ORDER = ("kick", "snare", "hat", "openhat", "cymbal", "tom", "other")
 
+#: Kit-audit thresholds (A29). Kept reps below MIN_ONESHOT_PEAK came from
+#: near-noise-floor stems (crash/ride src_rms ~0.0003) and are unusable;
+#: pieces whose BEST rep is under USABLE_ONESHOT_PEAK are flagged "weak" —
+#: usable but thin, so the arrangement should lean on stronger pieces.
+MIN_ONESHOT_PEAK = 0.01
+USABLE_ONESHOT_PEAK = 0.05
+
 
 @dataclass
 class OneShot:
@@ -207,23 +214,26 @@ def drill_pattern(bars: int = 4, ghost_snare: bool = True, hat_mode: str = "mix"
     """Bar-relative drill events as ``(beat_in_bar, piece, velocity)``.
 
     Skeleton: half-time snare on beat 3; ghost on "and" of 4 (optional);
-    kicks on a rotating 3+3+2 accent pattern; hats on 1/16 with a triplet
-    burst in the last bar and periodic gaps.
+    kicks on a TRUE 2-BAR CYCLE (drill convention — F5 fix): cycle bar A
+    carries the 3+3+2 accent row, cycle bar B drops the "a"-of-1 accent and
+    adds a late "e"-of-4 pickup so the two bars talk to each other; hats on
+    1/16 with a triplet burst in the last bar and periodic gaps.
     """
     events: List[Tuple[float, str, float]] = []
-    # 3+3+2 kick accents PER BAR (in sixteenth-note steps). The six-step
-    # cycle (0,3,6,8,11,14) repeats every bar here; a true 2-bar kick cycle
-    # belongs to the arrangement layer (wave m3 arrange.py), not this
-    # bar-relative generator. (F5: docstring previously claimed "across two
-    # bars", which contradicted the per-bar loop below.)
-    kick_steps_cycle = (0, 3, 6, 8, 11, 14)
+    # Kick rows per 2-bar cycle (sixteenth-note steps inside the bar).
+    # A = (0,3,6,8,11,14): the classic 3+3+2 skeleton.
+    # B = (0,6,8,11,13,14): the &1 accent is removed and an "e"-of-4 pickup
+    # (step 13) pushes into the next cycle — bar pairs breathe instead of
+    # looping a single bar, which is the drill foundation convention.
+    kick_steps_cycle = ((0, 3, 6, 8, 11, 14), (0, 6, 8, 11, 13, 14))
     for bar in range(bars):
+        cycle_bar = bar % 2
         # snare — half-time on beat 3 (beat index 2), ghost on and-of-4 (3.5)
         events.append((bar * 4 + 2.0, "snare", 1.0))
-        if ghost_snare and bar % 2 == 1:
+        if ghost_snare and cycle_bar == 1:
             events.append((bar * 4 + 3.5, "snare", 0.45))
-        # kicks — 3+3+2 accents, offset per bar cycle
-        for step in kick_steps_cycle:
+        # kicks — alternating row per cycle bar
+        for step in kick_steps_cycle[cycle_bar]:
             events.append((bar * 4 + step / 4.0, "kick", 0.95 if step == 0 else 0.85))
         # hats
         for step in range(16):
@@ -235,11 +245,132 @@ def drill_pattern(bars: int = 4, ghost_snare: bool = True, hat_mode: str = "mix"
             # triplet burst on the last beat of the last bar
             for k in range(6):
                 events.append((bar * 4 + 3.0 + k / 6.0, "hat", 0.7))
-        # open hat on the offbeat of 2 every other bar
-        if bar % 2 == 0:
+        # open hat on the offbeat of 2 on cycle bar A
+        if cycle_bar == 0:
             events.append((bar * 4 + 1.5, "openhat", 0.6))
     events.sort(key=lambda e: e[0])
     return events
+
+
+# ---------------------------------------------------------------------------
+# Kit audit + loading (A29)
+# ---------------------------------------------------------------------------
+
+#: Declared acquisition paths for the flip kit. "drumsep-stems" is the
+#: primary path (per-stem `piece_hint` mining bypasses the classifier).
+#: "fallback-classifier" is the heuristic `classify_hit` on a mixed stem —
+#: it must be requested explicitly (lane rule: no silent fallback).
+CLASSIFIER_PRIMARY = "drumsep-stems"
+CLASSIFIER_FALLBACK = "fallback-classifier:classify_hit"
+
+
+def audit_kit_manifest(
+    manifest: Dict[str, Any],
+    kit_dir: Optional[Path] = None,
+    min_peak: float = MIN_ONESHOT_PEAK,
+    weak_peak: float = USABLE_ONESHOT_PEAK,
+) -> Dict[str, Any]:
+    """Audit a mined kit manifest (A29) — per-piece kept-hit peak verdicts.
+
+    Args:
+        manifest: parsed `kit_manifest.json` ({"pieces": {piece: {...,"reps": [...]}}}).
+        kit_dir: if given, each rep's `file` is checked for existence.
+        min_peak: kept hits below this are unusable (near noise floor).
+        weak_peak: pieces whose best kept rep is below this are flagged
+            ``weak`` — thin timbre; the arrangement should prefer stronger
+            pieces for exposed duties.
+
+    Returns:
+        Report dict: per-piece verdicts (``pass``/``weak``/``fail``), the
+        classifier path actually used (``drumsep-stems`` when every rep was
+        piece-hint mined) and the *declared* fallback path. ``fail`` means
+        the piece has no usable kept hit — re-mine or fall back explicitly;
+        this function never switches paths silently.
+    """
+    pieces = manifest.get("pieces", {})
+    report: Dict[str, Any] = {
+        "min_peak": min_peak,
+        "weak_peak": weak_peak,
+        "classifier_path": CLASSIFIER_PRIMARY,
+        "fallback_classifier": CLASSIFIER_FALLBACK,
+        "fallback_policy": (
+            "declared-only: re-run mining on the mixed stem with classify_hit "
+            "must be requested explicitly (e.g. --allow-fallback-classifier); "
+            "never auto-selected when a DrumSep piece is missing/weak"
+        ),
+        "pieces": {},
+        "weak_pieces": [],
+        "failed_pieces": [],
+        "n_pieces": 0,
+        "ok": True,
+    }
+    for piece, entry in pieces.items():
+        reps = entry.get("reps", [])
+        peaks = [float(r.get("peak", r.get("src_peak", 0.0))) for r in reps]
+        files_ok = True
+        if kit_dir is not None:
+            files_ok = all((Path(kit_dir) / r.get("file", "")).exists() for r in reps)
+        n_kept = int(entry.get("n_kept", len(reps)))
+        max_peak = max(peaks) if peaks else 0.0
+        if n_kept <= 0 or not reps or max_peak < min_peak or not files_ok:
+            verdict = "fail"
+            report["failed_pieces"].append(piece)
+            report["ok"] = False
+        elif max_peak < weak_peak:
+            verdict = "weak"
+            report["weak_pieces"].append(piece)
+        else:
+            verdict = "pass"
+        report["pieces"][piece] = {
+            "src_stem": entry.get("src_stem"),
+            "src_rms": entry.get("src_rms"),
+            "n_mined": entry.get("n_mined"),
+            "n_kept": n_kept,
+            "peaks": [round(p, 4) for p in peaks],
+            "max_peak": round(max_peak, 4),
+            "files_exist": files_ok,
+            "verdict": verdict,
+        }
+        report["n_pieces"] += 1
+    return report
+
+
+def load_kit_buffers(
+    kit_dir: Path,
+    manifest: Optional[Dict[str, Any]] = None,
+    rep: int = 1,
+) -> Dict[str, np.ndarray]:
+    """Load mined one-shot WAVs as ``piece -> mono buffer``.
+
+    Uses rep `rep` (1-based; the manifest's strongest kept hit) per piece.
+    Pieces with no file are simply absent — the render layer skips absent
+    pieces; whether that absence is acceptable is `audit_kit_manifest`'s
+    call, not this loader's.
+    """
+    import soundfile as sf
+
+    kit_dir = Path(kit_dir)
+    out: Dict[str, np.ndarray] = {}
+    if manifest is not None:
+        names = [
+            (piece, manifest["pieces"][piece]["reps"][rep - 1]["file"])
+            for piece in manifest.get("pieces", {})
+            if len(manifest["pieces"][piece].get("reps", [])) >= rep
+        ]
+    else:
+        names = [
+            (p.name.split("_")[0], p.name)
+            for p in sorted(kit_dir.glob(f"*_{rep:02d}.wav"))
+        ]
+    for piece, fname in names:
+        path = kit_dir / fname
+        if not path.exists():
+            continue
+        y, _sr = sf.read(str(path), dtype="float32")
+        if y.ndim > 1:
+            y = y.mean(axis=1)
+        out[piece] = y.astype(np.float32)
+    return out
 
 
 def grid_events(
