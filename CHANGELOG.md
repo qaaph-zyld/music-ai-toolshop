@@ -1,5 +1,32 @@
 # Changelog
 
+### Answer #061 - OGCM flip m5: W5 mixdown + real mastering stage (F9) + GATE F blind pack staged.
+**Timestamp:** 2026-09-28
+**Action Type:** Implementation — wave m5 (W5) of the OGCM drill-flip megaplan: per-arm beat+vocal mixdown, the real mastering function F9 flagged as missing, and the GATE F blind A/B pack staged under `Stemmeca_alatkka/stems/flip_final/` (gitignored — audio not committed). Pack awaits the user's blind pick; pick-dependent lines deliberately absent.
+
+**Mixdown:** `toolshop/flip/master.py::mix_lanes` — deterministic numpy sum of `flip_renders/beat_{arm}.wav` + `flip_relay/vocal_{arm}.wav` at unity gains, shorter lane zero-padded at the tail, clip guard at 0.99 with the pre-guard peak recorded to `mix_{arm}_events.json`. Measured: `mix_felt_89` 65.696 s, pre-guard peak 1.058 → guarded to 0.99, −13.07 LUFS; `mix_triplet_133` 130.343 s, peak 0.975 (guard not needed), −13.48 LUFS.
+
+**Mastering (F9):** `toolshop/flip/master.py::master_audio` + driver `scripts/ogcm_master.py`. pyloudnorm BS.1770 gain to −14 LUFS ±0.3 + `pedalboard.Limiter` + 4x-oversampled true-peak check ≤ −1 dBTP (`premaster.true_peak_dbfs` approximation, documented as such). Measured on the written files this session: `mastered_felt_89` **−13.97 LUFS / TP −3.63 dBTP**; `mastered_triplet_133` **−14.00 LUFS / TP −3.72 dBTP** — both PASS (3 iterations each). `--club` emits −9 LUFS variants: felt_89 −9.29, triplet_133 −9.07 LUFS, TP −1.0 — PASS. Note for future users: pedalboard's `Limiter` is a maximizer (measured ≈ +4.75 dB makeup drive at threshold −1 into a 0 dBFS clipper), so the loop estimates the chain's loudness delta (`boost_est`) and aims the gain stage at `target − boost_est`; a naive normalize→limit order never converges.
+
+**GATE F pack (ADR-009):** `stems/flip_final/audition/` — `flip_001.wav` + `flip_002.wav` (opaque names, seeded shuffle seed 20260928) + `REFERENCE_prior_whole_flip.wav` (labelled sanity-floor reference = July whole-buffer remix, gain-matched −0.549 dB, NOT an arm). `manifest.json` holds the hidden keys; `verification.json` re-measured the written files: **arm LU spread 0.0 LU** (≤0.3), TP −3.66/−3.72 dBTP (≤−1), sample peaks ≤0.66, bijection PASS → overall PASS. `GATE_F.md` describes the pack without arm identities and carries the honest coverage note (shorter render covers 3/20 lead phrases + 3 hook strips; longer 8/20 + 6 — m4 declared limitation, nothing stretched).
+
+#### Files Affected:
+- **NEW:** `toolshop/flip/master.py` — `mix_lanes` + `master_audio` + `master_file` (LUFS normalize → Limiter → TP-trim loop, `boost_est` convergence).
+- **NEW:** `scripts/ogcm_master.py` — W5 driver: mixdown, master (`--club` for −9 LUFS), ADR-009 pack builder + verifier + `GATE_F.md` writer.
+- **NEW:** `tests/test_flip_master.py` — 10 tests (sum/pad/clip-guard/gains, meter sanity, −14 and −9 spec convergence, determinism, gain cap on unmeasurable input, file roundtrip).
+- **MODIFIED:** `docs/superpowers/STATUS.md` — Flip lane row → m5/GATE F staged.
+- **MODIFIED:** `ORCHESTRATION/ogcm_flip/LEDGER.md` — m5 row → staged for GATE F.
+- **NOT committed (gitignored data):** `Stemmeca_alatkka/stems/flip_final/` — `mix_*.wav`/`mix_*_events.json`, `mastered_*.wav` (incl. club-9), `audition/` (2 opaque + reference), `manifest.json`, `verification.json`, `GATE_F.md`.
+
+#### Verification (run this session):
+- `pytest tests/test_flip_master.py -q` → **10 passed** (exit 0).
+- `python scripts/ogcm_master.py --club` → exit 0; both −14 masters PASS (final LUFS −13.97/−14.00, TP −3.63/−3.72 dBTP); club −9 masters PASS (−9.29/−9.07, TP −1.0); pack verify PASS (spread 0.0 LU, TP ok, no clips, bijection ok).
+
+#### Next Actions Required:
+- **GATE F (user):** audition `stems/flip_final/audition/` → pick `flip_00N` → orchestrator resumes the m5 agent to record the pick, write the pick-dependent lines, commit, and finish closeout.
+
+---
+
 ### Answer #060 - OGCM flip m4: W4 vocal relay — lattice-anchored phrase re-lay onto both grid arms.
 **Timestamp:** 2026-09-28
 **Action Type:** Implementation — wave m4 (W4 vocal relay) of the OGCM drill-flip megaplan: the v2 lead vocal is re-laid phrase-by-phrase onto the shared 89.1-felt lattice (identical schedule on both surviving arms, A20), backing_vocals strips carry the hooks (GATE C2), and full verification evidence is emitted under `stems/flip_relay/` (gitignored).
