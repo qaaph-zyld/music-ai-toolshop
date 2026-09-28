@@ -1,5 +1,30 @@
 # Changelog
 
+### Answer #060 - OGCM flip m4: W4 vocal relay — lattice-anchored phrase re-lay onto both grid arms.
+**Timestamp:** 2026-09-28
+**Action Type:** Implementation — wave m4 (W4 vocal relay) of the OGCM drill-flip megaplan: the v2 lead vocal is re-laid phrase-by-phrase onto the shared 89.1-felt lattice (identical schedule on both surviving arms, A20), backing_vocals strips carry the hooks (GATE C2), and full verification evidence is emitted under `stems/flip_relay/` (gitignored).
+
+**Relay engine (`toolshop/flip/relay.py`, extended):** `load_transcript_words` (cached 911-word faster-whisper transcript, validated — no re-transcription), `extend_grid_left` (extrapolates the measured 90.67 BPM source grid back to t≈0 so intro phrases keep positions), `detect_strips_energy` (transcript-less phrase bounds from the RMS envelope for `backing_vocals`), `detect_phrases` (word gaps ≥300 ms + confirmed energy dips), `strip_phrase` (pad + zero-crossing snap + microfade; now records `pad_s` — the audio preceding the onset inside the strip), `map_phrases(lattice_bpm=89.1)` (each phrase's *measured source beat* maps onto the nominal felt lattice; onsets snap ≤30 ms with downbeats preferred and ties biased early — deeper syncopation floats at its source beat fraction), `render_vocal_lane` (**F4 fixed:** the strip is placed so the phrase ONSET lands on `pl.start_s`, not its leading pad — previously every phrase sat ~60 ms + snap-delta late), onset/drum envelopes + `xcorr_offset` (normalised onset-envelope cross-correlation), `phrase_xcorr_table` (**F5 fixed:** centres on the *effective* acoustic onset inside the strip — whisper word-starts precede the attack by a median ~192–406 ms — and reports `onset_delay_ms` + signed `nearest_hit_ms`), `word_offset_table`, `summarize_anchors`.
+
+**Driver `scripts/ogcm_relay.py`:** transcript + chops-manifest grid + v2 stems → 20 lead phrases + 77 backing strips → identical placements on both arms → vocal lanes rendered to each beat render's exact length → `relay_verification.json` + `RELAY_REPORT.md` + per-arm `relay_<arm>_events.json` + `vocal_<arm>.wav` + `strips/*.wav`.
+
+**Measured results:** identical schedule on both arms (PASS); median applied anchor correction **0.00 ms** (all 20 phrases floated — none sat within 30 ms of a lattice anchor; syncopation preserved per spec); median lattice residual 119.5 ms; median word |offset| 89.7 ms; lead-vs-drum-events xcorr lag −197.4 ms (felt_89) / −104.5 ms (triplet_133) — weak-peaked groove diagnostics, not the anchor bar; effective onsets land a median **5.4 ms** (felt_89, n=3) / **18.7 ms** (triplet_133, n=8) from the nearest drum hit — phrase entries track the syncopated drum pattern; clip count 0, peak 0.60. **Declared limitation:** beat renders (65.6 s / 130.3 s) are shorter than the 297 s source vocal — 3/20 and 8/20 lead phrases fit the rendered lanes; placements for the full 20 are still emitted (arrangement length is a W5/megaplan decision).
+
+#### Files Affected:
+- **MODIFIED:** `toolshop/flip/relay.py` — lattice placement + strip/render/verification helpers; F4 pad-offset fix, F5 effective-onset xcorr.
+- **MODIFIED:** `tests/test_flip_relay.py` — +10 W4 tests (identical schedules, anchor bounds, downbeat pref/bias-early, float syncopation, energy strips, grid extrapolation, transcript loader, anchor summary, pad-offset landing, effective-onset xcorr, nearest-hit).
+- **NEW:** `scripts/ogcm_relay.py` — W4 relay driver.
+- **NOT committed (gitignored data):** `Stemmeca_alatkka/stems/flip_relay/` — `vocal_*.wav`, `relay_*_events.json`, `relay_verification.json`, `RELAY_REPORT.md`, `strips/` (97 files).
+
+#### Verification (run this session):
+- `pytest tests/test_flip_relay.py -q` → **22 passed, 1 warning** (exit 0).
+- `python scripts/ogcm_relay.py` → exit 0; `identical_schedule=True PASS=True`; median anchor correction 0.00 ms both arms; xcorr lags −197.4/−104.5 ms (lead) with per-phrase nearest-hit medians 5.4/18.7 ms; clips 0.
+
+#### Next Actions Required:
+- Wave m5 (W5): master both arms and run GATE F blind A/B pick. Open decision: beat renders cover only ~64 s/~128 s of the 297 s lead — extend arrangements or accept partial-vocal scope before mastering.
+
+---
+
 ### Answer #060 - OGCM flip m3: W2 kit audit + 808 retune, W3 arrange.py + dual-grid renders (GATE C2 pick applied).
 **Timestamp:** 2026-09-28
 **Action Type:** Implementation — waves W2 (kit audit + 808 retune) and W3 (arrange.py + dual-grid beat renders) of the OGCM drill-flip megaplan, on the GATE C2 pick: arm `felt_89` (178.2 written/89.1 felt) = Lane B interpolated bed (`region_63_66_cleaned_Dm.mid`, epiano, D minor); arm `triplet_133` (133.65) = Lane C programmed motifs as section alternates (`motif_dm_1` pad/Dm verses + `motif_csm_1` epiano/C#m hooks). Lane A (chops) not used; hook sections reserve space for the backing-vocal-driven hook (m4 places vocals).
