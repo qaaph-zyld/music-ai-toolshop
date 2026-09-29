@@ -1,0 +1,5 @@
+mairina.db
+mairina.db-*
+index_*.pkl
+*.pkl
+_flow_tmp*.txt

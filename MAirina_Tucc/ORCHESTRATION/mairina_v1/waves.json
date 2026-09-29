@@ -1,0 +1,65 @@
+{
+  "task": "MAirina Tucc v1 — anchor sets + learning rhyme finder (terminal first)",
+  "project_root": "d:/Projects/Music-AI-Toolshop",
+  "orchestration_dir": "MAirina_Tucc/ORCHESTRATION/mairina_v1",
+  "spec": "d:/Projects/Music-AI-Toolshop/docs/superpowers/specs/2026-09-29-mairina-anchors-design.md",
+  "plan": "d:/Projects/.workspace_archive/plans/mairina-anchors-v1-9b41e2.md",
+  "ledger": "d:/Projects/Music-AI-Toolshop/handoffs/orchestration_ledger_mairina_v1_20260929.md",
+  "user_decisions": {
+    "ai_role": "finder, never writer",
+    "rhyme_source": "real artists first (lyrics.db, read-only)",
+    "build_path": "terminal first; UI only after week-1 keep",
+    "home": "new package MAirina_Tucc/mairina/",
+    "execution": "one Sonnet agent at a time, foreground (orchestration-usage-budget memory)"
+  },
+  "waves": [
+    {
+      "wave": 1,
+      "name": "Implement v1",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "I1",
+          "role": "implementer",
+          "model": "sonnet",
+          "name": "Build mairina package + tests + mt.ps1 per spec",
+          "prompt": "prompts/wave1_I1_implement.md",
+          "output": "wave1/I1_handoff.md"
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "name": "Independent review",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "V1",
+          "role": "reviewer",
+          "model": "sonnet",
+          "name": "Read-only review against spec: blockers / nits / verdict",
+          "prompt": "prompts/wave2_V1_review.md",
+          "output": "wave2/V1_handoff.md"
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "name": "Fix blockers (only if wave 2 verdict = needs-fix)",
+      "parallel": false,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "F1",
+          "role": "implementer",
+          "model": "sonnet",
+          "name": "Fix reviewer blockers only",
+          "prompt": "generated from wave2/V1_handoff.md",
+          "output": "wave3/F1_handoff.md"
+        }
+      ]
+    }
+  ]
+}
