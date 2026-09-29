@@ -160,4 +160,4 @@ pdinfo-xref-genre-popular-songs-vive-lamour  "Vive L'Amour"  row_kind=see-also
 
 Staged in this wave's commit: `sources/{pdinfo,looperman}.py`, `tests/test_lyrics_sources_catalog.py`, `tests/fixtures/lyrics_sources/{pdinfo_list_sample.html,pdinfo_genre_sample.html,looperman_export_sample.json,looperman_export_sample.csv,CREDITS.md}`, `CHANGELOG.md` (#064), this handoff.
 
-Commit: `git log -1` → see footer below (filled at commit time).
+Commit: `471cdf7` — `feat(#064): lyrics-sources WA I4 — pdinfo title-index adapter + looperman zero-network manual import + catalog contract tests` (10 files, +1778) + a `docs(#064)` commit carrying this handoff footer.
