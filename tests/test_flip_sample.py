@@ -65,6 +65,53 @@ def test_chord_and_root_bednotes():
 
 
 # ---------------------------------------------------------------------------
+# Melody-legibility helpers (S2)
+# ---------------------------------------------------------------------------
+
+def test_top_line_keeps_max_pitch_per_cell():
+    notes = [_note(0.0, 0.2, 38), _note(0.0, 0.2, 62), _note(0.01, 0.2, 50),
+             _note(0.5, 0.2, 65), _note(0.51, 0.2, 40)]
+    top = sv.top_line(notes, cell_s=0.08)
+    assert [n.note for n in top] == [62, 65]
+
+
+def test_legato_extends_to_next_onset():
+    notes = [_note(0.0, 0.1, 62), _note(0.5, 0.1, 65)]
+    out = sv.legato(notes, gap_ms=20)
+    assert out[0].end_s == pytest.approx(0.48, abs=1e-3)
+    assert out[1].end_s == pytest.approx(0.6, abs=1e-3)
+
+
+def test_legato_respects_max_cap():
+    notes = [_note(0.0, 0.1, 62), _note(5.0, 0.1, 65)]
+    out = sv.legato(notes, gap_ms=20, max_s=1.0)
+    assert out[0].end_s == pytest.approx(1.0)
+
+
+def test_tempo_scale():
+    out = sv.tempo_scale([_note(1.0, 0.5, 62)], 0.5)
+    assert out[0].start_s == 0.5 and out[0].end_s == pytest.approx(0.75)
+
+
+def test_swing_moves_only_odd_sixteenths():
+    six = 0.1683
+    notes = [_note(0.0, 0.1, 62), _note(six, 0.1, 65),
+             _note(2 * six, 0.1, 67), _note(3 * six, 0.1, 69)]
+    out = sv.swing(notes, six, amt=0.15)
+    assert out[0].start_s == 0.0                      # beat stays
+    assert out[1].start_s == pytest.approx(six * 1.15)  # odd 16th delayed
+    assert out[2].start_s == pytest.approx(2 * six)
+    assert out[3].start_s == pytest.approx(six * 3.15)
+
+
+def test_octave_double():
+    out = sv.octave_double([_note(0.0, 0.2, 62, vel=0.8)], up_st=12,
+                           vel_scale=0.5)
+    assert len(out) == 2
+    assert out[1].note == 74 and out[1].velocity == pytest.approx(0.4)
+
+
+# ---------------------------------------------------------------------------
 # Voices
 # ---------------------------------------------------------------------------
 

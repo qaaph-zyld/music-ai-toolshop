@@ -111,6 +111,75 @@ def humanize(notes: Sequence[BedNote], timing_ms: float = 8.0,
     return out
 
 
+def top_line(notes: Sequence[BedNote], cell_s: float = 0.08) -> List[BedNote]:
+    """Extract the melodic contour: per `cell_s` time cell keep the
+    highest-pitch note (melody = upper contour). The transcription is
+    bass-dominated — a fixed register split starves the melody; this adapts.
+    """
+    if not notes:
+        return []
+    seq = sorted(notes, key=lambda n: n.start_s)
+    cells: Dict[int, BedNote] = {}
+    for n in seq:
+        cell = int(n.start_s / cell_s)
+        cur = cells.get(cell)
+        if cur is None or n.note > cur.note:
+            cells[cell] = n
+    return [cells[k] for k in sorted(cells)]
+
+
+def legato(notes: Sequence[BedNote], gap_ms: float = 20.0,
+           max_s: Optional[float] = None) -> List[BedNote]:
+    """Extend each note's end to the next onset minus `gap_ms` — turns a
+    stream of short transcription blips into a continuous singable line.
+    `max_s` caps a single note's duration (None = uncapped)."""
+    seq = sorted(notes, key=lambda n: n.start_s)
+    out: List[BedNote] = []
+    for i, n in enumerate(seq):
+        nxt = seq[i + 1].start_s if i + 1 < len(seq) else n.end_s
+        end = max(n.end_s, nxt - gap_ms / 1000.0)
+        if max_s is not None:
+            end = min(end, n.start_s + max_s)
+        out.append(BedNote(start_s=n.start_s, end_s=max(end, n.start_s + 0.03),
+                           note=n.note, velocity=n.velocity))
+    return out
+
+
+def tempo_scale(notes: Sequence[BedNote], factor: float) -> List[BedNote]:
+    """Scale note times by `factor` (0.95 = ~5% faster). Pure time math."""
+    return [BedNote(start_s=n.start_s * factor, end_s=n.end_s * factor,
+                    note=n.note, velocity=n.velocity) for n in notes]
+
+
+def swing(notes: Sequence[BedNote], sixteenth_s: float, amt: float = 0.15
+          ) -> List[BedNote]:
+    """Swing 16ths: onsets sitting on odd sixteenths (within ±10 ms) get
+    delayed by `amt` × a sixteenth. Quantized-grid notes only — off-grid
+    onsets are left alone (already human)."""
+    out: List[BedNote] = []
+    for n in notes:
+        cell = n.start_s / sixteenth_s
+        if int(round(cell)) % 2 == 1 and abs(cell - round(cell)) < 0.06:
+            shift = amt * sixteenth_s
+            out.append(BedNote(n.start_s + shift, n.end_s + shift,
+                               n.note, n.velocity))
+        else:
+            out.append(n)
+    return out
+
+
+def octave_double(notes: Sequence[BedNote], up_st: int = 12,
+                  vel_scale: float = 0.4) -> List[BedNote]:
+    """Return `notes` + a quieter copy transposed `up_st` semitones — the
+    G-funk lead octave-double that makes the melody cut."""
+    out = list(notes)
+    for n in notes:
+        out.append(BedNote(n.start_s, n.end_s, n.note + up_st,
+                           n.velocity * vel_scale))
+    out.sort(key=lambda n: n.start_s)
+    return out
+
+
 def _nearest_diatonic_root(pc: int) -> int:
     """Snap a pitch class to the nearest D-natural-minor chord root."""
     return min(D_MINOR_PCS,
