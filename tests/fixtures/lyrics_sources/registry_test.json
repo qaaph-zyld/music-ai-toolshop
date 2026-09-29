@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "fake_auto",
+      "name": "Fake Auto Source",
+      "base_url": "https://example.org",
+      "license_tier": "pd",
+      "fetch_policy": "auto",
+      "adapter": "fake_auto_adapter",
+      "corpus_tag": "fake-auto",
+      "license_ref_default": "LicenseRef-public-domain",
+      "env_gate": null,
+      "categories": ["folk", "misc"],
+      "politeness": {
+        "min_interval_s": 1.5,
+        "user_agent": "toolshop-lyrics-test/1.0 (+contact: {contact})"
+      },
+      "notes": "synthetic fixture — not a real source"
+    },
+    {
+      "id": "fake_gated",
+      "name": "Fake Env-Gated Source",
+      "base_url": "https://example.org",
+      "license_tier": "cc-by",
+      "fetch_policy": "auto",
+      "adapter": "fake_auto_adapter",
+      "corpus_tag": "fake-gated",
+      "license_ref_default": "CC-BY-4.0",
+      "env_gate": "FAKE_LYRICS_KEY_FOR_TESTS",
+      "categories": ["misc"],
+      "notes": "synthetic fixture — exercises env_gate"
+    },
+    {
+      "id": "fake_catalog",
+      "name": "Fake Catalog-Only Source",
+      "base_url": "https://example.org",
+      "license_tier": "uncleared",
+      "fetch_policy": "catalog-only",
+      "adapter": null,
+      "corpus_tag": "fake-catalog",
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "synthetic fixture — catalog-only, adapter null"
+    },
+    {
+      "id": "fake_manual",
+      "name": "Fake Manual Source",
+      "base_url": "https://example.org",
+      "license_tier": "uploader-terms",
+      "fetch_policy": "manual",
+      "adapter": null,
+      "corpus_tag": "fake-manual",
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "synthetic fixture — manual, no fetch allowed"
+    }
+  ],
+  "cut": [
+    { "id": "fake_cut", "reason": "synthetic test row" }
+  ]
+}

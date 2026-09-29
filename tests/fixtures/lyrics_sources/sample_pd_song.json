@@ -1,0 +1,30 @@
+{
+  "title": "Zorana (Test Dawn Song)",
+  "artist": "Narodna pesma",
+  "primary_artist": "Narodna pesma",
+  "featured_artists": [],
+  "category": "folk",
+  "url": "https://example.org/wiki/Zorana_test",
+  "language": "sr",
+  "raw_lyrics": "[Strofa]\nZora pala na planinu\nPtica peva u dolini\n\n[Refren]\nOj dolino zelena\nTi si moja usamljena",
+  "clean_lyrics": "Zora pala na planinu\nPtica peva u dolini\n\nOj dolino zelena\nTi si moja usamljena",
+  "sections": [
+    {"label": "Strofa", "content": "Zora pala na planinu\nPtica peva u dolini"},
+    {"label": "Refren", "content": "Oj dolino zelena\nTi si moja usamljena"}
+  ],
+  "corpus": "fake-auto",
+  "source": "fake_auto",
+  "foreign_identifier": "fixture-001",
+  "source_url": "https://example.org/wiki/Zorana_test",
+  "creator": "Fixture Author",
+  "creator_url": null,
+  "copyright_notice": null,
+  "modified_note": null,
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "license_tier": "cc0",
+  "release_ok": "yes",
+  "derived_from": null,
+  "script": "latin",
+  "meta": {"fixture": true}
+}

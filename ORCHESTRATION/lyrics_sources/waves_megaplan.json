@@ -1,0 +1,284 @@
+{
+  "task": "lyrics-sources megaplan — license-tiered corpus expansion of Genious_lyrics_extractor (research -> spec -> infra -> adapters -> ingest -> review)",
+  "project_root": "d:/Projects/Music-AI-Toolshop",
+  "orchestration_dir": "ORCHESTRATION/lyrics_sources",
+  "plan": "d:/Projects/.workspace_archive/plans/lyrics-sources-megaplan.md",
+  "ledger": "d:/Projects/Music-AI-Toolshop/handoffs/orchestration_ledger_lyrics_sources_<date>.md",
+  "dispatch": "waves sequential; agents within a wave may run parallel as marked; gates are USER gates — do not cross without explicit approval",
+  "waves": [
+    {
+      "wave": "R",
+      "name": "Parallel research — per-source feasibility",
+      "parallel": true,
+      "gate_after": true,
+      "gate": "GATE R — user reads the 4 research handoffs, confirms/kills each source in the roster before any design work",
+      "agents": [
+        {
+          "id": "R1",
+          "role": "researcher",
+          "name": "CC music-text sources: ccMixter API + netlabel/FMA/Jamendo angle",
+          "task": "You are a researcher agent. Web research only — do not grep local files, do not run code. Every factual claim must carry a URL citation. Read the full prompt at d:/Projects/Music-AI-Toolshop/ORCHESTRATION/lyrics_sources/prompts/waveR_R1_ccmixter_cc.md first, then execute it.",
+          "scope": "ccMixter API surface, pell lyric-text yield, per-item license metadata, rate limits; Free Music Archive / Jamendo / netlabel lyrics-text angle",
+          "output": "d:/Projects/.workspace_archive/handoffs/researcher_lyrsrc_ccmixter_<yyyymmdd_hhmm>.md",
+          "constraints": [
+            "Web research only — no local file reads needed beyond the prompt file, no code execution.",
+            "Every factual claim carries a URL citation.",
+            "End the handoff with the fenced YAML contract specified in the prompt file."
+          ],
+          "context_budget": "100k"
+        },
+        {
+          "id": "R2",
+          "role": "researcher",
+          "name": "PD text sources: Wikisource (sr+en), Gutenberg, PDInfo, folk archives",
+          "task": "You are a researcher agent. Web research only — do not grep local files, do not run code. Every factual claim must carry a URL citation. Read the full prompt at d:/Projects/Music-AI-Toolshop/ORCHESTRATION/lyrics_sources/prompts/waveR_R2_pd_text_sources.md first, then execute it.",
+          "scope": "Wikisource API traversal for sr folk (Karadzic) + en songbooks, Project Gutenberg songbooks, PDInfo list structure, hymnary/mudcat folk lyric archives — expected item yields per source",
+          "output": "d:/Projects/.workspace_archive/handoffs/researcher_lyrsrc_pdtext_<yyyymmdd_hhmm>.md",
+          "constraints": [
+            "Web research only — no local file reads needed beyond the prompt file, no code execution.",
+            "Every factual claim carries a URL citation.",
+            "End the handoff with the fenced YAML contract specified in the prompt file."
+          ],
+          "context_budget": "100k"
+        },
+        {
+          "id": "R3",
+          "role": "researcher",
+          "name": "Gray-source access audit: Looperman, Voclr, Acapellas4u + LRCLIB/Musixmatch APIs",
+          "task": "You are a researcher agent. Web research only — do not grep local files, do not run code. Every factual claim must carry a URL citation. Read the full prompt at d:/Projects/Music-AI-Toolshop/ORCHESTRATION/lyrics_sources/prompts/waveR_R3_gray_audit.md first, then execute it.",
+          "scope": "Looperman, Voclr.it, Acapellas4u robots.txt/ToS/auth gates -> fetch-vs-catalog verdict each; LRCLIB API (endpoints, licensing of service, synced lyrics) and Musixmatch free tier reality",
+          "output": "d:/Projects/.workspace_archive/handoffs/researcher_lyrsrc_grayaudit_<yyyymmdd_hhmm>.md",
+          "constraints": [
+            "Web research only — no local file reads needed beyond the prompt file, no code execution.",
+            "Every factual claim carries a URL citation.",
+            "End the handoff with the fenced YAML contract specified in the prompt file."
+          ],
+          "context_budget": "100k"
+        },
+        {
+          "id": "R4",
+          "role": "researcher",
+          "name": "Standards recon: license-metadata conventions in lyric corpora",
+          "task": "You are a researcher agent. Web research only — do not grep local files, do not run code. Every factual claim must carry a URL citation. Read the full prompt at d:/Projects/Music-AI-Toolshop/ORCHESTRATION/lyrics_sources/prompts/waveR_R4_standards.md first, then execute it.",
+          "scope": "How 2-3 OSS lyric-corpus projects encode per-item license/source metadata; confirm our JSON + _index.json shape suffices for license fields",
+          "output": "d:/Projects/.workspace_archive/handoffs/researcher_lyrsrc_standards_<yyyymmdd_hhmm>.md",
+          "constraints": [
+            "Web research only — no local file reads needed beyond the prompt file, no code execution.",
+            "Every factual claim carries a URL citation.",
+            "End the handoff with the fenced YAML contract specified in the prompt file."
+          ],
+          "context_budget": "60k"
+        }
+      ]
+    },
+    {
+      "wave": "0",
+      "name": "Design freeze — SPEC.md",
+      "parallel": false,
+      "gate_after": true,
+      "gate": "GATE 0 — user approves SPEC.md (tier enum, registry schema, corpus layout, lyricsdb migration, adapter interface)",
+      "agents": [
+        {
+          "id": "P1",
+          "role": "planner",
+          "name": "W0 spec: license model, registry schema, corpus layout, db migration, adapter interface",
+          "task": "You are the planner for wave W0 of the lyrics-sources megaplan in d:/Projects/Music-AI-Toolshop. You write a spec; you do NOT write implementation code.\n\nRead in order: (1) megaplan d:/Projects/.workspace_archive/plans/lyrics-sources-megaplan.md; (2) the four WR research handoffs in d:/Projects/.workspace_archive/handoffs/researcher_lyrsrc_*_<stamp>.md — confirm each survives GATE R (orchestrator injects the user's kills/keeps here: __GATE_R_ROSTER__); (3) d:/Projects/Music-AI-Toolshop/AGENTS.md; (4) toolshop/lyricsdb.py lines 1-50 (CORPUS_TAG), 405-560 (schema), 640-700 (_scan_song_files, _insert_song, _derive_role_and_target), 771-830 (build_database); (5) toolshop/genius_adapter.py:43-124 (RobotsPolicy, to be vendored); (6) Genious_lyrics_extractor/extract_artists.py (folder conventions) and README.md (song JSON schema).\n\nWrite d:/Projects/Music-AI-Toolshop/ORCHESTRATION/lyrics_sources/SPEC.md specifying exactly:\n1. License tier enum + fetch_policy + 3-state release_ok mapping (megaplan table is the draft — refine only if research contradicts).\n2. source_registry.json schema — one record per source: {id, name, base_url, license_tier, fetch_policy, adapter, corpus_tag, notes}. File is committed config (no lyric content); decide location (Genious_lyrics_extractor/sources/registry.json recommended).\n3. Corpus dir layout: data/toolshop/lyrics/<corpus_tag>/<category>/*.json + per-corpus _index.json; define category scheme for non-artist corpora (e.g. wikisource_pd/karadzic, ccmixter/cc-by — _derive_role_and_target defaults to (\"solo\", dirname) for non-suffixed names — acceptable? or must dirs carry -solo suffix? decide explicitly).\n4. lyricsdb.py migration: RECOMMEND between (a) ALTER TABLE songs ADD COLUMN license_tier/license_ref/release_ok (+ migrate-on-open guard) vs (b) side table song_licenses(song_id, tier, ref, release_ok). Pick one, justify in 3 lines. Specify corpus-scoped dedup for incremental mode (songs has no UNIQUE constraint and norm key isn't stored — specify whether to add title_norm/artist_norm columns or do in-Python pre-check by corpus). Cross-corpus duplicates are CORRECT (PD original + modern cover); optional derived_from link is a nice-to-have, not required.\n5. build_database signature change: corpus= param, incremental= mode (additive-only, never drops existing rows — specify exact behavior), and CLI flags on `toolshop lyrics build-db`.\n6. Adapter interface contract for Genious_lyrics_extractor/sources/<name>.py: iter_catalog() -> CatalogEntry records; fetch_lyrics(entry) -> song JSON dict matching the existing schema + {license_tier, license_ref, corpus_tag}; license_of(entry). Policy: catalog-only/manual sources implement iter_catalog() ONLY — no fetch_lyrics path exists for them.\n7. Test conventions: tests/test_lyrics_sources_*.py with sys.path shim into Genious_lyrics_extractor/; committed fixtures ONLY from cleared sources (gray-source fixtures = synthetic structure, no lyric text); @pytest.mark.slow for live fetches.\n8. Reconciliation/export contract: corpus_inventory.py extension and a folder-level export_release.py --release-cleared (reads lyrics.db + registry, emits only release_ok=yes).\n\nHandoff: ORCHESTRATION/lyrics_sources/wave_0/P1_handoff.md summarizing decisions + open questions for the GATE 0 review.",
+          "scope": "ORCHESTRATION/lyrics_sources/SPEC.md (new), wave_0/P1_handoff.md — read-only elsewhere",
+          "output": "ORCHESTRATION/lyrics_sources/wave_0/P1_handoff.md",
+          "constraints": [
+            "Planner role: write SPEC.md and your handoff only — no implementation code, no other file writes.",
+            "Every spec decision must cite either a research handoff finding or a verified code fact (file:line).",
+            "Flag any research assumption (A1-A7 in the megaplan) that the handoffs failed to resolve — unresolved assumptions go to GATE 0 as open questions."
+          ],
+          "context_budget": "120k"
+        }
+      ]
+    },
+    {
+      "wave": "1",
+      "name": "Core infra — sources package + dispatcher",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "I1",
+          "role": "implementer",
+          "name": "W1: sources/_common.py + registry.py + catalog.py + fetch_lyrics_source.py + core tests",
+          "task": "You are the implementer for wave W1 of the lyrics-sources megaplan in d:/Projects/Music-AI-Toolshop. Read in order: (1) d:/Projects/Music-AI-Toolshop/AGENTS.md; (2) megaplan d:/Projects/.workspace_archive/plans/lyrics-sources-megaplan.md; (3) the approved d:/Projects/Music-AI-Toolshop/ORCHESTRATION/lyrics_sources/SPEC.md; (4) toolshop/genius_adapter.py:43-124 (RobotsPolicy — you will VENDOR it, not import it); (5) Genious_lyrics_extractor/extract_artists.py + README.md for conventions.\n\nTasks (TDD — write tests first or alongside, all in root tests/ per pytest.ini):\n1. NEW Genious_lyrics_extractor/sources/__init__.py (empty), sources/_common.py: vendored RobotsPolicy (copy the ~60 lines from genius_adapter.py:43-124, generalized — constructor takes robots_url or base_url; do NOT `import toolshop` anywhere — the package __init__ eagerly loads heavy deps costing ~70s); shared fetch helper (requests with UA header, timeout, >=1.5s delay between requests, robots check); UTF-8 JSON writer emitting the existing song schema (title, primary_artist/artist, url, language, raw_lyrics, clean_lyrics, sections[{label,content}]) + license fields per SPEC; per-corpus _index.json writer; resumable-batch helpers (status JSON flushed per item, --limit/--offset, skip-completed resume — match toolshop/batch.py semantics but self-contained in the folder, no toolshop import).\n2. sources/registry.py: loads sources/registry.json (SPEC schema), exposes get(source_id), fetch_policy check — calling fetch on a catalog-only/manual source raises a clear error.\n3. sources/catalog.py: catalog writer producing <corpus>/_catalog.jsonl entries {source, external_id, title, artist, url, license_tier, license_ref, release_ok, fetched: bool} — used by ALL adapters including catalog-only ones.\n4. fetch_lyrics_source.py at folder root: dispatcher `python fetch_lyrics_source.py --source <id> [--limit N] [--offset N] [--resume] [--catalog-only]` — resolves adapter from registry, enforces fetch_policy, runs resumable loop into data/toolshop/lyrics/<corpus_tag>/<category>/.\n5. tests/test_lyrics_sources_core.py: sys.path shim to folder; fixture-based (commit small HTML/JSON samples ONLY from cleared sources; synthetic structure otherwise); assert: robots gate blocks disallowed path, rate limiter sleeps, resume skips completed items, catalog-only source raises on fetch, index entries carry license fields.\n6. Verify `git check-ignore data` covers corpus output dirs (A7) — if not, add a .gitignore entry inside the corpus dir, not repo root edits.\n\nCommit per lane rules (feat(#NNN) style matching git log + CHANGELOG Answer-format entry). Handoff: ORCHESTRATION/lyrics_sources/wave_1/I1_handoff.md with quoted exit codes + pytest output.",
+          "scope": "Genious_lyrics_extractor/sources/*, Genious_lyrics_extractor/fetch_lyrics_source.py, tests/test_lyrics_sources_core.py, tests/fixtures/lyrics_sources/ (cleared-source samples only)",
+          "output": "ORCHESTRATION/lyrics_sources/wave_1/I1_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe — never global 3.13.",
+            "No `import toolshop` anywhere in folder scripts (eager __init__ costs ~70s and drags heavy deps) — vendor or self-contain.",
+            "No pip installs — stdlib + requests/beautifulsoup4 (already in [lyrics] extra) only.",
+            "Never commit lyric text from non-cleared sources; never commit corpus data (data/ boundary).",
+            "UTF-8 on every file read/write; test filenames with diacritics.",
+            "Resumable batch pattern: status JSON per item, --limit/--offset, skip-completed.",
+            "Every claim in the handoff quotes the command's exit code and key output. Commit before you claim."
+          ],
+          "context_budget": "150k"
+        }
+      ]
+    },
+    {
+      "wave": "A",
+      "name": "Adapters — 2 cleared-fetch + catalog-only set",
+      "parallel": true,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "I2",
+          "role": "implementer",
+          "name": "W-A1: ccmixter adapter (+ wikimedia commons if R1 confirmed viability)",
+          "task": "You are the implementer for wave A (agent I2) of the lyrics-sources megaplan. Read: AGENTS.md; megaplan; SPEC.md; research handoff researcher_lyrsrc_ccmixter_*.md; sources/_common.py + registry.py + catalog.py (wave 1 output); tests/test_lyrics_sources_core.py for fixture conventions.\n\nTasks:\n1. Genious_lyrics_extractor/sources/ccmixter.py implementing the SPEC adapter interface against the ccMixter query API endpoints R1 confirmed: iter_catalog() emits CatalogEntry per pell with per-item license fields (cc-by/cc-by-nc/cc0 -> tier mapping per SPEC); fetch_lyrics(entry) extracts lyric text from the description fields R1 identified, builds song JSON via _common writer; language field via langdetect on clean_lyrics.\n2. If R1 also confirmed Wikimedia Commons viability, sources/wikimedia_commons.py same pattern (MediaWiki API category walk + file description text extraction); else record why it was cut.\n3. tests/test_lyrics_sources_ccmixter.py (+ _wikimedia if built): fixture responses, license-tier mapping assertions per CC variant, no-network default path.\n4. Pilot: `fetch_lyrics_source.py --source ccmixter --limit 25 --resume` into data/toolshop/lyrics/ccmixter/ — real network through corporate proxy MAY fail: if it does, document the exact error, run offline against fixtures, mark the live pilot as deferred-for-user-run in the handoff (do NOT fake output).\n\nCommit per lane rules + CHANGELOG entry. Handoff: wave_a/I2_handoff.md with quoted exit codes, pilot counts, and per-item license spot-check (print 3 catalog rows verbatim).",
+          "scope": "Genious_lyrics_extractor/sources/{ccmixter,wikimedia_commons}.py, tests/test_lyrics_sources_{ccmixter,wikimedia}.py, data/toolshop/lyrics/ccmixter/ (uncommitted), wave_a/I2_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_a/I2_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe.",
+            "No pip installs, no import toolshop, UTF-8 everywhere, >=1.5s request delay, robots check per host.",
+            "Per-item license fields are mandatory — an item without a resolvable license is written to catalog with fetched=false and a note, never assumed.",
+            "Never commit corpus data or non-cleared lyric text.",
+            "Handoff quotes exit codes + key output; commit before you claim."
+          ],
+          "context_budget": "150k"
+        },
+        {
+          "id": "I3",
+          "role": "implementer",
+          "name": "W-A2: Wikisource-PD (sr+en) + Gutenberg adapters with cyrillic normalization",
+          "task": "You are the implementer for wave A (agent I3) of the lyrics-sources megaplan. Read: AGENTS.md; megaplan; SPEC.md; research handoff researcher_lyrsrc_pdtext_*.md; sources/_common.py + registry.py + catalog.py; tests/test_lyrics_sources_core.py.\n\nTasks:\n1. Genious_lyrics_extractor/sources/wikisource_pd.py: MediaWiki API adapter per R2's confirmed traversal — sr.wikisource PD folk corpus (Karadzic collections if traversable) + en.wikisource pre-1930 songbook categories. license_tier='pd', fetch_policy='auto'.\n2. NORMALIZATION IS MANDATORY (finding F4): sr source text is Cyrillic — clean_lyrics must be transliterated cyrillic->latin via cyrtranslit (already in [lyrics] extra) AND diacritic-folded to match the corpus convention (see lyricsdb.py normalize behavior + _TYPE_MAP ASCII-folding); raw_lyrics may keep the original script for provenance, with a `script` field noting 'cyrillic-original'.\n3. sources/gutenberg_pd.py if R2 confirmed a usable songbook path (Project Gutenberg plain-text or HTML songbooks); else document the cut.\n4. Sections: map poem stanzas / song verses to sections[{label,content}] — label the canonical section type (e.g. 'Strofa') so parse_section_label downstream doesn't misclassify.\n5. tests/test_lyrics_sources_wikisource.py: Cyrillic fixture -> asserts Latin folded output; MediaWiki API fixture parsing; slow live test.\n6. Pilot: `fetch_lyrics_source.py --source wikisource_pd --limit 25 --resume` into data/toolshop/lyrics/wikisource_pd/; same proxy-failure deferral rule as I2.\n\nCommit per lane rules + CHANGELOG entry. Handoff: wave_a/I3_handoff.md — include one full before/after normalization example (Cyrillic raw -> clean_lyrics) verbatim.",
+          "scope": "Genious_lyrics_extractor/sources/{wikisource_pd,gutenberg_pd}.py, tests/test_lyrics_sources_wikisource.py + fixtures, data/toolshop/lyrics/{wikisource_pd,gutenberg_pd}/ (uncommitted), wave_a/I3_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_a/I3_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe.",
+            "No pip installs, no import toolshop, UTF-8, >=1.5s delay, robots check, MediaWiki maxlag/UA etiquette per R2.",
+            "Cyrillic->Latin + diacritic fold on clean_lyrics is mandatory; raw_lyrics preserves source script.",
+            "Never commit corpus data.",
+            "Handoff quotes exit codes + key output; commit before you claim."
+          ],
+          "context_budget": "150k"
+        },
+        {
+          "id": "I4",
+          "role": "implementer",
+          "name": "W-A3: catalog-only adapters — pdinfo harvester, looperman metadata, registry rows",
+          "task": "You are the implementer for wave A (agent I4) of the lyrics-sources megaplan. Read: AGENTS.md; megaplan; SPEC.md; research handoff researcher_lyrsrc_grayaudit_*.md (authoritative on what may/may not be fetched per source); sources/_common.py + registry.py + catalog.py; tests/test_lyrics_sources_core.py.\n\nTasks:\n1. sources/pdinfo.py: harvest PDInfo public-domain song TITLE lists (auto-OK — titles aren't copyrighted) into data/toolshop/lyrics/pd_titles/_catalog.jsonl; entries get fetch_policy hint 'resolve-via-wikisource' — they feed future wikisource_pd lookups, not direct lyric fetch.\n2. sources/looperman.py: METADATA CATALOG ONLY per R3's verdict — iter_catalog() emits entries from acapella listing metadata R3 confirmed fetchable (or user-supplied export if account-gated); NO fetch_lyrics implementation — the method raises per registry policy.\n3. Registry rows (no adapter file): voclr, acapellas4u -> fetch_policy 'catalog-only', license_tier 'uncleared'; paid packs (tech-house-market, loopmasters, splice, vocalfy, studiotronnic, weapon-sounds) -> fetch_policy 'manual', license_tier 'paid-rf'. These rows are the future vocal-audio lane's catalog — metadata schema only.\n4. tests/test_lyrics_sources_catalog.py: catalog schema conformance, policy-gate raises for every catalog-only/manual source, no-fetch-path proof for looperman (assert hasattr(...) is False or raises NotImplementedError per SPEC).\n5. Optional pilot: pdinfo harvest if reachable; else defer with documented error.\n\nCommit per lane rules + CHANGELOG entry. Handoff: wave_a/I4_handoff.md.",
+          "scope": "Genious_lyrics_extractor/sources/{pdinfo,looperman}.py, sources/registry.json rows, tests/test_lyrics_sources_catalog.py, data/toolshop/lyrics/pd_titles/ (uncommitted), wave_a/I4_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_a/I4_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe.",
+            "HARD GATE: no lyric-text fetch path for catalog-only/manual/uncleared sources — implementing one is a scope violation.",
+            "No pip installs, no import toolshop, UTF-8, robots check.",
+            "Never commit corpus data or gray-source lyric text (fixtures synthetic).",
+            "Handoff quotes exit codes + key output; commit before you claim."
+          ],
+          "context_budget": "120k"
+        }
+      ]
+    },
+    {
+      "wave": "B",
+      "name": "Adapters B — remaining auto-fetch sources (added post-W0: P1 flagged WA covered only 4 of the kept sources)",
+      "parallel": true,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "I6",
+          "role": "implementer",
+          "name": "W-B1: gutenberg_pd + mudcat_digitrad adapters (PD harvest/filter family)",
+          "task": "You are the implementer for wave B (agent I6) of the lyrics-sources megaplan. Read: AGENTS.md; megaplan; SPEC.md (binding — §6 adapter contract, §9 per-source ingest notes); research handoffs researcher_lyrsrc_pdtext_*.md + researcher_lyrsrc_standards_*.md; sources/_common.py + registry.py + catalog.py (wave 1 output); tests/test_lyrics_sources_core.py.\n\nTasks:\n1. sources/gutenberg_pd.py per SPEC §9: catalog-first via the PG catalog endpoints R2 documented; text fetch via robot/harvest or mirror ONLY per R2's finding that the site is human-only for bulk — honor whatever mechanism SPEC froze; license_tier='pd'; stanza->sections mapping.\n2. sources/mudcat_digitrad.py: the DigiTrad zip is a ONE-SHOT download — fetch once, unpack under data/toolshop/lyrics/mudcat_digitrad/_src/, then parse offline. MANDATORY ©-filter per SPEC §9 (items flagged copyrighted are dropped at catalog stage, never emitted); crawl-delay 10s if any page fetch is needed; no AI-bot UA.\n3. tests/test_lyrics_sources_{gutenberg,mudcat}.py: committed fixtures (PD text only — commit-safe); ©-filter drop assertions; catalog schema conformance.\n4. Pilots via fetch_lyrics_source.py --limit 25 --resume; proxy-failure -> offline fixture run + documented deferral.\n\nCommit per lane rules + CHANGELOG. Handoff: wave_b/I6_handoff.md — quote ©-filter drop counts and 3 verbatim catalog rows.",
+          "scope": "Genious_lyrics_extractor/sources/{gutenberg_pd,mudcat_digitrad}.py, tests/test_lyrics_sources_{gutenberg,mudcat}.py + fixtures, data/toolshop/lyrics/{gutenberg_pd,mudcat_digitrad}/ (uncommitted), wave_b/I6_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_b/I6_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe.",
+            "No pip installs, no import toolshop, UTF-8, robots check per host, honor per-source crawl-delay.",
+            "Mudcat ©-flagged items MUST be dropped at catalog stage — a flagged item reaching song JSON is a blocker.",
+            "Never commit corpus data.",
+            "Handoff quotes exit codes + key output; commit before you claim."
+          ],
+          "context_budget": "150k"
+        },
+        {
+          "id": "I7",
+          "role": "implementer",
+          "name": "W-B2: hymnary + sacred_texts adapters (filtered-collection family)",
+          "task": "You are the implementer for wave B (agent I7) of the lyrics-sources megaplan. Read: AGENTS.md; megaplan; SPEC.md; researcher_lyrsrc_pdtext_*.md; sources/_common.py + registry.py + catalog.py; tests/test_lyrics_sources_core.py.\n\nTasks:\n1. sources/hymnary.py per SPEC §9: CSV-export path preferred; per-item instance must resolve to a pre-1931 publication/date or the item is dropped; if the CSV path is dead (R2 hit 403s on widgets), fall back to SPEC's documented alternative — if none, mark source deferred-in-handoff rather than building a scraper R3's audit would forbid.\n2. sources/sacred_texts.py: Child Ballads mirror per R2 — static HTML pages; section->stanza mapping; license_tier='pd'.\n3. tests/test_lyrics_sources_{hymnary,sacred_texts}.py with committed PD fixtures; date-filter and 1931-boundary assertions (a 1931 item must be dropped).\n4. Pilots via fetch_lyrics_source.py --limit 25 --resume; proxy/403 failure -> offline fixture run + documented deferral.\n\nCommit per lane rules + CHANGELOG. Handoff: wave_b/I7_handoff.md — quote filter drop counts and one boundary-date test verbatim.",
+          "scope": "Genious_lyrics_extractor/sources/{hymnary,sacred_texts}.py, tests/test_lyrics_sources_{hymnary,sacred_texts}.py + fixtures, data/toolshop/lyrics/{hymnary,sacred_texts}/ (uncommitted), wave_b/I7_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_b/I7_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe.",
+            "No pip installs, no import toolshop, UTF-8, robots check per host.",
+            "The pre-1931 publication filter is a correctness gate — an item without a resolvable date is dropped, never assumed PD.",
+            "Never commit corpus data.",
+            "Handoff quotes exit codes + key output; commit before you claim."
+          ],
+          "context_budget": "150k"
+        },
+        {
+          "id": "I8",
+          "role": "implementer",
+          "name": "W-B3: jamendo (env-gated) + lrclib (study-only) adapters",
+          "task": "You are the implementer for wave B (agent I8) of the lyrics-sources megaplan. Read: AGENTS.md; megaplan; SPEC.md; researcher_lyrsrc_ccmixter_*.md (Jamendo section) + researcher_lyrsrc_grayaudit_*.md (LRCLIB section); sources/_common.py + registry.py + catalog.py; tests/test_lyrics_sources_core.py.\n\nTasks:\n1. sources/jamendo.py — env-gated per GATE R: reads JAMENDO_CLIENT_ID from env/.env; if absent the adapter reports 'inert — register at devportal.jamendo.com' and exits 0 doing nothing. When keyed: v3 API tracks endpoint with include=lyrics + license_ccurl per R1; map license_ccurl -> SPDX via _common.LICENSE_URL_MAP; corpus_tag per registry.\n2. sources/lrclib.py — study-only tier (license_tier='study-only', release_ok='no' ALWAYS — a lrclib row with release_ok=yes is a blocker): /api/search + /api/get per R3; capture plainLyrics AND syncedLyrics AND lyricsfile (per-line ms YAML) into a synced_lyrics field per SPEC song JSON v2; honor ~20 req/s ceiling with the shared rate limiter anyway (>=1.5s).\n3. tests/test_lyrics_sources_{jamendo,lrclib}.py: env-gate inert path test (missing key -> no requests made); license_ccurl->SPDX mapping; lrclib release_ok invariant test; fixture-based.\n4. Pilots: jamendo skipped unless key present (record state); lrclib --limit 25 live or fixture-deferred.\n\nCommit per lane rules + CHANGELOG. Handoff: wave_b/I8_handoff.md.",
+          "scope": "Genious_lyrics_extractor/sources/{jamendo,lrclib}.py, tests/test_lyrics_sources_{jamendo,lrclib}.py + fixtures, data/toolshop/lyrics/{jamendo,lrclib}/ (uncommitted), wave_b/I8_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_b/I8_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe.",
+            "Jamendo without JAMENDO_CLIENT_ID must make ZERO network calls and exit cleanly — the inert path is the tested path.",
+            "lrclib rows are study-only FOREVER — release_ok='no' invariant is testable and non-negotiable.",
+            "No pip installs, no import toolshop, UTF-8, robots check.",
+            "Never commit corpus data. Handoff quotes exit codes; commit before you claim."
+          ],
+          "context_budget": "120k"
+        }
+      ]
+    },
+    {
+      "wave": "5",
+      "name": "Ingest — multi-corpus lyricsdb + rhyme_miner corpus flag + inventory",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "I5",
+          "role": "implementer",
+          "name": "W5: build_database(corpus=, incremental=) + license fields + rhyme_miner --corpus + corpus_inventory ext",
+          "task": "You are the implementer for wave 5 of the lyrics-sources megaplan. Read: AGENTS.md; megaplan; SPEC.md (migration decision is binding); toolshop/lyricsdb.py (lines 1-50, 405-560, 556-700, 771-860); toolshop/rhyme_miner.py:455-525 (hardcoded corpus filters); toolshop/cli.py lyrics build-db block (~line 909-925); Genious_lyrics_extractor/corpus_inventory.py.\n\nTasks (minimal diffs — this wave deliberately touches toolshop/ shared infra; scope exception disclosed in megaplan):\n1. lyricsdb.py: implement SPEC's migration — license fields on songs (or song_licenses table per SPEC), corpus= param on build_database, incremental= mode (additive: never drops the DB; corpus-scoped dedup per SPEC decision — cross-corpus duplicates are CORRECT). Migrate-on-open guard so existing lyrics.db upgrades without rebuild.\n2. toolshop/cli.py: `lyrics build-db` gains --corpus TAG + --incremental flags.\n3. toolshop/rhyme_miner.py: parametrize the 4 `corpus = 'genius-pro'` filters -> --corpus flag (default 'genius-pro' preserves behavior; 'all' or explicit tag opts in new corpora). Add/extend tests asserting the flag boundaries.\n4. Genious_lyrics_extractor/corpus_inventory.py: extend to group by corpus (genius-pro + each new tag) and report license_tier/release_ok distributions.\n5. Run: build-db --corpus <each new corpus tag> --incremental over data/toolshop/lyrics/<corpus>/ dirs (whatever wave A produced, fixtures fallback if pilots deferred); corpus_inventory.py before AND after; reconciliation report proving genius-pro song count + sections/lines/rhymes counts UNCHANGED.\n6. tests: extend existing lyricsdb/rhyme_miner tests or add tests/test_lyricsdb_multicorpus.py — corpus-scoped dedup, incremental additivity (run twice -> same row count), license fields populated from _index.json.\n\nCommit per lane rules + CHANGELOG entry. Handoff: wave_5/I5_handoff.md with before/after inventory numbers quoted verbatim.",
+          "scope": "toolshop/lyricsdb.py, toolshop/cli.py, toolshop/rhyme_miner.py, Genious_lyrics_extractor/corpus_inventory.py, tests/test_lyricsdb_multicorpus.py (new) or existing test updates, ORCHESTRATION/lyrics_sources/wave_5/I5_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_5/I5_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe.",
+            "Incremental mode is additive-only — if your diff can ever drop/rebuild existing rows, STOP and re-read SPEC.",
+            "Default corpus behavior must be identical to today (genius-pro) — verify at scope: run corpus_inventory.py before your changes and after ingest; genius-pro numbers must match.",
+            "No pip installs. UTF-8. Never commit lyrics.db or corpus data.",
+            "Verify at the scope of the claim: 'multi-corpus works' means inventory across ALL corpora, not one.",
+            "Handoff quotes exit codes + key output; commit before you claim."
+          ],
+          "context_budget": "150k"
+        }
+      ]
+    },
+    {
+      "wave": "6",
+      "name": "Review + license audit + closeout",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "V1",
+          "role": "reviewer",
+          "name": "W6: adversarial review + license-integrity audit + release-export smoke + closeout",
+          "task": "You are the reviewer for wave 6 of the lyrics-sources megaplan. Your mandate is refutation, not review — try to prove the work is wrong. Read: AGENTS.md; megaplan; SPEC.md; all wave handoffs under ORCHESTRATION/lyrics_sources/wave_*/.\n\nTasks:\n1. Adversarial review (target: implementation) of the full changeset: every megaplan requirement implemented? Corpus-scoped dedup actually corpus-scoped? Incremental truly additive (run build-db --incremental twice yourself — second run must add 0 rows)? No fetch path exists for catalog-only sources (grep for urlopen/requests in looperman.py — there must be none fetching lyrics)? Write review to d:/Projects/.workspace_archive/reviews/<stamp>_lyrics-sources-impl.md with fenced YAML findings contract.\n2. License-integrity audit: sample N>=10 items per new corpus — compare stored license_tier/license_ref against the source page metadata (read the corpus JSON + spot-check the item's URL); any stored license not matching source = blocker.\n3. Release-export smoke: run Genious_lyrics_extractor/export_release.py --release-cleared into a temp dir; assert zero items with release_ok in {no, conditional} — a single study-only/uncleared row in output is a blocker.\n4. Verify gates held: genius-pro row counts unchanged (corpus_inventory.py diff vs wave_5 handoff numbers); no corpus/lyric data committed (git ls-files | grep data/toolshop returns nothing new); no `import toolshop` inside Genious_lyrics_extractor/sources/.\n5. Closeout: STATUS.md row, CHANGELOG Answer-format entry, `toolshop closeout` exit 0 with evidence block quoted, ledger updated at handoffs/orchestration_ledger_lyrics_sources_<date>.md.\n\nVerdict required: approved | approved-with-fixes | blocked + blockers/nits lists. If blocked, hand the findings back through the ledger — do not fix implementation yourself.",
+          "scope": "read-only + reviews dir + STATUS.md + CHANGELOG.md + ledger file; no implementation edits",
+          "output": "ORCHESTRATION/lyrics_sources/wave_6/V1_handoff.md",
+          "constraints": [
+            "Reviewer role: refute, don't repair — findings go back through the ledger; only doc/record files may be written.",
+            "A finding without evidence cannot gate alone — tag it UNVERIFIED; run the check where possible.",
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe for any verification runs.",
+            "toolshop closeout must exit 0; paste its evidence block into the handoff."
+          ],
+          "context_budget": "120k"
+        }
+      ]
+    }
+  ]
+}

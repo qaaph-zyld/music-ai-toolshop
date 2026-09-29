@@ -1,0 +1,319 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "genius",
+      "name": "Genius",
+      "base_url": "https://genius.com",
+      "license_tier": "study-only",
+      "fetch_policy": "auto",
+      "adapter": null,
+      "corpus_tag": "genius-pro",
+      "corpus_dir": "genius",
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "Existing corpus (~1,425 songs). corpus_dir 'genius' is the ONE legacy exception to corpus_dir==corpus_tag (lyricsdb.py:30 CORPUS_TAG='genius-pro'). Fetched via `toolshop lyrics fetch/search` + extractor batch scripts — sources/ adapters never touch it."
+    },
+    {
+      "id": "sr_wikisource",
+      "name": "Serbian Wikisource (narodne pesme)",
+      "base_url": "https://sr.wikisource.org",
+      "license_tier": "pd",
+      "fetch_policy": "auto",
+      "adapter": "sr_wikisource",
+      "corpus_tag": "sr-wikisource",
+      "license_ref_default": "LicenseRef-public-domain",
+      "env_gate": null,
+      "categories": ["zenske", "epske", "lirske", "vuk-zbirke", "erlangen", "ostalo"],
+      "politeness": {
+        "min_interval_s": 1.5,
+        "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})",
+        "maxlag": 5,
+        "batch_titles": 50,
+        "gzip": true
+      },
+      "notes": "~10k+ poem pages under Kategorija:Народне песме tree (R2 §1). MediaWiki API, action=parse&prop=wikitext (NOT prop=extracts). Serial >=1.5 s + descriptive contact UA mandatory (IP-block otherwise, R2 §3). maxlag=5, <=50 titles/req. Scan each page's license template before ingest (§9)."
+    },
+    {
+      "id": "en_wikisource",
+      "name": "English Wikisource (folk songs / ballads / hymns)",
+      "base_url": "https://en.wikisource.org",
+      "license_tier": "pd",
+      "fetch_policy": "auto",
+      "adapter": "en_wikisource",
+      "corpus_tag": "en-wikisource",
+      "license_ref_default": "LicenseRef-public-domain",
+      "env_gate": null,
+      "categories": ["folk-songs", "ballads", "traditional-ballads", "song-books", "hymns", "poetry-collections"],
+      "politeness": {
+        "min_interval_s": 1.5,
+        "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})",
+        "maxlag": 5,
+        "batch_titles": 50,
+        "gzip": true
+      },
+      "notes": "Secondary arm, ~300-500 song/hymn pages + collections (R2 §2). Same MediaWiki politeness block as sr. Do NOT chase Child ballads here — Part pages are {{migrate to}} placeholders (R2 §2); Child comes from gutenberg/sacred-texts."
+    },
+    {
+      "id": "gutenberg_pd",
+      "name": "Project Gutenberg (PD song collections)",
+      "base_url": "https://www.gutenberg.org",
+      "license_tier": "pd",
+      "fetch_policy": "auto",
+      "adapter": "gutenberg_pd",
+      "corpus_tag": "gutenberg-pd",
+      "license_ref_default": "LicenseRef-public-domain",
+      "env_gate": null,
+      "categories": ["child-ballads", "songs-of-the-west", "elizabethan", "yorkshire", "misc"],
+      "politeness": {
+        "min_interval_s": 1.5,
+        "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})"
+      },
+      "notes": "Catalog-first via PG offline catalog (PD data); text via robot/harvest endpoint or mirror ONLY — never scrape /ebooks/ or /files/ pages (IP block, robot_access.html, R2 §4). Strip PG header/footer boilerplate + transcriber notes."
+    },
+    {
+      "id": "mudcat_digitrad",
+      "name": "Digital Tradition (mudcat mirror)",
+      "base_url": "https://mudcat.org",
+      "license_tier": "pd",
+      "fetch_policy": "auto",
+      "adapter": "mudcat_digitrad",
+      "corpus_tag": "mudcat-digitrad",
+      "license_ref_default": "LicenseRef-public-domain",
+      "env_gate": null,
+      "categories": ["dt"],
+      "politeness": {
+        "min_interval_s": 1.5,
+        "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})"
+      },
+      "notes": "One-shot download.cfm zip (~7.32 MB, ~7,800 songs). DROP copyright-flagged items at catalog stage — they never reach disk (R2 §6). Charter is not-for-profit → corpus/internal release use; manifest note required (GATE 0 Q4). No per-song-page crawl (Crawl-delay 10, AI-bot UAs hard-blocked)."
+    },
+    {
+      "id": "hymnary",
+      "name": "Hymnary.org (pre-1931 hymn texts)",
+      "base_url": "https://hymnary.org",
+      "license_tier": "pd",
+      "fetch_policy": "auto",
+      "adapter": "hymnary",
+      "corpus_tag": "hymnary",
+      "license_ref_default": "LicenseRef-public-domain",
+      "env_gate": null,
+      "categories": ["pre-1931"],
+      "politeness": {
+        "min_interval_s": 1.5,
+        "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})"
+      },
+      "notes": "CSV exports (&export=csv) + pre-1931 instance filter — 'Representative Text' may come from a modern hymnal instance; resolve the specific instance's year, emit only <=1930 (R2 §6). Export path unverified — manual verification precedes adapter work (GATE 0 Q3)."
+    },
+    {
+      "id": "sacred_texts",
+      "name": "sacred-texts.com (Child ballads mirror)",
+      "base_url": "https://sacred-texts.com",
+      "license_tier": "pd",
+      "fetch_policy": "auto",
+      "adapter": "sacred_texts",
+      "corpus_tag": "sacred-texts",
+      "license_ref_default": "LicenseRef-public-domain",
+      "env_gate": null,
+      "categories": ["child-ballads"],
+      "politeness": {
+        "min_interval_s": 1.5,
+        "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})"
+      },
+      "notes": "Child ballads mirror (neu/eng/child/chtitle.htm index -> per-ballad pages). Static HTML, light scrape >=1.5 s (R2 §6). PD texts only."
+    },
+    {
+      "id": "ccmixter",
+      "name": "ccMixter (acappella uploads)",
+      "base_url": "https://ccmixter.org",
+      "license_tier": "cc-by",
+      "fetch_policy": "auto",
+      "adapter": "ccmixter",
+      "corpus_tag": "ccmixter",
+      "license_ref_default": "CC-BY-4.0",
+      "env_gate": null,
+      "categories": ["acappella-by", "acappella-pd", "acappella-nc", "acappella-sa"],
+      "politeness": {
+        "min_interval_s": 1.5,
+        "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})"
+      },
+      "notes": "Query API, default lane tags=acappella x lic=by + lic=pd (release-safe); lic=nc/sa opt-in study tiers (R1 §2-3). ~45-60% lyric yield from upload_description_* via header extraction. license_url -> SPDX via LICENSE_URL_MAP. GATE R waived robots-strict per open-API declaration (t.ccmixter.org/about); MLBot remains banned, never spoof."
+    },
+    {
+      "id": "jamendo",
+      "name": "Jamendo",
+      "base_url": "https://api.jamendo.com",
+      "license_tier": "cc-by",
+      "fetch_policy": "auto",
+      "adapter": "jamendo",
+      "corpus_tag": "jamendo",
+      "license_ref_default": "CC-BY-4.0",
+      "env_gate": "JAMENDO_CLIENT_ID",
+      "categories": ["by", "cc0", "by-sa", "by-nc", "by-nd", "other"],
+      "politeness": {
+        "min_interval_s": 1.5,
+        "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})"
+      },
+      "notes": "SHIPS INERT — iter_catalog/fetch_lyrics raise EnvGateError while JAMENDO_CLIENT_ID unset (GATE R). When keyed: tracks endpoint include=lyrics + license_ccurl per track, limit<=200 + offset, ~35k req/mo, error code 6 = rate-limit -> backoff (R1 §5)."
+    },
+    {
+      "id": "lrclib",
+      "name": "LRCLIB (synced/plain lyrics API)",
+      "base_url": "https://lrclib.net",
+      "license_tier": "study-only",
+      "fetch_policy": "auto",
+      "adapter": "lrclib",
+      "corpus_tag": "lrclib",
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": ["tracks"],
+      "politeness": {
+        "min_interval_s": 0.5,
+        "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})",
+        "honor_retry_after": true
+      },
+      "notes": "Keyless lookup API — iter_catalog reads a local seed file of artist/title/album/duration rows; prefer /api/get-cached then /api/get. Capture plainLyrics + syncedLyrics (LRC) + lyricsfile (YAML per-line ms, R3 §4). 200-500 ms spacing, honor 429 Retry-After. Lyric text remains songwriters' copyright -> study-only."
+    },
+    {
+      "id": "pdinfo",
+      "name": "PDInfo (public-domain title index)",
+      "base_url": "https://www.pdinfo.com",
+      "license_tier": "pd",
+      "fetch_policy": "catalog-only",
+      "adapter": "pdinfo",
+      "corpus_tag": "pdinfo",
+      "license_ref_default": "LicenseRef-public-domain",
+      "env_gate": null,
+      "categories": [],
+      "politeness": {
+        "min_interval_s": 1.5,
+        "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})"
+      },
+      "notes": "Title index ONLY — no lyrics exist on the site (R2 §5). ~50 static A-Z/genre/year list pages fetched once, cached under data/. Titles are uncopyrightable facts; each row's PD claim = 'a pre-1930 source exists somewhere' -> meta.pd_claim='unverified'. Feeds wikisource/gutenberg lookups. No fetch_lyrics by contract."
+    },
+    {
+      "id": "looperman",
+      "name": "Looperman (acapella uploads)",
+      "base_url": "https://www.looperman.com",
+      "license_tier": "uploader-terms",
+      "fetch_policy": "manual",
+      "adapter": "looperman",
+      "corpus_tag": "looperman",
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "MANUAL ONLY — adapter reads hand-maintained data/toolshop/lyrics/looperman/_catalog.json (title/uploader/date/BPM/key/genre/usage). NO HTTP anywhere: ToS bans scraping AND ML training verbatim (R3 §1). Module must not import requests (enforced by contract test, §7)."
+    },
+    {
+      "id": "voclr",
+      "name": "Voclr.it",
+      "base_url": "https://voclr.it",
+      "license_tier": "uncleared",
+      "fetch_policy": "catalog-only",
+      "adapter": null,
+      "corpus_tag": "voclr",
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "Registry row only this wave (GATE R). Public listing metadata exists but content is commercial rips — own Legal page admits 'not a legal licensing marketplace' (R3 §2). No fetch ever."
+    },
+    {
+      "id": "acapellas4u",
+      "name": "Acapellas4u",
+      "base_url": "https://www.acapellas4u.co.uk",
+      "license_tier": "uncleared",
+      "fetch_policy": "catalog-only",
+      "adapter": null,
+      "corpus_tag": "acapellas4u",
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "Registry row only (GATE R). Same pattern as voclr — account+credit-gated rips of commercial songs (R3 §3). No fetch ever."
+    },
+    {
+      "id": "techhousemarket",
+      "name": "Tech House Market (paid vocal packs)",
+      "base_url": "https://techhousemarket.com",
+      "license_tier": "paid-rf",
+      "fetch_policy": "manual",
+      "adapter": null,
+      "corpus_tag": null,
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "Registry row preserves a future audio lane (R3 §6). Royalty-free packs, corpus_tag null (not a lyric corpus)."
+    },
+    {
+      "id": "loopmasters",
+      "name": "Loopmasters (paid vocal packs)",
+      "base_url": "https://www.loopmasters.com",
+      "license_tier": "paid-rf",
+      "fetch_policy": "manual",
+      "adapter": null,
+      "corpus_tag": null,
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "Registry row preserves a future audio lane (R3 §6)."
+    },
+    {
+      "id": "splice",
+      "name": "Splice (paid vocal packs)",
+      "base_url": "https://splice.com",
+      "license_tier": "paid-rf",
+      "fetch_policy": "manual",
+      "adapter": null,
+      "corpus_tag": null,
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "Registry row preserves a future audio lane (R3 §6)."
+    },
+    {
+      "id": "vocalfy",
+      "name": "Vocalfy (paid non-exclusive vocals)",
+      "base_url": "https://vocalfy.com",
+      "license_tier": "paid-rf",
+      "fetch_policy": "manual",
+      "adapter": null,
+      "corpus_tag": null,
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "Registry row preserves a future audio lane (R3 §6)."
+    },
+    {
+      "id": "studiotronnic",
+      "name": "Studiotronnic (paid vocal packs)",
+      "base_url": "https://studiotronnic.com",
+      "license_tier": "paid-rf",
+      "fetch_policy": "manual",
+      "adapter": null,
+      "corpus_tag": null,
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "Registry row preserves a future audio lane (R3 §6)."
+    },
+    {
+      "id": "weaponsounds",
+      "name": "Weapon Sounds (paid vocal packs)",
+      "base_url": "https://weaponsounds.com",
+      "license_tier": "paid-rf",
+      "fetch_policy": "manual",
+      "adapter": null,
+      "corpus_tag": null,
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "Registry row preserves a future audio lane (R3 §6)."
+    }
+  ],
+  "cut": [
+    { "id": "musixmatch",        "reason": "free tier returns only ~30% lyric previews; synced lyrics paywalled from $49/mo (R3 §5)" },
+    { "id": "fma",               "reason": "API permanently shut down; never exposed lyric fields (R1 §5)" },
+    { "id": "wikimedia_commons", "reason": "vocal-music cat ~134 files; descriptions carry no lyric text (R1 §6)" },
+    { "id": "contemplator",      "reason": "site-layer copyright + re-host restrictions; index value only (R2 §6)" }
+  ]
+}

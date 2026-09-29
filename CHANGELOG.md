@@ -1,5 +1,30 @@
 # Changelog
 
+### Answer #062 - lyrics-sources W1: license-tiered source infrastructure — registry, vendored RobotsPolicy, resumable catalog, fetch dispatcher.
+**Timestamp:** 2026-09-30
+**Action Type:** Implementation — wave W1 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`). Ships the shared adapter substrate only — no source adapters yet (wave WA/WB).
+
+**What landed:** `Genious_lyrics_extractor/sources/` package: `registry.json` (20 frozen rows + 4-row `cut` section per SPEC §2.1 — genius keeps the one `corpus_dir:"genius"` vs `corpus_tag:"genius-pro"` exception; jamendo `env_gate: JAMENDO_CLIENT_ID` ships inert; catalog-only/manual rows carry no fetch path). `registry.py` loads/validates rows, resolves `corpus_root` under `TOOLSHOP_DATA_DIR/lyrics/`, `require_fetchable()` raises `FetchPolicyError` for `fetch_policy != 'auto'` or `adapter: null` (SPEC §1.2 gate), `check_env_gate` raises `EnvGateError`, `resolve_adapter` defers cleanly for unimplemented WA modules. `_common.py` self-contained (no `import toolshop` — F-B1): `RobotsPolicy` vendored from `toolshop/genius_adapter.py:43-117` generalised to `robots_url|base_url` + UA header; `RateLimiter`/`polite_get` (per-source ≥1.5 s pacing, `{contact}`-template UA via `TOOLSHOP_CONTACT`/`TOOLSHOP_LYRICS_UA`, gzip, 429/`Retry-After` + MediaWiki `maxlag`/`ratelimited` backoff); `LICENSE_URL_MAP`/`LICENSE_TOKEN_INFO` (Openverse URL→SPDX; `LicenseRef-public-domain` for PD, `sampling+` → study-only); `CatalogEntry`/`LicenseInfo`; `tasl_credit`; `write_song_json` (song JSON v2 §3.3 + .txt, safe `study-only`/`no` defaults, fid-collision suffix); `build_index`/`write_index` carrying the license block into `_index.json` (F8); `load_catalog`/`save_catalog` + `pending_slice` resumable helpers (batch.py semantics, no toolshop import). `catalog.py`: `Catalog` — `_catalog.json` IS the resumable status file, flushed per item, `upsert` preserves terminal statuses (`dropped` ©-flags never resurrect). `fetch_lyrics_source.py`: `--source/--limit/--offset/--resume/--category/--catalog-only|--rebuild-catalog/--list`; `--resume` = skip-completed (fetched/skipped/dropped skipped, failed retried — batch.py semantics); per-item `DropItem`→dropped / exception→failed; index rebuilt at run end. NOTE: frozen SPEC §3.1 names the file `_catalog.json` (implemented); the older task text's `_catalog.jsonl` is superseded — entry dicts carry the task-named fields (`source, external_id, title, artist, url, license_tier, license_ref, release_ok, fetched`) plus SPEC §6.2 fields.
+
+#### Files Affected:
+- **NEW:** `Genious_lyrics_extractor/sources/{__init__.py, _common.py, registry.py, catalog.py, registry.json}` — package + frozen registry + shared substrate + resumable queue.
+- **NEW:** `Genious_lyrics_extractor/fetch_lyrics_source.py` — registry-driven dispatcher CLI.
+- **NEW:** `tests/test_lyrics_sources_core.py` — 53 tests (registry conformance, fetch-policy gate, robots gate, pacing/429/maxlag, license maps, TASL, song/index writers, catalog resume, dispatcher end-to-end via injected adapter, no-toolshop-import scan).
+- **NEW:** `tests/fixtures/lyrics_sources/` — `registry_test.json`, `robots_sample.txt`, `sample_pd_song.json` (all synthetic, CC0 — see `CREDITS.md`).
+- **NEW:** `ORCHESTRATION/lyrics_sources/` — SPEC.md (frozen, GATE 0), `waves_megaplan.json`, `prompts/waveR_*.md`, `wave_0/P1_handoff.md`, `wave_1/I1_handoff.md` (prior waves' artifacts committed alongside so the spec the code implements is on record).
+
+#### Verification (run this session):
+- `pytest tests/test_lyrics_sources_core.py -q` → **53 passed** (exit 0).
+- `pytest -q --collect-only` → 1497 tests collected, no import/collection errors (exit 0).
+- `fetch_lyrics_source.py --list` → 20 rows printed (exit 0); `--source voclr|looperman|genius` → exit 2 with clear policy errors; `--source ccmixter --catalog-only` → exit 2 "adapter not implemented yet (wave WA)".
+- `git check-ignore -v data/toolshop/lyrics/test_probe.json` → `.gitignore:47:data/` — corpus dirs covered (A7).
+
+#### Next Actions Required:
+- Wave WA: adapter modules (`ccmixter`, `sr_wikisource`, `en_wikisource`, `pdinfo`, `looperman`) per SPEC §6.3 contract; WB: `gutenberg_pd`, `mudcat_digitrad`, `hymnary`, `sacred_texts`, `jamendo`, `lrclib`. Contract test `test_named_adapters_resolve_or_defer` already enforces module shape as they land.
+- W5: `lyricsdb.py` corpus/incremental migration + `rhyme_miner --corpus` + `cli.py` flags + `export_release.py`.
+
+---
+
 ### Answer #061 - OGCM flip m5: W5 mixdown + real mastering stage (F9) + GATE F blind pack staged.
 **Timestamp:** 2026-09-28
 **Action Type:** Implementation — wave m5 (W5) of the OGCM drill-flip megaplan: per-arm beat+vocal mixdown, the real mastering function F9 flagged as missing, and the GATE F blind A/B pack staged under `Stemmeca_alatkka/stems/flip_final/` (gitignored — audio not committed). Pack awaits the user's blind pick; pick-dependent lines deliberately absent.
