@@ -1,7 +1,9 @@
 """Phrase-level multi-syllable rhymes.
 
 Combinations of 1-3 vocabulary words whose concatenated vowel skeleton ends with
-the skeleton of the given phrase. Vocabulary words only: never corpus lines.
+the skeleton of the given phrase, and whose adjacent word pairs are all attested
+corpus bigrams (words seen next to each other in one line). Vocabulary words and
+word pairs only: never corpus lines.
 """
 
 from __future__ import annotations
@@ -15,8 +17,7 @@ from mairina.rank import W_FREQ, Ctx, Scored, features_for
 
 GLUE = frozenset("da se me te je u na sa mi ti ne".split())
 MIN_FREQ = 2
-PER_SKELETON = 40      # words kept per skeleton
-BEAM = 60              # partial combos kept per (remaining, slots)
+BEAM = 60              # partial combos kept per (remaining skeleton, slots, next word)
 FINAL_BEAM = 2000      # complete combos kept before the diversity caps
 W_EXTRA_WORD = 0.4     # penalty per additional word
 MAX_PER_FINAL = 2      # results sharing the same final word
@@ -24,12 +25,13 @@ MAX_PER_FIRST = 3      # results sharing the same first word
 
 
 def _build_pools(ctx: Ctx):
-    """skeleton -> [(word, freq, final_ok)] sorted by frequency, capped.
+    """({skeleton: [(word, freq, final_ok)]}, {word: (skeleton, freq)}).
 
     Any content word or glue word may sit in a non-final slot. The final slot needs
     a content word that is not a proper noun (artist names are already out of the vocab).
     """
     pools = defaultdict(list)
+    info = {}
     for w, f in ctx.vocab().items():
         if f < MIN_FREQ or len(w) < 2:
             continue
@@ -40,10 +42,10 @@ def _build_pools(ctx: Ctx):
         content = upos in CONTENT_POS
         if content or w in GLUE:
             pools[skel].append((w, f, content and upos != "PROPN"))
+            info[w] = (skel, f)
     for skel in pools:
         pools[skel].sort(key=lambda t: (-t[1], t[0]))
-        del pools[skel][PER_SKELETON:]
-    return pools
+    return pools, info
 
 
 def _glue_count(words) -> int:
@@ -57,44 +59,70 @@ def multis(index, phrase: str, lane: str = "all", max_results: int = 20, fresh: 
     target = keys.vowel_key(phrase)
     if not target:
         return []
-    pools = _build_pools(ctx)
+    pools, info = _build_pools(ctx)
+    preds = index.predecessors()
     input_words = [keys.normalize(w) for w in phrase.split() if keys.normalize(w)]
     last_lemma = (index.forms.get(input_words[-1]) or {}).get("lemma") if input_words else None
-    covers: dict[tuple, list] = {}
 
-    def covering(rem: str, final: bool):
-        key = (rem, final)
-        if key not in covers:
-            found = [t for skel, ws in pools.items() if skel.endswith(rem)
-                     for t in ws if t[2] or not final]
-            found.sort(key=lambda t: (-t[1], t[0]))
-            covers[key] = found[:PER_SKELETON]
-        return covers[key]
+    pred_maps: dict[str, dict] = {}
+
+    def pred_map(nxt: str):
+        """skeleton -> [(word, freq)] of usable words attested directly before `nxt`."""
+        if nxt not in pred_maps:
+            pm = defaultdict(list)
+            for p in preds.get(nxt, ()):
+                if p in info and p != nxt:
+                    skel, f = info[p]
+                    pm[skel].append((p, f))
+            for lst in pm.values():
+                lst.sort(key=lambda t: (-t[1], t[0]))
+            pred_maps[nxt] = pm
+        return pred_maps[nxt]
 
     memo: dict[tuple, list] = {}
 
-    def gen(rem: str, slots: int, final: bool):
-        """[(words, mean log-freq)] whose skeletons end with `rem`, best first."""
-        key = (rem, slots, final)
+    def prefixes(rem: str, slots: int, nxt: str):
+        """[(words, mean log-freq)]: non-final words whose skeletons end with `rem`,
+        where the last word is attested directly before `nxt` (and so on backwards)."""
+        key = (rem, slots, nxt)
         if key in memo:
             return memo[key]
-        out = [([w], math.log1p(f)) for w, f, _ in covering(rem, final)]
+        pm = pred_map(nxt)
+        out = [([w], math.log1p(f)) for skel, ws in pm.items() if skel.endswith(rem) for w, f in ws]
         if slots > 1:
             for L in range(1, len(rem)):
-                for w, f, final_ok in pools.get(rem[-L:], ()):
-                    if final and not final_ok:
-                        continue
-                    for words, lf in gen(rem[:-L], slots - 1, False):
+                for w, f in pm.get(rem[-L:], ()):
+                    for words, lf in prefixes(rem[:-L], slots - 1, w):
                         if _glue_count(words) + (w in GLUE) > 1:
                             continue           # at most one glue word per combination
                         n = len(words)
                         out.append((words + [w], (lf * n + math.log1p(f)) / (n + 1)))
         out.sort(key=lambda t: (-(W_FREQ * t[1] - W_EXTRA_WORD * (len(t[0]) - 1)), t[0]))
-        memo[key] = out[:FINAL_BEAM if final else BEAM]
+        memo[key] = out[:BEAM]
         return memo[key]
 
+    def order(t):
+        return -(W_FREQ * t[1] - W_EXTRA_WORD * (len(t[0]) - 1)), t[0]
+
+    combos = []       # complete (words, mean log-freq)
+    for skel, ws in pools.items():
+        if skel.endswith(target):                        # 1-word results: no pair to attest
+            combos += [([w], math.log1p(f)) for w, f, ok in ws if ok]
+        elif len(skel) < len(target) and target.endswith(skel):
+            rem = target[:-len(skel)]
+            for w, f, ok in ws:
+                if not ok:
+                    continue
+                for words, lf in prefixes(rem, 2, w):
+                    if _glue_count(words) + (w in GLUE) > 1:
+                        continue
+                    n = len(words)
+                    combos.append((words + [w], (lf * n + math.log1p(f)) / (n + 1)))
+    combos.sort(key=order)
+    combos = combos[:FINAL_BEAM]
+
     results, seen = [], set()
-    for words, mean_lf in gen(target, 3, True):
+    for words, mean_lf in combos:
         phrase_s = " ".join(words)
         if phrase_s in seen or words == input_words:
             continue

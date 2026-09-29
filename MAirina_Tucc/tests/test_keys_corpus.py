@@ -52,8 +52,8 @@ def test_corpus_majority_lemma_and_pos(index):
 
 def test_corpus_breakdowns(index):
     e = index.forms["snimaš"]
-    assert e["freq_by_cohort"] == {"drill_trap": 12}
-    assert e["freq_by_artist"] == {"devito": 12}
+    assert e["freq_by_cohort"] == {"drill_trap": 17}
+    assert e["freq_by_artist"] == {"devito": 17}
     assert e["n_songs"] == 2
     assert index.freq("snimaš", "pop") == 0
     assert index.freq("uzimaš", "pop") == 6
@@ -108,3 +108,49 @@ def test_open_ro_refuses_writes_and_keeps_mtime(corpus_db):
         con.execute("CREATE TABLE x(a)")
     con.close()
     assert corpus_db.stat().st_mtime_ns == before
+
+
+@pytest.mark.parametrize("word", ["taboo", "woo", "kaboo", "xilofon", "quiz", "yeah", "aaa", "beer", "skiing", "zoo", "duu"])
+def test_orthography_rejects_foreign_letters_and_doubled_vowels(word):
+    assert not keys.is_serbian_orthography(word)
+
+
+@pytest.mark.parametrize("word", ["lava", "imaš", "srce", "prst", "džaba", "ljubav", "nemirna"])
+def test_orthography_accepts_serbian_words(word):
+    assert keys.is_serbian_orthography(word)
+
+
+def test_bigrams_are_adjacent_kept_tokens_in_one_line(index):
+    b = index.bigrams
+    assert ("da", "ekipa") in b                       # 'Da Ekipa' lowercased
+    assert ("sade", "snimaš") in b and ("te", "snimaš") in b and ("grad", "sef") in b
+    assert ("grade", "snimaš") not in b               # a dropped PUNCT token sits between
+    assert ("pade", "snimaš") not in b                # a dropped Cyrillic token sits between
+    assert ("ekipa", "sade") not in b                 # consecutive lines never pair
+    assert ("na", "ekipa") not in b and ("kan", "sef") not in b
+    assert all(isinstance(x, tuple) and len(x) == 2 and all(isinstance(w, str) and " " not in w for w in x)
+               for x in b)                            # word pairs only, never lines
+    assert "ekipa" in index.predecessors()["snimaš"] or "sade" in index.predecessors()["snimaš"]
+
+
+def test_cache_version_bump_rebuilds_the_index(corpus_db, tmp_path, monkeypatch):
+    calls = []
+    real = corpus._build
+    monkeypatch.setattr(corpus, "_build", lambda p: calls.append(1) or real(p))
+    corpus.load_index(corpus_db, tmp_path)
+    corpus.load_index(corpus_db, tmp_path)
+    assert len(calls) == 1                             # cache hit
+    monkeypatch.setattr(corpus, "CACHE_VERSION", corpus.CACHE_VERSION + 1)
+    idx = corpus.load_index(corpus_db, tmp_path)       # same file, newer code version
+    assert len(calls) == 2 and ("da", "ekipa") in idx.bigrams
+
+
+def test_current_cache_version_stores_bigrams(corpus_db, tmp_path):
+    import pickle
+    corpus.load_index(corpus_db, tmp_path)
+    blob = pickle.loads(next(tmp_path.glob("index_*.pkl")).read_bytes())
+    assert blob["version"] == corpus.CACHE_VERSION == 3 and ("da", "ekipa") in blob["bigrams"]
+    old = dict(blob, version=2)
+    old.pop("bigrams")                                 # what a version-2 cache looked like
+    next(tmp_path.glob("index_*.pkl")).write_bytes(pickle.dumps(old))
+    assert ("da", "ekipa") in corpus.load_index(corpus_db, tmp_path).bigrams

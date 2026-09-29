@@ -6,6 +6,7 @@ import hashlib
 import pickle
 import re
 import sqlite3
+import sys
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,7 +14,7 @@ from urllib.parse import quote
 
 from mairina import DATA_DIR, DEFAULT_LYRICS_DB
 
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 DROP_UPOS = frozenset({"PUNCT", "X", "SYM", "NUM"})
 LANE_COHORTS = {"drill": ("drill_trap",), "pop": ("pop",), "all": None}
 # Artist-name spellings seen in the corpus that songs.* columns do not spell exactly.
@@ -44,7 +45,18 @@ class Index:
     db_path: str = ""
     db_mtime_ns: int = 0
     artist_names: frozenset = frozenset()
+    bigrams: frozenset = frozenset()     # attested (word, next word) pairs; never whole lines
     _vocab_cache: dict = field(default_factory=dict, repr=False, compare=False)
+    _preds: dict = field(default_factory=dict, repr=False, compare=False)
+
+    def predecessors(self) -> dict[str, frozenset]:
+        """next word -> words seen directly before it (derived from `bigrams`)."""
+        if not self._preds:
+            acc: dict[str, set] = {}
+            for a, b in self.bigrams:
+                acc.setdefault(b, set()).add(a)
+            self._preds.update({b: frozenset(v) for b, v in acc.items()})
+        return self._preds
 
     def freq(self, form: str, lane: str = "all", artists=None) -> int:
         """Frequency in the lane; with an artist lens, in (lane AND artists)."""
@@ -85,23 +97,29 @@ def artist_tokens(con) -> frozenset:
     return frozenset(out)
 
 
-def _build(db_path: Path) -> tuple[dict[str, dict], frozenset]:
+def _build(db_path: Path) -> tuple[dict[str, dict], frozenset, frozenset]:
     sql = (
-        "SELECT t.form, t.lemma, t.upos, s.genre_cohort, s.target_artist, s.id "
+        "SELECT t.form, t.lemma, t.upos, s.genre_cohort, s.target_artist, s.id, t.line_id, t.ordinal "
         "FROM tokens t JOIN lines l ON l.id = t.line_id "
         "JOIN sections sec ON sec.id = l.section_id "
         "JOIN songs s ON s.id = sec.song_id "
-        "WHERE t.source_script = 'latin'"
+        "WHERE t.source_script = 'latin' ORDER BY t.line_id, t.ordinal"
     )
     acc: dict[str, dict] = {}
+    bigrams: set = set()
+    prev = None                               # (line_id, ordinal, key) of the last kept token
     con = open_ro(db_path)
     try:
-        for form, lemma, upos, cohort, artist, sid in con.execute(sql):
+        for form, lemma, upos, cohort, artist, sid, line_id, ordinal in con.execute(sql):
             if upos in DROP_UPOS or not form:
                 continue
             key = form.strip().lower()
             if not key.isalpha():
                 continue
+            key = sys.intern(key)
+            if prev and prev[0] == line_id and ordinal == prev[1] + 1:
+                bigrams.add((prev[2], key))   # adjacent kept tokens of one line
+            prev = (line_id, ordinal, key)
             a = acc.get(key)
             if a is None:
                 a = acc[key] = {
@@ -129,7 +147,7 @@ def _build(db_path: Path) -> tuple[dict[str, dict], frozenset]:
             "freq_by_cohort_artist": {c: dict(per) for c, per in a["ca"].items()},
             "n_songs": len(a["songs"]),
         }
-    return forms, names
+    return forms, names, frozenset(bigrams)
 
 
 def _cache_path(db_path: Path, cache_dir: Path) -> Path:
@@ -152,16 +170,17 @@ def load_index(db_path: Path | str | None = None, cache_dir: Path | str | None =
                 blob = pickle.load(fh)
             if (blob.get("version") == CACHE_VERSION and blob.get("mtime_ns") == st.st_mtime_ns
                     and blob.get("size") == st.st_size):
-                return Index(blob["forms"], str(path), st.st_mtime_ns, blob["artist_names"])
+                return Index(blob["forms"], str(path), st.st_mtime_ns, blob["artist_names"],
+                             blob["bigrams"])
         except Exception:
             pass  # corrupt or stale cache: rebuild below
-    forms, names = _build(path)
+    forms, names, bigrams = _build(path)
     try:
         cdir.mkdir(parents=True, exist_ok=True)
         with open(cfile, "wb") as fh:
             pickle.dump({"version": CACHE_VERSION, "mtime_ns": st.st_mtime_ns,
                          "size": st.st_size, "forms": forms,
-                         "artist_names": names}, fh, protocol=pickle.HIGHEST_PROTOCOL)
+                         "artist_names": names, "bigrams": bigrams}, fh, protocol=pickle.HIGHEST_PROTOCOL)
     except OSError:
         pass  # cache is an optimisation only
-    return Index(forms, str(path), st.st_mtime_ns, names)
+    return Index(forms, str(path), st.st_mtime_ns, names, bigrams)

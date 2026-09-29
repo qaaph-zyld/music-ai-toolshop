@@ -13,6 +13,16 @@ VOWELS = frozenset("aeiou")
 _DIGRAPHS = frozenset({"lj", "nj", "dž"})
 
 
+_FOREIGN_LETTERS = frozenset("qwxy")
+_DOUBLED_VOWELS = ("aa", "ee", "ii", "oo", "uu")
+
+
+def is_serbian_orthography(word: str) -> bool:
+    """False for forms that break Serbian Latin spelling: q/w/x/y or a doubled vowel."""
+    w = normalize(word)
+    return bool(w) and not any(c in _FOREIGN_LETTERS for c in w) and not any(d in w for d in _DOUBLED_VOWELS)
+
+
 def normalize(word: str) -> str:
     """Lowercase and keep letters only."""
     return "".join(c for c in (word or "").lower() if c.isalpha())

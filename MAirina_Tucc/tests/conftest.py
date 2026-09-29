@@ -33,6 +33,10 @@ COMMON = {   # in every song, REPS lines each
     "je": ("biti", "AUX"), "ne": ("ne", "PART"),
     "nekad": ("nekad", "ADV"), "ponekad": ("ponekad", "ADV"),   # a word and its own extension
     "melisa": ("melisa", "PROPN"),                              # proper noun: never a final slot
+    "na": ("na", "ADP"), "ekipa": ("ekipa", "NOUN"),
+    "grad": ("grad", "NOUN"), "sef": ("sef", "NOUN"), "kan": ("kan", "NOUN"),
+    # not Serbian orthography (doubled vowel / foreign letter): never an anchor
+    "taboo": ("taboo", "NOUN"), "kaboo": ("kaboo", "NOUN"), "boo": ("boo", "NOUN"), "woo": ("woo", "NOUN"),
 }
 REPS = 6
 ONLY = {1: {"snimaš": ("snimati", "VERB")}, 2: {"snimaš": ("snimati", "VERB")},
@@ -42,6 +46,24 @@ ONLY = {1: {"snimaš": ("snimati", "VERB")}, 2: {"snimaš": ("snimati", "VERB")}
 EXTRA = [(1, "лава", "лава", "NOUN", "cyrillic"), (1, ",", ",", "PUNCT", "latin"),
          (1, "3", "3", "NUM", "latin"), (1, "hm", "hm", "X", "latin"), (1, "$", "$", "SYM", "latin"),
          (1, "lava", "lav", "VERB", "latin"), (2, "Lava", "Lava", "NOUN", "latin")] +     [(1, "trava", "trava", "NOUN", "latin")] * 4        # freq 4: below the anchors floor of 5
+
+
+# Multi-token lines (song 1). They define which word pairs are attested bigrams:
+#   attested: da ekipa (case-folded), sade snimaš, te snimaš, da te, grad sef, sef snimaš, grad te
+#   NOT attested: na ekipa; grade snimaš (punctuation between); pade snimaš (cyrillic between);
+#                 kan sef; ekipa sade (different lines)
+LINES = {1: [["Da", "Ekipa"], ["sade", "snimaš"], ["da", "te", "snimaš"], ["grade", ",", "snimaš"],
+             ["pade", "лава", "snimaš"], ["grad", "sef", "snimaš"], ["grad", "te"]]}
+LEX = {**COMMON, **{w: v for d in ONLY.values() for w, v in d.items()}}
+
+
+def _token(form: str):
+    if form == ",":
+        return (form, form, "PUNCT", "latin")
+    if any("\u0400" <= ch <= "\u04ff" for ch in form):
+        return (form, form, "NOUN", "cyrillic")
+    lemma, upos = LEX[form.lower()]
+    return (form, lemma, upos, "latin")
 
 
 def build_corpus(path: Path) -> Path:
@@ -67,6 +89,9 @@ def build_corpus(path: Path) -> Path:
             for _ in range(REPS):
                 n += 1
                 add_line(sid, n, syl, [(form, lemma, upos, "latin")])
+        for toks in LINES.get(sid, []):
+            n += 1
+            add_line(sid, n, syl, [_token(f) for f in toks])
         for esid, form, lemma, upos, script in EXTRA:
             if esid == sid:
                 n += 1

@@ -97,10 +97,15 @@ def test_anchors_empty_result_raises_with_reason(index):
         A.anchors(index, "AABB", seed="xyz", rng=random.Random(1))
 
 
-def test_multi_skeleton_ends_with_target_and_final_is_content(index):
-    res = M.multis(index, "da me imaš")
-    assert res and all(w.endswith(" snimaš") for w in words(res))
-    assert {w.split()[0] for w in words(res)} <= {"sade", "grade", "pade"}
+def loose(monkeypatch):
+    monkeypatch.setattr(M, "MAX_PER_FINAL", 99)          # see every combination, not just the capped top
+    monkeypatch.setattr(M, "MAX_PER_FIRST", 99)
+
+
+def test_multi_skeleton_ends_with_target_and_final_is_content(index, monkeypatch):
+    loose(monkeypatch)
+    res = M.multis(index, "da me imaš", max_results=50)
+    assert {"da ekipa", "sade snimaš", "grad sef snimaš"} <= set(words(res))
     for s in res:
         assert s.meta["skeleton"].endswith("aeia")
         ws = s.meta["words"]
@@ -110,11 +115,35 @@ def test_multi_skeleton_ends_with_target_and_final_is_content(index):
     assert all(s.candidate.split()[-1] != "imaš" for s in res)
 
 
+def test_multi_requires_attested_bigrams(index, monkeypatch):
+    loose(monkeypatch)
+    got = set(words(M.multis(index, "da me imaš", max_results=100)))
+    assert "da ekipa" in got and "na ekipa" not in got         # na ekipa: both words exist, never adjacent
+    assert "grade snimaš" not in got and "pade snimaš" not in got   # PUNCT / Cyrillic sat between them
+    assert "sade snimaš" in got
+    for phrase in got:                                          # every adjacent pair is attested
+        ws = phrase.split()
+        assert all((a, b) in index.bigrams for a, b in zip(ws, ws[1:])), phrase
+
+
+def test_multi_three_words_need_both_pairs(index, monkeypatch):
+    loose(monkeypatch)
+    got = set(words(M.multis(index, "da me imaš", max_results=100)))
+    assert "grad sef snimaš" in got                             # (grad,sef) and (sef,snimaš) attested
+    assert "kan sef snimaš" not in got                          # (sef,snimaš) yes, (kan,sef) no
+    assert "grad te snimaš" in got                              # (grad,te), (te,snimaš), one glue word
+
+
+def test_multi_fewer_results_no_fallback(index):
+    res = M.multis(index, "da me imaš", max_results=20)
+    assert 0 < len(res) < 20                                    # fixture has few attested combos: no padding
+
+
 def test_multi_at_most_one_glue_word_never_adjacent(index, monkeypatch):
-    monkeypatch.setattr(M, "MAX_PER_FINAL", 99)          # see every combination, not just the capped top
-    monkeypatch.setattr(M, "MAX_PER_FIRST", 99)
+    loose(monkeypatch)
     res = M.multis(index, "da me imaš", max_results=200)
-    assert "da te snimaš" not in words(res)                    # two glue words
+    assert ("da", "te") in index.bigrams and ("te", "snimaš") in index.bigrams
+    assert "da te snimaš" not in words(res)                    # attested, but two glue words
     for s in res:
         ws = s.meta["words"]
         assert sum(w in M.GLUE for w in ws) <= 1
@@ -122,8 +151,9 @@ def test_multi_at_most_one_glue_word_never_adjacent(index, monkeypatch):
     assert any(sum(w in M.GLUE for w in s.meta["words"]) == 1 for s in res)   # one is still fine
 
 
-def test_multi_final_never_proper_noun_or_artist_name(index):
-    res = M.multis(index, "da me imaš")
+def test_multi_final_never_proper_noun_or_artist_name(index, monkeypatch):
+    loose(monkeypatch)
+    res = M.multis(index, "da me imaš", max_results=100)
     assert "melisa" in index.forms and index.forms["melisa"]["upos"] == "PROPN"
     assert "senida" in index.forms and "senida" in index.artist_names
     assert not any(s.meta["words"][-1] in ("melisa", "senida") for s in res)
@@ -137,6 +167,9 @@ def test_multi_diversity_caps(index, monkeypatch):
     assert all(finals.count(f) <= M.MAX_PER_FINAL for f in finals)
     assert all(firsts.count(f) <= M.MAX_PER_FIRST for f in firsts)
     assert (M.MAX_PER_FINAL, M.MAX_PER_FIRST) == (2, 3)
+    loose(monkeypatch)
+    everything = M.multis(index, "da me imaš", max_results=50)
+    assert len(everything) > len(res)                           # snimaš has 3 combos, the cap keeps 2
     monkeypatch.setattr(M, "MAX_PER_FINAL", 1)
     monkeypatch.setattr(M, "MAX_PER_FIRST", 1)
     tight = M.multis(index, "da me imaš", max_results=50)
@@ -213,3 +246,42 @@ def test_artist_lens_intersects_lane_in_rank(index):
     dev = ctx(index, "drill", artists=("devito",))
     got = words(rank.rank("imaš", dev.vocab(), dev))
     assert got[0] == "snimaš" and "uzimaš" not in got
+
+
+def test_anchors_exclude_non_orthographic_forms(index, monkeypatch):
+    assert {"taboo", "kaboo", "boo", "woo"} <= set(index.forms)          # they are in the corpus
+    seen = set()
+    for s in range(40):
+        for mode in ("assonance", "rhyme"):
+            seen |= {a.word for a in A.anchors(index, "AABB", mode=mode, rng=random.Random(s))}
+    assert not seen & {"taboo", "kaboo", "boo", "woo"}
+    assert seen & {"lava", "spava", "glava", "grade", "pade", "sade"}     # normal words are kept
+    with pytest.raises(A.NoAnchors):                                      # 'oo' has only excluded members
+        A.anchors(index, "AA", mode="assonance", seed="woo", rng=random.Random(1))
+    monkeypatch.setattr(A.keys, "is_serbian_orthography", lambda w: True)  # filter off: they come back
+    res = A.anchors(index, "AA", mode="assonance", seed="woo", rng=random.Random(1))
+    assert {a.word for a in res} <= {"taboo", "kaboo", "boo"}
+
+
+def test_anchors_exclude_proper_nouns(index, monkeypatch):
+    assert index.forms["melisa"]["upos"] == "PROPN" and index.forms["melisa"]["freq"] >= A.MIN_FREQ
+    for s in range(40):
+        for mode in ("assonance", "rhyme", "consonance"):
+            try:
+                res = A.anchors(index, "AA", mode=mode, rng=random.Random(s))
+            except A.NoAnchors:
+                continue
+            assert "melisa" not in {a.word for a in res} and all(a.upos != "PROPN" for a in res)
+    def seen_with_seed(n=40):
+        return {a.word for i in range(n)
+                for a in A.anchors(index, "AA", mode="assonance", seed="ekipa", rng=random.Random(i))}
+    assert "melisa" not in seen_with_seed()                     # class 'ia' has imaš, snimaš, uzimaš, PROPN melisa
+    monkeypatch.setattr(A, "ANCHOR_POS", A.CONTENT_POS)
+    assert "melisa" in seen_with_seed()                         # only the PROPN filter kept it out
+
+
+def test_rhyme_and_multi_keep_their_vocabulary_rules(index, monkeypatch):
+    c = ctx(index)
+    got = words(rank.rank("imaš", c.vocab(), c))
+    assert "melisa" in got                                                 # PROPN still allowed in rhyme lists
+    assert "taboo" in words(rank.rank("kaboo", c.vocab(), c))               # non-orthographic forms still rhyme

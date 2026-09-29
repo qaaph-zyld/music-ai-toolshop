@@ -98,9 +98,9 @@ def test_used_finds_words_shown_earlier(run, tmp_path, data_dir):
     run("rhyme", "imaš", "--lane", "drill", "--rng-seed", "1")
     run("multi", "da me imaš", "--rng-seed", "1")
     f = tmp_path / "verse.txt"
-    f.write_text("[Verse]\nSve što SNIMAŠ, znaj\nja kažem grade snimaš sad\n", encoding="utf-8")
+    f.write_text("[Verse]\nSve što SNIMAŠ, znaj\nja kažem da ekipa sad\n", encoding="utf-8")
     code, out, _ = run("used", f)
-    assert code == 0 and "snimaš" in out and "grade snimaš" in out
+    assert code == 0 and "snimaš" in out and "da ekipa" in out
     con = sqlite3.connect(str(data_dir / "mairina.db"))
     assert con.execute("SELECT COUNT(*) FROM used WHERE candidate='snimaš'").fetchone()[0] == 1
     run("used", f)                                        # idempotent per (candidate, file)

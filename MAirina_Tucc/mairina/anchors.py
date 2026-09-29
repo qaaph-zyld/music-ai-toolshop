@@ -13,9 +13,11 @@ from mairina import keys
 from mairina.rank import Ctx, features_for
 
 CONTENT_POS = frozenset({"NOUN", "VERB", "ADJ", "PROPN", "ADV"})
+ANCHOR_POS = CONTENT_POS - {"PROPN"}       # anchors are common words, not names
 MODES = ("rhyme", "assonance", "consonance")
 MIN_FREQ = 5
 MIN_LEN = 3
+SAMPLE_TRIES = 12
 
 
 class NoAnchors(Exception):
@@ -69,7 +71,9 @@ def _classes(ctx: Ctx, mode: str) -> dict[str, dict[str, tuple]]:
     out: dict[str, dict[str, tuple]] = {}
     for w, f in ctx.vocab().items():
         info = ctx.index.forms[w]
-        if info["upos"] not in CONTENT_POS or f < MIN_FREQ or len(w) < MIN_LEN:
+        if info["upos"] not in ANCHOR_POS or f < MIN_FREQ or len(w) < MIN_LEN:
+            continue
+        if not keys.is_serbian_orthography(w):
             continue
         k = class_key(w, mode)
         if k is None:
@@ -130,7 +134,11 @@ def anchors(index, scheme: str = "AABB", lines: int | None = None, lane: str = "
             feats = {lem: features_for(mem[lem][0], ctx, {}, mem[lem][1]) for lem in lemmas}
             scores = {lem: sum(feats[lem].values()) for lem in lemmas}
             forms = {lem: mem[lem][0] for lem in lemmas}
-            chosen = _weighted_sample(rng, lemmas, [math.exp(scores[lem]) for lem in lemmas], k, forms)
+            weights = [math.exp(scores[lem]) for lem in lemmas]
+            for _ in range(SAMPLE_TRIES):        # greedy picks can dead-end on a conflict: retry
+                chosen = _weighted_sample(rng, lemmas, weights, k, forms)
+                if len(chosen) >= k:
+                    break
             return mem, feats, scores, chosen
 
         if gi == 0 and seed_n:

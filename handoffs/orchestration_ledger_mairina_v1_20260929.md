@@ -20,6 +20,13 @@
 - deleted the smoke-test `data/mairina.db` so week-1 stats start clean
 - committed locally, only `MAirina_Tucc/` paths plus this ledger. Not pushed.
 
+## Wave 4 · quality fix (approved by the user)
+| Agent | Status | Handoff | Result |
+|---|---|---|---|
+| I1, resumed (Sonnet 5) | ✅ done | `wave4/Q1_handoff.md` | Anchors: no PROPN, Serbian orthography only (80 of 80 clean). Multi: every adjacent pair is an attested corpus bigram (93,539 pairs). 87 passed. |
+
+Orchestrator verification: 87 passed; `lyrics.db` modified time unchanged; spot anchors `furam/guram`, `brate/prate`, `svađa/rađa`; multi `da me imaš` → `da jedina`, `da treniram`, `brate rizla`. Committed, then pushed with `master`.
+
 ## Invariants checked each wave
 - `lyrics.db` modified time is unchanged
 - only paths under `MAirina_Tucc/` are new or changed
