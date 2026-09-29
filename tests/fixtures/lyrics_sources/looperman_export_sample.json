@@ -1,0 +1,39 @@
+[
+  {
+    "_comment": "SYNTHETIC fixture — fabricated hand-export rows, NOT real Looperman data. Description text below exists only to prove the parser drops it.",
+    "id": "22017",
+    "title": "Fixture Rain Chant",
+    "uploader": "voxsmith",
+    "date": "2024-05-01",
+    "bpm": 126,
+    "key": "Am",
+    "genre": "Electronic",
+    "usage": "Free Non Commercial Only",
+    "url": "https://www.looperman.com/acapellas/detail/22017/fixture-rain-chant",
+    "vocal_sex": "female",
+    "vocal_type": "hook",
+    "autotune": true,
+    "adult": false,
+    "has_lyrics": true,
+    "description": "FIXTURE uploader free text — parser must never store this",
+    "lyrics": "FIXTURE lyric placeholder — parser must never store this"
+  },
+  {
+    "id": "22018",
+    "title": "Midnight Fixture Flow",
+    "uploader": "baritone_bob",
+    "date": "2024-05-04",
+    "bpm": "92",
+    "key": "Cm",
+    "genre": "Hip-Hop",
+    "usage": "Commercial Licence Required",
+    "vocal_type": "verse",
+    "has_lyrics": false
+  },
+  {
+    "title": "Unnamed Corner Whistle",
+    "uploader": "voxsmith",
+    "genre": "Folk",
+    "usage": "Free Non Commercial Only"
+  }
+]

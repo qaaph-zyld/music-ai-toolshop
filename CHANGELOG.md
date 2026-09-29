@@ -1,5 +1,34 @@
 # Changelog
 
+### Answer #064 - lyrics-sources wave A (I4): pdinfo title-index harvester + looperman zero-network manual import + gray-row conformance tests.
+**Timestamp:** 2026-10-01
+**Action Type:** Implementation — wave A agent I4 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`). Ships the two catalog-only/manual adapters; gray sources stay registry-row-only per GATE R.
+
+**What landed:** `sources/pdinfo.py` — PDInfo title-index adapter (`fetch_policy='catalog-only'`, tier `pd`): harvests the ~65 static A–Z/genre/year list pages ONCE via `polite_get` into a disk cache (`<data>/lyrics/pdinfo/_cache/pages/`), parses machine-generated table markup (best/less lists + `<span class="b">` genre-page variant), dedup-merges cross-list rows by product id (→ `foreign_identifier`), emits `CatalogEntry` per title with `meta.pd_claim='unverified'` + `meta.fetch_hint='resolve-via-wikisource'` (title facts feed future wikisource/gutenberg lookups — SPEC §9). V/C/N/P lyric-snippet blocks are never parsed. No `fetch_lyrics` — none exists to fetch. `sources/looperman.py` — **manual metadata-only adapter with ZERO network code** (ToS bans scraping AND ML training verbatim, R3 §1; enforced by contract test): `iter_catalog()` parses user export files only — explicit `path=` → `_import/` drop-zone → hand-maintained `_catalog.json` fallback (precedence order); `.json/.jsonl/.csv` formats; uploader free-text fields (`description`/`lyrics`/`comments`) refused by whitelist at parse time. Emits plain dicts in `CatalogEntry.to_dict()` shape — deliberately does NOT import `sources._common`, which would pull `requests` into the module's import graph (the dispatcher's `upsert_entries` accepts dicts verbatim). `tests/test_lyrics_sources_catalog.py` — 72 tests: SPEC §2.1 frozen-row matrix for all 20 rows, policy-gate `FetchPolicyError` + dispatcher rc=2 for EVERY catalog-only/manual source id, adapter-contract shape, looperman no-network proof (source-text scan for network imports/URLs + absent `fetch_lyrics` + fresh-interpreter `sys.modules` delta + socket-blocked runtime), looperman export parsing (json/csv/dropzone/catalog-fallback/dedup), pdinfo parser + harvest + cache/dedup/404 paths, catalog schema conformance for serialized rows. Verified registry.json gray rows match SPEC §2.1 — **no drift, no edit needed** (voclr/acapellas4u `uncleared`/`catalog-only`/`adapter:null`, 6 paid packs `paid-rf`/`manual`/`adapter:null`, no `sources/<id>.py` files for adapter-less rows).
+
+**Pilot (live, this session):** `fetch_lyrics_source.py --source pdinfo --catalog-only` fetched all 65 list pages (≥1.5 s pacing, contact UA, gz) → `data/toolshop/lyrics/pdinfo/_catalog.json` = **6,750 entries** (6,617 songs + 133 see-also xrefs; best-known 1,704 / less-known 4,959 / genre 87 / year-pages 0 — the `pd-popular-songs-<year>` stubs render empty tables today; `less-g` 404 tolerated as empty). Cross-list dedup verified (`lists` provenance merged). `data/` is gitignored — corpus not committed. Looperman smoke: `--source looperman` → rc 2 (fetch refused); `--catalog-only` → rc 0 empty (drop-zone README staged at `data/.../looperman/_import/README.txt`, uncommitted).
+
+#### Files Affected:
+- **NEW:** `Genious_lyrics_extractor/sources/pdinfo.py` — title-index adapter (catalog-only; iter_catalog + license_of, no fetch_lyrics).
+- **NEW:** `Genious_lyrics_extractor/sources/looperman.py` — manual import adapter, zero network code.
+- **NEW:** `tests/test_lyrics_sources_catalog.py` — 72 tests (frozen-row matrix, policy gate, no-network contract, parsers, schema conformance).
+- **NEW:** `tests/fixtures/lyrics_sources/{pdinfo_list_sample.html, pdinfo_genre_sample.html, looperman_export_sample.json, looperman_export_sample.csv}` — all synthetic (CREDITS.md updated).
+- **MODIFIED:** `tests/fixtures/lyrics_sources/CREDITS.md` — fixture provenance rows.
+- **NOT committed (gitignored data):** `data/toolshop/lyrics/pdinfo/` (`_catalog.json` 6,750 rows + `_cache/pages/` 65 files), `data/toolshop/lyrics/looperman/` (`_import/README.txt`, empty `_catalog.json`).
+
+#### Verification (run this session):
+- `pytest tests/test_lyrics_sources_catalog.py -q` → **72 passed** (exit 0).
+- `pytest tests/test_lyrics_sources_core.py -q` → **53 passed** (exit 0) — W1 contract test now strictly asserts pdinfo/looperman module shape.
+- `fetch_lyrics_source.py --source looperman` → exit 2 "fetch_policy 'manual'"; `--catalog-only` → exit 0.
+- `fetch_lyrics_source.py --source pdinfo --catalog-only` → exit 0, 6,750 catalog rows written (live harvest).
+- `git check-ignore` on both new data dirs → `.gitignore:47:data/` (exit 0).
+
+#### Next Actions Required:
+- W5/W6: `lyricsdb` corpus migration must handle catalog-only corpora that carry `_catalog.json` but no song dirs (`pdinfo`, `looperman`).
+- Downstream: pdinfo `foreign_identifier`s + `fetch_hint` feed wikisource/gutenberg title resolution; looperman `iter_catalog` re-runs whenever the user drops exports into `_import/`.
+
+---
+
 ### Answer #062 - lyrics-sources W1: license-tiered source infrastructure — registry, vendored RobotsPolicy, resumable catalog, fetch dispatcher.
 **Timestamp:** 2026-09-30
 **Action Type:** Implementation — wave W1 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`). Ships the shared adapter substrate only — no source adapters yet (wave WA/WB).

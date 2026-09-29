@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<!-- Synthetic fixture mimicking pdinfo.com pd-song-list markup. All titles
+     fabricated for the test suite (titles are uncopyrightable facts anyway).
+     meta.fixture: the V/C blocks contain INVENTED placeholder text to prove
+     the parser never harvests lyric snippets — not sourced lyrics. -->
+<html><body><main><article>
+<h2>A<span>Best Known Public Domain Songs</span>A List of 999</h2>
+<table class="list">
+<tr><th>&nbsp;</th><th>Title</th><th>V=Verse &nbsp; C=Chorus &nbsp; N=Note &nbsp; P=Production<br>w=Words &nbsp; m=Music</th>
+<th>1 - 3 &nbsp;$5 ea<br />4 up &nbsp;$4 ea</th></tr>
+<tr><td colspan="4" class="onlist">
+Songs are on this PD list if we have a pre-1930 PD sheet music publication in our library AND if anyone has asked about PD status of the song in the past 20 years.
+</td></tr>
+<tr><td class="altTitle">A B C Fixture</td><td>See <span class="alt">Alphabet Fixture Song</span></td><td></td></tr>
+<tr><td><input class="clef" type="image" src="../../img/clef.png" alt="Search YouTube" onclick="openWins('A+Fixture+Meadow',9)" /></td>
+  <td class="songTitle">A Fixture Meadow<br /><span class="cat">Traditional</span></td>
+  <td>  <span class="dbk">
+  <b>1777</b> - Traditional</span>
+  </td>
+  <td class="cart"><button class="btn btnList" onclick="addCart('TG00009R')" value="Reprint">Reprint</button>
+      <button class="btn btnList btnR" onclick="addCart('TG00009D')" value="Download">Download</button></td></tr>
+<tr><td><input class="clef" type="image" src="../../img/clef.png" alt="Search YouTube" onclick="openWins('Ballad+Of+The+Test+Kettle',12)" /></td>
+  <td class="songTitle">Ballad Of The Test Kettle<br /><span class="cat">Popular Song</span></td>
+  <td>  <span class="dbk">
+  <b>1914</b> - w.m. Ada Fields, Walter Testman</span>
+  <span class="dbk">
+  <b>V - </b> FIXTURE verse placeholder — parser must never store this</span>
+  <span class="dbk">
+  <b>C - </b> FIXTURE chorus placeholder — parser must never store this</span>
+  <span class="dbk">
+  <b>N - </b> Also <i>Kettle Ballad Fixture</i></span>
+  </td>
+  <td class="cart"><button class="btn btnList" onclick="addCart('TP00012R')" value="Reprint">Reprint</button>
+      <button class="btn btnList btnR" onclick="addCart('TP00012D')" value="Download">Download</button></td></tr>
+<tr><td><input class="clef" type="image" src="../../img/clef.png" alt="Search YouTube" onclick="openWins('Kettle+Song+With+No+Credits',13)" /></td>
+  <td class="songTitle">Kettle Song With No Credits<br /><span class="cat">Children</span></td>
+  <td>  <span class="dbk">
+  <b>V - </b> FIXTURE verse placeholder only, no attribution block</span>
+  </td>
+  <td class="cart"><button class="btn btnList" onclick="addCart('TC00013R')" value="Reprint">Reprint</button>
+      <button class="btn btnList btnR" onclick="addCart('TC00013D')" value="Download">Download</button></td></tr>
+<tr><td><input class="clef" type="image" src="../../img/clef.png" alt="Search YouTube" onclick="openWins('Words+Only+Fixture',21)" /></td>
+  <td class="songTitle">Words Only Fixture<br /><span class="cat">Hymn</span></td>
+  <td>  <span class="dbk">
+  w. H.F. Lytton, m. W.H. Testmonk</span>
+  <span class="dbk">
+  <b>V - </b> FIXTURE verse placeholder — parser must never store this</span>
+  </td>
+  <td class="cart"><button class="btn btnList" onclick="addCart('TH00021R')" value="Reprint">Reprint</button>
+      <button class="btn btnList btnR" onclick="addCart('TH00021D')" value="Download">Download</button></td></tr>
+</table>
+</article></main></body></html>
