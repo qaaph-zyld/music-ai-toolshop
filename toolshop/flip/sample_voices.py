@@ -31,6 +31,15 @@ Support functions:
 - ``fit_loop`` — fold render tails into the head + raised-cosine seam fade
   so the loop wraps seamlessly.
 
+S3 helpers (simple, recognizable motif):
+
+- ``quantize`` — snap onsets/durations to a time grid.
+- ``extract_motif`` — pick the most-repeated `motif_bars`-bar cell of the
+  top line, simplify it to <=8 grid-quantized diatonic notes.
+- ``tile_motif`` — tile the motif verbatim; ``answer_motif`` — an A'
+  response variant (last notes resolve to the opening pitch class).
+- ``render_simple_lead`` — plain sine+0.15x2nd-harmonic tone voice.
+
 Everything is deterministic: fixed seeds, no randomness outside the seeded
 RNG, no model calls.
 """
@@ -177,6 +186,118 @@ def octave_double(notes: Sequence[BedNote], up_st: int = 12,
         out.append(BedNote(n.start_s, n.end_s, n.note + up_st,
                            n.velocity * vel_scale))
     out.sort(key=lambda n: n.start_s)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# S3 — simple recognizable motif (quantize / extract / tile / answer)
+# ---------------------------------------------------------------------------
+
+GRID_8TH_S = BAR_S / 8.0          # 8th note on the felt grid (~0.337 s)
+MOTIF_SELF_SIMILARITY = 0.6       # cells sharing >=60% pitch classes "repeat"
+
+
+def _snap_to_dm(midi: int) -> int:
+    """Nearest midi pitch whose pitch class is in D natural minor."""
+    pc = midi % 12
+    if pc in D_MINOR_PCS:
+        return midi
+    best = min(D_MINOR_PCS, key=lambda d: min((pc - d) % 12, (d - pc) % 12))
+    return min(range(midi - 6, midi + 7),
+               key=lambda m: (m % 12 != best, abs(m - midi)))
+
+
+def quantize(notes: Sequence[BedNote], grid_s: float = GRID_8TH_S
+             ) -> List[BedNote]:
+    """Snap onsets and durations to `grid_s` multiples (min duration = one
+    grid step). Idempotent."""
+    out: List[BedNote] = []
+    for n in notes:
+        start = round(n.start_s / grid_s) * grid_s
+        dur = max(grid_s, round(n.duration_s / grid_s) * grid_s)
+        out.append(BedNote(start_s=start, end_s=start + dur,
+                           note=n.note, velocity=n.velocity))
+    out.sort(key=lambda n: n.start_s)
+    return out
+
+
+def extract_motif(notes: Sequence[BedNote], bar_s: float = BAR_S,
+                  motif_bars: int = 2, max_notes: int = 8,
+                  grid_s: float = GRID_8TH_S) -> List[BedNote]:
+    """Distill a region into its most-repeated melodic cell, simplified.
+
+    Steps: top-line contour -> segment into `motif_bars`-bar cells -> the
+    winning cell is the one most other cells resemble (>=60% shared pitch
+    classes; tie-break = note density) -> quantize to the 8th grid, keep the
+    <=`max_notes` strongest notes (velocity x duration), snap pitches to
+    D natural minor, de-overlap. The result is monophonic by construction.
+    """
+    mel = top_line(notes)
+    if not mel:
+        return []
+    cell_s = motif_bars * bar_s
+    cells: Dict[int, List[BedNote]] = {}
+    for n in mel:
+        cells.setdefault(int(n.start_s / cell_s), []).append(n)
+    pcs_of = {k: {n.note % 12 for n in v} for k, v in cells.items()}
+
+    def score(k: int) -> Tuple[int, int]:
+        mine = pcs_of[k]
+        repeats = sum(
+            1 for j, theirs in pcs_of.items()
+            if j != k and mine and len(mine & theirs) / len(mine) >= MOTIF_SELF_SIMILARITY)
+        return repeats, len(cells[k])           # (self-similarity, density)
+
+    winner = cells[max(cells, key=score)]
+    cell_t0 = min(n.start_s for n in winner)
+    picked = sorted(winner, key=lambda n: n.velocity * max(n.duration_s, 0.01),
+                    reverse=True)[:max_notes]
+    picked.sort(key=lambda n: n.start_s)
+    q = quantize([BedNote(n.start_s - cell_t0, n.end_s - cell_t0, n.note,
+                          n.velocity) for n in picked], grid_s)
+    # monophonic: one note per grid slot — the higher pitch wins (the motif
+    # is the top line); then clamp each note to the next onset.
+    slots: Dict[float, BedNote] = {}
+    for n in q:
+        cur = slots.get(n.start_s)
+        if cur is None or n.note > cur.note:
+            slots[n.start_s] = n
+    seq = [slots[k] for k in sorted(slots)]
+    out: List[BedNote] = []
+    for i, n in enumerate(seq):
+        nxt = seq[i + 1].start_s if i + 1 < len(seq) else None
+        end = min(n.end_s, nxt) if nxt is not None else n.end_s
+        if end - n.start_s < 0.03:
+            continue                            # degenerate slot, drop it
+        out.append(BedNote(start_s=n.start_s, end_s=end,
+                           note=_snap_to_dm(n.note), velocity=n.velocity))
+    return out
+
+
+def tile_motif(motif: Sequence[BedNote], motif_s: float,
+               n_reps: int) -> List[BedNote]:
+    """Repeat `motif` verbatim `n_reps` times, rep k offset by k*motif_s."""
+    out: List[BedNote] = []
+    for k in range(n_reps):
+        off = k * motif_s
+        out.extend(BedNote(n.start_s + off, n.end_s + off, n.note, n.velocity)
+                   for n in motif)
+    out.sort(key=lambda n: n.start_s)
+    return out
+
+
+def answer_motif(motif: Sequence[BedNote], n_tail: int = 2) -> List[BedNote]:
+    """A' response: same rhythm; the last `n_tail` notes resolve to the
+    motif's opening pitch class (nearest midi, same octave)."""
+    out = list(motif)
+    if not out:
+        return out
+    open_pc = out[0].note % 12
+    for i in range(len(out) - min(n_tail, len(out)), len(out)):
+        n = out[i]
+        new_note = min(range(n.note - 6, n.note + 7),
+                       key=lambda m: (m % 12 != open_pc, abs(m - n.note)))
+        out[i] = BedNote(n.start_s, n.end_s, new_note, n.velocity)
     return out
 
 
@@ -390,6 +511,30 @@ def render_sub(notes: Sequence[BedNote], sr: int = 44100) -> np.ndarray:
         sig = np.sin(2 * np.pi * f * t) + 0.15 * np.sin(2 * np.pi * f * 2 * t)
         out[s0:s1] += sig * env
     out = _soft_clip(out, 1.3)
+    return np.stack([out, out], axis=1)
+
+
+def render_simple_lead(notes: Sequence[BedNote], sr: int = 44100
+                       ) -> np.ndarray:
+    """Plain tone lead — the "simple MIDI tone": sine + 0.15x2nd harmonic,
+    10 ms attack, 100 ms release, flat sustain (no portamento, vibrato,
+    detune or FX-osc). Mono -> stereo, peak-guarded."""
+    if not notes:
+        return np.zeros((sr, 2), dtype=np.float32)
+    n_samples = _buf_for(notes, sr)
+    out = np.zeros(n_samples, dtype=np.float64)
+    for n in notes:
+        f = _midi_to_freq(n.note)
+        s0 = int(n.start_s * sr)
+        s1 = min(n_samples, s0 + int(max(n.duration_s, 0.05) * sr))
+        if s1 <= s0:
+            continue
+        t = np.arange(s1 - s0) / sr
+        env = _env(s1 - s0, sr, attack_ms=10.0, release_ms=100.0,
+                   decay_s=max(n.duration_s * 4.0, 1.0), velocity=n.velocity)
+        sig = np.sin(2 * np.pi * f * t) + 0.15 * np.sin(2 * np.pi * f * 2 * t)
+        out[s0:s1] += sig * env
+    out = _soft_clip(out, 1.2)
     return np.stack([out, out], axis=1)
 
 

@@ -189,3 +189,84 @@ def test_mixdown_gains():
     assert out.shape == (200, 2)
     assert out[50, 0] == pytest.approx(1.5)
     assert out[150, 0] == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# S3 — simple recognizable motif
+# ---------------------------------------------------------------------------
+
+def _region_with_repeated_cell():
+    """6 bars: the same 2-bar melodic cell twice, then a different cell.
+    Bass notes sit low so top_line picks the melody contour."""
+    b = sv.BAR_S
+    mel = [_note(0.10, 0.30, 62), _note(0.45, 0.30, 65), _note(0.80, 0.40, 69),
+           _note(0.10 + 2 * b, 0.30, 62), _note(0.45 + 2 * b, 0.30, 65),
+           _note(0.80 + 2 * b, 0.40, 69),                       # repeat of cell A
+           _note(0.10 + 4 * b, 0.30, 60), _note(0.60 + 4 * b, 0.30, 64)]  # cell B
+    bass = [_note(0.0, 1.0, 38), _note(2 * b, 1.0, 38), _note(4 * b, 1.0, 41)]
+    return mel + bass
+
+
+def test_extract_motif_picks_the_repeated_cell():
+    motif = sv.extract_motif(_region_with_repeated_cell(), motif_bars=2)
+    assert 0 < len(motif) <= 8
+    assert {n.note % 12 for n in motif} <= {2, 5, 9}     # pcs of cell A (D,F,A)
+
+
+def test_extract_motif_monophonic_grid_quantized_diatonic():
+    motif = sv.extract_motif(_region_with_repeated_cell(), motif_bars=2)
+    grid = sv.GRID_8TH_S
+    for i, n in enumerate(motif):
+        assert abs(n.start_s / grid - round(n.start_s / grid)) * grid < 0.001
+        assert n.note % 12 in sv.D_MINOR_PCS
+        if i + 1 < len(motif):
+            assert n.end_s <= motif[i + 1].start_s + 1e-9   # no overlap
+
+
+def test_extract_motif_empty_source():
+    assert sv.extract_motif([]) == []
+
+
+def test_quantize_snaps_onsets_and_is_idempotent():
+    grid = 0.25
+    notes = [_note(0.11, 0.20, 62), _note(0.40, 0.05, 65)]
+    q = sv.quantize(notes, grid)
+    assert q[0].start_s == pytest.approx(0.0) and q[0].duration_s == pytest.approx(0.25)
+    assert q[1].start_s == pytest.approx(0.5) and q[1].duration_s == pytest.approx(0.25)
+    q2 = sv.quantize(q, grid)
+    assert [(n.start_s, n.end_s) for n in q2] == [(n.start_s, n.end_s) for n in q]
+
+
+def test_tile_motif_repeats_verbatim():
+    motif = [_note(0.0, 0.3, 62), _note(0.34, 0.3, 65)]
+    tiled = sv.tile_motif(motif, motif_s=2.0, n_reps=3)
+    assert len(tiled) == 6
+    for k in range(3):
+        pair = tiled[2 * k: 2 * k + 2]
+        assert pair[0].start_s == pytest.approx(2.0 * k)
+        assert pair[1].start_s == pytest.approx(2.0 * k + 0.34)
+        assert [n.note for n in pair] == [62, 65]
+
+
+def test_answer_motif_resolves_tail_to_opening_pc():
+    motif = [_note(0.0, 0.3, 62), _note(0.34, 0.3, 65), _note(0.68, 0.3, 69)]
+    ans = sv.answer_motif(motif, n_tail=2)
+    assert len(ans) == len(motif)
+    assert [n.start_s for n in ans] == [n.start_s for n in motif]   # same rhythm
+    assert ans[0].note == 62 and all(n.note % 12 == 2 for n in ans[-2:])
+    assert [n.note for n in motif] == [62, 65, 69]                  # input untouched
+
+
+def test_render_simple_lead_clean_and_deterministic():
+    mel = _melody()
+    a = sv.render_simple_lead(mel, sr=SR)
+    b = sv.render_simple_lead(mel, sr=SR)
+    assert a.shape[1] == 2 and np.abs(a).max() > 0.01
+    assert np.abs(a).max() <= 1.0 and np.isfinite(a).all()
+    assert np.array_equal(a, b)                                     # deterministic
+    assert np.array_equal(a[:, 0], a[:, 1])                         # plain mono tone
+
+
+def test_render_simple_lead_empty_is_silence():
+    out = sv.render_simple_lead([], sr=SR)
+    assert np.abs(out).max() == 0.0
