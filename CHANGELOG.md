@@ -1,5 +1,13 @@
 # Changelog
 
+### Answer #072 - lyrics-sources wave 6 (V1): adversarial review — verdict APPROVED; megaplan closeout.
+**Timestamp:** 2026-09-30
+**Action Type:** Review/closeout — V1 agent produced nothing (harness tool-rejection); orchestrator ran the V1 checklist verbatim with evidence. Review: `.workspace_archive/reviews/2026-09-30_2018_lyrics-sources-impl.md`.
+
+**Verdict: APPROVED** — all gates passed: looperman zero-network (docstring-only matches), no catalog-only adapters, no `import toolshop`, no corpus data in git, incremental additive+idempotent (lrclib re-run: 0 new / 25 already_present), genius-pro invariant verbatim (1425/10654/65912/273801), license audit ≥10/corpus all-match with zero violations, mudcat ©-containment (0 flagged rows w/ json_path), release-export smoke (69 cleared-only emitted, zero genius/lrclib). Nits: stale `too-short` catalog marks (self-healing), `_export_smoke/` gitignored residue — both accepted-risk. `toolshop closeout` exit 1 declared: other lanes' dirt + 2 unpushed commits (user's push cadence).
+
+**Megaplan complete:** 10 adapters / 19-row registry; 7 corpora, 1,519 songs; genius invariants held; release gate enforced in code.
+
 ### Answer #071 - lyrics-sources wave 5b: export_release.py — release-cleared export with TASL credits + ccMixter pd-token fix.
 **Timestamp:** 2026-09-30
 **Action Type:** Implementation — wave-5b gap-fix (SPEC §8.2 fell between W5 scope and wave text); agent ended pre-commit, orchestrator verified + committed.
