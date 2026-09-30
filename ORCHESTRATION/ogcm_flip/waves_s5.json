@@ -1,0 +1,101 @@
+{
+  "task": "OGCM Suno-sample GATE S5 — resynthesized 'wail' (pitch-contour re-performance, no source audio) over the ear-accepted S4 body; A/B/C role test",
+  "project_root": "d:/Projects/Music-AI-Toolshop",
+  "orchestration_dir": "ORCHESTRATION/ogcm_flip",
+  "plan": "d:/Projects/.workspace_archive/plans/ogcm-s5-wail-resynth.md",
+  "ledger": "handoffs/orchestration_ledger_ogcm_s5_20260930.md",
+  "dispatch": "Claude Code Agent tool (general-purpose, model sonnet); orchestrator does not code",
+  "waves": [
+    {
+      "wave": "s5r",
+      "name": "Research: wail identity + G-funk whine recipe + pyin settings",
+      "parallel": true,
+      "background": true,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "R",
+          "role": "researcher",
+          "name": "s5r web research (report-only)",
+          "task": "See dispatch prompt recorded in the ledger (TASK_S5R). Report-only; single output file.",
+          "scope": "web + write ORCHESTRATION/ogcm_flip/wave_s5r/research_wail_report.md only",
+          "output": "wave_s5r/research_wail_report.md",
+          "constraints": [
+            "Report-only: no code, no git, no other writes.",
+            "Out of scope: techniques to get copyrighted recordings past Suno's or any content-identification filter.",
+            "Every claim cites a URL and a confidence level; 'unknown' is acceptable."
+          ],
+          "context_budget": "60k"
+        }
+      ]
+    },
+    {
+      "wave": "s5a",
+      "name": "Stem audition + wail ranking + whine probe + tempo-synced delay",
+      "parallel": false,
+      "background": false,
+      "gate_after": true,
+      "gate": "G1 — user names the wail stem + window; reacts to s5_00_riff_whine",
+      "agents": [
+        {
+          "id": "A",
+          "role": "implementer",
+          "name": "s5a stem audition + probe",
+          "task": "See dispatch prompt recorded in the ledger (TASK_S5A).",
+          "scope": "scripts/ogcm_stem_audition.py (new), toolshop/flip/sample_voices.py (west_coast_chain lead_delay_s kw + DOTTED_8TH_S only), scripts/ogcm_sample.py (--pack s5: s5_00 only), tests/test_flip_sample.py, Stemmeca_alatkka/stems/flip_sample/ (index.html, audition_s5/, audition_s5_stems/), ORCHESTRATION/ogcm_flip/LEDGER.md, CHANGELOG.md",
+          "output": "wave_s5a/agent_a_s5a_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe; absolute paths; Cwd = project root; CPU only.",
+            "No edits to bed_lanes.py, arrange.py, master.py; extract_motif / extract_riff unchanged; no new dependencies; deterministic renders.",
+            "Suno-bound files (audition_s5/s5_*) contain no source audio; stem clips are LOCAL identification only.",
+            "git -C, explicit paths, separate add/commit; never stage MAirina_Tucc/, lyrics_*, Genious_*, scratch_*, ORCHESTRATION/lyrics_sources; no WAVs committed.",
+            "Every claim quotes command + exit code + key output; commit before claiming; foreground only, never 'background + end turn'."
+          ],
+          "context_budget": "120k"
+        }
+      ]
+    },
+    {
+      "wave": "s5b",
+      "name": "Pitch-contour extraction + render_f0_lead + A/B/C pack + O6",
+      "parallel": false,
+      "background": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "B",
+          "role": "implementer",
+          "name": "s5b resynthesized wail pack",
+          "task": "Finalized at dispatch after G1: plan section 's5b' + injected __G1_PICK__ (stem, window, probe verdict) + __S5R_RECIPE__ (from wave_s5r report).",
+          "scope": "toolshop/flip/sample_voices.py (additive contour + render_f0_lead functions), scripts/ogcm_sample.py (--pack s5 A/B/C), scripts/check_contour.py (new), tests/test_flip_sample.py, Stemmeca_alatkka/stems/flip_sample/, ORCHESTRATION/ogcm_flip/LEDGER.md, CHANGELOG.md, D:/Projects/.workspace_archive/plans/expected_output_ogcm_suno_sample_s5_<stamp>.md (new)",
+          "output": "wave_s5b/agent_b_s5b_handoff.md",
+          "constraints": ["Same constraint set as s5a."],
+          "context_budget": "160k"
+        }
+      ]
+    },
+    {
+      "wave": "s5c",
+      "name": "Independent verification + provenance audit (read-only)",
+      "parallel": false,
+      "background": false,
+      "gate_after": true,
+      "gate": "G2 — user ear test of s5_00 + A/B/C, then user uploads the pick to Suno",
+      "agents": [
+        {
+          "id": "C",
+          "role": "reviewer",
+          "name": "s5c verifier",
+          "task": "Finalized at dispatch: plan section 's5c' — re-run O1''-O6, recompute contour stats from the saved .npz, provenance audit (no source audio in Suno-bound renders), protected files untouched, no WAVs committed.",
+          "scope": "read-only; writes only wave_s5c/agent_c_s5c_verify_handoff.md",
+          "output": "wave_s5c/agent_c_s5c_verify_handoff.md",
+          "constraints": [
+            "READ-ONLY except the handoff file: no code edits, no commits, no re-renders.",
+            "Recompute headline numbers with your own code; trust no self-reports."
+          ],
+          "context_budget": "80k"
+        }
+      ]
+    }
+  ]
+}
