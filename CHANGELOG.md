@@ -1,5 +1,28 @@
 # Changelog
 
+### Answer #074 - OGCM flip GATE S5a: wail finder (local stem audition + pyin ranking + timelines), synthesis-only whine probe, tempo-synced lead delay.
+**Timestamp:** 2026-10-01
+**Action Type:** Implementation — wave s5a of the ogcm_flip lane (plan: `.workspace_archive/plans/ogcm-s5-wail-resynth.md`). Gate G1 (the user's ear) is still pending.
+
+**What landed:** S4 was ear-accepted; the user wants the record's "wailing" sound but cannot name the instrument, and Suno rejected the raw chop, so no Suno-bound file may contain source audio. S5a adds (1) a LOCAL-ONLY stem finder, (2) a synthesis-only probe of whether a whine *timbre* on the S4 riff is enough, and (3) a fix for the off-grid lead echo.
+
+- NEW `scripts/ogcm_stem_audition.py`: cuts the 54–67 s window from htdemucs_6s `guitar/other/vocals/bass` and the v2 backing-vocal residue (`*_(vocals)_*_(Instrumental)_*.wav`, matched with fnmatch), loudness-matches to −20 LUFS, peak-guards to ≤ −1 dBTP, writes `stem_<name>.wav` (44.1 kHz stereo PCM_24) to `audition_s5_stems/` — **source audio, local identification only, never for Suno**. Per-stem `librosa.pyin` (mono 22.05 kHz, fmin 65 / fmax 2000 / hop 256): voiced_ratio, median/p10/p90 MIDI, glide_share, vibrato_score, mean voiced_prob, plus a documented `wail_score` (formula recorded in `stem_ranking.json`). Whole-song timelines (per-2-s bins of voiced AND MIDI ≥ 60, top-5 as mm:ss) for the top-2 stems. Flags: `--start/--end/--outdir/--no-timeline` plus `--timeline-only/--timeline-top/--timeline-stems/--time-budget-s` so the ~6 min/stem timeline runs can be split across calls. The timeline uses pyin hop 512 (ranking uses 256): measured ~25 s pyin per 13 s at hop 256 projects to ~9.7 min/stem, over the 6 min budget.
+- `toolshop/flip/sample_voices.py`: NEW `DOTTED_8TH_S = 0.75*60/FELT_BPM` (0.505 s); `west_coast_chain(..., lead_delay_s=0.375)` — the lead Delay was hard-coded at 0.375 s, off the dotted 8th at 89.1 BPM. Default unchanged, so S2–S4 are byte-reproducible. Nothing else in the module changed (`extract_motif`/`extract_riff` untouched).
+- `scripts/ogcm_sample.py`: `--pack s5` renders ONLY `s5_00_riff_whine` (S4 riff + S4 chords/sub via the new shared `_s4_source`, voiced on `render_gfunk_lead`, echo = `DOTTED_8TH_S`) into `audition_s5/`; manifest carries `source_audio_in_output: false` and `lead_delay_s`. The S4 source logic was moved verbatim into `_s4_source` (+ `_riff_rows`); `_render_s3` gained an optional `lead_delay_s`; new `--outdir`. **S4 proof:** re-rendering `--pack s4` to a scratch outdir reproduced all 5 WAVs plus `manifest.json` and `verification.json` byte-for-byte (SHA256) against the committed-render run.
+- 10 new tests in `tests/test_flip_sample.py` (synthetic data only): default-delay unchanged, `lead_delay_s` honored, `DOTTED_8TH_S ≈ 0.505`, and unit tests of the audition metrics (glide share, vibrato detection/rejection, register term, wail-score ordering, timeline bins, pyin end-to-end on a synthetic vibrato tone and on silence).
+- `Stemmeca_alatkka/stems/flip_sample/index.html` (gitignored): S5 section on top (probe player, "Wail finder — LOCAL ID ONLY, not for Suno" clips, ranking table, top timeline bins); S4/S3/S2 sections unchanged.
+
+#### Files Affected:
+- **NEW:** `scripts/ogcm_stem_audition.py` (the wave handoff `ORCHESTRATION/ogcm_flip/wave_s5a/agent_a_s5a_handoff.md` lands in the follow-up docs commit)
+- **MODIFIED:** `toolshop/flip/sample_voices.py`, `scripts/ogcm_sample.py`, `tests/test_flip_sample.py`, `ORCHESTRATION/ogcm_flip/LEDGER.md`
+- **Rendered / local (gitignored):** `Stemmeca_alatkka/stems/flip_sample/audition_s5/` (1 WAV + manifest + verification), `audition_s5_stems/` (5 stem clips, `stem_ranking.json`, `timeline_vocals.json`, `timeline_backing_vox.json`), `index.html`
+
+#### Verification (re-run by the asserting session):
+- `pytest tests/test_flip_sample.py` → **49 passed** (exit 0); 4-file flip suite → **97 passed** (exit 0)
+- `ogcm_sample.py --pack s5` → exit 0, −16.0 LUFS, `s5_00` deterministic (two renders, identical SHA256)
+- O1″ `verify_sample_pack` (1 file, 21.5 s, −16.00 LUFS, −7.65 dBTP), O3″ `check_audition_serve` (pack + 5 stem clips, all 200 and linked), O5 `check_riff` on `audition_s4/manifest.json` — all exit 0
+- The ranking is a heuristic for where to LISTEN; it does not identify the wail. The user's ear decides (gate G1).
+
 ### Answer #073 - OGCM flip GATE S4: recognizable riff from the RAW native-key transcription — fixes the measured S3 key-snap root cause.
 **Timestamp:** 2026-09-30
 **Action Type:** Implementation — wave s4a of the ogcm_flip lane (plan: `.workspace_archive/plans/ogcm-s4-recognizable-riff.md`; spec: `expected_output_ogcm_suno_sample_s4_20260930_212015.md`).

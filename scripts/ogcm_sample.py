@@ -7,11 +7,14 @@ sub. Variants: sine lead, EP lead, sine+octave, A/A' call-response, and a
 labeled real-audio chop of the picked segment for comparison.
 
 Output: ``stems/flip_sample/audition_s3/`` — seamless loops, -16 LUFS matched.
-(--pack s2 rebuilds the previous melody-legibility pack into audition_s2.)
+(--pack s2 rebuilds the previous melody-legibility pack into audition_s2;
+--pack s4 the raw-key riff pack; --pack s5 (wave s5a) renders ONLY the
+synthesis-only whine probe ``s5_00_riff_whine`` into audition_s5.)
 
 Usage:
     python scripts/ogcm_sample.py [--pack s3] [--region region_63_66_cleaned_Dm.mid]
         [--chop cand_317_8bar_F#min_score0.47.wav] [--shift -4]
+        [--outdir <root>]   # pack goes to <root>/audition_<pack>
 """
 
 from __future__ import annotations
@@ -195,10 +198,13 @@ S2_VARIANTS = {
 def _render_s3(melody: List[bed_lanes.BedNote],
                voice_fn: Callable[..., np.ndarray],
                n_bars: int = S3_BARS,
-               chords: Optional[List[dict]] = None) -> np.ndarray:
-    """Shared S3/S4 builder: motif lead @1.0 + quiet chords + sub, folded
+               chords: Optional[List[dict]] = None,
+               lead_delay_s: Optional[float] = None) -> np.ndarray:
+    """Shared S3/S4/S5 builder: motif lead @1.0 + quiet chords + sub, folded
     into a seamless n_bars loop. ``chords=None`` keeps the S3 fallback
-    i-VI-III-VII cycle; S4 passes chords derived from the segment's bass."""
+    i-VI-III-VII cycle; S4 passes chords derived from the segment's bass.
+    ``lead_delay_s=None`` keeps west_coast_chain's default 0.375 s echo
+    (S3/S4 unchanged); S5 passes the tempo-synced dotted 8th."""
     if chords is None:
         chords = sv.derive_chords([], [], n_bars)  # fallback i-VI-III-VII cycle
     lanes: Dict[str, np.ndarray] = {
@@ -208,7 +214,11 @@ def _render_s3(melody: List[bed_lanes.BedNote],
         "sub": sv.render_sub(sv.bass_root_notes(chords, velocity=0.7), sr=SR),
     }
     lanes = {k: a * S3_GAINS.get(k, 1.0) for k, a in lanes.items()}
-    return sv.fit_loop(sv.west_coast_chain(lanes, sr=SR), SR, n_bars * sv.BAR_S)
+    if lead_delay_s is None:
+        bus = sv.west_coast_chain(lanes, sr=SR)
+    else:
+        bus = sv.west_coast_chain(lanes, sr=SR, lead_delay_s=lead_delay_s)
+    return sv.fit_loop(bus, SR, n_bars * sv.BAR_S)
 
 
 def _aa_form(motif: List[bed_lanes.BedNote], motif_s: float
@@ -267,15 +277,27 @@ def _transpose_chords(chords: List[dict], st: int) -> List[dict]:
              "notes": [m + st for m in c["notes"]]} for c in chords]
 
 
-def _s4_variants(region: str, chop: str, shift: float, transpose_st: int
-                 ) -> Tuple[Dict[str, Callable[[], np.ndarray]], Dict]:
-    """GATE S4: riff from the RAW native-key region, transposed to Dm.
+def _riff_rows(riff_native: List[bed_lanes.BedNote],
+               riff_dm: List[bed_lanes.BedNote]) -> List[dict]:
+    """Manifest rows for a riff, named in both keys (shared by S4 and S5)."""
+    return [{"i": i,
+             "start_s": round(nd.start_s, 4),
+             "dur_s": round(nd.duration_s, 4),
+             "midi_dm": nd.note, "name_dm": sv.note_name(nd.note),
+             "midi_native": nn.note,
+             "name_native": sv.note_name(nn.note)}
+            for i, (nn, nd) in enumerate(zip(riff_native, riff_dm))]
+
+
+def _s4_source(region: str, transpose_st: int) -> Dict:
+    """Shared S4/S5 source path: RAW native-key region -> riff + chords.
 
     riff is extracted in F# minor (no scale lock), shifted `transpose_st`
     (-4) so it lands exactly on D natural minor. Chords are derived from the
     segment's own bass inside the winning cell (transposed the same way).
-    `s4_04` shifts every lane +4 back to the native F# minor for a
-    direct A/B against instrumental.wav.
+    Reads only the transcription MIDI — no audio. Used verbatim by both
+    ``_s4_variants`` and ``_s5_variants`` (S4 output is byte-identical to the
+    pre-factoring code: the body below is the moved, unchanged S4 logic).
     """
     raw = _region_notes(region)
     tonic_pc, mode, key_r = sv.estimate_key(raw)
@@ -320,6 +342,29 @@ def _s4_variants(region: str, chop: str, shift: float, transpose_st: int
     stats = sv.riff_stats(riff_dm, cell_s)
     snapped = sum(1 for n in riff_dm if n.note % 12 not in sv.D_MINOR_PCS)
     print(f"[s4] riff_stats={stats} snapped_notes={snapped}")
+    return {"tonic_pc": tonic_pc, "mode": mode, "key_r": key_r,
+            "riff_native": riff_native, "riff_dm": riff_dm,
+            "cell_t0": cell_t0, "cell_s": cell_s, "n_bars": n_bars,
+            "chords": chords, "chords_native": chords_native,
+            "tiled": tiled, "octaved": octaved, "tiled_native": tiled_native,
+            "stats": stats, "snapped": snapped}
+
+
+def _s4_variants(region: str, chop: str, shift: float, transpose_st: int
+                 ) -> Tuple[Dict[str, Callable[[], np.ndarray]], Dict]:
+    """GATE S4: riff from the RAW native-key region, transposed to Dm.
+
+    `s4_04` shifts every lane +4 back to the native F# minor for a
+    direct A/B against instrumental.wav. Source path: ``_s4_source``.
+    """
+    src = _s4_source(region, transpose_st)
+    tonic_pc, mode, key_r = src["tonic_pc"], src["mode"], src["key_r"]
+    riff_native, riff_dm = src["riff_native"], src["riff_dm"]
+    cell_t0, cell_s = src["cell_t0"], src["cell_s"]
+    chords, chords_native = src["chords"], src["chords_native"]
+    tiled, octaved = src["tiled"], src["octaved"]
+    tiled_native = src["tiled_native"]
+    stats, snapped = src["stats"], src["snapped"]
 
     meta = {
         "region": region, "chop_ref": chop, "chop_shift_st": shift,
@@ -328,13 +373,7 @@ def _s4_variants(region: str, chop: str, shift: float, transpose_st: int
                        "tonic": sv.PC_NAMES[tonic_pc],
                        "mode": mode, "r": round(key_r, 4)},
         "cell_t0_s": round(cell_t0, 4), "cell_s": round(cell_s, 4),
-        "riff": [{"i": i,
-                  "start_s": round(nd.start_s, 4),
-                  "dur_s": round(nd.duration_s, 4),
-                  "midi_dm": nd.note, "name_dm": sv.note_name(nd.note),
-                  "midi_native": nn.note,
-                  "name_native": sv.note_name(nn.note)}
-                 for i, (nn, nd) in enumerate(zip(riff_native, riff_dm))],
+        "riff": _riff_rows(riff_native, riff_dm),
         "riff_stats": stats,
         "chords_per_bar": [c["name"] for c in chords],
         "chords_per_bar_native": [c["name"] for c in chords_native],
@@ -354,11 +393,52 @@ def _s4_variants(region: str, chop: str, shift: float, transpose_st: int
     return variants, meta
 
 
+# ---------------------------------------------------------------------------
+# GATE S5 (wave s5a) — whine probe: the S4 riff on the G-funk whine voice.
+# SYNTHESIS ONLY: no _real_chop and no stem audio anywhere in this pack.
+# ---------------------------------------------------------------------------
+
+def _s5_variants(region: str, transpose_st: int
+                 ) -> Tuple[Dict[str, Callable[[], np.ndarray]], Dict]:
+    """s5_00_riff_whine = the S4 riff (same source/extraction/transpose/chord
+    derivation via ``_s4_source``) voiced on ``render_gfunk_lead`` with the
+    lead echo synced to the dotted 8th (``sv.DOTTED_8TH_S``, 0.505 s)."""
+    src = _s4_source(region, transpose_st)
+    tonic_pc = src["tonic_pc"]
+    meta = {
+        "region": region,
+        "riff_source": "S4 _s4_source (raw native-key transcription, "
+                       "transposed, never scale-snapped)",
+        "transpose_st": transpose_st,
+        "source_key": {"tonic_pc": tonic_pc,
+                       "tonic": sv.PC_NAMES[tonic_pc],
+                       "mode": src["mode"], "r": round(src["key_r"], 4)},
+        "cell_t0_s": round(src["cell_t0"], 4),
+        "cell_s": round(src["cell_s"], 4),
+        "riff": _riff_rows(src["riff_native"], src["riff_dm"]),
+        "riff_stats": src["stats"],
+        "chords_per_bar": [c["name"] for c in src["chords"]],
+        "snapped_notes": src["snapped"],
+        "lead_voice": "render_gfunk_lead (glide 100 ms, vib 5.5 Hz, "
+                      "180 ms delay, 0.45 st)",
+        "lead_delay_label": "dotted 8th at felt 89.1 BPM",
+    }
+    variants = {
+        "s5_00_riff_whine": lambda: _render_s3(
+            src["tiled"], sv.render_gfunk_lead, chords=src["chords"],
+            lead_delay_s=sv.DOTTED_8TH_S),
+    }
+    return variants, meta
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(prog="ogcm_sample",
-                                description="OGCM Suno-sample builder (S3/S4).")
-    p.add_argument("--pack", choices=("s2", "s3", "s4"), default="s3")
+                                description="OGCM Suno-sample builder (S3/S4/S5).")
+    p.add_argument("--pack", choices=("s2", "s3", "s4", "s5"), default="s3")
+    p.add_argument("--outdir", default=None,
+                   help="output root (default: stems/flip_sample); the pack "
+                        "is written to <outdir>/audition_<pack>")
     p.add_argument("--region", default=None,
                    help="midi file under stems/flip_bed_lanes/midi "
                         "(default: per-pack region)")
@@ -370,17 +450,21 @@ def main(argv: Optional[List[str]] = None) -> int:
                    help="s4: semitones to shift the riff (default -4, F#m->Dm)")
     args = p.parse_args(argv)
 
-    region = args.region or (S4_REGION if args.pack == "s4" else S3_REGION)
+    region = args.region or (S4_REGION if args.pack in ("s4", "s5")
+                             else S3_REGION)
     chop = args.chop or (S4_CHOP if args.pack == "s4" else S3_CHOP)
 
-    aud = OUTDIR / f"audition_{args.pack}"
+    aud = (Path(args.outdir) if args.outdir else OUTDIR) / f"audition_{args.pack}"
     aud.mkdir(parents=True, exist_ok=True)
     s4_meta: Optional[Dict] = None
+    s5_meta: Optional[Dict] = None
     if args.pack == "s2":
         variants = dict(S2_VARIANTS)
     elif args.pack == "s4":
         variants, s4_meta = _s4_variants(region, chop, args.shift,
                                          args.transpose)
+    elif args.pack == "s5":
+        variants, s5_meta = _s5_variants(region, args.transpose)
     else:
         variants = _s3_variants(region, chop, args.shift)
     manifest: Dict = {"pack": f"GATE_{args.pack.upper()}_suno_sample",
@@ -392,6 +476,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         manifest["chop_shift_st"] = args.shift
     if s4_meta is not None:
         manifest["s4"] = s4_meta
+    if s5_meta is not None:
+        # Suno-bound pack: structurally forbid any chop/REF variant
+        has_source_audio = any(n.endswith("_REF") or "chop" in n.lower()
+                               for n in variants)
+        if has_source_audio:
+            raise SystemExit("[s5] refusing to render a chop/REF variant "
+                             "into the Suno-bound pack")
+        manifest["s5"] = s5_meta
+        manifest["source_audio_in_output"] = has_source_audio
+        manifest["lead_delay_s"] = round(sv.DOTTED_8TH_S, 6)
     for name, build in variants.items():
         print(f"[render] {name} ...", flush=True)
         audio = _to_target(build(), TARGET_LUFS)
@@ -420,6 +514,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "lufs_ok": bool(spread <= LU_TOL),
                     "tp_ok": bool(ok_tp), "clips_ok": bool(ok_clip),
                     "seam_boundary_max_absdiff": ok_seam}
+    if s5_meta is not None:
+        verification["source_audio_in_output"] = manifest[
+            "source_audio_in_output"]
+        verification["lead_delay_s"] = manifest["lead_delay_s"]
     (aud / "manifest.json").write_text(json.dumps(manifest, indent=2),
                                        encoding="utf-8")
     (aud / "verification.json").write_text(json.dumps(verification, indent=2),

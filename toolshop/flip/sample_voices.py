@@ -54,6 +54,9 @@ import numpy as np
 from toolshop.flip.bed_lanes import BedNote, FELT_BPM, _one_pole_lpf, _saw
 
 BAR_S = 4.0 * 60.0 / FELT_BPM          # one felt bar in seconds (2.6939)
+# dotted 8th at the felt tempo (0.505 s @ 89.1 BPM) — the on-grid lead echo.
+# west_coast_chain's DEFAULT lead delay stays 0.375 s so S2-S4 reproduce.
+DOTTED_8TH_S = 0.75 * 60.0 / FELT_BPM
 REGISTER_SPLIT_MIDI = 50               # <=50 bass lane, >50 melody lane
 SEED = 20260929
 
@@ -715,13 +718,16 @@ def render_simple_lead(notes: Sequence[BedNote], sr: int = 44100
 # ---------------------------------------------------------------------------
 
 def west_coast_chain(lanes: Dict[str, np.ndarray], sr: int = 44100,
-                     ) -> np.ndarray:
+                     lead_delay_s: float = 0.375) -> np.ndarray:
     """Per-lane pedalboard FX, then sum to a stereo bus.
 
     ``lanes`` maps a lane name to stereo audio; FX per lane:
     rhodes: Chorus -> Reverb; pad: LadderFilter LPF -> Reverb;
-    lead: dotted-8th-feel Delay -> Reverb; sub/others: dry.
+    lead: Delay(``lead_delay_s``) -> Reverb; sub/others: dry.
     Final bus: light glue Compressor -> Gain.
+
+    ``lead_delay_s`` defaults to the historical 0.375 s (S2-S4 reproducible);
+    pass ``DOTTED_8TH_S`` for the tempo-synced dotted-8th echo.
     """
     from pedalboard import (Chorus, Compressor, Delay, Gain, LadderFilter,
                             Pedalboard, Reverb)
@@ -741,7 +747,7 @@ def west_coast_chain(lanes: Dict[str, np.ndarray], sr: int = 44100,
             Reverb(room_size=0.5, damping=0.7, wet_level=0.25,
                    dry_level=1.0, width=1.0)]),
         "lead": lambda: Pedalboard([
-            Delay(delay_seconds=0.375, feedback=0.28, mix=0.22),
+            Delay(delay_seconds=lead_delay_s, feedback=0.28, mix=0.22),
             Reverb(room_size=0.45, damping=0.5, wet_level=0.22,
                    dry_level=1.0, width=0.95)]),
     }

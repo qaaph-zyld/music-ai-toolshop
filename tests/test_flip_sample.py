@@ -368,3 +368,120 @@ def test_estimate_key_recovers_tonic_and_mode():
 
 def test_estimate_key_empty():
     assert sv.estimate_key([]) == (0, "unknown", 0.0)
+
+
+# ---------------------------------------------------------------------------
+# S5a — tempo-synced lead delay + wail-finder metrics (synthetic data only)
+# ---------------------------------------------------------------------------
+
+def _chain_lanes():
+    return {"lead": sv.render_gfunk_lead(_melody(), sr=SR),
+            "sub": sv.render_sub(_bass(), sr=SR)}
+
+
+def test_dotted_8th_constant():
+    assert sv.DOTTED_8TH_S == pytest.approx(0.505, abs=1e-3)
+
+
+def test_west_coast_chain_default_lead_delay_unchanged():
+    # S2-S4 reproducibility: the default and an explicit 0.375 are identical
+    a = sv.west_coast_chain(_chain_lanes(), sr=SR)
+    b = sv.west_coast_chain(_chain_lanes(), sr=SR, lead_delay_s=0.375)
+    assert np.array_equal(a, b)
+
+
+def test_west_coast_chain_honors_lead_delay():
+    a = sv.west_coast_chain(_chain_lanes(), sr=SR)
+    c = sv.west_coast_chain(_chain_lanes(), sr=SR, lead_delay_s=0.505)
+    assert a.shape == c.shape
+    assert not np.array_equal(a, c)
+    assert float(np.abs(a - c).max()) > 1e-4
+
+
+def _load_script(name):
+    import importlib.util
+    from pathlib import Path
+    path = Path(__file__).resolve().parent.parent / "scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.fixture(scope="module")
+def sa():
+    return _load_script("ogcm_stem_audition")
+
+
+def _curve(sa, fn, seconds):
+    n = int(seconds / sa.HOP_S)
+    t = np.arange(n) * sa.HOP_S
+    return fn(t), np.ones(n, dtype=bool)
+
+
+def test_glide_share_steady_vs_fast_slide(sa):
+    steady, v = _curve(sa, lambda t: np.full_like(t, 69.0), 2.0)
+    assert sa.glide_share(steady, v) == 0.0
+    slide, v = _curve(sa, lambda t: 60.0 + 24.0 * t, 1.0)   # 1.2 st / 50 ms
+    assert sa.glide_share(slide, v) > 0.9
+
+
+def test_glide_share_does_not_bridge_unvoiced_gaps(sa):
+    # two runs, each shorter than the 50 ms comparison span, with a big jump
+    # between them: no valid pair -> no glide
+    midi = np.array([60.0, 60.0, np.nan, 84.0, 84.0])
+    voiced = np.array([True, True, False, True, True])
+    assert sa.glide_share(midi, voiced) == 0.0
+
+
+def test_vibrato_metrics_detects_5p5_hz_and_rejects_steady(sa):
+    vib, v = _curve(sa, lambda t: 69.0 + 0.45 * np.sin(2 * np.pi * 5.5 * t), 2.0)
+    score, depth = sa.vibrato_metrics(vib, v)
+    assert score > 0.9
+    assert depth == pytest.approx(0.45, abs=0.1)
+    rng = np.random.RandomState(0)
+    flat, v = _curve(sa, lambda t: 69.0 + 0.02 * rng.randn(len(t)), 2.0)
+    _, depth_flat = sa.vibrato_metrics(flat, v)
+    assert depth_flat < 0.05
+
+
+def test_vibrato_metrics_ignores_runs_shorter_than_min(sa):
+    short, v = _curve(sa, lambda t: 69.0 + 0.45 * np.sin(2 * np.pi * 5.5 * t), 0.3)
+    assert sa.vibrato_metrics(short, v) == (0.0, 0.0)
+
+
+def test_register_term_and_wail_score_ordering(sa):
+    assert sa.register_term(72.0) == 1.0
+    assert sa.register_term(48.0) == 0.0 and sa.register_term(102.0) == 0.0
+    assert sa.register_term(54.0) == pytest.approx(0.5)
+    assert sum(sa.WAIL_WEIGHTS.values()) == pytest.approx(1.0)
+    wail = sa.wail_score(sa.wail_terms(0.7, 76.0, 0.4, 0.95, 0.4))
+    bass = sa.wail_score(sa.wail_terms(0.7, 38.0, 0.02, 0.5, 0.02))
+    assert 0.0 <= bass < wail <= 1.0
+
+
+def test_timeline_bins_and_top_bins(sa):
+    n = int(10.0 / sa.HOP_S)
+    t = np.arange(n) * sa.HOP_S
+    high = (t >= 4.0) & (t < 6.0)
+    frac, cnt = sa.bin_high_register(high, np.ones(n, dtype=bool))
+    top = sa.top_bins(frac, cnt, n=5)
+    assert top[0]["t0_s"] == 4.0 and top[0]["mmss"] == "00:04-00:06"
+    assert top[0]["high_register_frac"] == pytest.approx(1.0, abs=0.02)
+    assert all(b["high_register_frac"] > 0 for b in top)
+    # uncovered frames never produce a bin
+    frac2, cnt2 = sa.bin_high_register(high, np.zeros(n, dtype=bool))
+    assert sa.top_bins(frac2, cnt2) == []
+
+
+def test_measure_stem_pyin_on_synthetic_vibrato_and_silence(sa):
+    sr = sa.PYIN_SR
+    t = np.arange(int(2.5 * sr)) / sr
+    f = 440.0 * 2.0 ** (0.45 * np.sin(2 * np.pi * 5.5 * t) / 12.0)
+    y = (0.3 * np.sin(2 * np.pi * np.cumsum(f) / sr)).astype(np.float32)
+    m = sa.measure_stem(y)
+    assert m["voiced_ratio"] > 0.7 and not m["silent"]
+    assert m["median_midi"] == pytest.approx(69.0, abs=0.6)
+    assert m["vibrato_depth_st"] > 0.25
+    silent = sa.measure_stem(np.zeros(sr, dtype=np.float32))
+    assert silent["silent"] and silent["wail_score"] == 0.0
