@@ -343,8 +343,9 @@ legacy block shown above.) Evidence files committed alongside this handoff:
 
 ## Closeout / push status
 
-- `git push origin master` → **exit 0**, `227168f..2f24ad9 master -> master`
-  (publishes this wave plus the previously-local #063–#069 wave stack).
+- `git push origin master` → **exit 0** twice: `227168f..2f24ad9` published the
+  wave-5 stack (plus previously-local #063–#069 waves), then `2f24ad9..e538b92`
+  carried this closeout section. Final tip `e538b92` on `origin/master`.
   Pre-push hook passed — nothing staged, no tracked junk files.
 - `toolshop closeout` → **exit 1** with two declared causes: (a) working tree
   not clean — **other lanes' files only** (MAirina_Tucc `M`+`??`, ogcm_flip,
