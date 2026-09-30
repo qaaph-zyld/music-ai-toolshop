@@ -137,9 +137,21 @@ cell, transposed −4): **Dm7 Bbmaj7 Dm7 Bbmaj7 Dm7 Bbmaj7 Dm7 Bbmaj7**
 ## Git state at handoff
 
 ```
+38bf09c docs(#073): GATE S4 wave s4a handoff - O1'-O5 green, riff + chord table of record
 f46da72 feat(#073): GATE S4 recognizable riff - raw native-key (F#m) transcription transposed -4 to Dm, never scale-snapped
 ```
 
-Foreign-lane dirty files pre-existing and untouched (MAirina_Tucc/*,
-lyrics_research/*, scratch_*, handoffs/orchestration_ledger_ogcm_s4_20260930.md
-—orchestrator's own file—, ORCHESTRATION prompts, `nul`).
+`git status --short` on every file this wave touched: **clean** (all
+committed). Remaining tree dirt is foreign-lane and pre-existing, declared
+per close-out discipline: `MAirina_Tucc/*`, `lyrics_research/*`,
+`scratch_*`, `nul`, `wt_bog_probe.txt`, `ORCHESTRATION/ogcm_flip/wave_m1/`,
+`wave_m2/agent_b_bed_spike_handoff.md` (M), `prompts/`, `waves_megaplan.json`,
+`ORCHESTRATION/prompts/*`, `handoffs/orchestration_ledger_ogcm_s4_20260930.md`
+(orchestrator's own file), `mastering_tool`/`suno_prompter` submodule
+pointers.
+
+**Closeout evidence** — `.venv python -m toolshop.cli closeout` → **exit 1
+(FAIL, declared)**: "working tree not clean" = the foreign-lane dirt listed
+above only; "unpushed commits" = the 6 commits atop `@{u}` incl. this wave's
+two (user push cadence — same declared state as Answer #072). Submodule
+summary clean: `mastering_tool` 9bddc72, `suno_prompter` 7acba12.
