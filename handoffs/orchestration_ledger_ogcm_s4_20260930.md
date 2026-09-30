@@ -13,9 +13,9 @@ S3's motif came from `region_54_67_cleaned_Dm.mid` — `bed_lanes.cleanup(root="
 
 | Wave | Agent | Profile | Status | Handoff | Notes |
 |---|---|---|---|---|---|
-| s4a Implement+render+spec | A | wave-implementer | dispatched | `wave_s4a/agent_a_s4_handoff.md` | Step 0 = audio chroma key check on instrumental.wav 54–67 s; if D minor wins the agent STOPS — plan premise falsified. |
-| s4b Verify (read-only) | B | wave-implementer (read-only constraints; wave-explorer cannot write handoffs) | pending s4a | `wave_s4b/agent_b_s4_verify_handoff.md` | Re-runs O1′–O5 + independent spot-check; orchestrator reports verifier's numbers, not the implementer's. |
-| GATE ear test | user | — | pending | http://127.0.0.1:8777/flip_sample/ | s4_01 / s4_04 vs `instrumental.wav` 54–67 s. Only the user's ear decides "recognizable". |
+| s4a Implement+render+spec | A (`68ef5ab8`) | wave-implementer | ✅ done (self-reported) | `wave_s4a/agent_a_s4_handoff.md` | commits `f46da72` (code+records) + `38bf09c` (handoff). Step-0 audio guard PASSED: F#m r=+0.367 vs Dm r=+0.039; `estimate_key(raw)` F#m r=+0.797. Riff: 13 notes, cell t0=5.39s, transpose −4, snapped=0; chords Dm7–Bbmaj7 ×4 (native F#m7–Dmaj7). Self-reported gates: O1′ 0 (5/5, −16 LUFS, TP≤−1), O2 0 (39 tests), O3′ 0 (5×200, :8777 started), O4 0 (87 tests), O5 0 (coverage .969, 2.41 n/s, leap 10st). NOT verified by orchestrator — s4b re-runs. |
+| s4b Verify (read-only) | B (`c0fc46b5`) | wave-implementer (read-only constraints; wave-explorer cannot write handoffs) | ✅ done — **all PASS, independently reproduced** | `wave_s4b/agent_b_s4_verify_handoff.md` | commit `f46da72` verified clean (9 files, no WAVs, no bed_lanes/arrange/master); O1′ 0 (5/5, −16.00 LUFS, TP −3.6…−8.8), O2 0 (39), O3′ 0 (5/5 http200 — server was down, started per spec, left running), O4 0 (87), O5 0 (6/6). Independent recompute: coverage .969, 2.413 n/s, leap 10 — all **exact** matches; Dm pcs {0,2,4,5,7,9}⊆scale; dm+4==native note-for-note; raw pc histogram 100% weight in F# nat. minor, Krumhansl F#m r=+0.7965 vs Dm r=−0.0012. No mismatches >1% anywhere. |
+| GATE ear test | user | — | **waiting on user** | http://127.0.0.1:8777/flip_sample/ | s4_01 / s4_04 vs `instrumental.wav` 54–67 s. Only the user's ear decides "recognizable". Server confirmed up (started by verifier for O3′, left running). |
 
 ## Deviations from the plan's literal text (documented, none affect scope)
 
