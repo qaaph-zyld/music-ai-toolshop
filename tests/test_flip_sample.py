@@ -270,3 +270,101 @@ def test_render_simple_lead_clean_and_deterministic():
 def test_render_simple_lead_empty_is_silence():
     out = sv.render_simple_lead([], sr=SR)
     assert np.abs(out).max() == 0.0
+
+
+# ---------------------------------------------------------------------------
+# S4 — recognizable riff from the RAW native-key transcription (no snapping)
+# ---------------------------------------------------------------------------
+
+G16 = sv.GRID_16TH_S
+CELL = 2.0 * sv.BAR_S            # 2 bars (~5.39 s)
+# F# natural minor pcs {F#,G#,A,B,C#,D,E} = {6,8,9,11,1,2,4}
+FSM_PCS = {6, 8, 9, 11, 1, 2, 4}
+
+
+def _fsm_cell(t0):
+    """The 54-67 s riff shape in F# minor: C#5 repeated -> B4 -> C#5 ->
+    A4-G#4-F#4 descent, then a second answering gesture — spanning the full
+    2 bars so the legato fill actually covers the cell."""
+    shape = [(0.17, 73), (0.51, 73), (0.84, 73), (1.18, 71), (1.52, 73),
+             (1.86, 69), (2.19, 68), (2.53, 66),
+             (2.87, 66), (3.37, 73), (3.71, 71), (4.22, 73), (4.73, 69),
+             (5.05, 68)]
+    return [_note(t0 + s, 0.22, m, vel=0.8) for s, m in shape]
+
+
+def _raw_region(tail=True):
+    """Full cell A at bars 0-2, the same cell at bars 2-4, a different
+    (partial) tail cell after bar 4 — the tail must never win."""
+    notes = _fsm_cell(0.0) + _fsm_cell(CELL)
+    if tail:
+        notes += [_note(4 * sv.BAR_S + 0.2, 0.3, 76),
+                  _note(4 * sv.BAR_S + 0.9, 0.3, 79)]
+    notes += [_note(0.0, 1.2, 42), _note(CELL, 1.2, 38)]   # sub-bass lane
+    return notes
+
+
+def test_extract_riff_register_floor():
+    riff, _ = sv.extract_riff(_raw_region())
+    assert riff and all(n.note >= 55 for n in riff)
+
+
+def test_extract_riff_folds_octave_outlier():
+    region = _raw_region()
+    # a +24 transcription ghost sitting on top of the first cell
+    region.append(_note(1.86, 0.2, 93, vel=0.9))            # A6
+    riff, _ = sv.extract_riff(region)
+    assert max(abs(b.note - a.note) for a, b in zip(riff, riff[1:])) <= 12
+
+
+def test_extract_riff_full_cell_beats_partial_tail():
+    riff, cell_t0 = sv.extract_riff(_raw_region())
+    assert cell_t0 in (0.0, CELL)                 # a full 2-bar cell won
+    assert {n.note % 12 for n in riff} <= {1, 6, 8, 9, 11}  # F#m riff pcs
+
+
+def test_extract_riff_onsets_on_16th_grid():
+    riff, _ = sv.extract_riff(_raw_region())
+    for n in riff:
+        assert abs(n.start_s / G16 - round(n.start_s / G16)) < 1e-6
+
+
+def test_extract_riff_monophonic():
+    riff, _ = sv.extract_riff(_raw_region())
+    for a, b in zip(riff, riff[1:]):
+        assert a.end_s <= b.start_s + 1e-9
+
+
+def test_extract_riff_legato_fill_coverage():
+    riff, _ = sv.extract_riff(_raw_region())
+    stats = sv.riff_stats(riff, CELL)
+    assert stats["coverage"] >= 0.6
+    assert stats["n_notes"] >= 8
+    assert stats["notes_per_s"] >= 1.5
+
+
+def test_transpose_lands_fsm_riff_in_dm_intervals_preserved():
+    riff, _ = sv.extract_riff(_raw_region())
+    dm = sv.transpose(riff, -4)
+    assert all(n.note % 12 in sv.D_MINOR_PCS for n in dm)
+    iv_nat = [b.note - a.note for a, b in zip(riff, riff[1:])]
+    iv_dm = [b.note - a.note for a, b in zip(dm, dm[1:])]
+    assert iv_nat == iv_dm
+
+
+def test_estimate_key_recovers_tonic_and_mode():
+    # duration-weighted F# minor: tonic/dominant heavy
+    fsm = [_note(i * 0.4, 0.4, m, vel=0.8)
+           for i, m in enumerate([66, 66, 68, 69, 73, 73, 73, 71, 69,
+                                  68, 66, 62, 64])]
+    pc, mode, r = sv.estimate_key(fsm)
+    assert (pc, mode) == (6, "minor") and r > 0.5
+    dm = [_note(i * 0.4, 0.4, m, vel=0.8)
+          for i, m in enumerate([62, 62, 64, 65, 69, 69, 69, 67, 65,
+                                 64, 62, 60, 57])]
+    pc, mode, r = sv.estimate_key(dm)
+    assert (pc, mode) == (2, "minor") and r > 0.5
+
+
+def test_estimate_key_empty():
+    assert sv.estimate_key([]) == (0, "unknown", 0.0)

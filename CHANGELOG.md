@@ -1,5 +1,28 @@
 # Changelog
 
+### Answer #073 - OGCM flip GATE S4: recognizable riff from the RAW native-key transcription — fixes the measured S3 key-snap root cause.
+**Timestamp:** 2026-09-30
+**Action Type:** Implementation — wave s4a of the ogcm_flip lane (plan: `.workspace_archive/plans/ogcm-s4-recognizable-riff.md`; spec: `expected_output_ogcm_suno_sample_s4_20260930_212015.md`).
+
+**What landed:** S3 passed O1–O4 but was rejected by ear; the measured root cause was upstream of motif extraction — `region_54_67_cleaned_Dm.mid` had been `bed_lanes.cleanup(root="D")` scale-locked from F#-minor material (C#→D, F#→F, G#→G, B→Bb), rewriting every riff interval, and S3's "already D-centred" shift-0 call was drawn from the already-snapped MIDI. S4 reads `region_54_67_raw.mid`, confirms F# minor by Krumhansl correlation on both the MIDI (r=+0.797) and `instrumental.wav` chroma 54–67 s (r=+0.367 vs Dm +0.039), extracts the best self-repeating FULL 2-bar cell, and **transposes −4 st** to D minor — no scale snapping anywhere in the path.
+
+`toolshop/flip/sample_voices.py`: NEW `GRID_16TH_S`, `PC_NAMES`, `note_name`, `transpose`, `estimate_key` (duration-weighted pc histogram vs Krumhansl profiles), `fold_octaves` (±12 fold onto the line median, kills sub-bass/24-st ghosts), `extract_riff` (register floor → `top_line` → fold → full-cell-only candidate scoring on onset-slot+pitch-class repeats → 16th quantize → ≤16 notes by velocity → legato fill capped at 1 beat), `riff_stats`. `extract_motif` untouched — `--pack s3` stays reproducible.
+
+`scripts/ogcm_sample.py`: `--pack s4` + `--transpose` (default −4); `_render_s3` gains optional `chords=`; `_s4_variants` emits s4_01 sine / s4_02 EP / s4_03 +12 double / **s4_04 all lanes +4 back to native F# minor** / s4_05 REF = real `ref_slice_54_67.wav` pitched −4 into the same D minor as 01–03. Chords now derived from the segment's own bass inside the winning cell (Dm7–Bbmaj7 alternating) instead of the unrelated fallback cycle. Manifest records `source_key`, `transpose_st`, riff notes named in both keys, `riff_stats`, per-bar chord names, `snapped_notes` (=0).
+
+NEW `scripts/check_riff.py` (O5: coverage≥0.6, ≥8 notes, ≥1.5 n/s, leap≤12 st, snapped=0, source-tonic+transpose lands D minor). `scripts/ogcm_transcribe_segment.py` prints `estimate_key(raw)` before cleanup and warns when >15% of note duration falls outside the requested scale — the guard that would have caught the snap. 9 new tests in `test_flip_sample.py` (synthetic data only; the 30 prior tests untouched and green). `flip_sample/index.html` S4 section on top with per-file key labels. S2 region MIDIs likely share the same snap defect — reported, not fixed (out of scope).
+
+#### Files Affected:
+- **MODIFIED:** `toolshop/flip/sample_voices.py`, `scripts/ogcm_sample.py`, `scripts/ogcm_transcribe_segment.py`, `tests/test_flip_sample.py`, `Stemmeca_alatkka/stems/flip_sample/index.html`, `ORCHESTRATION/ogcm_flip/LEDGER.md`
+- **NEW:** `scripts/check_riff.py`, `ORCHESTRATION/ogcm_flip/wave_s4a/` (key-check + riff-print evidence scripts, handoff), `.workspace_archive/plans/expected_output_ogcm_suno_sample_s4_20260930_212015.md`
+- **Rendered (gitignored):** `Stemmeca_alatkka/stems/flip_sample/audition_s4/` — 5 WAVs + manifest/verification
+
+#### Verification:
+- `pytest tests/test_flip_sample.py` → **39 passed** (exit 0)
+- `ogcm_sample.py --pack s4` → exit 0, 5 files, −16.0 LUFS each (spread 0.0), TP≤−1, no clips; riff 13 notes / 2.41 n/s / coverage 0.969 / snapped 0
+- O1′ verify_sample_pack / O3′ check_audition_serve / O4 flip suite / O5 check_riff — exit codes quoted in `ORCHESTRATION/ogcm_flip/wave_s4a/agent_a_s4_handoff.md`
+- Ear test is the user's gate: http://127.0.0.1:8777/flip_sample/ — technical green ≠ accepted (S3 proved that).
+
 ### Answer #072 - lyrics-sources wave 6 (V1): adversarial review — verdict APPROVED; megaplan closeout.
 **Timestamp:** 2026-09-30
 **Action Type:** Review/closeout — V1 agent produced nothing (harness tool-rejection); orchestrator ran the V1 checklist verbatim with evidence. Review: `.workspace_archive/reviews/2026-09-30_2018_lyrics-sources-impl.md`.

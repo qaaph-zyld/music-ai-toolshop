@@ -21,7 +21,7 @@ import json
 import math
 import sys
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import soundfile as sf
@@ -50,6 +50,13 @@ CHOP_SHIFT_ST = -4.0
 S2_REGION = "region_233_258_cleaned_Dm.mid"
 S3_REGION = "region_63_66_cleaned_Dm.mid"        # riff: best score, 7x repeated
 S3_BARS = 8
+# S4: RAW native-key region (F# minor) — transposed, never scale-snapped.
+# Root cause of the S3 ear-test reject: region_54_67_cleaned_Dm.mid had been
+# scale_locked D-minor on F#m material, rewriting every riff interval.
+S4_REGION = "region_54_67_raw.mid"
+S4_CHOP = "ref_slice_54_67.wav"                  # the real 54-67 s slice
+S4_TRANSPOSE_ST = -4                             # F#m -> Dm exactly
+S4_MIN_MIDI = 55                                 # riff register floor
 
 # lead-forward mix (the S1 complaint: melody buried under chords/pad)
 LANE_GAINS = {"lead": 1.0, "rhodes": 0.32, "pad": 0.22, "sub": 0.65}
@@ -187,10 +194,13 @@ S2_VARIANTS = {
 
 def _render_s3(melody: List[bed_lanes.BedNote],
                voice_fn: Callable[..., np.ndarray],
-               n_bars: int = S3_BARS) -> np.ndarray:
-    """Shared S3 builder: motif lead @1.0 + quiet Dm chords + sub, folded
-    into a seamless n_bars loop."""
-    chords = sv.derive_chords([], [], n_bars)      # fallback i-VI-III-VII cycle
+               n_bars: int = S3_BARS,
+               chords: Optional[List[dict]] = None) -> np.ndarray:
+    """Shared S3/S4 builder: motif lead @1.0 + quiet chords + sub, folded
+    into a seamless n_bars loop. ``chords=None`` keeps the S3 fallback
+    i-VI-III-VII cycle; S4 passes chords derived from the segment's bass."""
+    if chords is None:
+        chords = sv.derive_chords([], [], n_bars)  # fallback i-VI-III-VII cycle
     lanes: Dict[str, np.ndarray] = {
         "lead": voice_fn(melody, sr=SR),
         "rhodes": sv.render_rhodes(sv.chord_bednotes(chords, velocity=0.45),
@@ -231,30 +241,157 @@ def _s3_variants(region: str, chop: str, shift: float
     }
 
 
+# ---------------------------------------------------------------------------
+# GATE S4 — raw native-key riff, transposed (never snapped) to D minor
+# ---------------------------------------------------------------------------
+
+_PC_OF_NAME = {"C": 0, "C#": 1, "DB": 1, "D": 2, "D#": 3, "EB": 3, "E": 4,
+               "F": 5, "F#": 6, "GB": 6, "G": 7, "G#": 8, "AB": 8, "A": 9,
+               "A#": 10, "BB": 10, "B": 11}
+
+
+def _transpose_chord_name(name: str, st: int) -> str:
+    """'Bbmaj7' shifted -4 -> 'Gmaj7'. Root token transposed, suffix kept."""
+    i = 1
+    if len(name) > 1 and name[1] in "#b":
+        i = 2
+    root, suffix = name[:i].upper(), name[i:]
+    pc = (_PC_OF_NAME[root] + st) % 12
+    return sv.PC_NAMES[pc] + suffix
+
+
+def _transpose_chords(chords: List[dict], st: int) -> List[dict]:
+    """Whole chord dicts shifted by `st` (voicings + bass root)."""
+    return [{"bar": c["bar"], "root_pc": (c["root_pc"] + st) % 12,
+             "name": _transpose_chord_name(c["name"], st),
+             "notes": [m + st for m in c["notes"]]} for c in chords]
+
+
+def _s4_variants(region: str, chop: str, shift: float, transpose_st: int
+                 ) -> Tuple[Dict[str, Callable[[], np.ndarray]], Dict]:
+    """GATE S4: riff from the RAW native-key region, transposed to Dm.
+
+    riff is extracted in F# minor (no scale lock), shifted `transpose_st`
+    (-4) so it lands exactly on D natural minor. Chords are derived from the
+    segment's own bass inside the winning cell (transposed the same way).
+    `s4_04` shifts every lane +4 back to the native F# minor for a
+    direct A/B against instrumental.wav.
+    """
+    raw = _region_notes(region)
+    tonic_pc, mode, key_r = sv.estimate_key(raw)
+    riff_native, cell_t0 = sv.extract_riff(raw, min_midi=S4_MIN_MIDI)
+    if not riff_native:
+        raise SystemExit(f"[s4] extract_riff returned no notes on {region}")
+    cell_s = 2.0 * sv.BAR_S
+    riff_dm = sv.transpose(riff_native, transpose_st)
+    n_bars = S3_BARS
+    reps = n_bars // 2
+
+    # print the riff BEFORE rendering — the human sanity check of record
+    print(f"[s4] source key estimate: {sv.PC_NAMES[tonic_pc]} {mode} "
+          f"(r={key_r:+.3f})")
+    print(f"[s4] winning cell t0={cell_t0:.2f}s cell_s={cell_s:.2f}s "
+          f"-> riff {len(riff_dm)} notes on 16th grid")
+    print("[s4] riff (native F#m -> Dm):")
+    for nn, nd in zip(riff_native, riff_dm):
+        print(f"   on={nd.start_s:5.2f}s dur={nd.duration_s:4.2f}s "
+              f"{sv.note_name(nn.note):>4s} ({nn.note:2d}) -> "
+              f"{sv.note_name(nd.note):>4s} ({nd.note:2d})")
+
+    # chords: raw bass below the floor inside the winning cell, transposed,
+    # tiled to the loop length, derived per bar (empty bars -> fallback)
+    bass_cell = [bed_lanes.BedNote(n.start_s - cell_t0, n.end_s - cell_t0,
+                                   n.note, n.velocity)
+                 for n in raw
+                 if n.note < S4_MIN_MIDI
+                 and cell_t0 <= n.start_s < cell_t0 + cell_s]
+    bass_dm = sv.tile_motif(sv.transpose(bass_cell, transpose_st),
+                            cell_s, reps)
+    chords = sv.derive_chords(bass_dm, [], n_bars)
+    chords_native = _transpose_chords(chords, -transpose_st)
+    print("[s4] chords per bar (Dm): "
+          + " ".join(c["name"] for c in chords))
+    print("[s4] chords per bar (native F#m, +4): "
+          + " ".join(c["name"] for c in chords_native))
+
+    tiled = sv.tile_motif(riff_dm, cell_s, reps)
+    octaved = sv.octave_double(tiled, up_st=12, vel_scale=0.35)
+    tiled_native = sv.tile_motif(riff_native, cell_s, reps)
+    stats = sv.riff_stats(riff_dm, cell_s)
+    snapped = sum(1 for n in riff_dm if n.note % 12 not in sv.D_MINOR_PCS)
+    print(f"[s4] riff_stats={stats} snapped_notes={snapped}")
+
+    meta = {
+        "region": region, "chop_ref": chop, "chop_shift_st": shift,
+        "transpose_st": transpose_st,
+        "source_key": {"tonic_pc": tonic_pc,
+                       "tonic": sv.PC_NAMES[tonic_pc],
+                       "mode": mode, "r": round(key_r, 4)},
+        "cell_t0_s": round(cell_t0, 4), "cell_s": round(cell_s, 4),
+        "riff": [{"i": i,
+                  "start_s": round(nd.start_s, 4),
+                  "dur_s": round(nd.duration_s, 4),
+                  "midi_dm": nd.note, "name_dm": sv.note_name(nd.note),
+                  "midi_native": nn.note,
+                  "name_native": sv.note_name(nn.note)}
+                 for i, (nn, nd) in enumerate(zip(riff_native, riff_dm))],
+        "riff_stats": stats,
+        "chords_per_bar": [c["name"] for c in chords],
+        "chords_per_bar_native": [c["name"] for c in chords_native],
+        "snapped_notes": snapped,
+    }
+    variants = {
+        "s4_01_riff_sine": lambda: _render_s3(tiled, sv.render_simple_lead,
+                                              chords=chords),
+        "s4_02_riff_ep": lambda: _render_s3(tiled, sv.render_rhodes,
+                                            chords=chords),
+        "s4_03_riff_oct": lambda: _render_s3(octaved, sv.render_simple_lead,
+                                             chords=chords),
+        "s4_04_riff_native_Fsm": lambda: _render_s3(
+            tiled_native, sv.render_simple_lead, chords=chords_native),
+        "s4_05_chop_REF": lambda: _real_chop(chop, shift),
+    }
+    return variants, meta
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(prog="ogcm_sample",
-                                description="OGCM Suno-sample builder (GATE S3).")
-    p.add_argument("--pack", choices=("s2", "s3"), default="s3")
-    p.add_argument("--region", default=S3_REGION,
-                   help="midi file under stems/flip_bed_lanes/midi")
-    p.add_argument("--chop", default=S3_CHOP,
+                                description="OGCM Suno-sample builder (S3/S4).")
+    p.add_argument("--pack", choices=("s2", "s3", "s4"), default="s3")
+    p.add_argument("--region", default=None,
+                   help="midi file under stems/flip_bed_lanes/midi "
+                        "(default: per-pack region)")
+    p.add_argument("--chop", default=None,
                    help="real-audio reference chop under flip_chops_v2/audition")
     p.add_argument("--shift", type=float, default=CHOP_SHIFT_ST,
                    help="semitones to shift the chop into D minor")
+    p.add_argument("--transpose", type=int, default=S4_TRANSPOSE_ST,
+                   help="s4: semitones to shift the riff (default -4, F#m->Dm)")
     args = p.parse_args(argv)
+
+    region = args.region or (S4_REGION if args.pack == "s4" else S3_REGION)
+    chop = args.chop or (S4_CHOP if args.pack == "s4" else S3_CHOP)
 
     aud = OUTDIR / f"audition_{args.pack}"
     aud.mkdir(parents=True, exist_ok=True)
-    variants = (S2_VARIANTS if args.pack == "s2"
-                else _s3_variants(args.region, args.chop, args.shift))
+    s4_meta: Optional[Dict] = None
+    if args.pack == "s2":
+        variants = dict(S2_VARIANTS)
+    elif args.pack == "s4":
+        variants, s4_meta = _s4_variants(region, chop, args.shift,
+                                         args.transpose)
+    else:
+        variants = _s3_variants(region, chop, args.shift)
     manifest: Dict = {"pack": f"GATE_{args.pack.upper()}_suno_sample",
                       "sr": SR, "target_lufs": TARGET_LUFS, "lu_tol": LU_TOL,
                       "tp_ceiling": TP_CEILING, "files": []}
     if args.pack == "s3":
-        manifest["region"] = args.region
-        manifest["chop_ref"] = args.chop
+        manifest["region"] = region
+        manifest["chop_ref"] = chop
         manifest["chop_shift_st"] = args.shift
+    if s4_meta is not None:
+        manifest["s4"] = s4_meta
     for name, build in variants.items():
         print(f"[render] {name} ...", flush=True)
         audio = _to_target(build(), TARGET_LUFS)

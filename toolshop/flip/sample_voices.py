@@ -301,6 +301,178 @@ def answer_motif(motif: Sequence[BedNote], n_tail: int = 2) -> List[BedNote]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# S4 — recognizable riff from the RAW native-key transcription
+#
+# Root cause of the S3 rejection: the S3 motif was extracted from
+# ``region_54_67_cleaned_Dm.mid``, whose pitches ``bed_lanes.cleanup`` had
+# scale-locked from F# minor onto D minor (C#->D, F#->F, G#->G, B->Bb),
+# rewriting every interval of the riff. S4 instead reads the raw MIDI,
+# filters the register, folds octave errors onto the line's median, picks the
+# best self-repeating FULL 2-bar cell, and TRANSPOSES it -4 st (F#m -> Dm)
+# so every interval is preserved. Nothing is snapped to a scale here.
+# ---------------------------------------------------------------------------
+
+GRID_16TH_S = BAR_S / 16.0         # 16th note on the felt grid (~0.168 s)
+PC_NAMES = ("C", "C#", "D", "D#", "E", "F",
+            "F#", "G", "G#", "A", "A#", "B")
+
+# Krumhansl-Schmuckler key profiles (numpy-only estimate_key).
+_KS_MAJOR = (6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52,
+             5.19, 2.39, 3.66, 2.29, 2.88)
+_KS_MINOR = (6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54,
+             4.75, 3.98, 2.69, 3.34, 3.17)
+
+
+def note_name(midi: int) -> str:
+    """MIDI -> name, e.g. 69 -> 'A4'."""
+    return f"{PC_NAMES[int(midi) % 12]}{int(midi) // 12 - 1}"
+
+
+def transpose(notes: Sequence[BedNote], st: int) -> List[BedNote]:
+    """Pure pitch shift — every interval preserved, no scale snapping."""
+    return [BedNote(n.start_s, n.end_s, n.note + st, n.velocity)
+            for n in notes]
+
+
+def estimate_key(notes: Sequence[BedNote]) -> Tuple[int, str, float]:
+    """Duration-weighted pitch-class histogram vs Krumhansl profiles.
+
+    Returns ``(tonic_pc, mode, r)`` for the best-correlating of the 24 keys.
+    This is the guard that would have caught the S3 scale_lock snap: it is
+    computed on the RAW transcription, before any cleanup. Empty input ->
+    ``(0, "unknown", 0.0)``.
+    """
+    hist = np.zeros(12, dtype=np.float64)
+    for n in notes:
+        hist[n.note % 12] += max(n.duration_s, 0.0)
+    if hist.sum() <= 0.0:
+        return 0, "unknown", 0.0
+    best: Tuple[int, str, float] = (0, "major", -2.0)
+    for root in range(12):
+        for mode, prof in (("major", _KS_MAJOR), ("minor", _KS_MINOR)):
+            r = float(np.corrcoef(hist, np.roll(prof, root))[0, 1])
+            if np.isfinite(r) and r > best[2]:
+                best = (root, mode, r)
+    return best
+
+
+def fold_octaves(notes: Sequence[BedNote], max_dist: int = 7
+                 ) -> List[BedNote]:
+    """Fold transcription octave errors onto the line's median pitch.
+
+    Any note more than ``max_dist`` semitones from the median is shifted by
+    +-12 toward it until it is inside the band (an octave-fold always lands
+    within 6 st, so this terminates). Kills sub-bass intrusions and 24-st
+    leaps while preserving each note's pitch class.
+    """
+    if not notes:
+        return []
+    med = float(np.median([n.note for n in notes]))
+    out: List[BedNote] = []
+    for n in notes:
+        m = n.note
+        while m - med > max_dist:
+            m -= 12
+        while med - m > max_dist:
+            m += 12
+        out.append(BedNote(n.start_s, n.end_s, m, n.velocity))
+    return out
+
+
+def extract_riff(notes: Sequence[BedNote], motif_bars: int = 2,
+                 grid_s: float = GRID_16TH_S, min_midi: int = 55,
+                 max_notes: int = 16
+                 ) -> Tuple[List[BedNote], float]:
+    """Extract the recognizable riff from the RAW native-key transcription.
+
+    Returns ``(riff, cell_t0)`` — the riff is monophonic, on the 16th grid,
+    legato-filled, RELATIVE to ``cell_t0`` (the winning cell's absolute start
+    in the region timeline, so the caller can pull the same window's bass).
+
+    Steps:
+      1. register floor (``min_midi``) -> ``top_line`` -> ``fold_octaves``.
+      2. Candidates are FULL ``motif_bars``-bar cells only — a partial tail
+         cell can no longer win on a small shared pc set.
+      3. A cell scores on notes that repeat in OTHER cells at the same
+         onset slot (+-1 grid) with the same pitch class; ties break on
+         density.
+      4. Quantize to 16ths, one top note per onset slot, keep at most
+         ``max_notes`` by velocity (no duration bias — S3's velocity*dur
+         scoring kept only long notes).
+      5. Legato-fill each note to the next onset, capped at one beat; the
+         last note runs to the cell end, capped (fixes the 75%-silence loop).
+    """
+    mel = [n for n in notes if n.note >= min_midi]
+    mel = fold_octaves(top_line(mel))
+    if not mel:
+        return [], 0.0
+    cell_s = motif_bars * BAR_S
+    mel_end = max(n.end_s for n in mel)
+    cells: Dict[int, List[BedNote]] = {}
+    for n in mel:
+        k = int(n.start_s / cell_s)
+        if (k + 1) * cell_s <= mel_end + grid_s:     # full cells only
+            cells.setdefault(k, []).append(n)
+    if not cells:                                   # region shorter than a cell
+        for n in mel:
+            cells.setdefault(int(n.start_s / cell_s), []).append(n)
+
+    def _match_count(k: int, j: int) -> int:
+        cnt = 0
+        for n in cells[k]:
+            rel = n.start_s - k * cell_s
+            for m in cells[j]:
+                if (m.note % 12 == n.note % 12
+                        and abs(m.start_s - j * cell_s - rel) <= grid_s + 1e-9):
+                    cnt += 1
+                    break
+        return cnt
+
+    def _score(k: int) -> Tuple[int, int]:
+        return (sum(_match_count(k, j) for j in cells if j != k),
+                len(cells[k]))
+
+    win_k = max(cells, key=_score)
+    cell_t0 = win_k * cell_s
+    rel = [BedNote(n.start_s - cell_t0, n.end_s - cell_t0, n.note, n.velocity)
+           for n in cells[win_k]]
+    q = quantize(rel, grid_s)
+    slots: Dict[float, BedNote] = {}
+    for n in q:
+        if n.start_s >= cell_s - 1e-9:              # quantized past the edge
+            continue
+        cur = slots.get(n.start_s)
+        if cur is None or n.note > cur.note:
+            slots[n.start_s] = n
+    seq = [slots[k] for k in sorted(slots)]
+    if len(seq) > max_notes:
+        keep = {id(n) for n in sorted(seq, key=lambda n: n.velocity,
+                                      reverse=True)[:max_notes]}
+        seq = [n for n in seq if id(n) in keep]
+    beat_s = BAR_S / 4.0
+    riff: List[BedNote] = []
+    for i, n in enumerate(seq):
+        limit = seq[i + 1].start_s if i + 1 < len(seq) else cell_s
+        end = min(limit, n.start_s + beat_s)
+        riff.append(BedNote(start_s=n.start_s,
+                            end_s=max(end, n.start_s + 0.03),
+                            note=n.note, velocity=n.velocity))
+    return riff, cell_t0
+
+
+def riff_stats(riff: Sequence[BedNote], cell_s: float) -> dict:
+    """Density/coverage/leap numbers for O5 (``check_riff.py``)."""
+    n = len(riff)
+    coverage = sum(x.duration_s for x in riff) / cell_s if cell_s > 0 else 0.0
+    leap = max((abs(b.note - a.note) for a, b in zip(riff, riff[1:])),
+               default=0)
+    return {"n_notes": n,
+            "notes_per_s": round(n / cell_s, 3) if cell_s > 0 else 0.0,
+            "coverage": round(coverage, 3),
+            "max_leap_st": leap}
+
+
 def _nearest_diatonic_root(pc: int) -> int:
     """Snap a pitch class to the nearest D-natural-minor chord root."""
     return min(D_MINOR_PCS,
