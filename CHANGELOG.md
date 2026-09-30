@@ -1,5 +1,25 @@
 # Changelog
 
+### Answer #068 - lyrics-sources wave B (I7): hymnary + sacred_texts adapters — CSV-primary hymnary w/ pre-1931 date gate + SvelteKit sacred-texts Child ballads.
+**Timestamp:** 2026-10-01
+**Action Type:** Implementation — wave B agent I7 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`); agent session ended pre-commit, orchestrator verified + committed.
+
+**What landed:** `sources/hymnary.py` — CSV-export catalog path (527 pre-1931 entries) with `/text/` page-parse fallback per GATE 0; date gate drops any instance not resolvable to pre-1931 publication (`_quarantine_bad_query/` audit trail). `sources/sacred_texts.py` — static-page Child Ballads adapter (SvelteKit `chapterContent.contentHtml` extraction + latin-1 mojibake handling). Live pilots: sacred-texts 23 fetched / 2 dropped (catalog 305); hymnary catalog 527 entries, text fetch deferred on hymnary.org HTTP 403s (GATE 0 defer-with-error posture — catalog stands, 522 pending resume).
+
+#### Files Affected:
+- **NEW:** `Genious_lyrics_extractor/sources/{hymnary,sacred_texts}.py`
+- **NEW:** `tests/test_lyrics_sources_{hymnary,sacred_texts}.py` (22+16 tests)
+- **NEW:** `tests/fixtures/lyrics_sources/hymnary_*` (CSV + 5 pages), `sacred_texts_*` (3 shells/excerpts)
+- **MODIFIED:** `CHANGELOG.md` — this entry.
+
+#### Verification:
+- `pytest tests/test_lyrics_sources_{hymnary,sacred_texts}.py -m "not slow" -q` → **38 passed** (exit 0).
+- Pilots: sacred-texts 23 fetched (Child 14 verified w/ PD fields); hymnary 527-entry catalog + 1 fetched then 403-deferred.
+
+#### Next Actions Required:
+- Hymnary pending fetches resume via `--resume` when hymnary.org stops 403ing this IP.
+- W5 ingests `hymnary` + `sacred-texts` corpora into lyrics.db.
+
 ### Answer #067 - lyrics-sources wave B (I6): mudcat_digitrad adapter — one-shot DigiTrad askSam archive → license-tiered corpus with catalog-stage © drop.
 **Timestamp:** 2026-10-01
 **Action Type:** Implementation — wave B agent I6 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`).

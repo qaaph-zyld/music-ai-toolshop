@@ -1,0 +1,7 @@
+textAuthNumber,displayTitle,firstLine,textTitle,authors,composers,meter,languages,hymnalTitle,hymnalID,number,textSources,totalInstances
+amazing_grace_how_sweet_the_sound,Amazing grace! (how sweet the sound),Amazing grace! how sweet the sound,Amazing grace,John Newton,,8.6.8.6,English,The Old Story in Song Number Two,OSSN1908,53,Olney Hymns (1779),412
+amazing_grace_how_sweet_the_sound,Amazing grace! (how sweet the sound),Amazing grace! how sweet the sound,Amazing grace,John Newton,,8.6.8.6,English,The New Hymnal for Church and School,NHCS1992,100,Olney Hymns (1779),412
+o_god_our_help_in_ages_past,O God our help in ages past,O God our help in ages past,O God our help,Isaac Watts,,8.6.8.6,English,The Chapel Car hymnal,CC1930,12,The Psalms of David (1719),540
+post_1931_test_hymn,A Synthetic Post-1931 Test Hymn,Synthetic first line (fixture),Synthetic Post-1931 Hymn,Test Author,,8.6.8.6,English,Boundary Test Hymnal,TEST1931,7,,1
+modern_only_hymn,A Synthetic Modern-Only Hymn,Modern fixture first line,Modern Only Hymn,Modern Author,,7.6.7.6,English,The New Hymnal for Church and School,NHCS1992,55,,3
+undated_hymn,A Synthetic Undated Hymn,Undated fixture first line,Undated Hymn,Unknown,,8.8.8.8,English,Gospel Choruses,GC2,21,,2
