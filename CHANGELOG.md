@@ -1,5 +1,27 @@
 # Changelog
 
+### Answer #067 - lyrics-sources wave B (I6): mudcat_digitrad adapter — one-shot DigiTrad askSam archive → license-tiered corpus with catalog-stage © drop.
+**Timestamp:** 2026-10-01
+**Action Type:** Implementation — wave B agent I6 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`).
+
+**What landed:** `sources/mudcat_digitrad.py` — one-shot archive adapter per SPEC §9: fetches `download/DTSpring2002MSDOS.zip` ONCE via `polite_get` into `data/toolshop/lyrics/mudcat-digitrad/_src/` (with `_fetch_state.json` sha256 marker), unpacks, parses `Z02.ASK` fully offline thereafter — zero per-song-page crawling (Crawl-delay 10 + AI-bot UA bans). askSam decoding: cp1252 + low-control-byte→`\x1c` field normalization; `filename[ <id>` markers are record boundaries; title recovered positionally (caps-shout header bounded by empty/trailer/script boundary + non-script continuation checks); provenance tail (transcriber initials, date, `play.exe` tune key, `(Author)` credit) consumed with a post-date titleish-stop so next titles aren't eaten; subtitle/`(Trad.)` credits → `creator`, else `Traditional` fallback. **Mandatory © filter (R2 §6):** explicit markers only (`copyright`, `©`, `(c)`+year/name, `(p)`+year, `all rights reserved`, permission-grant phrasing) scanned over the full region + post-`filename[` pre-title window, with next-record propagation — flagged records emit `status='dropped'` + `drop_reason='copyright-flagged:<marker>'` at catalog stage and never reach `write_song_json`; `license_of`/`fetch_lyrics` re-raise `DropItem` as belt. Junk titles (initials-bleed, chord charts, `CHORUS:`, HTML drips, truncated first-lines) → `title-unresolved`; empty bodies → `no-lyric-text`. Unflagged → `pd`/`LicenseRef-public-domain`/`release_ok='yes'` + the DigiTrad not-for-profit charter note in `modified_note`/`meta.charter_note` (GATE 0 Q4 manifest note). Duplicate filename markers get deterministic `~N` suffixes; `@tags`/`dt #`/`Child #`/source lines land in `meta`.
+
+#### Files Affected:
+- **NEW:** `Genious_lyrics_extractor/sources/mudcat_digitrad.py` — the adapter (~560 lines).
+- **NEW:** `tests/test_lyrics_sources_mudcat.py` — 30 tests (contract, parser, all drop classes, license_of/fetch_lyrics invariants incl. flagged-never-song, offline guarantee, zip download-once path, dispatcher e2e + resume, slow real-archive smoke).
+- **NEW:** `tests/fixtures/lyrics_sources/mudcat_digitrad_sample.ask` + `mudcat_titles_sample.txt` — synthetic askSam-shaped blob + TITLES index, self-authored text only.
+- **MODIFIED:** `tests/fixtures/lyrics_sources/CREDITS.md` — fixture provenance rows.
+- **MODIFIED:** `CHANGELOG.md` — this entry.
+
+#### Verification:
+- `pytest tests/test_lyrics_sources_mudcat.py -x -q` → **30 passed** (exit 0).
+- Pilot `fetch_lyrics_source.py --source mudcat_digitrad --limit 25 --resume` → exit 0; catalog 8,980 entries; counts `{fetched: 25, dropped: 1,830, pending: 7,125}`; drops = 1,672 copyright-flagged + 108 title-unresolved + 50 no-lyric-text; 0 flagged rows carry `json_path`; 0 non-`pd`/`yes` song files on disk.
+- Live network verified earlier (zip downloaded HTTP 200, 7,686,062 B); pilot itself ran fully offline from `_src`.
+
+#### Next Actions Required:
+- Wave C/D consumers: corpus-aware `build_database` for `mudcat-digitrad`; release export will emit only `release_ok='yes'` rows.
+- Known conservative losses documented in `ORCHESTRATION/lyrics_sources/wave_b/I6_handoff.md` (~160 records dropped on title/lyric-parse grounds; DT cross-reference-only records land `no-lyric-text`).
+
 ### Answer #066 - lyrics-sources wave B (I8): jamendo env-gated adapter + lrclib study-only adapter (syncedLyrics + lyricsfile capture).
 **Timestamp:** 2026-10-01
 **Action Type:** Implementation — wave B agent I8 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`).
