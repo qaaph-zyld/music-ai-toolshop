@@ -1,5 +1,30 @@
 # Changelog
 
+### Answer #069 - lyrics-sources wave A (I3): wikisource_pd (sr+en merged corpus) + gutenberg_pd adapters — Cyrillic→Latin normalization + double-spacing fix.
+**Timestamp:** 2026-10-01
+**Action Type:** Implementation — wave A agent I3 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`); agent session ended pre-commit, orchestrator verified + committed + fixed the gutenberg stanza-splitting bug found in pilot.
+
+**What landed:** `sources/wikisource_pd.py` — MediaWiki `action=parse&prop=wikitext` adapter over the merged sr+en corpus (`sr_wikisource`+`en_wikisource` registry rows merged to `wikisource_pd`, 20→19 rows; categories zenske/epske/lirske/vuk-zbirke/erlangen/ostalo + six en categories). Per-page license-template scan (non-pd drops, by-sa → `conditional`). **Mandatory normalization:** `raw_lyrics` keeps Cyrillic + `script:"cyrillic-original"`; `clean_lyrics` = `cyrtranslit.to_latin(..,'sr')` + diacritic fold identical to `lyricsdb.normalize_text`. `sources/gutenberg_pd.py` — curated WORKS-table adapter (Child I–V, Songs of the West, Elizabethan, Yorkshire, +2) fetching via the aleph mirror dir-listing (PG main site is human-only; mirror per R2); kind-dispatched splitters (sotw `No. N TITLE` / child ballad+variant / generic CAPS-with-verse-probe).
+
+**Orchestrator fix folded in:** PG texts are double-spaced (~60% blank lines) — `_squeeze_interline_blanks()` collapses single inter-line blanks while preserving ≥2-blank stanza breaks; `* * *` ornament dividers dropped. Without it every song dropped `too-short` (0 fetched in pilot); after, Child vol. I yields 125 parsed variants with real stanza content.
+
+#### Files Affected:
+- **NEW:** `sources/{wikisource_pd,gutenberg_pd}.py`
+- **NEW:** `tests/test_lyrics_sources_{wikisource,gutenberg}.py` (18+15 tests)
+- **NEW:** fixtures `mw_*.json` ×6, `pg_*.txt` ×3
+- **MODIFIED:** `sources/registry.json` — wikisource merge + `gutenberg-pd`→`gutenberg_pd` corpus_tag fix
+- **MODIFIED:** `tests/test_lyrics_sources_{core,catalog}.py` — registry-count asserts 20→19 for the merge
+- **MODIFIED:** `CHANGELOG.md` — this entry.
+
+#### Verification:
+- `pytest tests/test_lyrics_sources_{wikisource,gutenberg}.py -m "not slow" -q` → **33 passed** (exit 0); Cyrillic→Latin verbatim fold asserted (`test_latin_fold`, `test_sr_song_normalization_verbatim`).
+- gutenberg pilot: catalog **243 entries**; post-fix sample fetches real Child ballads (`The Elfin Knight [B/C/D]`, `The Cruel Mother [B]` w/ numbered stanzas); pre-fix 25 entries recorded `too-short` stale-drops (re-queued on next catalog build).
+- wikisource pilot: rate-limited twice (HTTP 429) — deferred per documented proxy/429 posture; `--resume` safe.
+
+#### Next Actions Required:
+- Re-run `fetch_lyrics_source.py --source gutenberg_pd --resume` to lift the 25 stale `too-short` drops; wikisource live pilot when sr.wikisource.org rate-limit clears.
+- W5 ingests `wikisource_pd` + `gutenberg_pd` corpora.
+
 ### Answer #068 - lyrics-sources wave B (I7): hymnary + sacred_texts adapters — CSV-primary hymnary w/ pre-1931 date gate + SvelteKit sacred-texts Child ballads.
 **Timestamp:** 2026-10-01
 **Action Type:** Implementation — wave B agent I7 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`); agent session ended pre-commit, orchestrator verified + committed.

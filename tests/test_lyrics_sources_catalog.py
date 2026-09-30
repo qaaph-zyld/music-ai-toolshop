@@ -46,13 +46,15 @@ LOOPERMAN_PATH = EXTRACTOR / "sources" / "looperman.py"
 #: SPEC §2.1 frozen matrix — (license_tier, fetch_policy, adapter,
 #:  corpus_tag, license_ref_default). Encodes the GATE R roster; drift in
 #:  registry.json fails here, not silently downstream.
+#: AMENDED by wave-A I3 (registry.json notes): SPEC's separate
+#:  sr_wikisource/en_wikisource rows are merged into ONE wikisource_pd
+#:  row/corpus per the I3 task prompt; gutenberg corpus_tag is underscored
+#:  (corpus dir lyrics/gutenberg_pd).
 EXPECTED_ROWS = {
     "genius": ("study-only", "auto", None, "genius-pro", "proprietary"),
-    "sr_wikisource": ("pd", "auto", "sr_wikisource", "sr-wikisource",
+    "wikisource_pd": ("pd", "auto", "wikisource_pd", "wikisource_pd",
                       "LicenseRef-public-domain"),
-    "en_wikisource": ("pd", "auto", "en_wikisource", "en-wikisource",
-                      "LicenseRef-public-domain"),
-    "gutenberg_pd": ("pd", "auto", "gutenberg_pd", "gutenberg-pd",
+    "gutenberg_pd": ("pd", "auto", "gutenberg_pd", "gutenberg_pd",
                      "LicenseRef-public-domain"),
     "mudcat_digitrad": ("pd", "auto", "mudcat_digitrad", "mudcat-digitrad",
                         "LicenseRef-public-domain"),

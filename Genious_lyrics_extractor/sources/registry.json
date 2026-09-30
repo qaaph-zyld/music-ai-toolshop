@@ -16,16 +16,16 @@
       "notes": "Existing corpus (~1,425 songs). corpus_dir 'genius' is the ONE legacy exception to corpus_dir==corpus_tag (lyricsdb.py:30 CORPUS_TAG='genius-pro'). Fetched via `toolshop lyrics fetch/search` + extractor batch scripts — sources/ adapters never touch it."
     },
     {
-      "id": "sr_wikisource",
-      "name": "Serbian Wikisource (narodne pesme)",
+      "id": "wikisource_pd",
+      "name": "Wikisource PD folk corpora (sr + en)",
       "base_url": "https://sr.wikisource.org",
       "license_tier": "pd",
       "fetch_policy": "auto",
-      "adapter": "sr_wikisource",
-      "corpus_tag": "sr-wikisource",
+      "adapter": "wikisource_pd",
+      "corpus_tag": "wikisource_pd",
       "license_ref_default": "LicenseRef-public-domain",
       "env_gate": null,
-      "categories": ["zenske", "epske", "lirske", "vuk-zbirke", "erlangen", "ostalo"],
+      "categories": ["zenske", "epske", "lirske", "vuk-zbirke", "erlangen", "ostalo", "folk-songs", "ballads", "traditional-ballads", "song-books", "hymns", "poetry-collections"],
       "politeness": {
         "min_interval_s": 1.5,
         "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})",
@@ -33,27 +33,7 @@
         "batch_titles": 50,
         "gzip": true
       },
-      "notes": "~10k+ poem pages under Kategorija:Народне песме tree (R2 §1). MediaWiki API, action=parse&prop=wikitext (NOT prop=extracts). Serial >=1.5 s + descriptive contact UA mandatory (IP-block otherwise, R2 §3). maxlag=5, <=50 titles/req. Scan each page's license template before ingest (§9)."
-    },
-    {
-      "id": "en_wikisource",
-      "name": "English Wikisource (folk songs / ballads / hymns)",
-      "base_url": "https://en.wikisource.org",
-      "license_tier": "pd",
-      "fetch_policy": "auto",
-      "adapter": "en_wikisource",
-      "corpus_tag": "en-wikisource",
-      "license_ref_default": "LicenseRef-public-domain",
-      "env_gate": null,
-      "categories": ["folk-songs", "ballads", "traditional-ballads", "song-books", "hymns", "poetry-collections"],
-      "politeness": {
-        "min_interval_s": 1.5,
-        "user_agent": "toolshop-lyrics/1.0 (+contact: {contact})",
-        "maxlag": 5,
-        "batch_titles": 50,
-        "gzip": true
-      },
-      "notes": "Secondary arm, ~300-500 song/hymn pages + collections (R2 §2). Same MediaWiki politeness block as sr. Do NOT chase Child ballads here — Part pages are {{migrate to}} placeholders (R2 §2); Child comes from gutenberg/sacred-texts."
+      "notes": "MERGED ROW (wave A I3): the SPEC froze separate sr_wikisource/en_wikisource rows; the wave-A prompt merged them into one adapter + one corpus dir wikisource_pd. sr arm: ~10k+ poem pages under Kategorija:Народне песме tree + 14 Збирка-Вук book cats + Ерлангенски рукопис (R2 §1; categories zenske/epske/lirske/vuk-zbirke/erlangen/ostalo). en arm: pre-1930 songbook categories, secondary ~300-500 pages (R2 §2). action=parse&prop=wikitext (NOT prop=extracts); per-page license-template scan before ingest (§9); Cyrillic -> Latin + diacritic fold for clean_lyrics (F4). Serial >=1.5 s + descriptive contact UA mandatory (IP-block otherwise, R2 §3). maxlag=5, <=50 titles/req."
     },
     {
       "id": "gutenberg_pd",
@@ -62,7 +42,7 @@
       "license_tier": "pd",
       "fetch_policy": "auto",
       "adapter": "gutenberg_pd",
-      "corpus_tag": "gutenberg-pd",
+      "corpus_tag": "gutenberg_pd",
       "license_ref_default": "LicenseRef-public-domain",
       "env_gate": null,
       "categories": ["child-ballads", "songs-of-the-west", "elizabethan", "yorkshire", "misc"],

@@ -143,7 +143,9 @@ class TestRegistry:
         problems = registry.validate()
         assert problems == [], f"frozen registry schema violations: {problems}"
         rows = registry.list_sources()
-        assert len(rows) == 20, f"expected 20 frozen rows, got {len(rows)}"
+        assert len(rows) == 19, (
+            f"expected 19 frozen rows (wave-A I3 merged sr/en wikisource "
+            f"-> wikisource_pd), got {len(rows)}")
 
     def test_frozen_rows_and_genius_exception(self):
         genius = registry.get("genius")
@@ -701,7 +703,7 @@ class TestStructural:
     def test_registry_json_committed_and_valid(self):
         doc = json.loads(registry.REGISTRY_PATH.read_text(encoding="utf-8"))
         assert doc["version"] == 1
-        assert len(doc["sources"]) == 20
+        assert len(doc["sources"]) == 19  # wave-A I3 merged sr/en wikisource -> wikisource_pd (19 frozen rows)
 
     def test_named_adapters_resolve_or_defer(self):
         """Contract (SPEC §7.1): every non-null adapter name must map to an

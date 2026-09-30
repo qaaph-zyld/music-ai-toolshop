@@ -1,0 +1,45 @@
+{
+  "cats": {
+    "Категорија:Народне песме": {
+      "pages": [{"ns": 0, "title": "Остала песма", "pageid": 901}],
+      "subcats": [
+        {"ns": 14, "title": "Категорија:Женске народне песме"},
+        {"ns": 14, "title": "Категорија:Караџићев циклус"}
+      ]
+    },
+    "Категорија:Женске народне песме": {
+      "pages": [
+        [{"ns": 0, "title": "Два бора и јела", "pageid": 902}],
+        [{"ns": 0, "title": "Стани, Ибар водо", "pageid": 905}]
+      ],
+      "subcats": []
+    },
+    "Категорија:Караџићев циклус": {
+      "pages": [{"ns": 0, "title": "Бог ником дужан не остаје", "pageid": 1602}],
+      "subcats": []
+    },
+    "Категорија:Збирке Вука Стефановића Караџића": {
+      "pages": [{"ns": 0, "title": "Сабрана дела Вука Караџића", "pageid": 906}],
+      "subcats": [
+        {"ns": 14, "title": "Категорија:Збирка народних песама Вук књига прва"}
+      ]
+    },
+    "Категорија:Збирка народних песама Вук књига прва": {
+      "pages": [{"ns": 0, "title": "Ага Асан-ага", "pageid": 903}],
+      "subcats": []
+    },
+    "Категорија:Ерлангенски рукопис": {
+      "pages": [{"ns": 0, "title": "Смутње на мејдану", "pageid": 904}],
+      "subcats": []
+    },
+    "Category:Folk songs": {
+      "pages": [{"ns": 0, "title": "The Riddles Wisely Expounded", "pageid": 7701}],
+      "subcats": []
+    },
+    "Category:Ballads": {"pages": [], "subcats": []},
+    "Category:Traditional ballads": {"pages": [], "subcats": []},
+    "Category:Song books": {"pages": [], "subcats": []},
+    "Category:Hymns": {"pages": [], "subcats": []},
+    "Category:Collections of poetry": {"pages": [], "subcats": []}
+  }
+}
