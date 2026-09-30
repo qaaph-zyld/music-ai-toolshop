@@ -14,15 +14,76 @@ from urllib.parse import quote
 
 from mairina import DATA_DIR, DEFAULT_LYRICS_DB
 
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 DROP_UPOS = frozenset({"PUNCT", "X", "SYM", "NUM"})
 LANE_COHORTS = {"drill": ("drill_trap",), "pop": ("pop",), "all": None}
+# MAirina reads only the Serbian rap corpus; lyrics.db also holds English/other
+# corpora (ccmixter, gutenberg_pd, hymnary, lrclib, mudcat-digitrad, sacred-texts)
+# which must never leak into the vocabulary, bigrams, gazetteer or targets.
+CORPORA = ("genius-pro",)
+MIN_TOKEN_COVERAGE = 0.9
 # Artist-name spellings seen in the corpus that songs.* columns do not spell exactly.
 EXTRA_ARTIST_TOKENS = frozenset({"senida", "senidah", "jalom", "lamelo", "balkaton", "biba"})
 
 
 class DbUnavailable(Exception):
     """lyrics.db is missing or cannot be opened (CLI exit code 2)."""
+
+
+class CorpusNotAnnotated(DbUnavailable):
+    """lyrics.db exists but has (almost) no CLASSLA tokens for CORPORA."""
+
+
+def _corpus_sql(alias: str = "s") -> str:
+    """SQL fragment restricting to the allowed corpora: ' AND s.corpus IN (...)'."""
+    return f" AND {alias}.corpus IN ({','.join(repr(c) for c in CORPORA)})"
+
+
+def check_annotated(con, db_path: Path | str | None = None) -> None:
+    """Refuse to build from a corpus whose CLASSLA layer is absent or partial.
+
+    Coverage = allowed-corpus lines carrying >=1 token / allowed-corpus lines
+    with non-empty text_norm. Below MIN_TOKEN_COVERAGE the index would be empty
+    or silently partial, so we raise instead of building or caching it.
+    """
+    base = ("FROM lines l JOIN sections sec ON sec.id = l.section_id "
+            "JOIN songs s ON s.id = sec.song_id "
+            "WHERE length(trim(coalesce(l.text_norm, ''))) > 0" + _corpus_sql("s"))
+    non_empty = con.execute(f"SELECT COUNT(*) {base}").fetchone()[0]
+    covered = con.execute(
+        f"SELECT COUNT(*) {base} AND EXISTS (SELECT 1 FROM tokens t WHERE t.line_id = l.id)"
+    ).fetchone()[0]
+    if non_empty == 0 or covered < MIN_TOKEN_COVERAGE * non_empty:
+        raise CorpusNotAnnotated(
+            f"lyrics.db has no CLASSLA tokens for {', '.join(CORPORA)} - "
+            "run: toolshop lyrics annotate --resume")
+
+
+def build_guarded(db_path: Path, work):
+    """Run `work()` only while nobody else writes lyrics.db.
+
+    The immutable=1 URI assumes no concurrent writer. In WAL mode a reader
+    also leaves a -wal/-shm pair behind, so a 0-byte -wal (and any -shm) is
+    not a writer signal: refuse on a -journal or a non-empty -wal, and retry
+    once (then raise) when the file changes mid-build — a cache built on a
+    moving file would be corrupt but look valid.
+    """
+    for _ in range(2):
+        if Path(str(db_path) + "-journal").exists():
+            raise DbUnavailable(
+                f"lyrics.db is being written ({db_path.name}-journal present) - "
+                "retry when the writer finishes")
+        wal = Path(str(db_path) + "-wal")
+        if wal.exists() and wal.stat().st_size > 0:
+            raise DbUnavailable(
+                f"lyrics.db is being written ({db_path.name}-wal non-empty) - "
+                "retry when the writer finishes")
+        st0 = db_path.stat()
+        result = work()
+        st1 = db_path.stat()
+        if (st0.st_mtime_ns, st0.st_size) == (st1.st_mtime_ns, st1.st_size):
+            return result
+    raise DbUnavailable(f"lyrics.db changed during the build ({db_path}) - retry")
 
 
 def open_ro(db_path: Path | str | None = None) -> sqlite3.Connection:
@@ -89,7 +150,8 @@ def artist_tokens(con) -> frozenset:
     """Lowercased name tokens of songs.primary_artist / target_artist (split on space, hyphen, 'x')."""
     out = set(EXTRA_ARTIST_TOKENS)
     for col in ("primary_artist", "target_artist"):
-        for (name,) in con.execute(f"SELECT DISTINCT {col} FROM songs WHERE {col} IS NOT NULL"):
+        q = f"SELECT DISTINCT {col} FROM songs s WHERE s.{col} IS NOT NULL" + _corpus_sql("s")
+        for (name,) in con.execute(q):
             for tok in re.split(r"[\s\-]+", name.lower()):
                 tok = "".join(c for c in tok if c.isalpha())
                 if tok and tok != "x":
@@ -103,7 +165,8 @@ def _build(db_path: Path) -> tuple[dict[str, dict], frozenset, frozenset]:
         "FROM tokens t JOIN lines l ON l.id = t.line_id "
         "JOIN sections sec ON sec.id = l.section_id "
         "JOIN songs s ON s.id = sec.song_id "
-        "WHERE t.source_script = 'latin' ORDER BY t.line_id, t.ordinal"
+        "WHERE t.source_script = 'latin'" + _corpus_sql("s") +
+        " ORDER BY t.line_id, t.ordinal"
     )
     acc: dict[str, dict] = {}
     bigrams: set = set()
@@ -174,7 +237,15 @@ def load_index(db_path: Path | str | None = None, cache_dir: Path | str | None =
                              blob["bigrams"])
         except Exception:
             pass  # corrupt or stale cache: rebuild below
-    forms, names, bigrams = _build(path)
+    def _work():
+        con = open_ro(path)
+        try:
+            check_annotated(con, path)
+        finally:
+            con.close()
+        return _build(path)
+
+    forms, names, bigrams = build_guarded(path, _work)
     try:
         cdir.mkdir(parents=True, exist_ok=True)
         with open(cfile, "wb") as fh:

@@ -4,9 +4,25 @@ import re
 
 import pytest
 
-from mairina import DEFAULT_LYRICS_DB, cli
+from mairina import DEFAULT_LYRICS_DB, cli, corpus
 
-pytestmark = pytest.mark.skipif(not DEFAULT_LYRICS_DB.is_file(), reason="lyrics.db not present")
+
+def _corpus_ready() -> bool:
+    if not DEFAULT_LYRICS_DB.is_file():
+        return False
+    try:
+        con = corpus.open_ro()
+        try:
+            corpus.check_annotated(con)
+        finally:
+            con.close()
+        return True
+    except corpus.DbUnavailable:
+        return False
+
+
+pytestmark = pytest.mark.skipif(not _corpus_ready(),
+                                reason="lyrics.db missing or not yet annotated")
 
 
 @pytest.fixture(scope="module")

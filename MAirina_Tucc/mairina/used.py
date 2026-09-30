@@ -25,6 +25,12 @@ def tokenize(text: str) -> list[str]:
     return _WORD.findall(unicodedata.normalize("NFC", text).lower())
 
 
+def token_spans(text: str) -> list[tuple[str, int, int]]:
+    """(token, start, end) char offsets, lowercased — same tokens as `tokenize`."""
+    return [(m.group(0), m.start(), m.end())
+            for m in _WORD.finditer(unicodedata.normalize("NFC", text).lower())]
+
+
 def scan(path: Path | str, days: int, con) -> list[str]:
     """Candidates shown in the last `days` days that appear in the file.
 

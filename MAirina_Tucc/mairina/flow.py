@@ -24,7 +24,8 @@ def lane_median(lane: str, db_path=None) -> float | None:
     """Median lines.syllable_count in the lane (read-only)."""
     cohorts = corpus.LANE_COHORTS[lane]
     sql = ("SELECT l.syllable_count FROM lines l JOIN sections sec ON sec.id = l.section_id "
-           "JOIN songs s ON s.id = sec.song_id WHERE l.syllable_count > 0")
+           "JOIN songs s ON s.id = sec.song_id WHERE l.syllable_count > 0"
+           + corpus._corpus_sql("s"))
     args: tuple = ()
     if cohorts:
         sql += f" AND s.genre_cohort IN ({','.join('?' * len(cohorts))})"

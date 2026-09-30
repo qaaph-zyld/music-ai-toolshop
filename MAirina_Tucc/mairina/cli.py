@@ -8,8 +8,9 @@ import re
 import sys
 from pathlib import Path
 
-from mairina import DATA_DIR, LANES, RANKER_VERSION, anchors as anchors_mod, corpus, flow as flow_mod
-from mairina import multis as multis_mod, rank, used as used_mod, votes
+from mairina import DATA_DIR, LANES, RANKER_VERSION, anchors as anchors_mod, corpus, devices
+from mairina import flow as flow_mod, multis as multis_mod, rank, rules, targets
+from mairina import used as used_mod, votes
 
 HINT = "Hint: relax --artist, lower --fresh, or try --mode assonance / --lane all."
 _VOTE = re.compile(r"^(\d+)([+-])$")
@@ -38,10 +39,14 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--lines", type=int, default=None)
     a.add_argument("--mode", choices=anchors_mod.MODES, default="rhyme")
     a.add_argument("--seed", default=None, help="word that fixes group A's rhyme class")
+    a.add_argument("--section", choices=targets.SECTION_TYPES, default="strofa",
+                   help="section type for the syllable target range")
     common(a)
     r = sub.add_parser("rhyme", help="ranked rhyme list for a word")
     r.add_argument("word")
     r.add_argument("--max", type=int, default=20)
+    r.add_argument("--line", default=None, help="line so far (shapes syllable-fit and sound)")
+    r.add_argument("--target", type=int, default=None, help="target syllable count for the line")
     common(r)
     m = sub.add_parser("multi", help="multi-syllable rhyme combinations for an ending phrase")
     m.add_argument("phrase")
@@ -55,6 +60,10 @@ def build_parser() -> argparse.ArgumentParser:
     f = sub.add_parser("flow", help="syllables per line vs your median and the lane median")
     f.add_argument("file")
     f.add_argument("--lane", choices=LANES, default="all")
+    x = sub.add_parser("xray", help="compact craft analysis per line (advisory tags only)")
+    x.add_argument("file")
+    x.add_argument("--lane", choices=LANES, default="all")
+    x.add_argument("--section", choices=targets.SECTION_TYPES, default="strofa")
     s = sub.add_parser("stats", help="week-1 numbers")
     s.add_argument("--ab", action="store_true", help="learned vs base ranking arms")
     return p
@@ -94,16 +103,23 @@ def _cmd_anchors(args, lyrics_db, data_dir) -> int:
                                 "features": a.features, "meta": {"freq": a.freq, "upos": a.upos, "lemma": a.lemma}})
              for a in res]
     lid = votes.log_shown(con, "anchor", f"{args.scheme}/{args.mode}/{args.seed or ''}", arm, items)
+    trange = targets.target(args.lane, args.section, lyrics_db, cache_dir=data_dir)
     print(_head(f"Anchors {args.scheme.upper()} ({args.mode})", args, arm, lid))
     print("Write each line so that it ends on its anchor. The tool never writes lines.")
     for a in res:
-        print(f"{a.line:>3}. [{a.group}] {a.word:<16} {a.upos:<5} class -{a.key}  freq {a.freq}")
+        print(f"{a.line:>3}. [{a.group}] {a.word:<16} {a.upos:<5} class -{a.key}  freq {a.freq}  "
+              f"syl {targets.fmt_range(trange)}")
     return 0
 
 
 def _cmd_rhyme(args, lyrics_db, data_dir) -> int:
+    if args.target is not None and not args.line:
+        print("Error: --target needs --line (the target is for the line being written).",
+              file=sys.stderr)
+        return 1
     index, con, rng, arm, boosts = _setup(args, lyrics_db, data_dir)
-    ctx = rank.Ctx(index, args.lane, args.fresh, _artists(args), boosts)
+    ctx = rank.Ctx(index, args.lane, args.fresh, _artists(args), boosts,
+                   args.line, args.target)
     res = rank.rank(args.word, ctx.vocab(), ctx)[: args.max]
     if not res:
         print(f"No rhymes found for '{args.word}' in lane '{args.lane}'.\n{HINT}")
@@ -166,6 +182,51 @@ def _cmd_flow(args, lyrics_db) -> int:
     return 0
 
 
+def _cmd_xray(args, lyrics_db, data_dir) -> int:
+    """One compact advisory row per line: meter, rhyme group, sound, tags, hints."""
+    path = Path(args.file)
+    if not path.is_file():
+        print(f"File not found: {path}", file=sys.stderr)
+        return 1
+    lines = [raw.strip() for raw in used_mod.read_text(path).splitlines()]
+    lines = [l for l in lines if l and not (l.startswith("[") and l.endswith("]"))]
+    if not lines:
+        print("No lyric lines to analyze.")
+        return 0
+    gazetteer, trange, index, cons_thr = frozenset(), None, None, None
+    try:
+        trange = targets.target(args.lane, args.section, lyrics_db, cache_dir=data_dir)
+        cons_thr = targets.cons_thresholds(args.lane, lyrics_db, data_dir)
+        gazetteer = devices.load_gazetteer(str(lyrics_db or corpus.DEFAULT_LYRICS_DB))
+        index = corpus.load_index(lyrics_db, data_dir)      # 'ko = who' + name_drop filter
+    except corpus.CorpusNotAnnotated:
+        raise                                   # an unannotated corpus must fail, not degrade
+    except corpus.DbUnavailable as exc:
+        print(f"Note: {exc} — running without lane targets and gazetteer.",
+              file=sys.stderr)
+    rep = devices.analyze_verse(lines, gazetteer, index)
+    hints: dict[int, list[str]] = {}
+    for h in rules.verse_hints(lines, index=index):
+        hints.setdefault(h["line"], []).append(
+            rules.SHORT_LABELS.get(h["rule_id"], h["rule_id"]))
+    head = f"X-ray {len(rep.lines)} lines  lane={args.lane} section={args.section} (advisory only — you write)"
+    print(head)
+    for lr in rep.lines:
+        parts = [str(lr.n),
+                 f"syl {lr.syllables}" + (f" ({targets.fmt_range(trange)})" if trange else ""),
+                 f"rhyme {lr.rhyme_letter or '-'}",
+                 f"cons {devices.gauge(lr.cons_density, cons_thr)}"]
+        if any(d["kind"] == "alliteration" for d in lr.devices):
+            parts.append("allit ✓")
+        tags = [f"≈{d['kind']}({d['span']})" for d in lr.devices
+                if d["kind"] not in ("alliteration", "consonance")]
+        parts += tags
+        if hints.get(lr.n):
+            parts.append("hints: " + ", ".join(hints[lr.n]))
+        print(" | ".join(parts))
+    return 0
+
+
 def _pct(x) -> str:
     return "n/a" if x is None else f"{x * 100:.0f}%"
 
@@ -214,6 +275,8 @@ def main(argv=None, *, lyrics_db=None, data_dir=None) -> int:
             return _cmd_used(args, data_dir)
         if args.cmd == "flow":
             return _cmd_flow(args, lyrics_db)
+        if args.cmd == "xray":
+            return _cmd_xray(args, lyrics_db, data_dir)
         return _cmd_stats(args, data_dir)
     except corpus.DbUnavailable as exc:
         print(f"Error: {exc}", file=sys.stderr)

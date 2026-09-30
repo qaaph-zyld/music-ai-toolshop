@@ -16,6 +16,12 @@ _DIGRAPHS = frozenset({"lj", "nj", "dž"})
 _FOREIGN_LETTERS = frozenset("qwxy")
 _DOUBLED_VOWELS = ("aa", "ee", "ii", "oo", "uu")
 
+# Words whose apparent digraph sits on a morpheme boundary: nad-živeti,
+# pod-župan, in-jekcija, kon-junkcija — the letters are two sounds, not one.
+NO_DIGRAPH_WORDS = frozenset({
+    "nadživeti", "nadživiš", "podžupan", "injekcija", "konjunkcija",
+})
+
 
 def is_serbian_orthography(word: str) -> bool:
     """False for forms that break Serbian Latin spelling: q/w/x/y or a doubled vowel."""
@@ -31,6 +37,7 @@ def normalize(word: str) -> str:
 def _units(word: str) -> list[tuple[str, bool]]:
     """Split a word into (unit, is_nucleus) pairs."""
     w = normalize(word)
+    merge = w not in NO_DIGRAPH_WORDS
     out: list[tuple[str, bool]] = []
     i = 0
     while i < len(w):
@@ -41,7 +48,7 @@ def _units(word: str) -> list[tuple[str, bool]]:
             left = i > 0 and w[i - 1] in VOWELS
             right = i < len(w) - 1 and w[i + 1] in VOWELS
             out.append((ch, not left and not right))
-        elif w[i:i + 2] in _DIGRAPHS:
+        elif merge and w[i:i + 2] in _DIGRAPHS:
             out.append((w[i:i + 2], False))
             i += 1
         else:

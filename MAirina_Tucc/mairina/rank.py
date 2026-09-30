@@ -3,6 +3,7 @@
 score = match (kind/length) + log-frequency in the lane
         - fresh * overuse of the candidate's rhyme class
         + vote boost + "used" boost   (the last two only in arm `learned`)
+        + gap fit + dominant-class match   (when Ctx carries line/target_syl)
 """
 
 from __future__ import annotations
@@ -10,7 +11,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from mairina import keys
+from toolshop.syllables import count_line
+
+from mairina import keys, phonetics
 
 # All weights live here.
 W_LEN = 3.0      # per matched nucleus of a perfect rhyme
@@ -20,17 +23,26 @@ W_FREQ = 0.2     # * log(1 + frequency in lane)
 W_FRESH = 2.0    # * fresh slider * class overuse (0..1)
 W_VOTE = 2.0     # * ((up+1)/(up+down+2) - 0.5)
 W_USED = 1.5     # if the word ended up in the user's own text
+W_GAP = 1.0      # * closeness of candidate syllables to (target - line so far)
+W_CLASS = 0.5    # if the candidate shares the line's dominant consonant class
+
+# Match-kind ordering is absolute: shaping terms (gap, dom-class, freq, fresh)
+# may reorder WITHIN a tier, never lift a lower kind above a higher one.
+TIER = {"perfect-3": 0, "perfect-2": 1, "perfect-1": 2, "assonance": 3, "consonance": 4}
 
 
 @dataclass
 class Ctx:
-    """Everything a ranking call needs. boosts=None means arm `base`."""
+    """Everything a ranking call needs. boosts=None means arm `base`.
+    `line`/`target_syl` shape candidates to the line being written."""
 
     index: object
     lane: str = "all"
     fresh: float = 0.5
     artists: tuple = ()
     boosts: dict | None = None
+    line: str | None = None
+    target_syl: int | None = None
     _classes: dict = field(default_factory=dict, repr=False)
 
     def vocab(self) -> dict[str, int]:
@@ -59,11 +71,20 @@ class Scored:
 
 
 def features_for(cand: str, ctx: Ctx, terms: dict, freq: int) -> dict:
-    """Add frequency, fresh, and (arm learned) vote/used terms to `terms`."""
+    """Add frequency, fresh, line-shaping, and (arm learned) vote/used terms."""
     f = dict(terms)
     f["freq"] = W_FREQ * math.log1p(freq)
     if ctx.fresh:
         f["fresh"] = -ctx.fresh * W_FRESH * ctx.overuse(cand.split()[-1])
+    if ctx.line and ctx.target_syl:
+        gap = ctx.target_syl - count_line(ctx.line)
+        if gap > 0:
+            miss = abs(count_line(cand) - gap)
+            f["gap"] = W_GAP * max(0.0, 1.0 - miss / max(gap, 2))
+    if ctx.line:
+        dom = phonetics.dominant_class(ctx.line)
+        if dom and phonetics.dominant_class(cand) == dom:
+            f["dom-class"] = W_CLASS
     if ctx.boosts is not None:
         up, down, used = ctx.boosts.get(cand, (0, 0, 0))
         if up or down:
@@ -92,10 +113,11 @@ def prepare_target(word: str) -> dict:
 
 
 def rank(target: str, candidates, ctx: Ctx) -> list[Scored]:
-    """Rank rhyme candidates for `target`. Sorted best first, ties alphabetical."""
+    """Rank rhyme candidates for `target`. Match tier first, then score."""
     t = prepare_target(target)
     vocab = ctx.vocab()
     tlemma = (ctx.index.forms.get(t["word"]) or {}).get("lemma")
+    over = bool(ctx.line and ctx.target_syl and count_line(ctx.line) > ctx.target_syl)
     out = []
     for cand in candidates:
         freq = vocab.get(cand, 0)
@@ -109,9 +131,11 @@ def rank(target: str, candidates, ctx: Ctx) -> list[Scored]:
             continue
         kind, base = m
         feats = features_for(cand, ctx, {kind: base}, freq)
-        out.append(Scored(cand, round(sum(feats.values()), 3), feats, kind,
-                          {"freq": freq, "upos": info["upos"], "lemma": info["lemma"]}))
-    out.sort(key=lambda s: (-s.score, s.candidate))
+        meta = {"freq": freq, "upos": info["upos"], "lemma": info["lemma"]}
+        if over:
+            meta["note"] = "over target"
+        out.append(Scored(cand, round(sum(feats.values()), 3), feats, kind, meta))
+    out.sort(key=lambda s: (TIER.get(s.kind, 9), -s.score, s.candidate))
     return out
 
 
@@ -123,4 +147,6 @@ def explain(s: Scored) -> str:
             parts.append(f"freq({s.meta.get('freq', '?')}) {v:+.2f}")
         elif abs(v) >= 0.005 or k == s.kind:
             parts.append(f"{k} {v:+.2f}")
+    if s.meta.get("note"):
+        parts.append(s.meta["note"])
     return " | ".join(parts)

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from mairina import cli, flow, used, votes
+from mairina import DATA_DIR, cli, flow, used, votes
 
 
 @pytest.fixture()
@@ -63,6 +63,29 @@ def test_vote_error_paths_write_nothing(run, data_dir):
     assert code == 1
     con = sqlite3.connect(str(data_dir / "mairina.db"))
     assert con.execute("SELECT COUNT(*) FROM votes").fetchone()[0] == 0
+
+
+def test_rhyme_target_needs_line(run):
+    code, _, err = run("rhyme", "imaš", "--target", "9")
+    assert code == 1 and "--line" in err
+
+
+def test_rhyme_over_target_note(run):
+    code, out, _ = run("rhyme", "imaš", "--rng-seed", "1",
+                       "--line", "mala mogla si da me sada ovde nocas bas", "--target", "5")
+    assert code == 0 and "over target" in out            # line already exceeds the target
+
+
+def test_tests_never_write_the_real_data_dir(run, tmp_path):
+    """Regression for the stray targets_*.pkl found in MAirina_Tucc\\data."""
+    before = sorted(p.name for p in DATA_DIR.iterdir())
+    f = tmp_path / "v.txt"
+    f.write_text("usne crvene ko lava\nu panameri da se snimaš\n", encoding="utf-8")
+    run("xray", f)
+    run("rhyme", "imaš", "--line", "mala mogla si da me", "--target", "9")
+    run("anchors", "--rng-seed", "1")
+    run("flow", f)
+    assert sorted(p.name for p in DATA_DIR.iterdir()) == before
 
 
 def test_missing_lyrics_db_exits_2_with_path(run, tmp_path):

@@ -280,6 +280,22 @@ def test_anchors_exclude_proper_nouns(index, monkeypatch):
     assert "melisa" in seen_with_seed()                         # only the PROPN filter kept it out
 
 
+def test_match_tier_beats_shaping_terms(index):
+    """perfect-1 always ranks above assonance, however good the gap/class fit."""
+    shaped = rank.Ctx(index, "all", 0.5, (), None, "kratka kapija", 4)
+    res = rank.rank("imaš", shaped.vocab(), shaped)
+    tiers = [rank.TIER[s.kind] for s in res]
+    assert tiers == sorted(tiers)                                   # tier-first ordering
+    kinds = {s.candidate: s.kind for s in res}
+    assert kinds["snimaš"].startswith("perfect")
+    perf1 = [s for s in res if s.kind == "perfect-1"]
+    asson = [s for s in res if s.kind == "assonance"]
+    if perf1 and asson:
+        worst_p1 = min(res.index(s) for s in perf1)
+        best_as = min(res.index(s) for s in asson)
+        assert worst_p1 < best_as
+
+
 def test_rhyme_and_multi_keep_their_vocabulary_rules(index, monkeypatch):
     c = ctx(index)
     got = words(rank.rank("imaš", c.vocab(), c))

@@ -1,0 +1,212 @@
+{
+  "task": "MAirina Tucc v2 - line craft beyond rhyme (Devin executes, Claude verifies each gate)",
+  "project_root": "D:/Projects/Music-AI-Toolshop",
+  "orchestration_dir": "MAirina_Tucc/ORCHESTRATION/mairina_v2",
+  "plan": "D:/Projects/.workspace_archive/plans/mairina-v2-craft-4d7a19.md",
+  "ledger": "D:/Projects/Music-AI-Toolshop/handoffs/orchestration_ledger_mairina_v2_20260930.md",
+  "review_w1": "D:/Projects/.workspace_archive/reviews/2026-09-30_mairina_v2_w1.md",
+  "executor": "Devin Local, model SWE-2 Max, paste mode (one prompt per agent)",
+  "completed": {
+    "wave 1 (D1 craft engine)": "delivered 2026-09-30, 124 tests pass, adversarial review approved-with-fixes -> wave 1F; uncommitted until 1F passes"
+  },
+  "external_change_20260930": {
+    "source": "lyrics-sources lane closeout (ledger handoffs/orchestration_ledger_lyrics_sources_20260929.md, commits 7afa490..d3c58c7)",
+    "effect_on_mairina": "lyrics.db rebuilt: 7 corpora / 1,519 songs (genius-pro 1,425 re-ingested with NEW ids 1426-2944; + ccmixter/gutenberg_pd/hymnary/lrclib/mudcat-digitrad/sacred-texts, all English/other). tokens = 0 and entities = 0 (the CLASSLA L3 layer was wiped; the lane's genius invariant checked songs/sections/lines/line_rhymes only). line_rhymes/slang_terms/rhyme_pairs/topics survive. lyrics.db mtime is now 2026-09-30T20:03:56.",
+    "protection_done": "MAirina_Tucc/data/index_3a770ed6.pre-rebuild-20260930.pkl = backup of the last good MAirina index (old DB, 4.5 MB). Do not delete.",
+    "handled_by": "wave 1F agents D0 (restore tokens/entities via toolshop lyrics annotate) and F1 items CORPUS/GUARD/WRITER/INVARIANT"
+  },
+  "waves": [
+    {
+      "wave": "1F",
+      "name": "Restore corpus annotation (D0) + W1 fixes (F1), parallel; F1 live checks wait for D0",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "D0",
+          "role": "implementer",
+          "name": "Restore CLASSLA tokens and entities",
+          "task": "MAirina v2 wave 1F D0 - restore lyrics.db tokens and entities via toolshop lyrics annotate",
+          "scope": "D:/Projects/Music-AI-Toolshop/toolshop/annotate.py, D:/Projects/Music-AI-Toolshop/toolshop/cli.py, D:/Projects/Music-AI-Toolshop/handoffs/orchestration_ledger_lyrics_sources_20260929.md",
+          "output": "wave1F/D0_handoff.md",
+          "context_budget": "120k",
+          "instructions": [
+            "PRE-APPROVED operational task. Skip bootstrap step 5. You change NO code in this task - you only run the existing annotation pipeline and report.",
+            "Why: the lyrics-sources rebuild of D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\lyrics.db left tokens = 0 and entities = 0 (CLASSLA lemma/POS/NER layer). MAirina's vocabulary, anchors, rhymes, multis, gazetteer, atlas and comparisons all depend on them. The pipeline that fills them is toolshop/annotate.py (classla.Pipeline('sr', type='nonstandard')), exposed as `toolshop lyrics annotate [--db PATH] [--resume] [--limit N] [--fresh]`; it is RESUMABLE (skips lines already in tokens). CLASSLA and the 'sr' models are installed in the toolshop venv.",
+            "Step 1 - baseline (read-only): record lyrics.db size/mtime, counts of songs, lines, tokens, entities, and lines per corpus. Confirm no other process is writing lyrics.db right now (no lyrics.db-wal / -journal; ask the user if any other lyrics-sources job is running and WAIT for the answer).",
+            "Step 2 - timing probe: run `& \"D:\\Projects\\Music-AI-Toolshop\\.venv\\Scripts\\python.exe\" -m toolshop.cli lyrics annotate --db \"D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\lyrics.db\" --resume --limit 300` (adjust the module entry if the CLI is invoked differently - check toolshop/cli.py and pyproject.toml; use the documented entry point). Measure seconds per line; extrapolate total runtime for all remaining lines; TELL THE USER the estimate before continuing.",
+            "Step 3 - full run: run the same command without --limit in its OWN terminal (it is long-running, CPU only). It is resumable: if interrupted, rerun with --resume. Never use --fresh (it wipes tokens/entities).",
+            "Step 4 - verify: tokens > 0 for every genius-pro line with text (report annotated/total per corpus), entities > 0, spot-check 5 tokens rows (form, lemma, upos) from genius-pro lines, e.g. forms 'snimaš', 'imaš', 'lava'. Record final lyrics.db mtime.",
+            "HANDOFF: baseline counts, timing probe numbers, total runtime, final coverage per corpus, spot-check rows, any errors. Reply exactly: 'WAVE 1F D0 DONE - handoff at <path>' and tell the F1 agent/user that live checks may now run."
+          ],
+          "constraints": [
+            "Do NOT modify any code or any file other than lyrics.db (via the annotate command) and your handoff file.",
+            "Never run annotate with --fresh; never delete lyrics.db or its tables; never run build_database / ingest commands.",
+            "Do not touch MAirina_Tucc\\data\\index_3a770ed6.pre-rebuild-20260930.pkl (backup).",
+            "No git add/commit/checkout/switch/stash/reset. Absolute paths. Long run in its own terminal; do not end your turn claiming done while it is still running - report progress instead."
+          ]
+        },
+        {
+          "id": "F1",
+          "role": "implementer",
+          "name": "Fix W1 craft engine findings",
+          "task": "MAirina v2 wave 1F - fix adversarial review findings in the craft engine",
+          "scope": "D:/Projects/.workspace_archive/reviews/2026-09-30_mairina_v2_w1.md, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/devices.py, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/rules.py, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/rank.py, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/cli.py, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/phonetics.py, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/targets.py",
+          "output": "wave1F/F1_handoff.md",
+          "context_budget": "200k",
+          "instructions": [
+            "PRE-APPROVED: this task is already planned and approved by the user and the orchestrator (Claude). Skip bootstrap step 5 (plan approval) and implement directly. Read the review report first: D:\\Projects\\.workspace_archive\\reviews\\2026-09-30_mairina_v2_w1.md, then your own previous handoff MAirina_Tucc\\ORCHESTRATION\\mairina_v2\\wave1\\D1_handoff.md.",
+            "H1 rhyme letters (devices.py ~line 244): stop using toolshop find_rhymes(min_match=2) for line letters. Derive letters from keys.tail_key(last_word_of_line, n): two lines share a letter if their tail2 matches, OR their tail1 matches and is >= 2 characters (vowel + coda, e.g. 'aš'). Required result on the user's verse: lines 1/3 = A (lava/spava), line 2 = '-', lines 4/5/6 = B (znaš/imaš/snimaš).",
+            "H2 name_drop (devices.py ~line 48-61): do not split multi-word entities into single tokens. Keep multi-word entities as phrases (match as phrases in the line). For single-token entries, DROP any whose lowercase form has corpus majority UPOS != PROPN and frequency >= 20 (compute from tokens via the existing index). Required: 'mala' and 'niko' are never tagged name_drop; brands like gucci, porsche, bmw, sarajevo still are.",
+            "H3 lexicons: move MAirina_Tucc\\data\\lexicons\\ to MAirina_Tucc\\lexicons\\ (outside the gitignored data/ dir), update every path and PROVENANCE.md. If any lexicon file is missing at runtime, disable only that rule, print one 'Note:' line to stderr, and continue (never crash). Verify with: git -C D:\\Projects\\Music-AI-Toolshop check-ignore -v MAirina_Tucc/lexicons/cliches.txt  -> must print NOTHING.",
+            "M1 tests must never write the real MAirina_Tucc\\data\\: pass cache_dir everywhere (cli.py ~106 and ~194 call targets.target without it). Add a test that snapshots the real data\\ directory listing before and after running the xray/rhyme/anchors test paths and asserts it is unchanged. After your changes, delete the stray MAirina_Tucc\\data\\targets_a17f8d26.pkl (created by an earlier test run).",
+            "M2 simile: apply the 'ko' = 'who' check at ANY position (next token is a VERB/AUX by index UPOS, or the line ends with '?'), not only line-initial. Recognise the curly apostrophe U+2019 in k’o / ka’o. 'kao da' and 'kao što' get confidence low. Tests: 'pitaj ko je gazda' and 'ne znam ko me zove' -> no simile; 'hladna ko led', 'k’o mafija' -> simile.",
+            "M3 anaphora: the span is the SHARED opening text; require at least one non-stopword in the shared opening; extend the stoplist with pronouns/conjunctions/particles (ja, ti, on, ona, mi, vi, oni, ne, sve, to, taj, ta, ovo, i, a, ali, pa, kad, jer, da). Tests: 'Da se vratim / Da se sakrijem' -> no anaphora; 'Laku noć ... / Laku noć ...' -> anaphora with span 'Laku noć'.",
+            "M4 alliteration: exclude CLITICS and 'ne' before measuring. Required: on the user's verse line 6 the 'allit' flag no longer comes from se+snimaš.",
+            "M5 rank shaping: keep match-kind ordering intact - total shaping weight (gap + dom-class) must be <= 0.6, OR sort by match tier (perfect-2 > perfect-1 > assonance) before score. Add: if the line already exceeds the target, show a 'over target' note in why; '--target' without '--line' prints a clear error (exit 1). Test: with --line and --target, no assonance candidate ranks above any perfect-1 candidate.",
+            "M6 rules: self_rhyme requires a shared stem >= 4 letters or the same lemma (znaš/znam, lava/laka must NOT fire). Remove Serbian homographs from english_tokens.txt (at least: do, no, so, to, me, i, a, on, pa, sam) and add a test 'Ide do kuće, no ti si tu' -> no code_switch.",
+            "LOW (do all): multisyllabic tag = longest common vowel-suffix (the verse lines 5/6 must report the longest shared tail, >= 'aeia'); internal rhymes non-overlapping; consonance density excludes clitics from BOTH numerator and denominator and the gauge uses corpus-lane quantiles (so it does not saturate); digraph exception list for prefix boundaries (nadživeti, podžupan, nadživiš, injekcija, konjunkcija, tanjug not needed); targets: if a lane x section has n < 30 lines fall back to the lane all-sections range and mark it '~'; drop dialect_pairs rows where both sides are identical and drop ambiguous 'med,mijed'.",
+            "CORPUS SCOPE (new, required): lyrics.db now holds 7 corpora (genius-pro + English/other: ccmixter, gutenberg_pd, hymnary, lrclib, mudcat-digitrad, sacred-texts). Add one constant CORPORA = ('genius-pro',) in corpus.py and apply it to EVERY query that reads songs/lines/tokens/entities (vocabulary index, bigrams, gazetteer, targets, flow lane medians). Fixture test: an English-corpus song in the fixture DB never contributes a form, bigram, gazetteer entry or target.",
+            "EMPTY-INDEX GUARD (new, required): lyrics.db was rebuilt and currently has tokens = 0 (agent D0 is restoring them in parallel). If the allowed corpora have token coverage below 90% of their non-empty lines, raise a clear CorpusNotAnnotated error: 'lyrics.db has no CLASSLA tokens for genius-pro - run: toolshop lyrics annotate --resume'. Never build or cache an empty/partial index, and never overwrite an existing good index_*.pkl with a worse one. Leave MAirina_Tucc\\data\\index_3a770ed6.pre-rebuild-20260930.pkl untouched. Test both paths with fixtures.",
+            "CONCURRENT WRITER (new, required): the immutable=1 URI assumes nobody writes the file. Before building any cache, refuse if lyrics.db-wal or lyrics.db-journal exists; record mtime+size before and after the build and, if they changed, discard the result and retry once, then error. Fixture test for the 'changed during build' path.",
+            "IDs CHANGED: genius-pro song/line ids were renumbered (now 1426+). Make sure nothing in mairina.db or any cache stores song/line ids across rebuilds (caches must key on DB mtime+size).",
+            "VERIFY (absolute paths, Cwd D:\\Projects\\Music-AI-Toolshop): (1) \"D:\\Projects\\Music-AI-Toolshop\\.venv\\Scripts\\python.exe\" -X utf8 -m pytest \"D:\\Projects\\Music-AI-Toolshop\\MAirina_Tucc\\tests\" -q -p no:cacheprovider -> all pass (fixture-based; runs now). (2) BEFORE D0 finishes: `mt xray` on the verse must fail cleanly with the CorpusNotAnnotated message (paste it). (3) AFTER the user/D0 confirms annotation is done: mt xray on the user's verse (temp file OUTSIDE the repo, e.g. %TEMP%\\verse.txt) with --lane drill --section strofa -> letters A,-,A,B,B,B; no name_drop on mala/niko; simile on line 1; `mt rhyme imaš --lane drill` still lists snimaš in the top 10. (4) list MAirina_Tucc\\data\\ before and after the test run - identical. (5) git check-ignore on MAirina_Tucc/lexicons/* prints nothing. (6) INVARIANT (replaces the old fixed-mtime check): record lyrics.db mtime+size immediately before and after YOUR test + live runs - they must be equal (MAirina never writes it).",
+            "The user's verse for all checks:\nUsne crvene ko lava –\ns tobom uvek ludilo\n(niko ne pomisli da spava)\nSepare je naš, najluđi smo – znaš\nMala, mogla si da me imaš,\nu Panameri da se snimaš",
+            "HANDOFF content: per finding ID (H1..M6, L, CORPUS, GUARD, WRITER, IDs) what you changed (file:line) and the test that proves it; exact pytest summary line; full xray output for the verse; the before/after data\\ listing; git check-ignore output; lyrics.db mtime; git status --short (your paths only); deviations and anything not done. Then reply exactly: 'WAVE 1F DONE - handoff at <path>' plus the pytest summary line. Do not start wave 2."
+          ],
+          "constraints": [
+            "You MAY create/modify files, but ONLY under D:\\Projects\\Music-AI-Toolshop\\MAirina_Tucc\\ (the handoff file is inside it). Never touch toolshop\\, rimer-ui\\, other projects, or other sessions' uncommitted files in this repo.",
+            "Product rule: the tool FINDS and ANALYZES; it NEVER writes or completes lyric lines. All tags advisory; hints never block; no lazy/suffix-rhyme rule.",
+            "lyrics.db (D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\lyrics.db) is opened ONLY as sqlite URI file:D:/Projects/Music-AI-Toolshop/data/toolshop/lyrics/lyrics.db?mode=ro&immutable=1 (uri=True). Never write to it.",
+            "Standard library + the existing toolshop package only. No pip or npm installs.",
+            "No git add/commit/checkout/switch/stash/reset - the orchestrator (Claude) commits after verifying.",
+            "Absolute paths in every command. Work in the foreground; never start background jobs and end your turn waiting on them.",
+            "CLI never prompts (no input()). Output UTF-8 safe on a cp1252 console.",
+            "Tests must not write the real MAirina_Tucc\\data\\; delete any MAirina_Tucc\\data\\mairina.db you create."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": "1F2",
+      "name": "WAL-guard correction (orchestrator spec error) + brand double-tag",
+      "parallel": false,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "F2",
+          "role": "implementer",
+          "name": "Relax WAL guard and dedupe brand tags",
+          "task": "MAirina v2 wave 1F2 - relax the lyrics.db WAL guard to non-empty WAL only, dedupe brand tags",
+          "scope": "D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/corpus.py, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/devices.py, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/tests/test_live_smoke.py",
+          "output": "wave1F2/F2_handoff.md",
+          "context_budget": "80k",
+          "instructions": [
+            "PRE-APPROVED small fix. Skip bootstrap step 5. Context: the orchestrator verified wave 1F on real data - everything passes EXCEPT that the guard in corpus.py build_guarded (~lines 62-80) refuses whenever lyrics.db-wal merely EXISTS. That was the orchestrator's spec error: in WAL mode SQLite leaves a 0-byte -wal/-shm whenever a reader has connected (right now a stale 0-byte lyrics.db-wal from 01:18 exists, no writer process running), so `mt` is unusable and the 2 live smoke tests fail with exit 2.",
+            "FIX 1 (corpus.py): refuse only if lyrics.db-journal exists OR lyrics.db-wal exists with size > 0. A 0-byte -wal (and any -shm) is NOT a writer signal. Keep the existing mtime+size before/after stability check and single retry unchanged. Update the error text accordingly. Tests: (a) fixture db + 0-byte '-wal' + '-shm' files -> builds fine; (b) '-wal' with >0 bytes -> DbUnavailable 'being written'; (c) '-journal' present -> DbUnavailable. Do NOT create, modify or delete any sidecar next to the REAL lyrics.db - only in tmp fixture dirs.",
+            "FIX 2 (devices.py): a token tagged name_drop must not also be tagged code_switch (e.g. 'Gucci na meni, BMW ispred kuće' currently yields both code_switch(gucci) and name_drop(gucci)). name_drop wins. Test it.",
+            "VERIFY (absolute paths): \"D:\\Projects\\Music-AI-Toolshop\\.venv\\Scripts\\python.exe\" -X utf8 -m pytest \"D:\\Projects\\Music-AI-Toolshop\\MAirina_Tucc\\tests\" -q -p no:cacheprovider -> ALL pass, 0 skipped (the live smoke tests must now run and pass against the real lyrics.db, which is annotated: 501,386 genius-pro tokens). Then `mt rhyme imaš --lane drill` (snimaš in top 10) and `mt anchors --scheme AABB --lane drill` via MAirina_Tucc\\mt.ps1; afterwards delete MAirina_Tucc\\data\\mairina.db and any NEW index_*/targets_* cache files your runs created, but NEVER delete index_3a770ed6.pre-rebuild-20260930.pkl. Record lyrics.db mtime+size before/after (must be equal). List MAirina_Tucc\\data\\ before/after.",
+            "HANDOFF: the diff summary (file:line), pytest summary line (must show 0 skipped), the two live outputs, data\\ listing before/after, lyrics.db mtime+size before/after, git status --short for MAirina_Tucc. Reply exactly: 'WAVE 1F2 DONE - handoff at <path>' plus the pytest summary line."
+          ],
+          "constraints": [
+            "You MAY modify files ONLY under D:\\Projects\\Music-AI-Toolshop\\MAirina_Tucc\\ (mairina\\corpus.py, mairina\\devices.py, tests\\, and your handoff).",
+            "Never create, modify or delete lyrics.db or its -wal/-shm/-journal sidecars. lyrics.db opened only via the immutable read-only URI.",
+            "No pip/npm installs. No git add/commit/checkout/switch/stash/reset. Absolute paths; foreground only; CLI never prompts."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "name": "Learning and reference",
+      "parallel": false,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "D2",
+          "role": "implementer",
+          "name": "Stars fingerprint hints atlas compare",
+          "task": "MAirina v2 wave 2 - stars and fingerprint, hint votes, device atlas, comparison finder",
+          "scope": "D:/Projects/.workspace_archive/plans/mairina-v2-craft-4d7a19.md, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/devices.py, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/votes.py, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/cli.py",
+          "output": "wave2/D2_handoff.md",
+          "context_budget": "200k",
+          "instructions": [
+            "PRE-APPROVED: planned and approved by the user and the orchestrator. Skip bootstrap step 5 and implement directly. Read the plan sections 'Research synthesis' and 'Design' (fingerprint, hints, atlas, comparisons, cli rows) and the wave 1F handoff MAirina_Tucc\\ORCHESTRATION\\mairina_v2\\wave1F\\F1_handoff.md.",
+            "mairina/fingerprint.py - STARS: `mt star <file> <line_no> [--tag metaphor|double-meaning|wordplay|punchline|<free text>]...` stores the line text, lane, tags, timestamp and a FEATURE SNAPSHOT (syllables, end-rhyme tail length, longest multi length, consonance density, alliteration yes/no, device kinds present, word count) in data\\mairina.db (new tables via CREATE TABLE IF NOT EXISTS; never drop/alter existing v1 tables). `mt stars` lists them; `mt unstar <id>`.",
+            "FINGERPRINT: per numeric feature, shrunk mean = (n * x̄ + k * μ_lane) / (n + k) with k = 8, where μ_lane and σ_lane come from the atlas corpus stats for the same lane; categorical features (tags, device kinds) as rates. `mt me [--lane]` prints the fingerprint with n and 'low confidence (<10 stars)' when n < 10. compare(line): the top-3 largest |z| deviations (z vs your fingerprint using σ_lane) rendered in plain words, e.g. 'shorter than your ★ lines: 6 vs 9 syllables'. `mt xray` gains an optional per-line 'vs ★' column when >= 3 stars exist.",
+            "mairina/hints.py - HINT VOTES: every xray hint already has a stable rule_id; `mt hint-vote <rule_id> +|-` records a vote. A rule with >= 3 down-votes and 0 up-votes is MUTED for this user: xray omits it, and `mt stats` lists muted rules. `mt hint-vote <rule_id> reset` unmutes.",
+            "mairina/atlas.py - DEVICE ATLAS: run devices.analyze_line over corpus lines (lines.text_raw joined to sections/songs, restricted to corpus.CORPORA = genius-pro only; use lane + target_artist) and aggregate per lane and per artist: simile rate per 100 lines, anaphora rate, alliteration rate, mean consonance density, internal-rhyme rate, multis share, code-switch rate, name-drop rate, median syllables. Cache with cache_dir (pickle keyed by DB mtime). Output STATS ONLY - never print, store or return corpus lines. `mt atlas [--lane] [--artist]` prints a compact table.",
+            "mairina/comparisons.py - COMPARISON FINDER: from corpus lines, collect the first content word (NOUN/ADJ/PROPN by index, not a clitic, not an artist name) after a simile marker (kao/ko/k'o/k’o/ka'o/poput, applying the same 'ko'=who exclusion as devices). Rank by lane frequency with the v1 fresh slider; votes apply (log via votes.log_shown with kind 'compare'). `mt compare [--lane] [--artist] [--theme <word>]` - theme filters to comparison words that co-occur in lines containing the theme lemma. SINGLE WORDS ONLY, never phrases or lines.",
+            "Tests with fixture words/lines only (no real lyrics): star -> fingerprint -> compare round trip (incl. shrinkage math and low-confidence flag); hint muting at 3 down / 0 up and reset; atlas returns only numbers/strings of stats (assert no fixture line text appears in any output); comparisons return single tokens only; ko-as-who excluded. Tests must not write the real data\\ (use tmp dirs) - reuse the wave 1F data-dir guard test.",
+            "VERIFY (absolute paths): full pytest (-p no:cacheprovider) all pass; live: `mt atlas --lane drill` (paste the table), `mt compare --lane drill` top 10, star 3 lines of the user's verse (temp file outside repo) with tags, then `mt me` and `mt xray` showing the 'vs ★' column, then UNSTAR them and delete data\\mairina.db so the user's real stats start clean; lyrics.db mtime+size equal before and after your runs (MAirina never writes it); comparisons/atlas use only corpus.CORPORA (genius-pro); git status --short (your paths only).",
+            "HANDOFF: files created/changed (line counts), pytest summary, the live outputs above, schema of new tables, deviations, not done. Reply exactly: 'WAVE 2 DONE - handoff at <path>' plus the pytest summary line. Do not start wave 3."
+          ],
+          "constraints": [
+            "You MAY create/modify files, but ONLY under D:\\Projects\\Music-AI-Toolshop\\MAirina_Tucc\\. Never touch toolshop\\, rimer-ui\\, other projects, or other sessions' files.",
+            "Product rule: FIND and ANALYZE only; NEVER write or complete lyric lines. Metaphor/double meaning/wordplay are NEVER auto-detected - only user tags on stars.",
+            "lyrics.db opened ONLY via file:D:/Projects/Music-AI-Toolshop/data/toolshop/lyrics/lyrics.db?mode=ro&immutable=1 (uri=True). Never write to it. Atlas/compare output is statistics or single words only - no corpus lines.",
+            "Standard library + existing toolshop only. No pip/npm installs. No git add/commit/checkout/switch/stash/reset.",
+            "Absolute paths; foreground only; CLI never prompts; UTF-8 safe output. Tests never write the real MAirina_Tucc\\data\\."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "name": "API and UI (parallel, frozen contract)",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "D3",
+          "role": "implementer",
+          "name": "Flask API to contract",
+          "task": "MAirina v2 wave 3 - local Flask API wrapping the mairina engine",
+          "scope": "D:/Projects/.workspace_archive/plans/mairina-v2-craft-4d7a19.md, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/mairina/cli.py",
+          "output": "wave3/D3_handoff.md",
+          "context_budget": "200k",
+          "instructions": [
+            "PRE-APPROVED: planned and approved. Skip bootstrap step 5 and implement directly. Read the plan's 'API contract' paragraph and the wave 2 handoff MAirina_Tucc\\ORCHESTRATION\\mairina_v2\\wave2\\D2_handoff.md.",
+            "Create mairina/api.py (Flask, already installed in the toolshop venv - do not install anything). Run with `python -m mairina.api` and add `mt serve`; bind ONLY to 127.0.0.1, port 8000 (matches the rimer-ui Vite proxy). Load the corpus index once at startup.",
+            "FROZEN CONTRACT - JSON under /api/: POST anchors {scheme,lines,lane,mode,seed,fresh,artist,section}; POST rhyme {word,line?,target?,lane,fresh,artist}; POST multi {phrase,lane}; POST xray {text,lane,section?} -> per line {n,syl,target,rhyme,cons,allit,assonance,devices[],hints[{rule_id,label}],vs_star?}; POST vote {list_id,items:[[n,+1|-1]]}; POST star {text,line_no,tags[],lane}; DELETE star/<id>; GET stars; GET me?lane; GET atlas?lane&artist; GET compare?lane&artist&theme; POST hint-vote {rule_id,vote:+1|-1|0}; POST used {text}; GET stats. Every list response includes list_id, arm, items[] with a 'why' string. Errors: HTTP 4xx/5xx with {error: <message>} - never an HTML error page.",
+            "The API only calls existing engine functions; put any glue in api.py, do not change engine behavior. Same arm/vote logging as the CLI.",
+            "Tests: tests/test_api.py using Flask test_client against the fixture corpus and a tmp data dir - one test per endpoint (happy path + one error path), plus a test that the app refuses a non-localhost bind config.",
+            "VERIFY: full pytest (-p no:cacheprovider) passes; start `mt serve` in the foreground in a SEPARATE terminal, then curl each GET endpoint and POST xray with the user's verse from another command; stop the server; delete data\\mairina.db created by the smoke test; lyrics.db mtime+size equal before and after your runs; if the engine raises CorpusNotAnnotated the API must return HTTP 503 {error} with that message (add a test); git status --short (your paths only).",
+            "HANDOFF: endpoints table (method, path, request, response sample), pytest summary, curl outputs, deviations. Reply exactly: 'WAVE 3 API DONE - handoff at <path>' plus the pytest summary line."
+          ],
+          "constraints": [
+            "You MAY create/modify files ONLY under D:\\Projects\\Music-AI-Toolshop\\MAirina_Tucc\\mairina\\ and MAirina_Tucc\\tests\\ (plus your handoff). Do NOT touch rimer-ui\\ (another agent owns it this wave).",
+            "Bind to 127.0.0.1 only. No auth needed (local single user). No pip installs - Flask is already present.",
+            "lyrics.db read-only via the immutable URI. No git add/commit/checkout/switch/stash/reset.",
+            "Product rule: FIND and ANALYZE only; never write lyric lines. Absolute paths; foreground only."
+          ]
+        },
+        {
+          "id": "D4",
+          "role": "implementer",
+          "name": "rimer-ui songwriting screen",
+          "task": "MAirina v2 wave 3 - rimer-ui React screen per approved mockup and frozen API contract",
+          "scope": "D:/Projects/Music-AI-Toolshop/MAirina_Tucc/ORCHESTRATION/mairina_v2/ui_mockup.html, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/rimer-ui/src/App.tsx, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/rimer-ui/package.json, D:/Projects/Music-AI-Toolshop/MAirina_Tucc/rimer-ui/vite.config.ts",
+          "output": "wave3/D4_handoff.md",
+          "context_budget": "200k",
+          "instructions": [
+            "PRE-APPROVED design: the layout in MAirina_Tucc\\ORCHESTRATION\\mairina_v2\\ui_mockup.html was approved by the user. Skip bootstrap step 5 for design, BUT see the npm gate below.",
+            "NPM GATE: rimer-ui has no node_modules. Before running `npm install` (from the existing package-lock.json, Cwd D:\\Projects\\Music-AI-Toolshop\\MAirina_Tucc\\rimer-ui) you MUST ask the user in chat and wait for an explicit yes. Do not add any new dependency beyond package.json.",
+            "Build the screen in rimer-ui/src (split into components under src/components/, API client in src/api.ts using the existing axios dependency): TOP controls bar (scheme, lines, lane, section, mode, fresh slider, artist, seed, 'New anchors'); LEFT editor = one row per line: line no, live syllable count vs target range (color: in range / short / over), text input, anchor chip at the end that turns green when the line ends on it, a compact METER BAR in the gutter (rhyme letter, cons gauge, allit, device icons, hint count) that expands on click to show details, a ★ button with a tag popover (metaphor, double meaning, wordplay, punchline, free text); RIGHT finder panel with tabs Rhymes | Multis | Compare | Atlas - ranked items with score bar, 'why' text, 👍/👎; clicking a word in the editor or an anchor chip queries rhymes for it (use the line text as context); hint rows in the expanded meter have 👍/👎 (POST hint-vote); FOOTER stats (votes, 👍 rate, used, A/B status, muted rules). Save draft = POST used with the full text and store the draft in localStorage.",
+            "FROZEN API CONTRACT (implemented in parallel by agent D3; Vite already proxies /api to 127.0.0.1:8000): POST /api/anchors {scheme,lines,lane,mode,seed,fresh,artist,section}; POST /api/rhyme {word,line?,target?,lane,fresh,artist}; POST /api/multi {phrase,lane}; POST /api/xray {text,lane,section?} -> per line {n,syl,target,rhyme,cons,allit,assonance,devices[],hints[{rule_id,label}],vs_star?}; POST /api/vote {list_id,items:[[n,+1|-1]]}; POST /api/star {text,line_no,tags[],lane}; DELETE /api/star/<id>; GET /api/stars; GET /api/me?lane; GET /api/atlas?lane&artist; GET /api/compare?lane&artist&theme; POST /api/hint-vote {rule_id,vote}; POST /api/used {text}; GET /api/stats. List responses carry list_id, arm, items[] with 'why'. Errors: {error}.",
+            "If the API is unreachable, show one clear banner ('Start the engine: mt serve') - do NOT ship fake data. Debounce xray calls while typing (~400 ms). The UI never generates lyric text: no 'complete line' features.",
+            "Theme: dark and light via CSS variables (the mockup's tokens), usable at 1280px and 820px widths, keyboard accessible buttons with aria-labels.",
+            "VERIFY: `npm run build` and `npm run lint` pass (paste summaries); `npm run dev` starts; with D3's server running (if available) do one manual pass: new anchors, type a line, see xray meter, click a word -> rhymes, vote, star. Take a screenshot or describe exactly what you saw if screenshots are unavailable.",
+            "HANDOFF: components list, how each contract endpoint is used, build/lint output, the manual pass notes, deviations. Reply exactly: 'WAVE 3 UI DONE - handoff at <path>'."
+          ],
+          "constraints": [
+            "You MAY create/modify files ONLY under D:\\Projects\\Music-AI-Toolshop\\MAirina_Tucc\\rimer-ui\\ (plus your handoff). Do NOT touch MAirina_Tucc\\mairina\\ (agent D3 owns the backend this wave).",
+            "npm install only after the user's explicit yes in chat; no new dependencies; never copy node_modules from elsewhere.",
+            "No git add/commit/checkout/switch/stash/reset. Absolute paths. Dev server: run it in the foreground in its own terminal and stop it when done.",
+            "Product rule: the UI FINDS and ANALYZES; it never writes lyric lines."
+          ]
+        }
+      ]
+    }
+  ]
+}
