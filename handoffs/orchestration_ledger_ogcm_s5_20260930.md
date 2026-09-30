@@ -9,9 +9,23 @@
 
 | Wave | Agent | Status | Handoff | Notes |
 |---|---|---|---|---|
-| s5r research | R | pending | `wave_s5r/research_wail_report.md` | Covers wail identity, whine recipe and pyin settings. Report-only. |
-| s5a stem audition + probe | A | pending | `wave_s5a/agent_a_s5a_handoff.md` | G1 follows. |
-| G1 | user | — | — | The user names the wail stem and window, and reacts to `s5_00_riff_whine`. |
+| s5r research | R | ✅ done (report-only; committed by the orchestrator) | `wave_s5r/research_wail_report.md` | **Identity unknown** (low-med confidence). Credits name producers Doug Rasheed and Harold "Scrap" Freddie, with no instrument credit; "portamento synth lead" rests on genre convention only. A claimed Kleeer "Tonight" sample failed verification. **Recipe:** when the voice follows a tracked contour, use a glide of 15–30 ms (not 100) and add no synthetic vibrato on top. Delay 0.505 s. **pyin:** fmin 196, fmax 2093, frame 1024, hop 128 at 22.05 kHz, voiced_prob ≥ 0.5 + RMS gate, octave fixes per segment, 5–7 frame median inside segments, bridge gaps ≤ 100 ms when the step is ≤ 3 st, drop islands < 50 ms. WhoSampled, Genius and forums returned 403, so some claims rest on search snippets. |
+| s5a stem audition + probe | A | ✅ done, spot-checked by the orchestrator | `wave_s5a/agent_a_s5a_handoff.md` | Commits `3458637` feat(#074) + `d74ef20` docs; no WAVs. Protected files show no diff vs `20e1774`, and the lane is clean. Self-reported gates: O2 0 (49), O4 0 (97), O5 0, O1″ 0, O3″ 0/0. S4 re-render gave identical SHA256 hashes. The `audition_s5` manifest reads `source_audio_in_output: false` and `lead_delay_s: 0.505051`, with the single file `s5_00_riff_whine.wav` (confirmed by the orchestrator). Deviations: timeline hop 512 (cost), extra CLI flags, backing_vox clip at −22.9 LUFS (peak guard). |
+| G1 | user | **waiting on user** | — | The user names the wail stem and window, and reacts to `s5_00_riff_whine`. See the orchestrator reading of the ranking below. |
+
+## Orchestrator reading of `stem_ranking.json` (read directly, not from the handoff)
+
+`wail_score` ranks vocals (0.906) > backing_vox (0.877) > guitar (0.849). The score, however, does not weight pyin's confidence:
+
+| stem | mean voiced_prob | median | p10–p90 | voiced_ratio | glide_share | vibrato depth |
+|---|---|---|---|---|---|---|
+| guitar | **0.564** | **B4 (71.0)** | 66.3–75.7 (F#4–E5) | 0.895 | 0.13 | 0.445 st |
+| vocals | 0.106 | A#3 (58.2) | 53.9–60.6 | 0.786 | 0.413 | 0.828 st |
+| backing_vox | 0.113 | A#3 (57.7) | 53.6–60.1 | 0.496 | 0.389 | 0.634 st |
+
+- **Guitar** is the only stem carrying a confident, sustained, high pitched line with vibrato. It sits in the same register as the S4 riff (61–78).
+- **Vocals and backing_vox** have low-confidence pitch and a speech-register median with a high glide share, which fits rap prosody. They also cannot appear in `instrumental.wav`, where the user heard the wail.
+- **Hypothesis, not a finding:** the "wail" may be the timbre of the riff instrument itself (sustained notes with vibrato), not a separate line. Only the user's ear decides.
 | s5b resynth A/B/C | B | not started | `wave_s5b/agent_b_s5b_handoff.md` | Its prompt is finalized after G1. |
 | s5c verify | C | not started | `wave_s5c/agent_c_s5c_verify_handoff.md` | G2 follows: the user's ear test, then the user's Suno upload. |
 
