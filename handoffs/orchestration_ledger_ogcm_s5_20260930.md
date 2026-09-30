@@ -11,7 +11,8 @@
 |---|---|---|---|---|
 | s5r research | R | ✅ done (report-only; committed by the orchestrator) | `wave_s5r/research_wail_report.md` | **Identity unknown** (low-med confidence). Credits name producers Doug Rasheed and Harold "Scrap" Freddie, with no instrument credit; "portamento synth lead" rests on genre convention only. A claimed Kleeer "Tonight" sample failed verification. **Recipe:** when the voice follows a tracked contour, use a glide of 15–30 ms (not 100) and add no synthetic vibrato on top. Delay 0.505 s. **pyin:** fmin 196, fmax 2093, frame 1024, hop 128 at 22.05 kHz, voiced_prob ≥ 0.5 + RMS gate, octave fixes per segment, 5–7 frame median inside segments, bridge gaps ≤ 100 ms when the step is ≤ 3 st, drop islands < 50 ms. WhoSampled, Genius and forums returned 403, so some claims rest on search snippets. |
 | s5a stem audition + probe | A | ✅ done, spot-checked by the orchestrator | `wave_s5a/agent_a_s5a_handoff.md` | Commits `3458637` feat(#074) + `d74ef20` docs; no WAVs. Protected files show no diff vs `20e1774`, and the lane is clean. Self-reported gates: O2 0 (49), O4 0 (97), O5 0, O1″ 0, O3″ 0/0. S4 re-render gave identical SHA256 hashes. The `audition_s5` manifest reads `source_audio_in_output: false` and `lead_delay_s: 0.505051`, with the single file `s5_00_riff_whine.wav` (confirmed by the orchestrator). Deviations: timeline hop 512 (cost), extra CLI flags, backing_vox clip at −22.9 LUFS (peak guard). |
-| G1 | user | **waiting on user** | — | The user names the wail stem and window, and reacts to `s5_00_riff_whine`. See the orchestrator reading of the ranking below. |
+| G1 | user | ✅ answered 2026-10-01 | — | **Wail = `stem_guitar`** (htdemucs_6s guitar, 54–67 s). Probe `s5_00_riff_whine`: "close, still build A/B/C". **New requirement, sent mid-turn:** "a bit faster tempo, 1.15–1.20× of the guitar riff". The orchestrator set the pack to **105 BPM** (1.1785× of 89.1, the middle of the range, rounded to a whole BPM for Suno). A `--tempo-bpm` flag keeps other values one re-render away. |
+| s5b resynth A/B/C | B | dispatched (foreground) | `wave_s5b/agent_b_s5b_handoff.md` | TASK_S5B recorded below. |
 
 ## Orchestrator reading of `stem_ranking.json` (read directly, not from the handoff)
 
@@ -26,7 +27,6 @@
 - **Guitar** is the only stem carrying a confident, sustained, high pitched line with vibrato. It sits in the same register as the S4 riff (61–78).
 - **Vocals and backing_vox** have low-confidence pitch and a speech-register median with a high glide share, which fits rap prosody. They also cannot appear in `instrumental.wav`, where the user heard the wail.
 - **Hypothesis, not a finding:** the "wail" may be the timbre of the riff instrument itself (sustained notes with vibrato), not a separate line. Only the user's ear decides.
-| s5b resynth A/B/C | B | not started | `wave_s5b/agent_b_s5b_handoff.md` | Its prompt is finalized after G1. |
 | s5c verify | C | not started | `wave_s5c/agent_c_s5c_verify_handoff.md` | G2 follows: the user's ear test, then the user's Suno upload. |
 
 ## Invariants each wave
@@ -213,4 +213,144 @@ CONSTRAINTS
 - If a hook or concurrent session races your commit, re-check git status and report. Never force.
 - Foreground only; never "background + end turn". Split long pyin runs across calls.
 - Your final message: the handoff path, commit hashes, the gate exit codes and the stem_ranking table.
+```
+
+### TASK_S5B
+
+```text
+Execute wave s5b of OGCM GATE S5 in D:/Projects/Music-AI-Toolshop. You are the implementer. Do only s5b.
+
+READ FIRST
+1. D:/Projects/Music-AI-Toolshop/AGENTS.md
+2. The approved plan D:/Projects/.workspace_archive/plans/ogcm-s5-wail-resynth.md, sections Context, "s5b", Constraints and Verification.
+3. ORCHESTRATION/ogcm_flip/wave_s5a/agent_a_s5a_handoff.md: what s5a built.
+4. ORCHESTRATION/ogcm_flip/wave_s5r/research_wail_report.md, especially "Recommended parameters for render_f0_lead" and "pyin settings".
+5. Code: toolshop/flip/sample_voices.py, scripts/ogcm_sample.py (_s4_variants, the s5 path s5a added, _to_target) and Stemmeca_alatkka/stems/flip_sample/audition_s4/manifest.json. The manifest holds the S4 riff, cell_t0 and chords.
+
+G1 DECISIONS (the user's, final)
+- WAIL SOURCE: the htdemucs_6s guitar stem, Stemmeca_alatkka/stems/htdemucs_6s/2Pac - Only God Can Judge Me/guitar.wav. It is a full-length file, time-aligned with the record.
+  - s5a measured it in 54-67 s: pyin mean voiced_prob 0.564, median B4 (MIDI 71.0), p10-p90 66.3-75.7, voiced_ratio 0.895, vibrato depth 0.445 st.
+- The probe s5_00_riff_whine is "close". Build the resynthesized A/B/C pack.
+- NEW TEMPO REQUIREMENT: "a bit faster, 1.15-1.20x of the guitar riff". The orchestrator chose 105 BPM for the WHOLE pack, which is 1.1785x the record's 89.1 felt BPM.
+  - Add --tempo-bpm (default 105 for --pack s5; S4 and every other pack stay untouched).
+  - Everything time-scales by 89.1/105: riff notes, the chord and sub bars, the wail contour's time axis (pitch unchanged) and the loop length.
+  - The lead echo becomes a dotted 8th at the new tempo: 0.75*60/bpm = 0.4286 s at 105.
+  - Record bpm, the tempo factor and the delay in the manifest.
+  - Reuse sv.tempo_scale and the bar_s parameters of derive_chords, chord_bednotes and bass_root_notes. Do not duplicate them.
+
+HARD RULE
+Suno REJECTED raw source audio. Every file in audition_s5/ is SYNTHESIS ONLY: no _real_chop, and no stem or record samples in any output lane. Stem audio may be read ONLY to extract the pitch contour and RMS envelope.
+
+TASKS
+
+0. Pre-flight: git -C D:/Projects/Music-AI-Toolshop status --short and log --oneline -5. Never touch foreign-lane files.
+
+1. toolshop/flip/sample_voices.py. ADDITIVE only; existing functions stay unchanged.
+- extract_f0_contour(y, sr, fmin=196.0, fmax=2093.0, frame_length=1024, hop_length=128, target_sr=22050)
+  - returns a dict of times, f0_hz (NaN where unvoiced), voiced_prob and rms
+  - uses librosa.pyin with default HMM params and fill_na=nan
+  - voiced mask: voiced_flag AND voiced_prob >= 0.5 AND an RMS gate
+- clean_contour(...), in this order:
+  1. octave fix per segment against the local median
+  2. median filter of 5-7 frames inside voiced segments only
+  3. drop islands shorter than about 9 frames
+  4. bridge gaps up to about 17 frames, only when the step across is 3 semitones or less
+  - If you use hop 256 for speed, halve the frame counts and say so.
+- transpose_contour(contour, st)
+- time_scale_contour(contour, factor): scales times only; pitch unchanged.
+- contour_stats(contour) returns:
+  - voiced coverage inside phrases
+  - octave_jumps: frame-to-frame |d midi| >= 10 inside segments after cleaning
+  - in_key_ratio: the share of note segments whose median MIDI, rounded, has a pitch class in D_MINOR_PCS after the transpose. Bends are allowed because it uses segment medians.
+  - n_segments
+  - measured contour vibrato, peak-to-peak cents, on sustained segments
+- render_f0_lead(contour, sr=44100, sine=1.0, saw=0.35, lpf_hz=None, attack_ms=10, release_ms=70, smooth_ms=20, add_vibrato=False)
+  - phase-accumulating oscillator following the contour, linearly interpolated to audio rate
+  - smooth pitch with a constant 15-30 ms window only. The contour already holds the glides; no 100 ms portamento.
+  - legato across bridged gaps; retrigger on longer gaps
+  - amplitude from the smoothed RMS times voiced gating, with ~10 ms fades
+  - tanh soft clip plus a peak guard; mono to stereo
+  - Synthetic vibrato only if add_vibrato=True: 5.5 Hz, +/-30-45 cents, 180 ms onset, ramped in. Per the report, add it only when the measured contour vibrato is under about 40 cents peak-to-peak. Report the measurement and your choice.
+
+2. Timing and alignment.
+- Read cell_t0 and the riff from audition_s4/manifest.json. The S4 riff cell starts at absolute 54.0 + cell_t0 in record time.
+- Extract the guitar contour from the SAME absolute window: 2 bars at 89.1 BPM (5.388 s). Extend it to 4 bars if the wail phrase clearly continues. The stem is full-length, so reading past 67 s is fine. Record the choice and the exact absolute window.
+- Transpose -4 (F#m to Dm), time-scale to 105 BPM, and tile to the 8-bar loop so the wail keeps its original timing relative to the riff.
+- DIAGNOSTIC to report: onset and pitch agreement between contour segments and the S4 riff notes, in the native key.
+  - Compute the share of riff notes that have a contour segment within 1 sixteenth and 1 semitone.
+  - The guitar range F#4-E5 overlaps the riff, so the guitar may be the riff instrument itself. If agreement is high, say so; it means A is a unison doubling.
+
+3. scripts/ogcm_sample.py --pack s5. Writes to Stemmeca_alatkka/stems/flip_sample/audition_s5/. All files are at 105 BPM, loudness-matched to -16 LUFS, with TP <= -1.
+
+   | File | Contents |
+   |---|---|
+   | s5_00_riff_whine | re-rendered at 105 BPM with the new-tempo delay |
+   | s5_A_layer | S4 body (riff on the S4 sine lead + derived chords + sub) plus the wail from render_f0_lead on top, with the synced delay and reverb |
+   | s5_B_replace | the wail as the lead over the S4 chords + sub; the S4 riff muted |
+   | s5_B_replace_saw | B with a saw-heavy timbre per the report: saw 1.0, sine 0.3, 24 dB/oct LPF around 5 kHz, mild resonance (use pedalboard LadderFilter). No ground truth exists, so the user picks by ear. |
+   | s5_C_texture | S4 riff as the lead; the wail at half speed (contour time axis x2, pitch kept), low-pass filtered, fully wet delay/reverb, about -12 dB under |
+
+- Also write:
+  - manifest.json, including wail_source (stem path, absolute window, bars), contour_stats, recipe, bpm, tempo_factor, lead_delay_s, the riff agreement diagnostic and "source_audio_in_output": false
+  - verification.json
+  - contour.npz next to the manifest, holding times, f0_hz, voiced and rms after cleaning and before tiling. The verifier recomputes from it.
+- Renders must be deterministic: two runs give identical bytes. Check it.
+
+4. NEW scripts/check_contour.py (O6). It reads audition_s5/manifest.json and contour.npz and exits 0 only if all of these hold:
+- voiced coverage in phrases >= 0.6
+- octave_jumps == 0
+- in_key_ratio >= 0.8
+- source_audio_in_output is false
+- bpm is between 102.5 and 107 (1.15-1.20 x 89.1)
+- stats recomputed from the npz match the manifest within 1%
+If in_key_ratio fails, report the offending segments. Do not loosen the threshold.
+
+5. tests/test_flip_sample.py (synthetic data, small SR):
+- A synthetic glide + vibrato sine survives the full cycle: extract, clean, render. The median pitch comes back within 0.5 st, and the output is non-silent.
+- An injected octave jump is fixed (octave_jumps == 0).
+- transpose_contour is exact.
+- time_scale_contour scales times and leaves pitch alone.
+- render_f0_lead is deterministic, finite, <= 1.0 and mono-equal L/R.
+- Silent input gives an empty contour and silence out.
+- contour_stats in_key_ratio is 1.0 on a Dm scale contour.
+
+6. Records.
+- Stemmeca_alatkka/stems/flip_sample/index.html: an S5 A/B/C section at the TOP, above the s5a wail finder.
+  - Caption each file with its role.
+  - State: "105 BPM (1.18x), D minor, synthesis only (no source audio)".
+  - Say which variant is saw-heavy.
+- Write the spec D:/Projects/.workspace_archive/plans/expected_output_ogcm_suno_sample_s5_<YYYYMMDD_HHMMSS>.md:
+  - O1'' verify_sample_pack --dir audition_s5 --glob "s5_*.wav" --min-files 4 --min-s 15 --max-s 45 --lufs -16 --lufs-tol 1.0 --tp-max -1.0
+  - O2 and O4 unchanged
+  - O3'' serve audition_s5/s5_*.wav
+  - O5 check_riff on S4
+  - O6 check_contour
+- LEDGER.md: an s5b row.
+- CHANGELOG.md: the next unique #NNN after #074; grep to confirm it is unused.
+
+7. Gates: run O1'', O2, O3'', O4, O5 and O6, and quote each command, exit code and key output.
+- Check that :8777 is up before O3''. Start it from Stemmeca_alatkka/stems as a background process only if it is down.
+- The 8-bar loop at 105 BPM is about 18.3 s, inside 15-45.
+
+8. Commit with explicit paths: sample_voices.py, ogcm_sample.py, check_contour.py, test_flip_sample.py, CHANGELOG.md and LEDGER.md.
+- Message: feat(#NNN): GATE S5b - resynthesized guitar wail (pyin contour, no source audio) + A/B/C pack at 105 BPM.
+- Separate add and commit calls. Stems stay gitignored; confirm with check-ignore and never force-add.
+- Then write the handoff ORCHESTRATION/ogcm_flip/wave_s5b/agent_b_s5b_handoff.md and commit it as docs. It includes:
+  - the commit hashes
+  - every command with its exit code and key output
+  - contour_stats
+  - the riff agreement diagnostic
+  - the vibrato measurement and choice
+  - the chosen window and bars
+  - wall times
+  - deviations
+  Do NOT claim the wail "sounds right". Only the user's ear decides.
+
+CONSTRAINTS
+- Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe (3.11). Absolute paths; Cwd = D:/Projects/Music-AI-Toolshop; CPU only.
+- No edits to bed_lanes.py, arrange.py or master.py. extract_motif, extract_riff and all existing function behavior stay unchanged. S4 output must stay byte-identical; re-prove it the cheapest valid way. No new dependencies. Renders are deterministic.
+- Nothing Suno-bound contains source audio.
+- git -C, explicit paths, separate add/commit. Never stage MAirina_Tucc/, lyrics_*, Genious_*, scratch_* or ORCHESTRATION/lyrics_sources. No WAVs committed. Never --no-verify. If a concurrent session races you, re-check status and report; never force.
+- Foreground only; never "background + end turn". pyin is slow (~30 s per 13 s at hop 256), so split long runs across calls.
+- Your final message: the handoff path, commit hashes, the gate exit codes, contour_stats and the riff agreement diagnostic.
 ```
