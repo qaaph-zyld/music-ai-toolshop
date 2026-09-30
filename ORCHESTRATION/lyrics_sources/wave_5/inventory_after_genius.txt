@@ -1,0 +1,93 @@
+=== CORPUS INVENTORY ===
+
+Total songs: 1425
+
+--- Solo songs by artist (1315 total) ---
+
+  [drill_trap]
+    jala                     : 199
+    rasta                    : 109
+    devito                   : 106
+    corona                   : 92
+    coby                     : 79
+    buba                     : 73
+    voyage                   : 67
+    tng                      : 40
+    jala-buba                : 20
+    indodjija                : 9
+    jala-buba-coby           : 1
+
+  [pop]
+    maya-berovic             : 145
+    senidah                  : 82
+    nikolija                 : 70
+    ana-nikolic              : 68
+    relja                    : 59
+    henny                    : 44
+    breskvica                : 40
+    jala-buba                : 6
+    coby                     : 3
+    buba                     : 2
+    jala                     : 1
+
+--- Featured songs (110 total) ---
+  rasta                     [NULL      ]: 24
+  corona                    [NULL      ]: 21
+  henny                     [NULL      ]: 9
+  voyage                    [NULL      ]: 9
+  devito                    [NULL      ]: 7
+  tng                       [NULL      ]: 6
+  senidah                   [NULL      ]: 5
+  indodjija                 [NULL      ]: 4
+  nikolija                  [NULL      ]: 3
+  relja                     [NULL      ]: 3
+  breskvica                 [NULL      ]: 2
+  breskvica                 [drill_trap]: 6
+  corona                    [drill_trap]: 2
+  rasta                     [drill_trap]: 2
+  ana-nikolic               [drill_trap]: 1
+  devito                    [drill_trap]: 1
+  henny                     [drill_trap]: 1
+  nikolija                  [pop       ]: 2
+  breskvica                 [pop       ]: 1
+  devito                    [pop       ]: 1
+
+--- Structural counts ---
+  Sections: 10654
+  Lines: 65912
+  Rhyme rows: 273801
+  Song rhyme metrics: 1425
+
+--- Files on disk by category ---
+  ana-nikolic-featured          : 1
+  ana-nikolic-solo              : 68
+  breskvica-featured            : 9
+  breskvica-solo                : 40
+  buba-solo                     : 75
+  coby-solo                     : 82
+  corona-featured               : 23
+  corona-solo                   : 92
+  devito-featured               : 9
+  devito-solo                   : 106
+  henny-featured                : 10
+  henny-solo                    : 44
+  indodjija-featured            : 4
+  indodjija-solo                : 9
+  jala-buba-coby-trio           : 1
+  jala-buba-duo                 : 26
+  jala-solo                     : 200
+  maya-berovic-solo             : 145
+  nikolija-featured             : 5
+  nikolija-solo                 : 70
+  rasta-featured                : 26
+  rasta-solo                    : 109
+  relja-featured                : 3
+  relja-solo                    : 59
+  senidah-featured              : 5
+  senidah-solo                  : 82
+  tng-featured                  : 6
+  tng-solo                      : 40
+  voyage-featured               : 9
+  voyage-solo                   : 67
+
+--- NULL cohort solo artists (need COHORT_MAP entry) ---

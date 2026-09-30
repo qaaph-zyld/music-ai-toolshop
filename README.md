@@ -179,7 +179,10 @@ Install the advanced backends with the `melody` extra: `pip install -e .[melody]
 
 ### Lyric Writing Tools (`toolshop lyrics`)
 
-Built on a 1,425-song corpus (`data/toolshop/lyrics/lyrics.db`): a rimer DB of attested rhyme pairs,
+Built on a multi-corpus `lyrics.db` (`data/toolshop/lyrics/`) — the 1,425-song `genius-pro`
+corpus plus license-tiered corpora (ccmixter, gutenberg_pd, hymnary, lrclib, mudcat-digitrad,
+sacred-texts) ingested corpus-scoped via `lyrics build-db --corpus TAG [--incremental|--rebuild]`
+(#070); every song carries `license_tier`/`release_ok`/TASL provenance. Inside it: a rimer DB of attested rhyme pairs,
 a Suno brief generator driven by per-artist fingerprints, and a 5-component draft scorer with an
 originality check (#037) — plus ten craft modules: `score-ai`, `cliches`, `template`,
 `clean-tokens`, `inject-slang`, `check-scheme`, `retrieve-similar`, `theme-match`, `improve-loop`,

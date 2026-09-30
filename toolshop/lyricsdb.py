@@ -1,6 +1,11 @@
 """SQLite lyrics database — schema, loader, and section label parser.
 
-Tables: ``songs``, ``sections``, ``lines``.  Full rebuild each run.
+Tables: ``songs``, ``sections``, ``lines`` (+ metrics/rhyme/L3 tables).
+Multi-corpus (SPEC §4-5): ``build_database`` is corpus-scoped — rebuild deletes
+only ``songs WHERE corpus=?`` (FK cascades); ``incremental=True`` is
+additive-only. License/provenance columns on ``songs`` are added by
+``ensure_license_columns`` (migrate-on-open) and populated from the song-JSON
+v2 license block via ``_index.json``.
 ``lyrics.db`` lives under ``TOOLSHOP_DATA_DIR`` (default ``<repo>/data/toolshop``),
 never inside the repo.
 """
@@ -419,7 +424,22 @@ CREATE TABLE IF NOT EXISTS songs (
     ingested_at      TEXT    NOT NULL,
     role             TEXT,   -- 'solo' or 'featured' (from folder suffix)
     target_artist    TEXT,   -- folder's artist (NOT primary_artist for featured)
-    genre_cohort     TEXT    -- 'drill_trap', 'pop', or NULL (unconfirmed/non-target)
+    genre_cohort     TEXT,   -- 'drill_trap', 'pop', or NULL (unconfirmed/non-target)
+    -- License/provenance block (SPEC §4.1). Song-JSON field 'license' maps to
+    -- column 'license_ref' (SPDX token); 'license_tier'/'release_ok' are our
+    -- policy fields. Safe defaults: never auto-release what is untagged.
+    license_tier     TEXT NOT NULL DEFAULT 'study-only',
+    license_ref      TEXT,
+    license_url      TEXT,
+    release_ok       TEXT NOT NULL DEFAULT 'no',
+    creator          TEXT,
+    creator_url      TEXT,
+    source_url       TEXT,
+    copyright_notice TEXT,
+    modified_note    TEXT,
+    foreign_identifier TEXT,
+    script           TEXT,   -- 'cyrillic'|'latin', NULL elsewhere
+    derived_from     TEXT    -- optional cross-corpus link (PD original ↔ cover)
 );
 
 CREATE TABLE IF NOT EXISTS sections (
@@ -551,6 +571,146 @@ def _create_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(_SCHEMA_SQL)
 
 
+# ── License-column migration (SPEC §4) ────────────────────────────────
+
+#: Column name → SQL type clause, in canonical order (SPEC §4.1).
+_LICENSE_COLUMNS: Dict[str, str] = {
+    "license_tier": "TEXT NOT NULL DEFAULT 'study-only'",
+    "license_ref": "TEXT",
+    "license_url": "TEXT",
+    "release_ok": "TEXT NOT NULL DEFAULT 'no'",
+    "creator": "TEXT",
+    "creator_url": "TEXT",
+    "source_url": "TEXT",
+    "copyright_notice": "TEXT",
+    "modified_note": "TEXT",
+    "foreign_identifier": "TEXT",
+    "script": "TEXT",
+    "derived_from": "TEXT",
+}
+
+#: Song-JSON v2 fields copied into each ``_index.json`` entry so the license
+#: block reaches ``_insert_song`` via the basename join (SPEC §3.3, F8).
+#: ``license`` (SPDX token) maps to the ``license_ref`` DB column at insert.
+_INDEX_LICENSE_FIELDS: Tuple[str, ...] = (
+    "corpus", "source", "foreign_identifier", "source_url",
+    "creator", "creator_url", "copyright_notice", "modified_note",
+    "license", "license_url", "license_tier", "release_ok", "derived_from",
+    "script",
+)
+
+
+def ensure_license_columns(conn: sqlite3.Connection) -> int:
+    """Migrate-on-open guard (SPEC §4.2): add the §4.1 license columns to a
+    v1-shaped ``songs`` table and backfill existing genius-pro rows.
+
+    Idempotent — PRAGMA table_info gates every ALTER; safe to call on any open
+    connection that already has a ``songs`` table. Returns the number of rows
+    backfilled (0 on a fresh schema or an already-migrated DB).
+    """
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(songs)")}
+    if not existing:
+        return 0  # no songs table yet — _create_schema produces the v2 shape
+    for col, clause in _LICENSE_COLUMNS.items():
+        if col not in existing:
+            conn.execute(f"ALTER TABLE songs ADD COLUMN {col} {clause}")
+    # Backfill genius rows corpus-scoped (SPEC §4.2): 'proprietary', not
+    # 'unknown' — status is known-copyrighted (R4 §5 / WASABI precedent).
+    cur = conn.execute(
+        """UPDATE songs SET license_tier='study-only',
+                            license_ref='proprietary',
+                            release_ok='no'
+           WHERE corpus='genius-pro' AND license_ref IS NULL"""
+    )
+    backfilled = cur.rowcount if cur.rowcount is not None else 0
+    conn.commit()
+    return backfilled
+
+
+# ── Per-corpus license defaults + registry resolution (SPEC §5.1) ─────
+
+#: license_tier → release_ok fallback (SPEC §1.1 defaults; per-item values from
+#: the song JSON/index always win over this map).
+_TIER_RELEASE_OK: Dict[str, str] = {
+    "pd": "yes",
+    "cc0": "yes",
+    "cc-by": "yes",
+    "cc-by-sa": "conditional",
+    "cc-by-nc": "no",
+    "paid-rf": "no",
+    "uploader-terms": "no",
+    "study-only": "no",
+    "uncleared": "no",
+}
+
+#: Builtin fallback when the registry file is unreadable — lyricsdb keeps zero
+#: dependency on the extractor folder (SPEC §5.1).
+_BUILTIN_LICENSE_DEFAULTS: Dict[str, Dict[str, Optional[str]]] = {
+    "genius-pro": {
+        "license_tier": "study-only",
+        "license_ref": "proprietary",
+        "license_url": None,
+        "release_ok": "no",
+    },
+}
+
+_REGISTRY_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "Genious_lyrics_extractor" / "sources" / "registry.json"
+)
+
+
+def _load_source_registry() -> Dict[str, Any]:
+    """Read ``sources/registry.json`` (committed config) — a file read only,
+    never an import (the extractor folder has no package import path here)."""
+    try:
+        with _REGISTRY_PATH.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {"sources": []}
+
+
+def corpus_dir_for(corpus: str) -> Optional[str]:
+    """Registry ``corpus_tag`` → on-disk corpus dir.
+
+    ``corpus_dir`` override wins; default is the tag itself. ``genius-pro`` →
+    ``'genius'`` is the ONE legacy exception (registry §2.1). Returns ``None``
+    when the tag is unknown to the registry (and not the builtin default).
+    """
+    if corpus == CORPUS_TAG:
+        return "genius"
+    for row in _load_source_registry().get("sources", []):
+        if row.get("corpus_tag") == corpus:
+            return row.get("corpus_dir") or corpus
+    return None
+
+
+def _corpus_license_defaults(corpus: str) -> Dict[str, Optional[str]]:
+    """Per-corpus license fallbacks resolved once per build (SPEC §5.1).
+
+    Registry ``license_tier`` + ``license_ref_default`` first; builtin map
+    second; safe 'study-only'/'no' last. Per-item fields in the song JSON or
+    index entry always override these.
+    """
+    for row in _load_source_registry().get("sources", []):
+        if row.get("corpus_tag") == corpus:
+            tier = row.get("license_tier") or "study-only"
+            return {
+                "license_tier": tier,
+                "license_ref": row.get("license_ref_default"),
+                "license_url": None,
+                "release_ok": _TIER_RELEASE_OK.get(tier, "no"),
+            }
+    if corpus in _BUILTIN_LICENSE_DEFAULTS:
+        return dict(_BUILTIN_LICENSE_DEFAULTS[corpus])
+    return {
+        "license_tier": "study-only",
+        "license_ref": None,
+        "license_url": None,
+        "release_ok": "no",
+    }
+
+
 # ── Loader ────────────────────────────────────────────────────────────
 
 def _load_index(root: Path) -> Dict[str, Dict[str, Any]]:
@@ -584,6 +744,7 @@ def build_unified_index(root: Path) -> Dict[str, Any]:
     song_files = _scan_song_files(root)
 
     seen_keys: Dict[Tuple[str, str], str] = {}
+    seen_fids: set = set()
     dedup_log: List[Dict[str, str]] = []
     index: List[Dict[str, Any]] = []
     duplicates_dropped = 0
@@ -603,22 +764,26 @@ def build_unified_index(root: Path) -> Dict[str, Any]:
         featured_artists = song_data.get("featured_artists", [])
         url = song_data.get("url", "")
         genius_song_id = song_data.get("genius_song_id")
+        fid = song_data.get("foreign_identifier")
 
         key = _dedup_key(title, primary_artist)
-        if key in seen_keys:
+        fid_seen = fid is not None and str(fid) in seen_fids
+        if key in seen_keys or fid_seen:
             duplicates_dropped += 1
             dedup_log.append({
                 "title": title,
                 "primary_artist": primary_artist,
                 "source_path": str(json_file),
-                "duplicate_of": seen_keys[key],
+                "duplicate_of": seen_keys.get(key, f"<fid:{fid}>"),
             })
             continue
 
         rel_path = json_file.relative_to(root).as_posix()
         seen_keys[key] = rel_path
+        if fid is not None:
+            seen_fids.add(str(fid))
 
-        index.append({
+        entry = {
             "genius_song_id": genius_song_id,
             "title": title,
             "primary_artist": primary_artist,
@@ -627,7 +792,12 @@ def build_unified_index(root: Path) -> Dict[str, Any]:
             "url": url,
             "status": "completed",
             "json_path": rel_path,
-        })
+        }
+        # License block rides the index (SPEC §3.3/F8) — _insert_song reads
+        # these fields from the index entry with song-JSON fallback.
+        for lic_field in _INDEX_LICENSE_FIELDS:
+            entry[lic_field] = song_data.get(lic_field)
+        index.append(entry)
 
     # Write unified index
     index_path = root / "_index.json"
@@ -650,11 +820,14 @@ def build_unified_index(root: Path) -> Dict[str, Any]:
 
 
 def _scan_song_files(root: Path) -> List[Tuple[str, Path]]:
-    """Scan <root>/<category>/*.json (excluding _* files). Returns (category, path) tuples."""
+    """Scan <root>/<category>/*.json (excluding _* files and _* dirs).
+    Returns (category, path) tuples."""
     songs: List[Tuple[str, Path]] = []
     for category_dir in sorted(root.iterdir()):
         if not category_dir.is_dir():
             continue
+        if category_dir.name.startswith("_"):
+            continue  # _src/_cache/_import/_quarantine_* — never a category
         category = category_dir.name
         for json_file in sorted(category_dir.glob("*.json")):
             if json_file.name.startswith("_"):
@@ -670,8 +843,16 @@ def _insert_song(
     source_path: str,
     index_entry: Optional[Dict[str, Any]],
     ingested_at: str,
+    corpus: str = CORPUS_TAG,
+    license_defaults: Optional[Dict[str, Optional[str]]] = None,
 ) -> int:
-    """Insert a song and return its id."""
+    """Insert a song and return its id.
+
+    License/provenance fields are read from ``index_entry`` first, then the
+    song JSON, then the per-corpus ``license_defaults`` resolved by
+    ``build_database`` (SPEC §3.3/§5.1). Song-JSON ``license`` maps to the
+    ``license_ref`` column.
+    """
     title = song_data.get("title", "")
     # primary_artist from index entry, fallback to song's artist field
     primary_artist = ""
@@ -704,13 +885,40 @@ def _insert_song(
         # (handles Genius listing a different primary_artist, e.g. "THCF" in jala-solo)
         genre_cohort = _FOLDER_COHORT_MAP.get(target_artist.lower())
 
+    # ── License block (SPEC §3.3): index entry → song JSON → corpus defaults ──
+    defaults = license_defaults or {}
+    def _lic(name: str) -> Any:
+        v = index_entry.get(name) if index_entry else None
+        if v is None:
+            v = song_data.get(name)
+        return v
+
+    license_tier = _lic("license_tier") or defaults.get("license_tier") or "study-only"
+    license_ref = _lic("license") or defaults.get("license_ref")
+    license_url = _lic("license_url") or defaults.get("license_url")
+    release_ok = _lic("release_ok") or defaults.get("release_ok") or "no"
+    creator = _lic("creator")
+    creator_url = _lic("creator_url")
+    source_url = _lic("source_url")
+    copyright_notice = _lic("copyright_notice")
+    modified_note = _lic("modified_note")
+    foreign_identifier = _lic("foreign_identifier")
+    if foreign_identifier is not None:
+        foreign_identifier = str(foreign_identifier)
+    script = _lic("script")
+    derived_from = _lic("derived_from")
+
     cursor = conn.execute(
         """INSERT INTO songs (corpus, category, title, primary_artist,
            featured_artists, url, language, source_path, ingested_at,
-           role, target_artist, genre_cohort)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           role, target_artist, genre_cohort,
+           license_tier, license_ref, license_url, release_ok,
+           creator, creator_url, source_url, copyright_notice, modified_note,
+           foreign_identifier, script, derived_from)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                   ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-            CORPUS_TAG,
+            corpus,
             category,
             title,
             primary_artist,
@@ -722,6 +930,18 @@ def _insert_song(
             role,
             target_artist,
             genre_cohort,
+            license_tier,
+            license_ref,
+            license_url,
+            release_ok,
+            creator,
+            creator_url,
+            source_url,
+            copyright_notice,
+            modified_note,
+            foreign_identifier,
+            script,
+            derived_from,
         ),
     )
     return cursor.lastrowid
@@ -771,32 +991,48 @@ def _insert_sections(
 def build_database(
     root: Path,
     db_path: Optional[Path] = None,
+    corpus: Optional[str] = None,
+    incremental: bool = False,
 ) -> Dict[str, Any]:
     """Build the lyrics database from a corpus root.
 
-    Full rebuild: drops and recreates all tables.  Scans ``<root>/<category>/*.json``,
-    joins ``_index.json`` by basename for metadata, deduplicates by
-    normalized ``(title, primary_artist)``.
+    Corpus-scoped (SPEC §5): ``incremental=False`` deletes only
+    ``songs WHERE corpus = <corpus>`` (FK ``ON DELETE CASCADE`` wipes that
+    corpus's sections/lines/metrics/rhymes — other corpora are never touched)
+    and re-ingests every ``<root>/<category>/*.json``. ``incremental=True``
+    is additive-only: files whose ``_dedup_key`` or ``foreign_identifier``
+    already exists in the corpus are skipped (``already_present``), and
+    metrics/rhymes are computed only for newly inserted song ids.
+    Cross-corpus duplicates are CORRECT (F9: PD original + modern cover).
 
     Args:
-        root: Corpus root directory (e.g. ``D:\\MusicData\\toolshop\\lyrics\\genius``).
+        root: Corpus root directory (e.g. ``<data>/lyrics/genius``).
         db_path: Path for the SQLite database. Defaults to ``DEFAULT_DB_PATH``.
+        corpus: ``songs.corpus`` tag. ``None`` → ``CORPUS_TAG``
+            ('genius-pro') for back-compat.
+        incremental: additive mode (no DELETE, no unlink).
 
     Returns:
         Summary dict with keys:
             - songs_ingested: int
             - duplicates_dropped: int
+            - already_present: int (incremental-mode skips)
             - songs_skipped: int
             - sections_ingested: int
-            - lines_ingested: int
+            - lines_ingested: int (corpus-scoped)
+            - license_backfilled: int (v1→v2 migrations applied on open)
+            - corpus: str
+            - incremental: bool
             - dedup_log: list of dicts with title/primary_artist/source_path
     """
     if db_path is None:
         db_path = DEFAULT_DB_PATH
+    corpus = corpus or CORPUS_TAG
 
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
+    license_defaults = _corpus_license_defaults(corpus)
     ingested_at = datetime.now(timezone.utc).isoformat()
 
     # Build unified index from disk (replaces fragmented batch indices)
@@ -811,21 +1047,44 @@ def build_database(
 
     # Dedup tracking
     seen_keys: Dict[Tuple[str, str], str] = {}  # key → source_path (first seen)
+    seen_fids: set = set()                      # foreign_identifiers seen in scan
     dedup_log: List[Dict[str, str]] = []
     duplicates_dropped = 0
     songs_skipped = 0
     songs_ingested = 0
+    already_present = 0
     sections_ingested = 0
     lines_ingested = 0
-
-    # Remove existing DB for clean rebuild
-    if db_path.exists():
-        db_path.unlink()
 
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     _create_schema(conn)
+    license_backfilled = ensure_license_columns(conn)
+
+    if incremental:
+        # Corpus-scoped pre-check (SPEC §4.3): seed dedup state from the
+        # existing corpus rows — one indexed SELECT, normalized in Python.
+        db_keys: set = set()
+        db_fids: set = set()
+        for t, a, fid in conn.execute(
+            "SELECT title, primary_artist, foreign_identifier "
+            "FROM songs WHERE corpus = ?",
+            (corpus,),
+        ):
+            db_keys.add(_dedup_key(t or "", a or ""))
+            if fid is not None:
+                db_fids.add(str(fid))
+        print(f"  Incremental: {len(db_keys)} existing '{corpus}' songs keyed")
+    else:
+        # Corpus-scoped rebuild — FK cascades wipe the corpus's sections,
+        # lines, song_metrics, line_rhymes, song_rhyme_metrics, tokens,
+        # entities, section_topics. Other corpora untouched.
+        conn.execute("DELETE FROM songs WHERE corpus = ?", (corpus,))
+        db_keys = set()
+        db_fids = set()
+
+    new_song_ids: List[int] = []
 
     for category, json_file in song_files:
         try:
@@ -844,42 +1103,71 @@ def build_database(
         if not primary_artist:
             primary_artist = song_data.get("artist", "")
 
+        fid = index_entry.get("foreign_identifier") if index_entry else None
+        if fid is None:
+            fid = song_data.get("foreign_identifier")
+        fid = str(fid) if fid is not None else None
+
         key = _dedup_key(title, primary_artist)
-        if key in seen_keys:
+
+        if incremental and (key in db_keys or (fid is not None and fid in db_fids)):
+            already_present += 1
+            continue
+
+        if key in seen_keys or (fid is not None and fid in seen_fids):
             duplicates_dropped += 1
             dedup_log.append({
                 "title": title,
                 "primary_artist": primary_artist,
                 "source_path": str(json_file),
-                "duplicate_of": seen_keys[key],
+                "duplicate_of": seen_keys.get(key, f"<fid:{fid}>"),
             })
             continue
 
         seen_keys[key] = str(json_file)
+        if fid is not None:
+            seen_fids.add(fid)
 
         song_id = _insert_song(
-            conn, category, song_data, str(json_file), index_entry, ingested_at
+            conn, category, song_data, str(json_file), index_entry, ingested_at,
+            corpus=corpus, license_defaults=license_defaults,
         )
         sections = song_data.get("sections", [])
         sec_count = _insert_sections(conn, song_id, sections)
+        new_song_ids.append(song_id)
         songs_ingested += 1
         sections_ingested += sec_count
 
-    # Count lines
-    cursor = conn.execute("SELECT count(*) FROM lines")
-    lines_ingested = cursor.fetchone()[0]
+    # Count lines (corpus-scoped — a multi-corpus DB shares the lines table)
+    lines_ingested = conn.execute(
+        """SELECT count(*) FROM lines l
+           JOIN sections se ON l.section_id = se.id
+           JOIN songs s ON se.song_id = s.id
+           WHERE s.corpus = ?""",
+        (corpus,),
+    ).fetchone()[0]
 
-    # Populate song_metrics table and create artist views
+    # Populate song_metrics + line_rhymes ONLY for this corpus's ids:
+    # incremental → the newly inserted ids; rebuild → all corpus ids (SPEC §5.2).
+    if incremental:
+        metric_ids = list(new_song_ids)
+    else:
+        metric_ids = [
+            r[0] for r in conn.execute(
+                "SELECT id FROM songs WHERE corpus = ?", (corpus,)
+            )
+        ]
+
     from toolshop.lyrics_metrics import populate_song_metrics, create_artist_views
-    metrics_count = populate_song_metrics(conn)
+    metrics_count = populate_song_metrics(conn, song_ids=metric_ids)
     create_artist_views(conn)
 
-    # Populate line_rhymes table
+    # Populate line_rhymes table (per-song, same id scope as metrics)
     from toolshop.rhyme_miner import populate_rhymes
     rhyme_count = 0
-    for row in conn.execute("SELECT id FROM songs"):
-        rhyme_count += populate_rhymes(conn, row[0])
-    print(f"  Rhymes computed: {rhyme_count} rhyme rows across {songs_ingested} songs")
+    for song_id in metric_ids:
+        rhyme_count += populate_rhymes(conn, song_id)
+    print(f"  Rhymes computed: {rhyme_count} rhyme rows across {len(metric_ids)} songs")
 
     conn.commit()
     conn.close()
@@ -889,14 +1177,19 @@ def build_database(
     summary = {
         "songs_ingested": songs_ingested,
         "duplicates_dropped": duplicates_dropped,
+        "already_present": already_present,
         "songs_skipped": songs_skipped,
         "sections_ingested": sections_ingested,
         "lines_ingested": lines_ingested,
+        "license_backfilled": license_backfilled,
+        "corpus": corpus,
+        "incremental": incremental,
         "dedup_log": dedup_log,
     }
 
     print(f"  Ingested: {songs_ingested} songs, {sections_ingested} sections, {lines_ingested} lines")
     print(f"  Duplicates dropped: {duplicates_dropped}")
+    print(f"  Already present: {already_present}")
     print(f"  Skipped: {songs_skipped}")
 
     return summary

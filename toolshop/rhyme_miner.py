@@ -444,15 +444,35 @@ def populate_rhymes(conn, song_id: int) -> int:
     return inserted
 
 
-def get_artist_rhyme_stats(conn, artist: Optional[str] = None) -> List[Dict]:
+def _corpus_where(corpus: Optional[str], alias: str = "s") -> Tuple[str, list]:
+    """``s.corpus`` filter fragment. ``'all'``/``None`` → no corpus filter;
+    any other value → ``<alias>.corpus = ?``. Default corpus is 'genius-pro'."""
+    if corpus is None or corpus == "all":
+        return "", []
+    return f"{alias}.corpus = ?", [corpus]
+
+
+def get_artist_rhyme_stats(
+    conn,
+    artist: Optional[str] = None,
+    corpus: Optional[str] = "genius-pro",
+) -> List[Dict]:
     """Return per-artist rhyme statistics from the line_rhymes table.
 
     ``multisyllabic_count`` counts end-rhyme rows only (match_length >= 3).
+    ``corpus`` scopes the query — 'genius-pro' (default, legacy behavior),
+    another corpus tag, or 'all' for every corpus in the DB.
     """
     cursor = conn.cursor()
+    corpus_clause, corpus_params = _corpus_where(corpus)
     if artist:
+        where = "WHERE s.primary_artist = ?"
+        params: list = [artist]
+        if corpus_clause:
+            where += f" AND {corpus_clause}"
+            params += corpus_params
         cursor.execute(
-            """SELECT
+            f"""SELECT
                 s.primary_artist,
                 count(DISTINCT lr.song_id) as songs_with_rhymes,
                 count(*) as total_rhyme_lines,
@@ -460,14 +480,15 @@ def get_artist_rhyme_stats(conn, artist: Optional[str] = None) -> List[Dict]:
                 count(CASE WHEN lr.match_length >= 3 AND lr.rhyme_type = 'end' THEN 1 END) as multisyllabic_count
                FROM line_rhymes lr
                JOIN songs s ON lr.song_id = s.id
-               WHERE s.primary_artist = ? AND s.corpus = 'genius-pro'
+               {where}
                GROUP BY s.primary_artist
                ORDER BY total_rhyme_lines DESC""",
-            (artist,),
+            params,
         )
     else:
+        where = f"WHERE {corpus_clause}" if corpus_clause else ""
         cursor.execute(
-            """SELECT
+            f"""SELECT
                 s.primary_artist,
                 count(DISTINCT lr.song_id) as songs_with_rhymes,
                 count(*) as total_rhyme_lines,
@@ -475,25 +496,37 @@ def get_artist_rhyme_stats(conn, artist: Optional[str] = None) -> List[Dict]:
                 count(CASE WHEN lr.match_length >= 3 AND lr.rhyme_type = 'end' THEN 1 END) as multisyllabic_count
                FROM line_rhymes lr
                JOIN songs s ON lr.song_id = s.id
-               WHERE s.corpus = 'genius-pro'
+               {where}
                GROUP BY s.primary_artist
-               ORDER BY total_rhyme_lines DESC"""
+               ORDER BY total_rhyme_lines DESC""",
+            corpus_params,
         )
 
     columns = [desc[0] for desc in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
-def get_artist_rhyme_fingerprints(conn, artist: Optional[str] = None) -> List[Dict]:
+def get_artist_rhyme_fingerprints(
+    conn,
+    artist: Optional[str] = None,
+    corpus: Optional[str] = "genius-pro",
+) -> List[Dict]:
     """Return per-artist rhyme fingerprints from song_rhyme_metrics.
 
     Includes avg rhyme_factor, avg pct_multis, avg internal_rhyme_rate,
-    dominant scheme distribution, and top vowel pairs.
+    dominant scheme distribution, and top vowel pairs. ``corpus`` scopes the
+    query — 'genius-pro' (default), another corpus tag, or 'all'.
     """
     cursor = conn.cursor()
+    corpus_clause, corpus_params = _corpus_where(corpus)
     if artist:
+        where = "WHERE s.primary_artist = ? AND s.role = 'solo'"
+        params: list = [artist]
+        if corpus_clause:
+            where += f" AND {corpus_clause}"
+            params += corpus_params
         cursor.execute(
-            """SELECT
+            f"""SELECT
                 s.primary_artist,
                 count(*) as song_count,
                 round(avg(srm.rhyme_factor), 4) as avg_rhyme_factor,
@@ -501,15 +534,19 @@ def get_artist_rhyme_fingerprints(conn, artist: Optional[str] = None) -> List[Di
                 round(avg(srm.internal_rhyme_rate), 4) as avg_internal_rhyme_rate
                FROM song_rhyme_metrics srm
                JOIN songs s ON srm.song_id = s.id
-               WHERE s.primary_artist = ? AND s.corpus = 'genius-pro'
-                 AND s.role = 'solo'
+               {where}
                GROUP BY s.primary_artist
                ORDER BY avg_rhyme_factor DESC""",
-            (artist,),
+            params,
         )
     else:
+        where = "WHERE s.role = 'solo'"
+        params = []
+        if corpus_clause:
+            where += f" AND {corpus_clause}"
+            params += corpus_params
         cursor.execute(
-            """SELECT
+            f"""SELECT
                 s.primary_artist,
                 count(*) as song_count,
                 round(avg(srm.rhyme_factor), 4) as avg_rhyme_factor,
@@ -517,10 +554,10 @@ def get_artist_rhyme_fingerprints(conn, artist: Optional[str] = None) -> List[Di
                 round(avg(srm.internal_rhyme_rate), 4) as avg_internal_rhyme_rate
                FROM song_rhyme_metrics srm
                JOIN songs s ON srm.song_id = s.id
-               WHERE s.corpus = 'genius-pro'
-                 AND s.role = 'solo'
+               {where}
                GROUP BY s.primary_artist
-               ORDER BY avg_rhyme_factor DESC"""
+               ORDER BY avg_rhyme_factor DESC""",
+            params,
         )
 
     columns = [desc[0] for desc in cursor.description]

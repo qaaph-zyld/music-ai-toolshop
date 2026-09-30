@@ -1,5 +1,30 @@
 # Changelog
 
+### Answer #070 - lyrics-sources wave 5 (I5): multi-corpus lyricsdb — license columns, corpus-scoped rebuild + additive incremental, `--corpus` plumbing.
+**Timestamp:** 2026-10-01
+**Action Type:** Implementation — wave 5 agent I5 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md` §4-5, §8.1).
+
+**What landed:** `songs` gains the 12-column license/provenance block (§4.1: `license_tier`/`license_ref`/`license_url`/`release_ok` + TASL + `foreign_identifier`/`script`/`derived_from`) via `ensure_license_columns()` — PRAGMA table_info + ALTER + genius backfill to `study-only`/`proprietary`/`no`, called migrate-on-open by `build_database` and `corpus_inventory.py` (vendored — folder scripts can't `import toolshop`, F-B1). `build_database(root, db_path, corpus, incremental)`: default mode is now a **corpus-scoped rebuild** (`DELETE FROM songs WHERE corpus=?` + FK cascades — the whole-DB `unlink()` is gone); `--incremental` is additive-only (corpus-scoped `_dedup_key`+`foreign_identifier` pre-check, metrics/rhymes only for new song ids via `populate_song_metrics(conn, song_ids)`). License fields ride `_index.json` (`build_unified_index` copies the song-JSON v2 block; `_insert_song` reads index→song→per-corpus registry defaults). `lyrics build-db` gains `--corpus TAG`/`--incremental|--rebuild`; `rhyme_miner` corpus filters parametrized (`--corpus` on `lyrics rhymes`; `'all'` = no filter); `corpus_inventory.py` extended to all corpora + license_tier×release_ok matrix + TASL-gap report (`--corpus genius-pro` output byte-identical to before).
+
+#### Files Affected:
+- **MODIFIED:** `toolshop/lyricsdb.py` — §4.1 columns, `ensure_license_columns`, `corpus_dir_for`/`_corpus_license_defaults` (registry file-read, no extractor import), corpus+incremental `build_database`, `_insert_song` license block, `_scan_song_files` skips `_`-dirs
+- **MODIFIED:** `toolshop/lyrics_metrics.py` — `populate_song_metrics(conn, song_ids=None)`
+- **MODIFIED:** `toolshop/rhyme_miner.py` — `corpus` param on `get_artist_rhyme_stats`/`get_artist_rhyme_fingerprints` (4 sites)
+- **MODIFIED:** `toolshop/cli.py` — `build-db --corpus/--incremental/--rebuild`, `rhymes --corpus`
+- **REWRITTEN:** `Genious_lyrics_extractor/corpus_inventory.py` — argparse `--corpus`/`--db`, per-corpus blocks, license matrix
+- **NEW:** `tests/test_lyricsdb_multicorpus.py` (15 tests)
+- **MODIFIED:** `README.md`, `CHANGELOG.md` — this entry.
+
+#### Verification:
+- `pytest tests/test_lyricsdb_multicorpus.py -x -q` → **15 passed** (exit 0); corpus-scoped dedup, incremental additivity + fid arm, v1 migrate-on-open, license ingestion, rhyme corpus boundaries.
+- `pytest tests/test_lyricsdb.py tests/test_rhyme_miner.py` → **140 passed, 1 skipped**; `test_{brief_generator,draft_scorer,fingerprint,rimer_db}` → **47 passed, 1 skipped**.
+- Real ingest: genius-pro `--rebuild` → 1425/10654/65912/273801 — **byte-identical** to pre-migration counts; +ccmixter 17, gutenberg_pd 3, hymnary 1, lrclib 25, mudcat-digitrad 25, sacred-texts 23 (94 new songs; DB 1519 total).
+- `corpus_inventory.py --corpus genius-pro` after ingest → `diff` vs before-snapshot: **IDENTICAL**.
+- `lyrics build-db --corpus lrclib --incremental` → 0 ingested / 25 already_present / 0 metrics recomputed (additive proof on real data).
+
+#### Next Actions Required:
+- W6 review: `export_release.py` (§8.2) smoke + license audit; wikisource_pd corpus still empty (wave-A pilot rate-limited) — ingest when fetched.
+
 ### Answer #069 - lyrics-sources wave A (I3): wikisource_pd (sr+en merged corpus) + gutenberg_pd adapters — Cyrillic→Latin normalization + double-spacing fix.
 **Timestamp:** 2026-10-01
 **Action Type:** Implementation — wave A agent I3 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`); agent session ended pre-commit, orchestrator verified + committed + fixed the gutenberg stanza-splitting bug found in pilot.

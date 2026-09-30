@@ -906,15 +906,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Save analysis report as JSON to this path",
     )
 
-    # lyrics build-db [--root PATH] [--db PATH]
+    # lyrics build-db [--corpus TAG] [--root PATH] [--db PATH] [--incremental|--rebuild]
     lyrics_build_db_parser = lyrics_subparsers.add_parser(
-        "build-db", help="Build lyrics SQLite database from Genius corpus"
+        "build-db",
+        help="Build lyrics SQLite database from a corpus (default corpus: genius-pro)",
+    )
+    lyrics_build_db_parser.add_argument(
+        "--corpus",
+        type=str,
+        default="genius-pro",
+        help="Corpus tag to ingest (default: genius-pro; registry corpus_tag, e.g. ccmixter, lrclib, mudcat-digitrad)",
     )
     lyrics_build_db_parser.add_argument(
         "--root",
         type=Path,
         default=None,
-        help="Corpus root directory (default: <repo>/data/toolshop/lyrics/genius)",
+        help="Corpus root directory (default: <repo>/data/toolshop/lyrics/<corpus_dir> resolved via registry; genius-pro → lyrics/genius)",
     )
     lyrics_build_db_parser.add_argument(
         "--db",
@@ -922,6 +929,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
+    build_mode = lyrics_build_db_parser.add_mutually_exclusive_group()
+    build_mode.add_argument(
+        "--incremental",
+        dest="incremental",
+        action="store_true",
+        help="Additive mode: skip songs already present in this corpus (dedup key or foreign_identifier); never deletes existing rows",
+    )
+    build_mode.add_argument(
+        "--rebuild",
+        dest="incremental",
+        action="store_false",
+        help="Corpus-scoped rebuild (default): delete and re-ingest this corpus only — other corpora untouched",
+    )
+    lyrics_build_db_parser.set_defaults(incremental=False)
 
     # lyrics stats [--artist NAME] [--json] [--db PATH]
     lyrics_stats_parser = lyrics_subparsers.add_parser(
@@ -945,7 +966,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
 
-    # lyrics rhymes [--artist NAME] [--song ID] [--json] [--db PATH]
+    # lyrics rhymes [--artist NAME] [--song ID] [--corpus TAG] [--json] [--db PATH]
     lyrics_rhymes_parser = lyrics_subparsers.add_parser(
         "rhymes", help="Show rhyme analysis from the database"
     )
@@ -954,6 +975,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     lyrics_rhymes_parser.add_argument(
         "--song", type=int, default=None, help="Filter to a specific song ID"
+    )
+    lyrics_rhymes_parser.add_argument(
+        "--corpus",
+        type=str,
+        default="genius-pro",
+        help="Corpus tag to filter rhymes by (default: genius-pro; 'all' = every corpus)",
     )
     lyrics_rhymes_parser.add_argument(
         "--json", action="store_true", help="Output as JSON instead of table"
@@ -2219,17 +2246,43 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 print(f"\n  Report saved to: {args.report}")
 
         elif args.lyrics_command == "build-db":
-            from toolshop.lyricsdb import build_database, DEFAULT_DB_PATH
-            root = args.root or Path(__file__).resolve().parent.parent / "data" / "toolshop" / "lyrics" / "genius"
+            from toolshop.lyricsdb import build_database, corpus_dir_for, DEFAULT_DB_PATH
+            corpus = args.corpus or "genius-pro"
+            lyrics_root = Path(__file__).resolve().parent.parent / "data" / "toolshop" / "lyrics"
+            if args.root:
+                root = args.root
+            else:
+                corpus_dir = corpus_dir_for(corpus)
+                if corpus_dir is None:
+                    # Not in registry — allow a matching dir name before failing.
+                    if (lyrics_root / corpus).is_dir():
+                        corpus_dir = corpus
+                    else:
+                        parser.error(
+                            f"Unknown corpus '{corpus}': not in sources/registry.json "
+                            f"and no directory {lyrics_root / corpus} — never a silent empty build."
+                        )
+                root = lyrics_root / corpus_dir
+            if not root.is_dir():
+                parser.error(
+                    f"Corpus dir not found: {root} (corpus '{corpus}' — no corpus data on disk; "
+                    "run the source's fetch/pilot first or pass --root)."
+                )
             db_path = args.db or DEFAULT_DB_PATH
+            mode = "incremental (additive)" if args.incremental else "corpus-scoped rebuild"
             print(f"Building lyrics database...")
-            print(f"  Corpus root: {root}")
+            print(f"  Corpus:       {corpus}")
+            print(f"  Mode:         {mode}")
+            print(f"  Corpus root:  {root}")
             print(f"  Database:     {db_path}")
-            summary = build_database(root=root, db_path=db_path)
+            summary = build_database(
+                root=root, db_path=db_path, corpus=corpus, incremental=args.incremental
+            )
             print(f"\nDone. Songs: {summary['songs_ingested']}, "
                   f"Sections: {summary['sections_ingested']}, "
                   f"Lines: {summary['lines_ingested']}, "
-                  f"Duplicates dropped: {summary['duplicates_dropped']}")
+                  f"Duplicates dropped: {summary['duplicates_dropped']}, "
+                  f"Already present: {summary['already_present']}")
 
         elif args.lyrics_command == "stats":
             import json as json_mod
@@ -2306,7 +2359,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 print("Run 'toolshop lyrics build-db' first.")
                 return
             conn = sqlite3.connect(db_path)
-            stats = get_artist_rhyme_stats(conn, artist=args.artist)
+            stats = get_artist_rhyme_stats(conn, artist=args.artist, corpus=args.corpus)
             if args.json:
                 print(json_mod.dumps(stats, indent=2, ensure_ascii=False))
             else:

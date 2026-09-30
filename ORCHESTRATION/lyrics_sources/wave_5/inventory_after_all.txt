@@ -1,0 +1,172 @@
+=== CORPUS INVENTORY ===
+
+Total songs: 1425
+
+--- Solo songs by artist (1315 total) ---
+
+  [drill_trap]
+    jala                     : 199
+    rasta                    : 109
+    devito                   : 106
+    corona                   : 92
+    coby                     : 79
+    buba                     : 73
+    voyage                   : 67
+    tng                      : 40
+    jala-buba                : 20
+    indodjija                : 9
+    jala-buba-coby           : 1
+
+  [pop]
+    maya-berovic             : 145
+    senidah                  : 82
+    nikolija                 : 70
+    ana-nikolic              : 68
+    relja                    : 59
+    henny                    : 44
+    breskvica                : 40
+    jala-buba                : 6
+    coby                     : 3
+    buba                     : 2
+    jala                     : 1
+
+--- Featured songs (110 total) ---
+  rasta                     [NULL      ]: 24
+  corona                    [NULL      ]: 21
+  henny                     [NULL      ]: 9
+  voyage                    [NULL      ]: 9
+  devito                    [NULL      ]: 7
+  tng                       [NULL      ]: 6
+  senidah                   [NULL      ]: 5
+  indodjija                 [NULL      ]: 4
+  nikolija                  [NULL      ]: 3
+  relja                     [NULL      ]: 3
+  breskvica                 [NULL      ]: 2
+  breskvica                 [drill_trap]: 6
+  corona                    [drill_trap]: 2
+  rasta                     [drill_trap]: 2
+  ana-nikolic               [drill_trap]: 1
+  devito                    [drill_trap]: 1
+  henny                     [drill_trap]: 1
+  nikolija                  [pop       ]: 2
+  breskvica                 [pop       ]: 1
+  devito                    [pop       ]: 1
+
+--- Structural counts ---
+  Sections: 10654
+  Lines: 65912
+  Rhyme rows: 273801
+  Song rhyme metrics: 1425
+
+--- Files on disk by category ---
+  ana-nikolic-featured          : 1
+  ana-nikolic-solo              : 68
+  breskvica-featured            : 9
+  breskvica-solo                : 40
+  buba-solo                     : 75
+  coby-solo                     : 82
+  corona-featured               : 23
+  corona-solo                   : 92
+  devito-featured               : 9
+  devito-solo                   : 106
+  henny-featured                : 10
+  henny-solo                    : 44
+  indodjija-featured            : 4
+  indodjija-solo                : 9
+  jala-buba-coby-trio           : 1
+  jala-buba-duo                 : 26
+  jala-solo                     : 200
+  maya-berovic-solo             : 145
+  nikolija-featured             : 5
+  nikolija-solo                 : 70
+  rasta-featured                : 26
+  rasta-solo                    : 109
+  relja-featured                : 3
+  relja-solo                    : 59
+  senidah-featured              : 5
+  senidah-solo                  : 82
+  tng-featured                  : 6
+  tng-solo                      : 40
+  voyage-featured               : 9
+  voyage-solo                   : 67
+
+--- NULL cohort solo artists (need COHORT_MAP entry) ---
+
+=== corpus: ccmixter ===
+Total songs: 17
+  Sections: 115  Lines: 758  Rhyme rows: 2393  Rhyme metrics: 17
+  Categories:
+    acappella-by                  : 11
+    acappella-pd                  : 6
+
+=== corpus: gutenberg_pd ===
+Total songs: 3
+  Sections: 55  Lines: 116  Rhyme rows: 309  Rhyme metrics: 3
+  Categories:
+    child-ballads                 : 3
+
+=== corpus: hymnary ===
+Total songs: 1
+  Sections: 5  Lines: 20  Rhyme rows: 77  Rhyme metrics: 1
+  Categories:
+    pre-1931                      : 1
+
+=== corpus: lrclib ===
+Total songs: 25
+  Sections: 169  Lines: 1219  Rhyme rows: 4058  Rhyme metrics: 25
+  Categories:
+    tracks                        : 25
+
+=== corpus: mudcat-digitrad ===
+Total songs: 25
+  Sections: 341  Lines: 893  Rhyme rows: 2713  Rhyme metrics: 25
+  Categories:
+    dt                            : 25
+
+=== corpus: sacred-texts ===
+Total songs: 23
+  Sections: 2832  Lines: 2832  Rhyme rows: 45767  Rhyme metrics: 23
+  Categories:
+    child-ballads                 : 23
+
+=== LICENSE / RELEASE READINESS ===
+
+  [genius-pro]
+    study-only      release_ok=no          : 1425
+
+  [ccmixter]
+    cc-by           release_ok=yes         : 11
+    cc0             release_ok=yes         : 6
+
+  [gutenberg_pd]
+    pd              release_ok=yes         : 3
+
+  [hymnary]
+    pd              release_ok=yes         : 1
+
+  [lrclib]
+    study-only      release_ok=no          : 25
+
+  [mudcat-digitrad]
+    pd              release_ok=yes         : 25
+
+  [sacred-texts]
+    pd              release_ok=yes         : 23
+
+--- TASL gaps (missing creator / source_url / license_ref) ---
+  genius-pro           missing creator=1425  source_url=1425  license_ref=0  (of 1425); releasable-with-gaps: 0
+  ccmixter             missing creator=0  source_url=0  license_ref=0  (of 17); releasable-with-gaps: 0
+  gutenberg_pd         missing creator=0  source_url=0  license_ref=0  (of 3); releasable-with-gaps: 0
+  hymnary              missing creator=0  source_url=0  license_ref=0  (of 1); releasable-with-gaps: 0
+  lrclib               missing creator=25  source_url=0  license_ref=0  (of 25); releasable-with-gaps: 0
+  mudcat-digitrad      missing creator=0  source_url=0  license_ref=0  (of 25); releasable-with-gaps: 0
+  sacred-texts         missing creator=0  source_url=0  license_ref=0  (of 23); releasable-with-gaps: 0
+
+--- derived_from links ---
+  genius-pro          : 0
+  ccmixter            : 0
+  gutenberg_pd        : 0
+  hymnary             : 0
+  lrclib              : 0
+  mudcat-digitrad     : 0
+  sacred-texts        : 0

@@ -126,11 +126,20 @@ def compute_song_metrics(conn: sqlite3.Connection, song_id: int) -> Dict[str, An
     }
 
 
-def populate_song_metrics(conn: sqlite3.Connection) -> int:
-    """Compute and insert metrics for all songs. Returns count of songs processed."""
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM songs")
-    song_ids = [r[0] for r in cursor.fetchall()]
+def populate_song_metrics(
+    conn: sqlite3.Connection,
+    song_ids: Optional[List[int]] = None,
+) -> int:
+    """Compute and insert metrics for songs. Returns count of songs processed.
+
+    ``song_ids=None`` → all songs (legacy behavior). Pass an explicit id list to
+    scope inserts — multi-corpus builds pass only the corpus's ids so existing
+    corpora never get duplicate metrics rows (SPEC §5.2).
+    """
+    if song_ids is None:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM songs")
+        song_ids = [r[0] for r in cursor.fetchall()]
 
     for song_id in song_ids:
         metrics = compute_song_metrics(conn, song_id)
