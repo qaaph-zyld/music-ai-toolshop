@@ -1,5 +1,30 @@
 # Changelog
 
+### Answer #065 - lyrics-sources wave A (I2): ccMixter adapter — license-classed acappella catalog + lyric extraction + live pilot (17 fetched / 8 dropped / 0 failed).
+**Timestamp:** 2026-10-01
+**Action Type:** Implementation — wave A agent I2 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`). First `fetch_policy='auto'` source adapter shipped.
+
+**What landed:** `sources/ccmixter.py` — ccHost Query API adapter (`GET ccmixter.org/api/query`, `f=json&dataview=default`, keyless). `iter_catalog()` pages `tags=acappella` per `lic=` lane at 100/page; default lane = `by`+`pd` release-safe (SPEC §9), study tiers `nc`/`sa`/`byncsa`/`splus`/`ncsplus` opt-in via `lanes=` kwarg or `CCMIXTER_LANES` env; lanes round-robin interleaved so bounded `--limit` pilots see every license class. Per-item license resolved from `license_url` through `LICENSE_URL_MAP` (never free-text names — SPEC §6.2): by/*→cc-by/yes, publicdomain/zero→CC0-1.0→cc0/yes, publicdomain/mark→pd/yes, by-nc*→cc-by-nc/no, by-sa*→cc-by-sa/conditional, sampling+→LicenseRef-sampling-plus-1.0→study-only/no, unresolvable→unknown/study-only/no (safe side). `license_of()` additionally records the `ccplus` flag in `copyright_notice` (SPEC §6.3) and only ever downgrades `release_ok`. Category is license-classed (`acappella-by|pd|nc|sa` — frozen §3.2). Lyric extraction (`extract_lyrics`): standalone marker headers (`Lyrics:`/`WORDS`/`LYRICS/SPOKEN WORD:`/`Vox:`…) else longest verse-block-run (handles lyrics-first-then-prose and bare-stanza pells); gates ≥4 lines/≥120-140 chars → `DropItem('no-lyric-text')`; footer/signature strip, latin-1→utf-8 + cp1252→utf-8 mojibake repair, U+FFFD/C1 scrub on clean_lyrics, stanza→sections labels, tiny stopword language guess (langdetect NOT installed — megaplan task text assumed it; heuristic used instead, documented). `fetch_lyrics` builds song JSON v2 with full TASL (creator=`user_real_name`, creator_url=`artist_page_url`, source_url=`file_page_url`, foreign_identifier=`upload_id`); description text rides catalog `meta` so per-item fetch needs zero extra requests (politeness budget halves). Two quirks worked around: ccHost echoes the whole JSON body in an `X-JSON` header >64KiB → `_raise_http_header_limit()` bumps `http.client._MAXLINE`; GATE R robots waiver: `Disallow: /api/` vs the site's explicit open-API statement (t.ccmixter.org/about) — resolved as polite auto-fetch (robots gate off for the API path only, contact UA, ≥1.5 s pacing, MLBot never spoofed) — documented in module docstring.
+
+**Pilot (live, this session):** `fetch_lyrics_source.py --source ccmixter --limit 25 --resume` → exit 0: catalog **1,506 entries** (matches R1's ~1,507 estimate), 25 processed → **17 fetched** (11 cc-by + 6 cc0 into `acappella-by`/`acappella-pd`), **8 dropped** `no-lyric-text`, 0 failed; `_index.json` rebuilt (17 unique, 0 dupes). 68% lyric yield in this slice — at/above R1's 45-60%. `data/` gitignored — corpus uncommitted per rules.
+
+#### Files Affected:
+- **NEW:** `Genious_lyrics_extractor/sources/ccmixter.py` — adapter per SPEC §6.3 contract (`iter_catalog`/`license_of`/`fetch_lyrics`).
+- **NEW:** `tests/test_lyrics_sources_ccmixter.py` — 38 tests (contract shape, catalog parsing/politeness/paging/round-robin, license URL→tier matrix incl. downgrade-only + ccplus, header + verse-run extraction, drop path, ids= refetch fallback, dispatcher end-to-end with stubbed API, `@pytest.mark.slow` live smoke that skips offline).
+- **NEW:** `tests/fixtures/lyrics_sources/ccmixter_query_page.json` — 5 real CC-BY-3.0/CC0-1.0 upload rows (cleared for release, TASL in CREDITS.md) + 5 synthetic metadata-only rows (`meta_fixture: true`).
+- **MODIFIED:** `tests/fixtures/lyrics_sources/CREDITS.md` — fixture provenance row (already committed inside `471cdf7`).
+
+#### Verification (run this session):
+- `pytest tests/test_lyrics_sources_ccmixter.py -q` → **38 passed** (exit 0; incl. live smoke — network reachable).
+- `pytest tests/test_lyrics_sources_ccmixter.py tests/test_lyrics_sources_core.py -m "not slow" -q` → **89+ passed** (exit 0 at handoff state; transient failure on `len(sources)==20` was I3's in-flight wikisource merge, fixed by that lane mid-session).
+- Pilot exit 0, output quoted in `ORCHESTRATION/lyrics_sources/wave_a/I2_handoff.md`.
+
+#### Next Actions Required:
+- W5: `build_database(corpus='ccmixter', incremental=)` against `data/toolshop/lyrics/ccmixter/`; study lanes via `CCMIXTER_LANES=nc,sa` when wanted.
+- Note for W6 review: `lic=pd` items empirically carry `publicdomain/zero/1.0` (CC0 deeds) — resolved as `CC0-1.0`/`cc0`/`yes` (NOT `LicenseRef-public-domain` as the task text predicted); both are release-safe and land in `acappella-pd`.
+
+---
+
 ### Answer #064 - lyrics-sources wave A (I4): pdinfo title-index harvester + looperman zero-network manual import + gray-row conformance tests.
 **Timestamp:** 2026-10-01
 **Action Type:** Implementation — wave A agent I4 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`). Ships the two catalog-only/manual adapters; gray sources stay registry-row-only per GATE R.

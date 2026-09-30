@@ -1,0 +1,431 @@
+[
+ {
+  "upload_id": 47456,
+  "upload_name": "Homesick",
+  "upload_extra": {
+   "usertags": "vocals,female_vocals",
+   "ccud": "acappella,media,featured,melody,trackback,in_video,in_remix",
+   "systags": "attribution,audio,mp3,44k,stereo,CBR",
+   "featuring": "",
+   "bpm": "",
+   "nsfw": false,
+   "num_reviews": 13,
+   "relative_dir": "content/kizzylotus"
+  },
+  "user_name": "kizzylotus",
+  "upload_tags": ",acappella,media,featured,melody,trackback,in_video,in_remix,attribution,audio,mp3,44k,stereo,CBR,vocals,female_vocals,",
+  "upload_num_scores": 56,
+  "file_page_url": "https://ccmixter.org/files/kizzylotus/47456",
+  "user_real_name": "kizzylotus",
+  "artist_page_url": "https://ccmixter.org/people/kizzylotus",
+  "license_logo_url": "https://ccmixter.org/ccskins/shared/images/lics/small-by-3.png",
+  "license_url": "http://creativecommons.org/licenses/by/3.0/",
+  "license_name": "Attribution (3.0)",
+  "upload_date_format": "Wed, Sep 17, 2014 @ 12:45 PM",
+  "files": [
+   {
+    "file_id": 70866,
+    "file_upload": 47456,
+    "file_name": "kizzylotus_-_Homesick.mp3",
+    "file_nicname": "mp3",
+    "file_format_info": {
+     "media-type": "audio",
+     "format-name": "audio-mp3-mp3",
+     "default-ext": "mp3",
+     "mime_type": "audio/mpeg",
+     "sr": "44k",
+     "ch": "stereo",
+     "ps": "3:21",
+     "br": "CBR"
+    },
+    "file_extra": {
+     "sha1": "HEESJQYJKKZFXRGGJU6WTLULR4YHE34Y"
+    },
+    "file_filesize": " (3.06MB)",
+    "file_order": 0,
+    "file_is_remote": 0,
+    "file_num_download": 0,
+    "download_url": "https://ccmixter.org/content/kizzylotus/kizzylotus_-_Homesick.mp3",
+    "local_path": "/var/www/ccmixter/content/kizzylotus/kizzylotus_-_Homesick.mp3",
+    "file_rawsize": 3213315
+   }
+  ],
+  "upload_description_plain": "Uploading for my collaborator Heiko -- but anyone who wants to remix can feel free! \r\nJust a little song I threw together one night about space and love.\r\n\r\nLyrics: \r\n\r\nTell me do you feel me out there \r\nMoving in deep space? \r\nIâve seen the flip side of your moon \r\nIâve formed the craters on your face\r\n\r\nTake me home\r\nTake me all the way home\r\nTake me back home\r\nTake me home \r\n\r\nTell me are the stars as bright?\r\nAs when I hold them in your hands? \r\nAnd are we very, very small out there? \r\nI am still young to understand. \r\n\r\nTake me home\r\nTake me all the way home\r\nTake me back home\r\nTake me home \r\n\r\nDo you get homesick?\r\nDo you get tired of it? \r\nIs it all too much? \r\nWhen you just want to quit? \r\n\r\nI saw it in your eyes\r\nThe everyday, complacent lie\r\nThe stars canât replace me\r\nDo you get homesick? \r\n\r\nDo you get homesick?\r\nDo you get tired of it? \r\nIs it all too much? \r\nWhen you just want to quit? \r\n\r\nTake me homeâ¦ \r\n\r\nTake me home\r\nTake me all the way home\r\nTake me back home\r\nTake me home",
+  "upload_description_html": "Uploading for my collaborator Heiko &#8212; but anyone who wants to remix can feel free! <br />\r\nJust a little song I threw together one night about space and love.<br />\r\n<br />\r\nLyrics: <br />\r\n<br />\r\nTell me do you feel me out there <br />\r\nMoving in deep space? <br />\r\nIâve seen the flip side of your moon <br />\r\nIâve formed the craters on your face<br />\r\n<br />\r\nTake me home<br />\r\nTake me all the way home<br />\r\nTake me back home<br />\r\nTake me home <br />\r\n<br />\r\nTell me are the stars as bright?<br />\r\nAs when I hold them in your hands? <br />\r\nAnd are we very, very small out there? <br />\r\nI am still young to understand. <br />\r\n<br />\r\nTake me home<br />\r\nTake me all the way home<br />\r\nTake me back home<br />\r\nTake me home <br />\r\n<br />\r\nDo you get homesick?<br />\r\nDo you get tired of it? <br />\r\nIs it all too much? <br />\r\nWhen you just want to quit? <br />\r\n<br />\r\nI saw it in your eyes<br />\r\nThe everyday, complacent lie<br />\r\nThe stars canât replace me<br />\r\nDo you get homesick? <br />\r\n<br />\r\nDo you get homesick?<br />\r\nDo you get tired of it? <br />\r\nIs it all too much? <br />\r\nWhen you just want to quit? <br />\r\n<br />\r\nTake me homeâ¦ <br />\r\n<br />\r\nTake me home<br />\r\nTake me all the way home<br />\r\nTake me back home<br />\r\nTake me home"
+ },
+ {
+  "upload_id": 33699,
+  "upload_name": "The Right Voice",
+  "upload_extra": {
+   "usertags": "ambient,cello,chill,contemplative,drone,female_vocals,harmonies,healing,peace,piano,prayer,rosh_hoshana,search,spiritual,supplication,tubular_bells,violin",
+   "ccud": "media,remix,tubed_by_you,rooted_in_peace,editorial_pick,melody,featured,acapella,trackback,in_video,in_web,bpm_060_065,in_podcast,ccplus_stem,ccplus",
+   "systags": "editorial_pick,attribution,audio,mp3,48k,stereo,CBR,archive,zip",
+   "featuring": "Helen Money, Gurdonark, Dimitri Artemenko, William Berry, Jovica",
+   "nsfw": false,
+   "bpm": "60-ish",
+   "relative_dir": "content/SackJo22",
+   "num_reviews": 17,
+   "last_op": "replace",
+   "edpicks": {
+    "VJ_Memes": {
+     "reviewer": "Jeris",
+     "review": "SackJo22's vocals have all the beauty and mysticism of a hildegard von bingen masterpiece. A psychoacoustic bedding of drones from Gurdonark and ambient piano of William Berry accompanies Dimitri Artemenko's haunting gypsy violin.",
+     "edited": "2011-09-27 00:42:55"
+    }
+   },
+   "ccplus": true
+  },
+  "user_name": "SackJo22",
+  "upload_tags": ",media,remix,tubed_by_you,rooted_in_peace,editorial_pick,melody,featured,acapella,trackback,in_video,in_web,bpm_060_065,in_podcast,ccplus_stem,ccplus,acappella,attribution,audio,mp3,48k,stereo,CBR,archive,zip,ambient,cello,chill,contemplative,drone,female_vocals,harmonies,healing,peace,piano,prayer,rosh_hoshana,search,spiritual,supplication,tubular_bells,violin,",
+  "upload_num_scores": 65,
+  "file_page_url": "https://ccmixter.org/files/SackJo22/33699",
+  "user_real_name": "SackJo22",
+  "artist_page_url": "https://ccmixter.org/people/SackJo22",
+  "license_logo_url": "https://ccmixter.org/ccskins/shared/images/lics/small-by-3.png",
+  "license_url": "http://creativecommons.org/licenses/by/3.0/",
+  "license_name": "Attribution (3.0)",
+  "upload_date_format": "Mon, Sep 26, 2011 @ 10:10 PM",
+  "files": [
+   {
+    "file_id": 43995,
+    "file_upload": 33699,
+    "file_name": "SackJo22_-_The_Right_Voice.mp3",
+    "file_nicname": "mp3",
+    "file_format_info": {
+     "media-type": "audio",
+     "format-name": "audio-mp3-mp3",
+     "default-ext": "mp3",
+     "mime_type": "audio/mpeg",
+     "sr": "48k",
+     "ch": "stereo",
+     "ps": "5:12",
+     "br": "CBR"
+    },
+    "file_extra": {
+     "sha1": "5DOE32EABP46S6JSLZ6A6VHPLM5UHSH4",
+     "ccud": "",
+     "type": ""
+    },
+    "file_filesize": " (4.76MB)",
+    "file_order": 0,
+    "file_is_remote": 0,
+    "file_num_download": 0,
+    "download_url": "https://ccmixter.org/content/SackJo22/SackJo22_-_The_Right_Voice.mp3",
+    "local_path": "/var/www/ccmixter/content/SackJo22/SackJo22_-_The_Right_Voice.mp3",
+    "file_rawsize": 4992000
+   }
+  ],
+  "upload_description_plain": "THE RIGHT VOICE\r\n\r\nchosen we wander in a web of derision until we are lost\r\nin a wind of decision, like dust we are tossed\r\nit's a storm of choice\r\nwhich is the right voice to follow?\r\nwhich is the voice?\r\n\r\nthe light filters gently through the glass of shrines\r\nthe men, they pray gently, their words being mine\r\narcs of a culture embrace me within as the year ends and begins again\r\n\r\ntoday you are sleeping in your childhood bed while I try to recall the words I read\r\n\"you shall not have idols. . . .\"\r\nwe are free to assume the shape of knowledge through time's vacuum\r\nthe chosen being free to choose\r\nthe way I choose to look at you\r\n\r\ntoday, you're at your father's house worshipping his god\r\nI sit there quietly, the prayer surrounding me\r\nthinking what you mean to me\r\nwondering about destiny\r\nlistening for the voice to free me\r\n\r\n__________________________\r\n\r\nThis is a very personal song that I wrote quite a long time ago.  I recorded and released it (on vinyl, no less) with my band at that time. This is a very different version. Not sure that I'm satisfied, but not sure I can do any better right now.  It has been my goal to re-record and share this song at this time of year for over two years.  At least I accomplished that much.\r\n\r\nThanks to Gurdonark, Dimitri Artimenko, William Berry and Jovica for freely sharing their music with us.  Jovice's tubular bell samples are from Freesound.\r\nSpecial thanks to Helen Money who plays cello on this track.  If she gives me permission, I will upload her cello parts for remixing.\r\n\r\nVocal stems uploaded as additional files hereto.",
+  "upload_description_html": "<span class=\"u\"><span class=\"b\">THE RIGHT VOICE</span></span><br />\r\n<br />\r\nchosen we wander in a web of derision until we are lost<br />\r\nin a wind of decision, like dust we are tossed<br />\r\nit&#8217;s a storm of choice<br />\r\nwhich is the right voice to follow?<br />\r\nwhich is the voice?<br />\r\n<br />\r\nthe light filters gently through the glass of shrines<br />\r\nthe men, they pray gently, their words being mine<br />\r\narcs of a culture embrace me within as the year ends and begins again<br />\r\n<br />\r\ntoday you are sleeping in your childhood bed while I try to recall the words I read<br />\r\n&#8220;you shall not have idols&#8230; .&#8221;<br />\r\nwe are free to assume the shape of knowledge through time&#8217;s vacuum<br />\r\nthe chosen being free to choose<br />\r\nthe way I choose to look at you<br />\r\n<br />\r\ntoday, you&#8217;re at your father&#8217;s house worshipping his god<br />\r\nI sit there quietly, the prayer surrounding me<br />\r\nthinking what you mean to me<br />\r\nwondering about destiny<br />\r\nlistening for the voice to free me<br />\r\n<br />\r\n__________________________<br />\r\n<br />\r\n<span class=\"small\"><span class=\"i\">This is a very personal song that I wrote quite a long time ago.  I recorded and released it (on vinyl, no less) with my band at that time. This is a very different version. Not sure that I&#8217;m satisfied, but not sure I can do any better right now.  It has been my goal to re-record and share this song at this time of year for over two years.  At least I accomplished that much.</span></span><br />\r\n<br />\r\nThanks to Gurdonark, Dimitri Artimenko, William Berry and Jovica for freely sharing their music with us.   <a title=\"http://www.freesound.org/people/Jovica/sounds/15060/\" class=\"cc_format_link\" href=\"http://www.freesound.org/people/Jovica/sounds/15060/\">Jovice&#8217;s tubular bell samples</a> are from Freesound.<br />\r\nSpecial thanks to  <a title=\"http://www.helenmoney.com/launch.html\" class=\"cc_format_link\" href=\"http://www.helenmoney.com/launch.html\">Helen Money</a> who plays cello on this track.  If she gives me permission, I will upload her cello parts for remixing.<br />\r\n<br />\r\nVocal stems uploaded as additional files hereto."
+ },
+ {
+  "upload_id": 41323,
+  "upload_name": "The Haunted Hotel",
+  "upload_extra": {
+   "usertags": "chill,spoken_word,haunted,scary,true_story,well_kind_of,dubstep,ghosts,guitar,bass,female_vocals,male_vocals,melodica,harmonies,choir",
+   "ccud": "media,secret_mixter,remix,winter_2013,editorial_pick,bpm_140_145,trackback,in_video,spoken,in_podcast",
+   "systags": "editorial_pick,attribution,audio,mp3,48k,stereo,CBR,archive,zip,archive,zip",
+   "featuring": "Coruscate",
+   "nsfw": false,
+   "bpm": 140,
+   "relative_dir": "content/SackJo22",
+   "num_reviews": 33,
+   "edpicks": {
+    "Vidian": {
+     "reviewer": "Vidian",
+     "review": "So much great music came from february's secret mixter, but this one song just resonates with me. Sackjo22 mixes it up a bit going to a deeper, sexier, and slightly scarier place in her remix of Coruscate.",
+     "edited": "2013-02-17 20:18:53"
+    }
+   },
+   "last_op": "add",
+   "ccplus": true
+  },
+  "user_name": "SackJo22",
+  "upload_tags": ",media,secret_mixter,remix,winter_2013,editorial_pick,bpm_140_145,trackback,in_video,spoken,in_podcast,sample,acappella,attribution,audio,mp3,48k,stereo,CBR,archive,zip,chill,spoken_word,haunted,scary,true_story,well_kind_of,dubstep,ghosts,guitar,bass,female_vocals,male_vocals,melodica,harmonies,choir,",
+  "upload_num_scores": 65,
+  "file_page_url": "https://ccmixter.org/files/SackJo22/41323",
+  "user_real_name": "SackJo22",
+  "artist_page_url": "https://ccmixter.org/people/SackJo22",
+  "license_logo_url": "https://ccmixter.org/ccskins/shared/images/lics/small-by-3.png",
+  "license_url": "http://creativecommons.org/licenses/by/3.0/",
+  "license_name": "Attribution (3.0)",
+  "upload_date_format": "Sun, Feb 17, 2013 @ 10:01 PM",
+  "files": [
+   {
+    "file_id": 59380,
+    "file_upload": 41323,
+    "file_name": "SackJo22_-_The_Haunted_Hotel.mp3",
+    "file_nicname": "mp3",
+    "file_format_info": {
+     "media-type": "audio",
+     "format-name": "audio-mp3-mp3",
+     "default-ext": "mp3",
+     "mime_type": "audio/mpeg",
+     "sr": "48k",
+     "ch": "stereo",
+     "ps": "4:07",
+     "br": "CBR"
+    },
+    "file_extra": {
+     "sha1": "DQ4WOV6E33ECEGWNTWHNHQTEHN5BO67O"
+    },
+    "file_filesize": " (3.77MB)",
+    "file_order": 0,
+    "file_is_remote": 0,
+    "file_num_download": 0,
+    "download_url": "https://ccmixter.org/content/SackJo22/SackJo22_-_The_Haunted_Hotel.mp3",
+    "local_path": "/var/www/ccmixter/content/SackJo22/SackJo22_-_The_Haunted_Hotel.mp3",
+    "file_rawsize": 3958272
+   }
+  ],
+  "upload_description_plain": "So far, 2013 has been a crazy year for me filled with danger, disease and disaster.  I have been on four business trips in a month which has most certainly cut into my music time (both making music and listening to music in a meaningful way).  This also means I did not have the creative space and time to really do this mix justice.  I apologize to Coruscate because as a prodigious contributor to ccMixter he certainly deserves more!  However, all this travel did provide fodder and inspiration -- like the story of the haunted hotel.\r\n\r\nI don't have the lyrics written down as I recorded this extemporaneously.  Attached as additional files are dry stems for the guitars, bass, melodica and vocal stems if anyone wants them. If for any reason you want effected files or my cuts of Coruscate, hit me up -- I'm happy to share.  \r\n\r\nFor now, I'm happy to upload this little track and move on to listening to all the super secret mixter delights I am sure await me!",
+  "upload_description_html": "So far, 2013 has been a crazy year for me filled with danger, disease and disaster.  I have been on four business trips in a month which has most certainly cut into my music time (both making music and listening to music in a meaningful way).  This also means I did not have the creative space and time to really do this mix justice.  I apologize to Coruscate because as a prodigious contributor to ccMixter he certainly deserves more!  However, all this travel did provide fodder and inspiration &#8212; like the story of the haunted hotel.<br />\r\n<br />\r\nI don&#8217;t have the lyrics written down as I recorded this extemporaneously.  Attached as additional files are dry stems for the guitars, bass, melodica and vocal stems if anyone wants them. If for any reason you want effected files or my cuts of Coruscate, hit me up &#8212; I&#8217;m happy to share.  <br />\r\n<br />\r\nFor now, I&#8217;m happy to upload this little track and move on to listening to all the super secret mixter delights I am sure await me!"
+ },
+ {
+  "upload_id": 31321,
+  "upload_name": "A blasted life",
+  "upload_extra": {
+   "usertags": "creativity,henry_david_thoreau,larry_lessig,spoken_word",
+   "ccud": "strike_the_root,acappella,corruption,media,trackback,in_remix,ccplus",
+   "systags": "cczero,audio,mp3,44k,stereo,CBR",
+   "featuring": "",
+   "nsfw": false,
+   "bpm": "",
+   "relative_dir": "content/Fireproof_Babies",
+   "num_reviews": 6,
+   "ccplus": true
+  },
+  "user_name": "Fireproof_Babies",
+  "upload_tags": ",strike_the_root,acappella,corruption,media,trackback,in_remix,ccplus,cczero,audio,mp3,44k,stereo,CBR,creativity,henry_david_thoreau,larry_lessig,spoken_word,",
+  "upload_num_scores": 27,
+  "file_page_url": "https://ccmixter.org/files/Fireproof_Babies/31321",
+  "user_real_name": "Fireproof_Babies",
+  "artist_page_url": "https://ccmixter.org/people/Fireproof_Babies",
+  "license_logo_url": "http://",
+  "license_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+  "license_name": "CC0 (CC Zero)",
+  "upload_date_format": "Fri, Apr 8, 2011 @ 7:52 PM",
+  "files": [
+   {
+    "file_id": 39561,
+    "file_upload": 31321,
+    "file_name": "Fireproof_Babies_-_A_blasted_life.mp3",
+    "file_nicname": "mp3",
+    "file_format_info": {
+     "media-type": "audio",
+     "format-name": "audio-mp3-mp3",
+     "default-ext": "mp3",
+     "mime_type": "audio/mpeg",
+     "sr": "44k",
+     "ch": "stereo",
+     "ps": "1:28",
+     "br": "CBR"
+    },
+    "file_extra": {
+     "sha1": "ZGHPQ7344KFA2PWBGQW6L6U6FCIHMTQO",
+     "ccud": "strike_the_root,acappella,media",
+     "type": "striketherootpells"
+    },
+    "file_filesize": " (3.36MB)",
+    "file_order": 0,
+    "file_is_remote": 0,
+    "file_num_download": 0,
+    "download_url": "https://ccmixter.org/content/Fireproof_Babies/Fireproof_Babies_-_A_blasted_life.mp3",
+    "local_path": "/var/www/ccmixter/content/Fireproof_Babies/Fireproof_Babies_-_A_blasted_life.mp3",
+    "file_rawsize": 3526575
+   }
+  ],
+  "upload_description_plain": "I could really relate to the call of this project. I didn't use my best mic. Could re-record it if it comes to that. These are just my thoughts.\r\n\r\nLyrics:\r\n\r\nI do not feel that I was born corrupted \r\nAs in I do don't believe in original sin. \r\nHowever, I have been corrupted......\r\nBy life, by circumstance, and by my\r\nOwn foolishness. \r\n\r\nThese things trouble me the most. \r\nI want to be pure, but I fall so \r\nShort. \r\n\r\nCorrosion, rust, death and failure\r\nHaunt my every breath and step. \r\n\r\nAnd yet I live and write....While \r\nCorruption bites.... \r\nIt shows there's some \r\nStrength in me. \r\n\r\nPossibly, maybe, decidedly â¦. \r\nI will persist. \r\n\r\nJoe D. Lincoln 2011",
+  "upload_description_html": "I could really relate to the call of this project. I didn&#8217;t use my best mic. Could re-record it if it comes to that. These are just my thoughts.<br />\r\n<br />\r\nLyrics:<br />\r\n<br />\r\nI do not feel that I was born corrupted <br />\r\nAs in I do don&#8217;t believe in original sin. <br />\r\nHowever, I have been corrupted&#8230;&#8230;<br />\r\nBy life, by circumstance, and by my<br />\r\nOwn foolishness. <br />\r\n<br />\r\nThese things trouble me the most. <br />\r\nI want to be pure, but I fall so <br />\r\nShort. <br />\r\n<br />\r\nCorrosion, rust, death and failure<br />\r\nHaunt my every breath and step. <br />\r\n<br />\r\nAnd yet I live and write&#8230;.While <br />\r\nCorruption bites&#8230;. <br />\r\nIt shows there&#8217;s some <br />\r\nStrength in me. <br />\r\n<br />\r\nPossibly, maybe, decidedly â¦. <br />\r\nI will persist. <br />\r\n<br />\r\nJoe D. Lincoln 2011"
+ },
+ {
+  "upload_id": 22762,
+  "upload_name": "Breves dies hominis by Makemi",
+  "upload_extra": {
+   "usertags": "ancient,female_vocals,latin",
+   "ccud": "acappella,media,trackback,in_remix",
+   "systags": "cczero,audio,ogg,44k,stereo,VBR,audio,mp3,44k,stereo,VBR",
+   "featuring": "Makemi",
+   "bpm": "",
+   "nsfw": false,
+   "relative_dir": "content/remaxim",
+   "last_op": "replace",
+   "num_reviews": 1
+  },
+  "user_name": "remaxim",
+  "upload_tags": ",acappella,media,trackback,in_remix,preview,cczero,audio,ogg,44k,stereo,VBR,mp3,ancient,female_vocals,latin,",
+  "upload_num_scores": 12,
+  "file_page_url": "https://ccmixter.org/files/remaxim/22762",
+  "user_real_name": "remaxim",
+  "artist_page_url": "https://ccmixter.org/people/remaxim",
+  "license_logo_url": "http://",
+  "license_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+  "license_name": "CC0 (CC Zero)",
+  "upload_date_format": "Sun, Sep 20, 2009 @ 5:14 AM",
+  "files": [
+   {
+    "file_id": 25880,
+    "file_upload": 22762,
+    "file_name": "remaxim_-_Breves_dies_hominis_by_Makemi.ogg",
+    "file_nicname": "ogg",
+    "file_format_info": {
+     "media-type": "audio",
+     "format-name": "audio-ogg-vorbis",
+     "default-ext": "ogg",
+     "mime_type": "application/ogg",
+     "sr": "44k",
+     "ch": "stereo",
+     "ps": "3:32",
+     "br": "VBR"
+    },
+    "file_extra": {
+     "sha1": "W2KN5GHZU6YKJVCHVVSBTIHVYQQIEKGW"
+    },
+    "file_filesize": " (5.24MB)",
+    "file_order": 0,
+    "file_is_remote": 0,
+    "file_num_download": 0,
+    "download_url": "https://ccmixter.org/content/remaxim/remaxim_-_Breves_dies_hominis_by_Makemi.ogg",
+    "local_path": "/var/www/ccmixter/content/remaxim/remaxim_-_Breves_dies_hominis_by_Makemi.ogg",
+    "file_rawsize": 5496687
+   }
+  ],
+  "upload_description_plain": "I found this great public domain Acapella on Wikimedia Commons and wanted to share it with you.\r\n\r\nIt is recorded and beautifully sung by Magdalen Kadel alias Makemi. The original text is by either Leonin or Perotin.\r\n\r\nLyrics:\r\n    Breves dies hominis\r\n    mundi vita\r\n    humane propaginis\r\n    que sit vita, cogita!\r\n\r\n    Nitimur in vetitum\r\n    caro contra spiritum.\r\n\r\n    Pelle moram propera\r\n    mora non est libera.\r\n\r\n    Mundo nil immundius\r\n    que facis, fac citius!\r\n\r\n    Corpus, quod corrumpitur\r\n    animam persequitur.\r\n\r\n    Et bonum propositum\r\n    revocat in irritum.\r\n\r\n    Alios quod doceo\r\n    ipse docens impleo.\r\n\r\n    Christum ne exasperem\r\n    pauper sequor pauperem.\r\n\r\n    Corpus meum corrigo\r\n    et in servum redigo.",
+  "upload_description_html": "I found this great public domain Acapella on Wikimedia Commons and wanted  <a title=\"http://commons.wikimedia.org/wiki/File:Breves_dies_hominis.ogg\" class=\"cc_format_link\" href=\"http://commons.wikimedia.org/wiki/File:Breves_dies_hominis.ogg\">to share it with you</a>.<br />\r\n<br />\r\nIt is recorded and beautifully sung by Magdalen Kadel alias Makemi. The original text is by either Leonin or Perotin.<br />\r\n<br />\r\nLyrics:<br />\r\n    Breves dies hominis<br />\r\n    mundi vita<br />\r\n    humane propaginis<br />\r\n    que sit vita, cogita!<br />\r\n<br />\r\n    Nitimur in vetitum<br />\r\n    caro contra spiritum.<br />\r\n<br />\r\n    Pelle moram propera<br />\r\n    mora non est libera.<br />\r\n<br />\r\n    Mundo nil immundius<br />\r\n    que facis, fac citius!<br />\r\n<br />\r\n    Corpus, quod corrumpitur<br />\r\n    animam persequitur.<br />\r\n<br />\r\n    Et bonum propositum<br />\r\n    revocat in irritum.<br />\r\n<br />\r\n    Alios quod doceo<br />\r\n    ipse docens impleo.<br />\r\n<br />\r\n    Christum ne exasperem<br />\r\n    pauper sequor pauperem.<br />\r\n<br />\r\n    Corpus meum corrigo<br />\r\n    et in servum redigo."
+ },
+ {
+  "upload_id": 900001,
+  "upload_name": "Synthetic NC Pell",
+  "user_name": "fixture_nc",
+  "user_real_name": "fixture_nc",
+  "file_page_url": "https://ccmixter.org/files/fixture_nc/900001",
+  "artist_page_url": "https://ccmixter.org/people/fixture_nc",
+  "license_url": "http://creativecommons.org/licenses/by-nc/3.0/",
+  "license_name": "Attribution Noncommercial (3.0)",
+  "license_logo_url": "https://ccmixter.org/ccskins/shared/images/lics/x.png",
+  "upload_date_format": "Tue, Sep 29, 2026 @ 12:00 PM",
+  "upload_tags": ",acappella,media,attribution,non_commercial,audio,mp3,",
+  "upload_num_scores": 0,
+  "upload_extra": {
+   "usertags": "",
+   "ccud": "acappella,media",
+   "systags": "attribution,non_commercial,audio,mp3",
+   "bpm": 90,
+   "ccplus": false,
+   "nsfw": false,
+   "last_op": "add"
+  },
+  "upload_description_plain": "Synthetic fixture prose. This description mentions lyrics but the block below is synthetic test text authored for the suite.\n\nLyrics:\n\nline one of the test verse\nline two of the test verse\nline three of the test verse\nline four of the test verse\nline five of the test verse\n\nsecond stanza begins here\nwith more synthetic lines\nthat never came from any upload\nend of stanza two now\nfinal synthetic lyric line",
+  "upload_description_html": "",
+  "files": [],
+  "meta_fixture": true
+ },
+ {
+  "upload_id": 900002,
+  "upload_name": "Synthetic SA Pell",
+  "user_name": "fixture_sa",
+  "user_real_name": "fixture_sa",
+  "file_page_url": "https://ccmixter.org/files/fixture_sa/900002",
+  "artist_page_url": "https://ccmixter.org/people/fixture_sa",
+  "license_url": "http://creativecommons.org/licenses/by-sa/3.0/",
+  "license_name": "Attribution ShareAlike (3.0)",
+  "license_logo_url": "https://ccmixter.org/ccskins/shared/images/lics/x.png",
+  "upload_date_format": "Tue, Sep 29, 2026 @ 12:00 PM",
+  "upload_tags": ",acappella,media,attribution,share_a_like,audio,mp3,",
+  "upload_num_scores": 0,
+  "upload_extra": {
+   "usertags": "",
+   "ccud": "acappella,media",
+   "systags": "attribution,share_a_like,audio,mp3",
+   "bpm": 90,
+   "ccplus": false,
+   "nsfw": false,
+   "last_op": "add"
+  },
+  "upload_description_plain": "Synthetic prose only, no lyric text in this fixture row at all.",
+  "upload_description_html": "",
+  "files": [],
+  "meta_fixture": true
+ },
+ {
+  "upload_id": 900003,
+  "upload_name": "Synthetic SamplingPlus Pell",
+  "user_name": "fixture_splus",
+  "user_real_name": "fixture_splus",
+  "file_page_url": "https://ccmixter.org/files/fixture_splus/900003",
+  "artist_page_url": "https://ccmixter.org/people/fixture_splus",
+  "license_url": "http://creativecommons.org/licenses/sampling+/1.0/",
+  "license_name": "Sampling Plus 1.0",
+  "license_logo_url": "https://ccmixter.org/ccskins/shared/images/lics/x.png",
+  "upload_date_format": "Tue, Sep 29, 2026 @ 12:00 PM",
+  "upload_tags": ",acappella,media,sampling_plus,audio,mp3,",
+  "upload_num_scores": 0,
+  "upload_extra": {
+   "usertags": "",
+   "ccud": "acappella,media",
+   "systags": "sampling_plus,audio,mp3",
+   "bpm": 90,
+   "ccplus": false,
+   "nsfw": false,
+   "last_op": "add"
+  },
+  "upload_description_plain": "Synthetic prose only, no lyric text in this fixture row at all.",
+  "upload_description_html": "",
+  "files": [],
+  "meta_fixture": true
+ },
+ {
+  "upload_id": 900004,
+  "upload_name": "Synthetic UnknownLicense Pell",
+  "user_name": "fixture_unk",
+  "user_real_name": "fixture_unk",
+  "file_page_url": "https://ccmixter.org/files/fixture_unk/900004",
+  "artist_page_url": "https://ccmixter.org/people/fixture_unk",
+  "license_url": "https://example.org/some-weird-license",
+  "license_name": "Custom Whatever",
+  "license_logo_url": "https://ccmixter.org/ccskins/shared/images/lics/x.png",
+  "upload_date_format": "Tue, Sep 29, 2026 @ 12:00 PM",
+  "upload_tags": ",acappella,media,attribution,audio,mp3,",
+  "upload_num_scores": 0,
+  "upload_extra": {
+   "usertags": "",
+   "ccud": "acappella,media",
+   "systags": "attribution,audio,mp3",
+   "bpm": 90,
+   "ccplus": false,
+   "nsfw": false,
+   "last_op": "add"
+  },
+  "upload_description_plain": "Synthetic prose only, no lyric text in this fixture row at all.",
+  "upload_description_html": "",
+  "files": [],
+  "meta_fixture": true
+ },
+ {
+  "upload_id": 900005,
+  "upload_name": "Synthetic CCPlus BY Pell",
+  "user_name": "fixture_ccplus",
+  "user_real_name": "fixture_ccplus",
+  "file_page_url": "https://ccmixter.org/files/fixture_ccplus/900005",
+  "artist_page_url": "https://ccmixter.org/people/fixture_ccplus",
+  "license_url": "http://creativecommons.org/licenses/by/4.0/",
+  "license_name": "Attribution (4.0)",
+  "license_logo_url": "https://ccmixter.org/ccskins/shared/images/lics/x.png",
+  "upload_date_format": "Tue, Sep 29, 2026 @ 12:00 PM",
+  "upload_tags": ",acappella,media,attribution,audio,mp3,",
+  "upload_num_scores": 0,
+  "upload_extra": {
+   "usertags": "",
+   "ccud": "acappella,media",
+   "systags": "attribution,audio,mp3",
+   "bpm": 90,
+   "ccplus": true,
+   "nsfw": false,
+   "last_op": "add"
+  },
+  "upload_description_plain": "Synthetic prose only, no lyric text in this fixture row at all.",
+  "upload_description_html": "",
+  "files": [],
+  "meta_fixture": true
+ }
+]
