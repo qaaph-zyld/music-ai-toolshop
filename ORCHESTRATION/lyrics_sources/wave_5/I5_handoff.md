@@ -341,6 +341,22 @@ legacy block shown above.) Evidence files committed alongside this handoff:
   (`Traditional 19/2163`, `Woody Guthrie`, `Robert Burns`, …); `--corpus all`
   → cross-corpus artist list incl. genius-pro.
 
+## Closeout / push status
+
+- `git push origin master` → **exit 0**, `227168f..2f24ad9 master -> master`
+  (publishes this wave plus the previously-local #063–#069 wave stack).
+  Pre-push hook passed — nothing staged, no tracked junk files.
+- `toolshop closeout` → **exit 1** with two declared causes: (a) working tree
+  not clean — **other lanes' files only** (MAirina_Tucc `M`+`??`, ogcm_flip,
+  `scratch_*.html`, `nul`, `lyrics_research/`, `.scratch_i6/`,
+  `ORCHESTRATION/lyrics_sources/waves_megaplan.json` (orchestrator file),
+  `ORCHESTRATION/prompts/*`, submodule pointer noise on `mastering_tool`/
+  `suno_prompter`); (b) unpushed-commits flag pre-dated the push — all commits
+  are now on `origin/master`. **None of my scope files are dirty** —
+  `git status` on the W5 scope set is clean.
+- `git log` tail: `2f24ad9` docs(#070) handoff · `38027c8` feat(#070) ·
+  `2549b89` docs(#069) · `31cc9df` feat(#069).
+
 ## Notes / deviations
 
 1. **`--corpus genius-pro` inventory excludes the license block** — SPEC §8.1
