@@ -136,9 +136,9 @@ the open-API statement is ever withdrawn, downgrade the row to
 
 - `c72b2ee` `feat(#065)`: `sources/ccmixter.py`, `tests/test_lyrics_sources_ccmixter.py`,
   `tests/fixtures/lyrics_sources/ccmixter_query_page.json`, `CHANGELOG.md`.
+- `b5e9898` `docs(#065)`: this handoff (+ follow-up closeout-evidence commit).
 - `CREDITS.md` fixture-provenance row was swept into I4's `471cdf7`
   (uncommitted shared file at their commit time) — verified present in HEAD.
-- Handoff commit: appended below at write time.
 - NOT committed: `data/toolshop/lyrics/ccmixter/` corpus (gitignored),
   `_probe*.json`/`_fixture_real.json` scratch files in data (gitignored).
 
@@ -160,4 +160,28 @@ the open-API statement is ever withdrawn, downgrade the row to
 
 ## `toolshop closeout` evidence
 
-(to be filled after final commit)
+`python -m toolshop.cli closeout` → **exit 1 (FAIL)** — reasons are 100%
+other lanes' in-flight work, not this lane:
+
+```
+--- verdict ---
+FAIL
+  - working tree not clean (staged/unstaged/untracked changes)
+  - unpushed commits on current branch:
+2a14177 feat(#066): lyrics-sources WB I8 - jamendo env-gated adapter + lrclib study-only adapter
+b5e9898 docs(#065): lyrics-sources WA I2 handoff — pilot evidence, license histogram, robots/API posture
+c72b2ee feat(#065): lyrics-sources WA I2 — ccMixter adapter (license-classed catalog, lyric extraction, pilot 17/25)
+eea32b5 docs(#064): lyrics-sources WA I4 handoff — commit hash + evidence
+471cdf7 feat(#064): lyrics-sources WA I4 — pdinfo title-index adapter + looperman zero-network manual import + catalog contract tests
+497726a feat(#063): GATE S3 - simple recognizable motif on user-picked 54-67s segment
+```
+
+The dirty tree at closeout time is concurrent wave-A/WB agents' uncommitted
+files (`sources/{wikisource_pd,gutenberg_pd,mudcat_digitrad,hymnary,
+sacred_texts}.py`, `tests/test_lyrics_sources_{wikisource,mudcat,jamendo,
+lrclib}.py`, `registry.json` merge, `scratch_*` probes, `MAirina_Tucc/*`,
+`ORCHESTRATION/ogcm_flip/*`, submodules `mastering_tool`/`suno_prompter` dirty
+pointers) — **none of it in my scope**, and unpushed commits are the
+orchestrator's push decision. My lane's tracked scope is clean: `ccmixter.py`,
+its test + fixture, CHANGELOG #065, and this handoff are committed
+(`c72b2ee`, `b5e9898`).
