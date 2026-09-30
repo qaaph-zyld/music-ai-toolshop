@@ -1,5 +1,28 @@
 # Changelog
 
+### Answer #075 - OGCM flip GATE S5b: the guitar "wail" re-performed on our own synth from a pyin pitch contour (no source audio) + A/B/C pack at 105 BPM.
+**Timestamp:** 2026-10-01
+**Action Type:** Implementation - wave s5b of the ogcm_flip lane (plan: `.workspace_archive/plans/ogcm-s5-wail-resynth.md`; spec: `.workspace_archive/plans/expected_output_ogcm_suno_sample_s5_20261001_005621.md`). Gate G2 (the user's ear) is pending.
+
+**What landed:** at G1 the user picked the htdemucs_6s guitar stem as the wail source, called the whine probe "close", and asked for a tempo "a bit faster, 1.15-1.20x of the guitar riff" (105 BPM = 1.1785x the record's 89.1). Suno rejected raw source audio, so every file in `audition_s5/` is synthesis only: the stem is read once, only to extract a pitch contour and an RMS envelope; the sound is our own oscillator.
+
+- `toolshop/flip/sample_voices.py` (additive, nothing existing changed): `extract_f0_contour` (librosa.pyin, fmin 196 / fmax 2093 / frame 1024 / hop 128, voiced = flag AND prob >= 0.5 AND an RMS gate), `clean_contour` (octave fix per segment vs the local median, median filter 5, drop islands < 9 frames, bridge gaps <= 17 frames only across <= 3 st), `transpose_contour`, `time_scale_contour` (time only), `crop_contour`, `tile_contour`, `contour_from_arrays`, `note_segments`, `contour_stats` (voiced coverage in phrases, octave_jumps, in_key_ratio on note-segment medians, n_segments, contour vibrato), and `render_f0_lead` (phase-accumulating oscillator following the contour, sine + PolyBLEP saw, constant 20 ms pitch smoothing and no portamento, amplitude from the smoothed RMS with a voiced gate, optional 24 dB/oct LadderFilter, optional synthetic vibrato only when `add_vibrato`, tanh + peak guard).
+- `scripts/ogcm_sample.py --pack s5 [--tempo-bpm 105] [--wail-bars auto|2|4]`: the riff, derived chords, sub, wail contour and the loop all time-scale by 89.1/105 (reusing `sv.tempo_scale` and the `bar_s` parameters of `derive_chords` / `chord_bednotes` / `bass_root_notes`); the lead echo is the dotted 8th at the new tempo (0.4286 s). Writes `s5_00_riff_whine`, `s5_A_layer` (S4 body + wail on top), `s5_B_replace` (wail as lead, riff muted), `s5_B_replace_saw` (B with saw 1.0 / sine 0.3 / 24 dB/oct LPF 5 kHz / mild resonance) and `s5_C_texture` (riff lead + half-speed low-passed fully wet wail, -12 dB), plus `manifest.json`, `verification.json` and `contour.npz`. `--tempo-bpm` is rejected for every other pack. `_s4_source` gained an additive `bass_dm` key; `_render_s3` and the S2-S4 builders are untouched.
+- NEW `scripts/check_contour.py` (O6): exits 0 only if voiced coverage in phrases >= 0.6, octave_jumps == 0, in_key_ratio >= 0.8, `source_audio_in_output` is false, bpm in [102.5, 107], and the manifest stats match a recomputation from `contour.npz` within 1 %.
+- 24 new tests in `tests/test_flip_sample.py` (synthetic data only).
+- `Stemmeca_alatkka/stems/flip_sample/index.html` (gitignored): S5b A/B/C section on top.
+
+**Measured (this session):** wail window = record 59.3872-70.1616 s (4 bars from the S4 riff cell; a note sustains across the 2-bar boundary). contour_stats: voiced coverage 0.7608, octave_jumps 0, in_key 16/16, contour vibrato 124.4 cents peak-to-peak so no synthetic vibrato was added. Riff agreement in the native key (within 1 sixteenth and 1 semitone): 6/13 riff notes in bars 1-2 and 1/13 in bars 3-4, so the guitar is a partly independent line, not a unison copy of the riff. Nothing here says the wail sounds right; that is the user's ear at G2.
+
+#### Files Affected:
+- **NEW:** `scripts/check_contour.py`, the wave handoff `ORCHESTRATION/ogcm_flip/wave_s5b/agent_b_s5b_handoff.md` (docs follow-up commit)
+- **MODIFIED:** `toolshop/flip/sample_voices.py`, `scripts/ogcm_sample.py`, `tests/test_flip_sample.py`, `ORCHESTRATION/ogcm_flip/LEDGER.md`
+- **Rendered / local (gitignored):** `Stemmeca_alatkka/stems/flip_sample/audition_s5/` (5 WAVs + manifest + verification + contour.npz), `index.html`
+
+#### Verification (re-run by the asserting session):
+- O1'' `verify_sample_pack` (5 files, 18.3 s, -16.00 LUFS, TP <= -5.5 dBTP), O2 `pytest test_flip_sample.py` (73 passed), O3'' `check_audition_serve` (5/5 http=200 linked), O4 four-file flip suite (121 passed), O5 `check_riff` on S4, O6 `check_contour` - all exit 0
+- S4 re-render to a scratch dir: all 5 WAVs + manifest + verification byte-identical (SHA256); s5 render deterministic (two runs, 8 files identical); `s5_00` at `--tempo-bpm 89.1` byte-identical to the s5a probe
+
 ### Answer #074 - OGCM flip GATE S5a: wail finder (local stem audition + pyin ranking + timelines), synthesis-only whine probe, tempo-synced lead delay.
 **Timestamp:** 2026-10-01
 **Action Type:** Implementation — wave s5a of the ogcm_flip lane (plan: `.workspace_archive/plans/ogcm-s5-wail-resynth.md`). Gate G1 (the user's ear) is still pending.

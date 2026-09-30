@@ -485,3 +485,318 @@ def test_measure_stem_pyin_on_synthetic_vibrato_and_silence(sa):
     assert m["vibrato_depth_st"] > 0.25
     silent = sa.measure_stem(np.zeros(sr, dtype=np.float32))
     assert silent["silent"] and silent["wail_score"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# S5b — pitch-contour wail: extract / clean / transpose / scale / stats /
+# render (synthetic data only, small SR), check_contour (O6), s5 helpers
+# ---------------------------------------------------------------------------
+
+CSR = 22050
+CHOP = sv.CONTOUR_HOP / sv.CONTOUR_SR          # contour frame step (s)
+DM_SCALE = [62, 64, 65, 67, 69, 70, 72]         # D4 E4 F4 G4 A4 Bb4 C5
+
+
+def _arr_contour(midi, hop_s=CHOP, rms=0.1):
+    midi = np.asarray(midi, dtype=float)
+    f0 = np.where(np.isfinite(midi), 440.0 * 2.0 ** ((midi - 69.0) / 12.0),
+                  np.nan)
+    t = np.arange(len(midi)) * hop_s
+    return sv.contour_from_arrays(t, f0, rms=np.full(len(midi), rms),
+                                  hop_s=hop_s)
+
+
+def _note_contour(midis, note_frames=40, gap_frames=6):
+    seq = []
+    for m in midis:
+        seq += [float(m)] * note_frames + [np.nan] * gap_frames
+    return _arr_contour(seq)
+
+
+def _glide_vibrato_tone(dur=1.6):
+    t = np.arange(int(dur * CSR)) / CSR
+    midi = (69.0 + 3.0 * np.clip(t / 0.3, 0.0, 1.0)
+            + 0.4 * np.sin(2 * np.pi * 5.5 * t))
+    f = 440.0 * 2.0 ** ((midi - 69.0) / 12.0)
+    return (0.3 * np.sin(2 * np.pi * np.cumsum(f) / CSR)).astype(np.float32)
+
+
+def test_contour_full_cycle_glide_vibrato_survives():
+    import librosa
+    y = _glide_vibrato_tone()
+    raw = sv.extract_f0_contour(y, CSR)
+    assert raw["voiced"].mean() > 0.7
+    clean = sv.clean_contour(raw)
+    m = sv.contour_midi(clean)
+    # truth: glide 69 -> 72, then 72 +- 0.4 st vibrato -> median ~72
+    assert np.nanmedian(m) == pytest.approx(72.0, abs=0.5)
+    st = sv.contour_stats(clean)
+    assert st["octave_jumps"] == 0
+    assert 40.0 < st["vibrato_pp_cents"] < 120.0   # ~80 cents survives
+    out = sv.render_f0_lead(clean, sr=CSR, saw=0.0)
+    assert out.shape[1] == 2 and float(np.abs(out).max()) > 0.05
+    x = out[:, 0].astype(np.float64)
+    f0 = librosa.yin(x, fmin=196.0, fmax=1500.0, sr=CSR, frame_length=1024,
+                     hop_length=256)
+    mid = f0[int(0.5 * CSR / 256): int(1.4 * CSR / 256)]
+    assert np.median(12 * np.log2(mid / 440.0) + 69.0) == pytest.approx(
+        72.0, abs=0.5)
+
+
+def test_clean_contour_fixes_injected_octave_jump():
+    n = 300
+    t = np.arange(n) * CHOP
+    truth = 69.0 + 0.3 * np.sin(2 * np.pi * 5.5 * t)
+    for shift in (+12.0, -12.0):
+        bad = truth.copy()
+        bad[120:170] += shift
+        raw = _arr_contour(bad)
+        assert sv.contour_stats(raw)["octave_jumps"] >= 2
+        fixed = sv.clean_contour(raw)
+        assert sv.contour_stats(fixed)["octave_jumps"] == 0
+        m = sv.contour_midi(fixed)
+        assert np.all(np.abs(m[120:170] - truth[120:170]) < 0.5)
+
+
+def test_clean_contour_keeps_real_leaps_and_drops_spikes():
+    # a genuine 7 st leap across a rest is NOT an octave error
+    c = _arr_contour([69.0] * 60 + [np.nan] * 30 + [76.0] * 60)
+    m = sv.contour_midi(sv.clean_contour(c))
+    assert np.nanmedian(m[:60]) == pytest.approx(69.0, abs=0.01)
+    assert np.nanmedian(m[-60:]) == pytest.approx(76.0, abs=0.01)
+    # a 1-frame +3 st spike inside a note is removed by the median filter
+    spiky = np.full(80, 69.0)
+    spiky[40] = 72.0
+    m2 = sv.contour_midi(sv.clean_contour(_arr_contour(spiky)))
+    assert np.nanmax(m2) < 69.5
+
+
+def test_clean_contour_bridges_small_steps_only_and_drops_islands():
+    def cleaned(gap, step, tail=40):
+        return sv.clean_contour(_arr_contour(
+            [69.0] * 40 + [np.nan] * gap + [69.0 + step] * tail))
+    ok = cleaned(10, 2.0)
+    assert ok["bridged"].sum() == 10 and ok["voiced"].all()
+    assert not cleaned(25, 2.0)["bridged"].any()         # gap > 17 frames
+    assert not cleaned(10, 4.0)["bridged"].any()         # step > 3 st
+    # islands under 9 frames vanish; 9 frames survive
+    isl = sv.clean_contour(_arr_contour([69.0] * 8 + [np.nan] * 30
+                                        + [72.0] * 40))
+    assert not isl["voiced"][:8].any() and isl["voiced"][-40:].all()
+    keep = sv.clean_contour(_arr_contour([69.0] * 9 + [np.nan] * 30
+                                         + [72.0] * 40))
+    assert keep["voiced"][:9].all()
+
+
+def test_transpose_contour_is_exact():
+    c = _arr_contour([60.0, 62.5, np.nan, 71.25, 80.0])
+    for st in (-4, 7, 0.5, 0):
+        out = sv.transpose_contour(c, st)
+        a, b = sv.contour_midi(c), sv.contour_midi(out)
+        assert np.array_equal(np.isfinite(a), np.isfinite(b))
+        assert np.allclose(b[np.isfinite(b)], a[np.isfinite(a)] + st,
+                           rtol=0, atol=1e-9)
+        assert np.array_equal(out["times"], c["times"])
+        assert np.array_equal(out["rms"], c["rms"])
+
+
+def test_time_scale_contour_scales_time_keeps_pitch():
+    c = _arr_contour([60.0, 62.5, np.nan, 71.25, 80.0])
+    f0_before = c["f0_hz"].copy()
+    for factor in (89.1 / 105.0, 2.0):
+        out = sv.time_scale_contour(c, factor)
+        assert np.allclose(out["times"], c["times"] * factor, rtol=1e-12,
+                           atol=0)
+        assert np.array_equal(out["f0_hz"], c["f0_hz"], equal_nan=True)
+        assert np.array_equal(out["rms"], c["rms"])
+        assert out["hop_s"] == pytest.approx(c["hop_s"] * factor)
+    assert np.array_equal(c["f0_hz"], f0_before, equal_nan=True)  # no mutation
+
+
+def test_crop_and_tile_contour():
+    c = _arr_contour([69.0] * 100)
+    sub = sv.crop_contour(c, 50 * CHOP, 100 * CHOP)
+    assert len(sub["times"]) == 50 and sub["times"][0] == pytest.approx(0.0)
+    cut = sv.crop_contour(_arr_contour([69.0] * 100), 95 * CHOP, 100 * CHOP)
+    assert not cut["voiced"].any()                      # 5-frame remnant
+    period = 100 * CHOP
+    tiled = sv.tile_contour(c, period, 3)
+    assert len(tiled["times"]) == 300
+    assert np.all(np.diff(tiled["times"]) > 0)
+    assert tiled["times"][100] == pytest.approx(period)
+
+
+def test_render_f0_lead_deterministic_finite_peak_guarded_mono_equal():
+    c = _note_contour([69, 72, 76], note_frames=50, gap_frames=30)
+    variants = ({}, {"sine": 0.3, "saw": 1.0, "lpf_hz": 5000.0,
+                     "lpf_resonance": 0.2}, {"add_vibrato": True})
+    for kw in variants:
+        a = sv.render_f0_lead(c, sr=CSR, **kw)
+        b = sv.render_f0_lead(c, sr=CSR, **kw)
+        assert np.array_equal(a, b)
+        assert a.dtype == np.float32 and a.ndim == 2 and a.shape[1] == 2
+        assert np.isfinite(a).all()
+        assert float(np.abs(a).max()) <= 1.0
+        assert float(np.abs(a).max()) > 0.05
+        assert np.array_equal(a[:, 0], a[:, 1])
+        assert a.shape[0] >= int(c["times"][-1] * CSR)
+
+
+def test_render_f0_lead_gates_rests_and_follows_pitch():
+    c = _note_contour([69, 76], note_frames=60, gap_frames=60)
+    out = sv.render_f0_lead(c, sr=CSR, saw=0.0)[:, 0].astype(np.float64)
+    hop = CSR * CHOP
+    rest0 = int((60 + 30) * hop)                         # middle of the rest
+    assert float(np.abs(out[rest0: rest0 + int(10 * hop)]).max()) < 1e-3
+    seg = out[int(20 * hop): int(50 * hop)]
+    spec = np.abs(np.fft.rfft(seg * np.hanning(len(seg))))
+    f = np.fft.rfftfreq(len(seg), 1.0 / CSR)[int(np.argmax(spec))]
+    assert f == pytest.approx(440.0, rel=0.02)
+
+
+def test_silent_input_gives_empty_contour_and_silence():
+    empty = sv.extract_f0_contour(np.zeros(CSR, dtype=np.float32), CSR)
+    assert len(empty["times"]) == 0 and len(empty["f0_hz"]) == 0
+    assert len(sv.clean_contour(empty)["times"]) == 0
+    st = sv.contour_stats(empty)
+    assert st["n_voiced_frames"] == 0 and st["in_key_ratio"] == 0.0
+    sil = sv.render_f0_lead(empty, sr=CSR)
+    assert sil.shape == (CSR, 2) and not sil.any()
+    unv = _arr_contour([np.nan] * 50)
+    assert not sv.render_f0_lead(unv, sr=CSR).any()
+
+
+def test_contour_stats_in_key_ratio_on_d_minor_scale():
+    c = _note_contour(DM_SCALE)
+    st = sv.contour_stats(c)
+    assert st["in_key_ratio"] == 1.0
+    assert st["n_segments"] == 7 and st["n_segments_in_key"] == 7
+    assert st["octave_jumps"] == 0
+    # two chromatic notes (C#4, F#4) drop the ratio to 7/9
+    st2 = sv.contour_stats(_note_contour(DM_SCALE + [61, 66]))
+    assert st2["in_key_ratio"] == pytest.approx(7 / 9, abs=1e-3)
+    # a bend that passes through out-of-key pitches is ONE note (median)
+    bend = _arr_contour(list(np.linspace(69.0, 71.0, 40)))
+    segs = sv.note_segments(bend)
+    assert len(segs) == 1 and segs[0]["median_midi"] == pytest.approx(70.0,
+                                                                     abs=0.1)
+    # legato steps with no rest still split into separate notes
+    legato = sv.note_segments(_note_contour([62, 65, 69], gap_frames=0))
+    assert [round(s["median_midi"]) for s in legato] == [62, 65, 69]
+
+
+def test_contour_stats_voiced_coverage_and_vibrato():
+    # rests longer than phrase_gap_s separate phrases and are not penalised
+    c = _note_contour([69, 69], note_frames=50, gap_frames=120)
+    st = sv.contour_stats(c)
+    assert st["n_phrases"] == 2 and st["voiced_coverage_in_phrases"] == 1.0
+    # a hole shorter than the phrase gap counts against coverage
+    holey = _arr_contour([69.0] * 60 + [np.nan] * 30 + [69.0] * 60)
+    assert sv.contour_stats(holey)["voiced_coverage_in_phrases"] < 0.85
+    t = np.arange(200) * CHOP
+    vib = _arr_contour(69.0 + 0.4 * np.sin(2 * np.pi * 5.5 * t))
+    pp = sv.contour_stats(vib)["vibrato_pp_cents"]
+    assert 60.0 < pp < 100.0                              # +-40 cents
+    flat = sv.contour_stats(_arr_contour([69.0] * 200))
+    assert flat["vibrato_pp_cents"] < 1.0 and flat["n_sustained"] == 1
+
+
+# --- O6 check_contour --------------------------------------------------------
+
+def _write_pack(tmp_path, midis, bpm=105.0, source_audio=False,
+                tamper=None):
+    import json
+    c = _note_contour(midis)
+    dm = c
+    np.savez(str(tmp_path / "contour.npz"), times=dm["times"],
+             f0_hz=dm["f0_hz"], voiced=dm["voiced"], rms=dm["rms"],
+             f0_hz_native=sv.transpose_contour(dm, 4)["f0_hz"],
+             transpose_st=np.float64(-4.0), hop_s=np.float64(dm["hop_s"]))
+    stats = sv.contour_stats(dm)
+    if tamper:
+        stats[tamper[0]] = tamper[1]
+    manifest = {"bpm": bpm, "source_audio_in_output": source_audio,
+                "files": [{"file": "s5_A_layer.wav"}],
+                "contour_stats": stats}
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest),
+                                            encoding="utf-8")
+    return str(tmp_path / "manifest.json")
+
+
+def test_check_contour_passes_good_pack(tmp_path):
+    cc = _load_script("check_contour")
+    assert cc.main(["--manifest", _write_pack(tmp_path, DM_SCALE)]) == 0
+
+
+@pytest.mark.parametrize("kw", [
+    {"bpm": 89.1}, {"bpm": 120.0}, {"source_audio": True},
+    {"tamper": ("in_key_ratio", 0.5)},
+    {"tamper": ("voiced_coverage_in_phrases", 0.9)},
+])
+def test_check_contour_fails_bad_packs(tmp_path, kw):
+    cc = _load_script("check_contour")
+    assert cc.main(["--manifest", _write_pack(tmp_path, DM_SCALE, **kw)]) == 1
+
+
+def test_check_contour_reports_out_of_key_segments(tmp_path, capsys):
+    cc = _load_script("check_contour")
+    mp = _write_pack(tmp_path, [62, 61, 66, 64, 69])        # 2 of 5 off-key
+    assert cc.main(["--manifest", mp]) == 1
+    out = capsys.readouterr().out
+    assert "offending segments" in out and "C#4" in out and "F#4" in out
+
+
+def test_check_contour_missing_npz_fails(tmp_path):
+    import json
+    cc = _load_script("check_contour")
+    (tmp_path / "manifest.json").write_text(json.dumps({"bpm": 105.0}),
+                                            encoding="utf-8")
+    assert cc.main(["--manifest", str(tmp_path / "manifest.json")]) == 1
+
+
+# --- ogcm_sample s5 helpers --------------------------------------------------
+
+@pytest.fixture(scope="module")
+def om():
+    return _load_script("ogcm_sample")
+
+
+def test_s5_tempo_flag_only_for_s5(om):
+    with pytest.raises(SystemExit):
+        om.main(["--pack", "s4", "--tempo-bpm", "100"])
+    with pytest.raises(SystemExit):
+        om.main(["--pack", "s5", "--tempo-bpm", "-5"])
+
+
+def test_s5_phrase_continues_rule(om):
+    sustained = _arr_contour([69.0] * 100 + [np.nan] * 20 + [72.0] * 50)
+    boundary = 50 * CHOP
+    ok, why = om._phrase_continues(sustained, boundary)
+    assert ok and "sustains" in why
+    rest = _arr_contour([69.0] * 40 + [np.nan] * 120 + [72.0] * 50)
+    ok2, _ = om._phrase_continues(rest, 60 * CHOP)
+    assert not ok2
+    soon = _arr_contour([69.0] * 40 + [np.nan] * 20 + [72.0] * 50)
+    ok3, _ = om._phrase_continues(soon, 50 * CHOP)
+    assert ok3                                          # next onset < 0.3 s
+
+
+def test_s5_riff_agreement_onset_and_pitch_tolerances(om):
+    six = sv.GRID_16TH_S
+    riff = [_note(0.0, 0.3, 68), _note(1.0, 0.3, 66), _note(2.0, 0.3, 73)]
+    segs = [{"start_s": 0.05, "median_midi": 68.4},          # match
+            {"start_s": 1.0 + 0.9 * six, "median_midi": 66.0},   # match
+            {"start_s": 2.0, "median_midi": 71.0}]           # 2 st off
+    ag = om._riff_agreement(riff, segs, cell_s=3.0, n_cells=1)
+    assert ag["riff_notes"] == 3 and ag["riff_notes_matched"] == 2
+    assert ag["riff_recall"] == pytest.approx(2 / 3, abs=1e-3)
+    late = [{"start_s": 0.0 + 1.3 * six, "median_midi": 68.0}]
+    assert om._riff_agreement(riff, late, 3.0, 1)["riff_notes_matched"] == 0
+    assert ag["offset_sweep_best_s"] == 0.0
+
+
+def test_s5_level_helpers(om):
+    a = np.ones((100, 2), dtype=np.float32)
+    assert om._rms(a, 50) == pytest.approx(1.0)
+    b = om._sum_pad(a, np.ones((150, 2), dtype=np.float32))
+    assert b.shape == (150, 2) and b[0, 0] == 2.0 and b[120, 0] == 1.0

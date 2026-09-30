@@ -807,3 +807,525 @@ def mixdown(lanes: Dict[str, np.ndarray],
         m = min(n, a.shape[0])
         out[:m] += a[:m].astype(np.float64) * g
     return out.astype(np.float32)
+
+
+# ---------------------------------------------------------------------------
+# S5b — f0-contour resynthesis of the "wail".
+#
+# STEM AUDIO IS READ ONLY HERE, ONLY TO EXTRACT A PITCH CONTOUR AND AN RMS
+# ENVELOPE (``extract_f0_contour``). Everything after that is arithmetic on
+# those two curves and our own oscillators (``render_f0_lead``): the glides and
+# vibrato come from the performance, the SOUND comes from our synth. No stem
+# sample ever reaches a rendered lane.
+#
+# A "contour" is a plain dict of equal-length arrays:
+#   times (s), f0_hz (NaN = unvoiced), voiced_prob, rms, voiced (bool),
+#   bridged (bool: frame filled by ``clean_contour``'s gap bridging)
+# plus scalars ``hop_s`` and ``sr``. All functions return NEW dicts.
+# ---------------------------------------------------------------------------
+
+CONTOUR_SR = 22050
+CONTOUR_FMIN_HZ = 196.0            # G3: margin for bends, excludes bass bleed
+CONTOUR_FMAX_HZ = 2093.0           # C7
+CONTOUR_FRAME = 1024
+CONTOUR_HOP = 128                  # 5.8 ms at 22.05 kHz
+CONTOUR_MIN_VOICED_PROB = 0.5
+CONTOUR_RMS_GATE_ABS_DB = -60.0
+CONTOUR_RMS_GATE_REL_DB = 35.0     # frames > 35 dB under the p95 are not voiced
+# frame counts quoted for hop 128; other hops rescale them (hop 256 halves)
+_CONTOUR_HOP_REF_S = CONTOUR_HOP / CONTOUR_SR
+OCTAVE_JUMP_ST = 10.0              # frame-to-frame jump counted as an octave jump
+
+
+def _hz_to_midi(f) -> np.ndarray:
+    f = np.asarray(f, dtype=np.float64)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return 69.0 + 12.0 * np.log2(f / 440.0)
+
+
+def _runs(mask) -> List[Tuple[int, int]]:
+    """Half-open ``(start, end)`` index pairs of the True runs of ``mask``."""
+    m = np.concatenate(([0], np.asarray(mask, dtype=np.int8), [0]))
+    d = np.diff(m)
+    return list(zip(np.flatnonzero(d == 1).tolist(),
+                    np.flatnonzero(d == -1).tolist()))
+
+
+def _forward_fill_idx(valid: np.ndarray) -> np.ndarray:
+    """Index of the last valid element at/before each position (leading
+    positions take the first valid one). ``valid`` must have a True."""
+    idx = np.where(valid, np.arange(len(valid)), 0)
+    idx = np.maximum.accumulate(idx)
+    first = int(np.argmax(valid))
+    idx[: first] = first
+    return idx
+
+
+def _make_contour(times, f0_hz, voiced_prob, rms, hop_s: float, sr: int,
+                  bridged=None) -> dict:
+    f0 = np.asarray(f0_hz, dtype=np.float64)
+    return {"times": np.asarray(times, dtype=np.float64),
+            "f0_hz": f0,
+            "voiced_prob": np.asarray(voiced_prob, dtype=np.float64),
+            "rms": np.asarray(rms, dtype=np.float64),
+            "voiced": np.isfinite(f0),
+            "bridged": (np.zeros(len(f0), dtype=bool) if bridged is None
+                        else np.asarray(bridged, dtype=bool)),
+            "hop_s": float(hop_s), "sr": int(sr)}
+
+
+def contour_from_arrays(times, f0_hz, rms=None, hop_s: Optional[float] = None,
+                        sr: int = CONTOUR_SR, voiced_prob=None,
+                        bridged=None) -> dict:
+    """Rebuild a contour dict from saved arrays (e.g. ``contour.npz``)."""
+    t = np.asarray(times, dtype=np.float64)
+    if hop_s is None:
+        hop_s = float(np.median(np.diff(t))) if len(t) > 1 else _CONTOUR_HOP_REF_S
+    return _make_contour(
+        t, f0_hz,
+        np.ones(len(t)) if voiced_prob is None else voiced_prob,
+        np.ones(len(t)) if rms is None else rms, hop_s, sr, bridged)
+
+
+def contour_midi(contour: dict) -> np.ndarray:
+    """f0 in MIDI (float, NaN where unvoiced)."""
+    return _hz_to_midi(contour["f0_hz"])
+
+
+def _scaled_frames(contour: dict, n_ref: int, odd: bool = False) -> int:
+    hop_s = float(contour.get("hop_s") or _CONTOUR_HOP_REF_S)
+    n = max(1, int(round(n_ref * _CONTOUR_HOP_REF_S / hop_s)))
+    if odd and n % 2 == 0:
+        n += 1
+    return n
+
+
+def extract_f0_contour(y, sr: int, fmin: float = CONTOUR_FMIN_HZ,
+                       fmax: float = CONTOUR_FMAX_HZ,
+                       frame_length: int = CONTOUR_FRAME,
+                       hop_length: int = CONTOUR_HOP,
+                       target_sr: int = CONTOUR_SR,
+                       min_voiced_prob: float = CONTOUR_MIN_VOICED_PROB,
+                       rms_gate_abs_db: float = CONTOUR_RMS_GATE_ABS_DB,
+                       rms_gate_rel_db: float = CONTOUR_RMS_GATE_REL_DB
+                       ) -> dict:
+    """pyin pitch + RMS contour of one lead line in ``y`` (mono, or soundfile
+    ``(n, ch)`` which is averaged to mono).
+
+    ``librosa.pyin`` runs with its default HMM parameters and ``fill_na=nan``.
+    A frame is voiced only if ``voiced_flag`` AND ``voiced_prob >=
+    min_voiced_prob`` AND its RMS passes the gate (above ``rms_gate_abs_db``
+    and within ``rms_gate_rel_db`` of the signal's own p95 frame RMS — pyin is
+    energy-blind, so stem bleed can otherwise read as voiced).
+
+    Returns the contour dict (frame centres in ``times``, seconds from the
+    start of ``y``). Silent / too-short input returns an EMPTY contour
+    (zero-length arrays).
+    """
+    import librosa
+
+    x = np.nan_to_num(np.asarray(y, dtype=np.float64))
+    if x.ndim == 2:
+        x = x.mean(axis=1) if x.shape[0] >= x.shape[1] else x.mean(axis=0)
+    x = x.reshape(-1)
+    hop_s = hop_length / float(target_sr)
+    if x.size < 2 * frame_length or float(np.max(np.abs(x))) < 1e-7:
+        z = np.zeros(0)
+        return _make_contour(z, z, z, z, hop_s, target_sr)
+    if int(sr) != int(target_sr):
+        x = librosa.resample(x, orig_sr=int(sr), target_sr=int(target_sr))
+    f0, vflag, vprob = librosa.pyin(
+        x, fmin=fmin, fmax=fmax, sr=target_sr, frame_length=frame_length,
+        hop_length=hop_length, fill_na=np.nan)
+    rms = librosa.feature.rms(y=x, frame_length=frame_length,
+                              hop_length=hop_length, center=True)[0]
+    n = min(len(f0), len(rms))
+    f0, vflag, vprob, rms = f0[:n], vflag[:n], vprob[:n], rms[:n]
+    times = librosa.times_like(f0, sr=target_sr, hop_length=hop_length)
+    rms_db = 20.0 * np.log10(rms + 1e-12)
+    gate_db = max(rms_gate_abs_db,
+                  float(np.percentile(rms_db, 95)) - rms_gate_rel_db)
+    voiced = (vflag.astype(bool) & (vprob >= min_voiced_prob)
+              & (rms_db >= gate_db) & np.isfinite(f0))
+    f0 = np.where(voiced, f0, np.nan)
+    return _make_contour(times, f0, vprob, rms, hop_s, target_sr)
+
+
+def _octave_fix(midi: np.ndarray, t: np.ndarray, window_s: float,
+                tol_st: float, split_st: float, min_near: int) -> np.ndarray:
+    """Shift whole voiced pieces by +-12 st when their median sits an octave
+    away from the median of the voiced frames within ``window_s`` around them
+    AND the shift moves them closer to the global median. Pieces are the
+    voiced runs, further split at adjacent-frame jumps >= ``split_st``."""
+    midi = midi.copy()
+    v = np.isfinite(midi)
+    if v.sum() < 2:
+        return midi
+    pieces: List[Tuple[int, int]] = []
+    for i0, i1 in _runs(v):
+        a = i0
+        for k in range(i0 + 1, i1):
+            if abs(midi[k] - midi[k - 1]) >= split_st:
+                pieces.append((a, k))
+                a = k
+        pieces.append((a, i1))
+    g = float(np.median(midi[v]))
+    for _ in range(2):
+        changed = False
+        for p0, p1 in pieces:
+            seg_med = float(np.median(midi[p0:p1]))
+            tc = 0.5 * (t[p0] + t[p1 - 1])
+            near = v & (np.abs(t - tc) <= window_s)
+            near[p0:p1] = False
+            if int(near.sum()) < min_near:
+                continue
+            d = seg_med - float(np.median(midi[near]))
+            for sgn in (1.0, -1.0):
+                if (abs(d - 12.0 * sgn) <= tol_st
+                        and abs(seg_med - 12.0 * sgn - g) < abs(seg_med - g)):
+                    midi[p0:p1] -= 12.0 * sgn
+                    changed = True
+                    break
+        if not changed:
+            break
+    return midi
+
+
+def clean_contour(contour: dict, median_frames: int = 5,
+                  min_island_frames: int = 9, max_gap_frames: int = 17,
+                  max_bridge_st: float = 3.0, octave_window_s: float = 1.0,
+                  octave_tol_st: float = 1.5, jump_split_st: float = 7.0,
+                  midi_lo: float = 55.0, midi_hi: float = 96.0) -> dict:
+    """Clean a raw pyin contour, in this order:
+
+    1. octave fix per segment against the local median (+ a range gate to
+       ``[midi_lo, midi_hi]``; any adjacent-frame jump >= ``OCTAVE_JUMP_ST``
+       that survives becomes a hard note boundary),
+    2. median filter of ``median_frames`` inside voiced segments only,
+    3. drop voiced islands shorter than ``min_island_frames``,
+    4. bridge unvoiced gaps up to ``max_gap_frames`` by linear interpolation
+       in MIDI, only when the step across the gap is <= ``max_bridge_st``
+       (bridged frames also get interpolated RMS and are flagged).
+
+    Frame counts are quoted for hop 128 and rescale automatically for other
+    hops (hop 256 halves them).
+    """
+    from scipy.ndimage import median_filter
+
+    n = len(contour["times"])
+    if n == 0:
+        return _make_contour(contour["times"], contour["f0_hz"],
+                             contour["voiced_prob"], contour["rms"],
+                             contour["hop_s"], contour["sr"])
+    k_med = _scaled_frames(contour, median_frames, odd=True)
+    k_isl = _scaled_frames(contour, min_island_frames)
+    k_gap = _scaled_frames(contour, max_gap_frames)
+    k_near = _scaled_frames(contour, 5)
+    t = np.asarray(contour["times"], dtype=np.float64)
+    midi = _hz_to_midi(contour["f0_hz"])
+    rms = np.asarray(contour["rms"], dtype=np.float64).copy()
+    vprob = np.asarray(contour["voiced_prob"], dtype=np.float64).copy()
+
+    # 1. octave fix, range gate, residual-jump seams
+    midi = _octave_fix(midi, t, octave_window_s, octave_tol_st, jump_split_st,
+                       k_near)
+    midi[(midi < midi_lo) | (midi > midi_hi)] = np.nan
+    for k in range(1, n):
+        if (np.isfinite(midi[k]) and np.isfinite(midi[k - 1])
+                and abs(midi[k] - midi[k - 1]) >= OCTAVE_JUMP_ST):
+            midi[k] = np.nan
+    # 2. median filter inside voiced segments only (never across NaN)
+    for i0, i1 in _runs(np.isfinite(midi)):
+        midi[i0:i1] = median_filter(midi[i0:i1], size=k_med, mode="nearest")
+    # 3. drop short islands
+    for i0, i1 in _runs(np.isfinite(midi)):
+        if i1 - i0 < k_isl:
+            midi[i0:i1] = np.nan
+    # 4. bridge short gaps across small steps
+    bridged = np.zeros(n, dtype=bool)
+    runs = _runs(np.isfinite(midi))
+    for (_, a1), (b0, _) in zip(runs, runs[1:]):
+        gap = b0 - a1
+        if 0 < gap <= k_gap and abs(midi[b0] - midi[a1 - 1]) <= max_bridge_st:
+            for arr in (midi, rms, vprob):
+                arr[a1:b0] = np.linspace(arr[a1 - 1], arr[b0], gap + 2)[1:-1]
+            bridged[a1:b0] = True
+    f0 = np.where(np.isfinite(midi), 440.0 * 2.0 ** ((midi - 69.0) / 12.0),
+                  np.nan)
+    return _make_contour(t, f0, vprob, rms, contour["hop_s"], contour["sr"],
+                         bridged)
+
+
+def transpose_contour(contour: dict, st: float) -> dict:
+    """Shift the pitch by exactly ``st`` semitones (f0 * 2**(st/12)); the
+    time axis, RMS and voicing are untouched."""
+    c = _make_contour(contour["times"], contour["f0_hz"] * 2.0 ** (st / 12.0),
+                      contour["voiced_prob"], contour["rms"],
+                      contour["hop_s"], contour["sr"], contour["bridged"])
+    return c
+
+
+def time_scale_contour(contour: dict, factor: float) -> dict:
+    """Scale the TIME axis by ``factor`` (<1 faster, 2.0 = half speed);
+    pitch, RMS and voicing are unchanged. ``hop_s`` scales with it."""
+    return _make_contour(np.asarray(contour["times"]) * factor,
+                         contour["f0_hz"], contour["voiced_prob"],
+                         contour["rms"], contour["hop_s"] * factor,
+                         contour["sr"], contour["bridged"])
+
+
+def crop_contour(contour: dict, t0: float, t1: float,
+                 min_island_frames: int = 9) -> dict:
+    """Frames with ``t0 <= t < t1``, times re-zeroed to ``t0``. Voiced
+    remnants shorter than ``min_island_frames`` left by the cut are dropped."""
+    t = np.asarray(contour["times"], dtype=np.float64)
+    m = (t >= t0) & (t < t1)
+    f0 = contour["f0_hz"][m].copy()
+    k_isl = _scaled_frames(contour, min_island_frames)
+    for i0, i1 in _runs(np.isfinite(f0)):
+        if i1 - i0 < k_isl:
+            f0[i0:i1] = np.nan
+    return _make_contour(t[m] - t0, f0, contour["voiced_prob"][m],
+                         contour["rms"][m], contour["hop_s"], contour["sr"],
+                         contour["bridged"][m])
+
+
+def tile_contour(contour: dict, period_s: float, reps: int) -> dict:
+    """``reps`` copies of the contour, copy k shifted by ``k * period_s``
+    (the contour must lie inside ``[0, period_s)``)."""
+    parts = range(reps)
+    return _make_contour(
+        np.concatenate([np.asarray(contour["times"]) + k * period_s
+                        for k in parts]),
+        np.concatenate([contour["f0_hz"] for _ in parts]),
+        np.concatenate([contour["voiced_prob"] for _ in parts]),
+        np.concatenate([contour["rms"] for _ in parts]),
+        contour["hop_s"], contour["sr"],
+        np.concatenate([contour["bridged"] for _ in parts]))
+
+
+def note_segments(contour: dict, step_st: float = 0.75,
+                  min_note_s: float = 0.06) -> List[dict]:
+    """Note segments of a contour: voiced runs split at adjacent-frame steps
+    >= ``step_st`` semitones (slides and bends are slower than that and stay
+    one note), dropping segments shorter than ``min_note_s``. Each segment:
+    ``start_s`` (first frame centre), ``end_s`` (last frame centre),
+    ``median_midi`` and the frame range ``i0:i1``."""
+    midi = contour_midi(contour)
+    t = np.asarray(contour["times"], dtype=np.float64)
+    hop_s = float(contour["hop_s"])
+    segs: List[dict] = []
+
+    def emit(a: int, b: int) -> None:
+        if (b - a) * hop_s + 1e-9 >= min_note_s:
+            segs.append({"start_s": float(t[a]), "end_s": float(t[b - 1]),
+                         "median_midi": float(np.median(midi[a:b])),
+                         "i0": int(a), "i1": int(b)})
+
+    for i0, i1 in _runs(np.isfinite(midi)):
+        a = i0
+        for k in range(i0 + 1, i1):
+            if abs(midi[k] - midi[k - 1]) >= step_st:
+                emit(a, k)
+                a = k
+        emit(a, i1)
+    return segs
+
+
+def _vibrato_pp_cents(midi_seg: np.ndarray, hop_s: float,
+                      trend_s: float = 0.36, trim_s: float = 0.06) -> float:
+    """Peak-to-peak (p95 - p5) of the MIDI curve after subtracting a moving
+    average of ``trend_s`` (~2 vibrato periods), in cents; the first/last
+    ``trim_s`` (attack scoop / release) are excluded."""
+    from scipy.ndimage import uniform_filter1d
+
+    size = max(3, int(round(trend_s / hop_s)))
+    trend = uniform_filter1d(midi_seg, size=size, mode="nearest")
+    dev = (midi_seg - trend) * 100.0
+    tr = int(round(trim_s / hop_s))
+    if len(dev) - 2 * tr >= 3:
+        dev = dev[tr: len(dev) - tr]
+    return float(np.percentile(dev, 95) - np.percentile(dev, 5))
+
+
+def contour_stats(contour: dict, key_pcs: Sequence[int] = D_MINOR_PCS,
+                  phrase_gap_s: float = 0.4, note_step_st: float = 0.75,
+                  min_note_s: float = 0.06, sustain_s: float = 0.5) -> dict:
+    """Numbers behind O6 (``check_contour.py``). Pure function of the
+    contour arrays (the verifier recomputes them from ``contour.npz``).
+
+    - ``voiced_coverage_in_phrases``: a phrase is a run of voiced segments
+      whose gaps are <= ``phrase_gap_s``; coverage = voiced frames / frames
+      inside the phrases (rests between phrases are not penalised).
+    - ``octave_jumps``: adjacent voiced frames with |d midi| >= 10.
+    - ``in_key_ratio``: share of note segments (``note_segments``) whose
+      median MIDI, rounded, has a pitch class in ``key_pcs``. Medians, so
+      bends and slides are allowed. Judge it on the TRANSPOSED contour.
+    - ``vibrato_pp_cents``: median peak-to-peak of the detrended MIDI curve
+      over note segments sustained >= ``sustain_s`` (``n_sustained`` of them;
+      0.0 with n_sustained == 0 means "not measurable").
+    """
+    n = len(contour["times"])
+    hop_s = float(contour["hop_s"])
+    midi = contour_midi(contour) if n else np.zeros(0)
+    v = np.isfinite(midi)
+    out = {"hop_s": round(hop_s, 6), "n_frames": int(n),
+           "n_voiced_frames": int(v.sum()),
+           "voiced_coverage_in_phrases": 0.0, "n_phrases": 0,
+           "octave_jumps": 0, "in_key_ratio": 0.0, "n_segments": 0,
+           "n_segments_in_key": 0, "vibrato_pp_cents": 0.0,
+           "n_sustained": 0, "median_midi": None,
+           "p10_midi": None, "p90_midi": None}
+    if not v.any():
+        return out
+    both = v[1:] & v[:-1]
+    out["octave_jumps"] = int(np.sum(both & (np.abs(np.diff(midi))
+                                             >= OCTAVE_JUMP_ST)))
+    runs = _runs(v)
+    max_gap = max(1, int(round(phrase_gap_s / hop_s)))
+    phrases: List[List[int]] = [[runs[0][0], runs[0][1]]]
+    for a, b in runs[1:]:
+        if a - phrases[-1][1] <= max_gap:
+            phrases[-1][1] = b
+        else:
+            phrases.append([a, b])
+    span = sum(b - a for a, b in phrases)
+    out["n_phrases"] = len(phrases)
+    out["voiced_coverage_in_phrases"] = round(float(v.sum()) / span, 4)
+    segs = note_segments(contour, note_step_st, min_note_s)
+    keyset = set(int(p) % 12 for p in key_pcs)
+    in_key = [s for s in segs
+              if int(round(s["median_midi"])) % 12 in keyset]
+    out["n_segments"] = len(segs)
+    out["n_segments_in_key"] = len(in_key)
+    out["in_key_ratio"] = round(len(in_key) / len(segs), 4) if segs else 0.0
+    vib = [_vibrato_pp_cents(midi[s["i0"]:s["i1"]], hop_s) for s in segs
+           if (s["i1"] - s["i0"]) * hop_s >= sustain_s]
+    out["n_sustained"] = len(vib)
+    out["vibrato_pp_cents"] = round(float(np.median(vib)), 2) if vib else 0.0
+    out["median_midi"] = round(float(np.median(midi[v])), 3)
+    out["p10_midi"] = round(float(np.percentile(midi[v], 10)), 3)
+    out["p90_midi"] = round(float(np.percentile(midi[v], 90)), 3)
+    return out
+
+
+def _polyblep_saw(phase: np.ndarray, dt: np.ndarray) -> np.ndarray:
+    """Band-limited (PolyBLEP) saw for a phase in cycles and per-sample
+    phase increment ``dt`` — a naive saw at 1-2 kHz aliases audibly."""
+    t = phase - np.floor(phase)
+    dt = np.clip(dt, 1e-6, 0.5)
+    y = 2.0 * t - 1.0
+    m1 = t < dt
+    x = t[m1] / dt[m1]
+    y[m1] -= x + x - x * x - 1.0
+    m2 = t > 1.0 - dt
+    x = (t[m2] - 1.0) / dt[m2]
+    y[m2] -= x * x + x + x + 1.0
+    return y
+
+
+def render_f0_lead(contour: dict, sr: int = 44100, sine: float = 1.0,
+                   saw: float = 0.35, lpf_hz: Optional[float] = None,
+                   attack_ms: float = 10.0, release_ms: float = 70.0,
+                   smooth_ms: float = 20.0, add_vibrato: bool = False,
+                   vib_hz: float = 5.5, vib_depth_st: float = 0.40,
+                   vib_onset_ms: float = 180.0, vib_ramp_ms: float = 120.0,
+                   lpf_resonance: float = 0.15, amp_smooth_ms: float = 25.0,
+                   dyn_exp: float = 0.5, drive: float = 1.4,
+                   tail_s: float = 2.0) -> np.ndarray:
+    """Re-perform a pitch contour on our own oscillators (mono -> stereo).
+
+    - Phase-accumulating oscillator following the contour (MIDI, linearly
+      interpolated to audio rate). Pitch smoothing is a constant
+      ``smooth_ms`` moving average ONLY: the contour already holds the glides,
+      there is no portamento here.
+    - Timbre: ``sine`` * sin + ``saw`` * PolyBLEP saw (normalised by their
+      sum); optional 24 dB/oct ``LadderFilter`` LPF at ``lpf_hz``.
+    - Legato across bridged gaps (they are voiced frames); unvoiced gaps
+      retrigger. Amplitude = smoothed RMS (normalised by the voiced p95,
+      raised to ``dyn_exp`` = gentle dynamics compression) x voiced gate,
+      with ``attack_ms`` / ``release_ms`` ramps per note.
+    - Synthetic vibrato only when ``add_vibrato`` (5.5 Hz, +-``vib_depth_st``,
+      silent for ``vib_onset_ms`` after each note start, then ramped in over
+      ``vib_ramp_ms``).
+    - tanh soft clip + peak guard (<= 0.99). Deterministic.
+    An empty / fully unvoiced contour returns one second of silence.
+    """
+    from scipy.ndimage import uniform_filter1d
+
+    t = np.asarray(contour["times"], dtype=np.float64)
+    midi_f = contour_midi(contour) if len(t) else np.zeros(0)
+    voiced = np.isfinite(midi_f)
+    if len(t) == 0 or not voiced.any():
+        return np.zeros((sr, 2), dtype=np.float32)
+    hop_s = float(contour.get("hop_s") or
+                  (np.median(np.diff(t)) if len(t) > 1 else 0.0058))
+    n = int(math.ceil((t[-1] + hop_s) * sr)) + int(tail_s * sr)
+    ta = np.arange(n, dtype=np.float64) / sr
+
+    # nearest contour frame per audio sample -> voiced gate
+    j = np.clip(np.searchsorted(t, ta), 1, max(1, len(t) - 1))
+    if len(t) == 1:
+        idx = np.zeros(n, dtype=int)
+    else:
+        idx = np.where(ta - t[j - 1] <= t[j] - ta, j - 1, j)
+    gate = (voiced[idx] & (ta >= t[0] - 0.5 * hop_s)
+            & (ta < t[-1] + 0.5 * hop_s))
+
+    # pitch: hold through unvoiced gaps (irrelevant once gated), interpolate
+    # between frames, then constant-window smoothing
+    ff = _forward_fill_idx(voiced)
+    midi_a = np.interp(ta, t, midi_f[ff])
+    k = max(1, int(round(smooth_ms * sr / 1000.0)))
+    if k > 1:
+        midi_a = uniform_filter1d(midi_a, size=k, mode="nearest")
+
+    # amplitude curve from the smoothed RMS
+    rms = np.asarray(contour["rms"], dtype=np.float64)
+    ka = max(1, int(round(amp_smooth_ms / 1000.0 / hop_s)))
+    rs = uniform_filter1d(rms, size=ka, mode="nearest") if ka > 1 else rms
+    ref = float(np.percentile(rs[voiced], 95))
+    if not ref > 0.0:
+        ref = 1.0
+    a_frame = np.clip(rs / ref, 0.0, 1.5) ** dyn_exp
+    amp = np.interp(ta, t, a_frame[ff])
+
+    # per-note gate envelope (attack / release ramps) + vibrato onset clock
+    a_n = max(1, int(round(attack_ms * sr / 1000.0)))
+    r_n = max(1, int(round(release_ms * sr / 1000.0)))
+    env = np.zeros(n, dtype=np.float64)
+    vib = np.zeros(n, dtype=np.float64)
+    for s0, s1 in _runs(gate):
+        body = np.ones(s1 - s0)
+        aa = min(a_n, len(body))
+        body[:aa] = np.linspace(0.0, 1.0, aa, endpoint=False)
+        env[s0:s1] = np.maximum(env[s0:s1], body)
+        e1 = min(n, s1 + r_n)
+        rel = np.linspace(1.0, 0.0, r_n, endpoint=False)[: e1 - s1]
+        env[s1:e1] = np.maximum(env[s1:e1], rel)
+        if add_vibrato:
+            loc = (np.arange(s0, e1) - s0) / sr
+            ramp = np.clip((loc - vib_onset_ms / 1000.0)
+                           / max(vib_ramp_ms / 1000.0, 1e-6), 0.0, 1.0)
+            vib[s0:e1] = (vib_depth_st * ramp
+                          * np.sin(2.0 * np.pi * vib_hz * loc))
+
+    freq = 440.0 * 2.0 ** ((midi_a + vib - 69.0) / 12.0)
+    phase = np.cumsum(freq) / sr
+    wsum = max(sine + saw, 1e-9)
+    osc = np.zeros(n, dtype=np.float64)
+    if sine:
+        osc += sine * np.sin(2.0 * np.pi * phase)
+    if saw:
+        osc += saw * _polyblep_saw(phase, freq / sr)
+    out = osc / wsum * amp * env
+    if lpf_hz:
+        from pedalboard import LadderFilter, Pedalboard
+        board = Pedalboard([LadderFilter(mode=LadderFilter.Mode.LPF24,
+                                         cutoff_hz=float(lpf_hz),
+                                         resonance=lpf_resonance, drive=1.0)])
+        out = board(np.ascontiguousarray(out[np.newaxis, :],
+                                         dtype=np.float32), sr)[0]
+        out = out.astype(np.float64)
+    out = _soft_clip(out, drive)
+    return np.stack([out, out], axis=1)

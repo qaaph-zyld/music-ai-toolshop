@@ -8,12 +8,17 @@ labeled real-audio chop of the picked segment for comparison.
 
 Output: ``stems/flip_sample/audition_s3/`` — seamless loops, -16 LUFS matched.
 (--pack s2 rebuilds the previous melody-legibility pack into audition_s2;
---pack s4 the raw-key riff pack; --pack s5 (wave s5a) renders ONLY the
-synthesis-only whine probe ``s5_00_riff_whine`` into audition_s5.)
+--pack s4 the raw-key riff pack; --pack s5 renders the SYNTHESIS-ONLY
+resynthesized-wail pack into audition_s5: the whine probe s5_00, the wail
+layered on / replacing the S4 lead (A, B, B_saw) and the half-speed texture
+(C). The wail is a pitch contour (pyin) of the htdemucs_6s guitar stem
+re-performed on our own oscillators; stem audio is read only for that
+contour. The whole s5 pack runs at --tempo-bpm (default 105).)
 
 Usage:
     python scripts/ogcm_sample.py [--pack s3] [--region region_63_66_cleaned_Dm.mid]
         [--chop cand_317_8bar_F#min_score0.47.wav] [--shift -4]
+        [--tempo-bpm 105] [--wail-bars auto|2|4]   # --pack s5 only
         [--outdir <root>]   # pack goes to <root>/audition_<pack>
 """
 
@@ -22,7 +27,9 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
+import time
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -347,7 +354,8 @@ def _s4_source(region: str, transpose_st: int) -> Dict:
             "cell_t0": cell_t0, "cell_s": cell_s, "n_bars": n_bars,
             "chords": chords, "chords_native": chords_native,
             "tiled": tiled, "octaved": octaved, "tiled_native": tiled_native,
-            "stats": stats, "snapped": snapped}
+            "stats": stats, "snapped": snapped,
+            "bass_dm": bass_dm}     # S5b re-derives chords at another tempo
 
 
 def _s4_variants(region: str, chop: str, shift: float, transpose_st: int
@@ -394,41 +402,407 @@ def _s4_variants(region: str, chop: str, shift: float, transpose_st: int
 
 
 # ---------------------------------------------------------------------------
-# GATE S5 (wave s5a) — whine probe: the S4 riff on the G-funk whine voice.
-# SYNTHESIS ONLY: no _real_chop and no stem audio anywhere in this pack.
+# GATE S5 — resynthesized wail. SYNTHESIS ONLY: no _real_chop and no stem
+# audio anywhere in this pack. The guitar stem is read ONLY by
+# ``_s5_wail`` and ONLY to extract a pitch contour + RMS envelope; every
+# rendered lane is our own oscillators.
+#   s5a: s5_00_riff_whine (the S4 riff on the whine voice, dotted-8th echo)
+#   s5b: + s5_A/B/B_saw/C from the f0 contour, whole pack at --tempo-bpm
 # ---------------------------------------------------------------------------
 
-def _s5_variants(region: str, transpose_st: int
-                 ) -> Tuple[Dict[str, Callable[[], np.ndarray]], Dict]:
-    """s5_00_riff_whine = the S4 riff (same source/extraction/transpose/chord
-    derivation via ``_s4_source``) voiced on ``render_gfunk_lead`` with the
-    lead echo synced to the dotted 8th (``sv.DOTTED_8TH_S``, 0.505 s)."""
+S5_STEM = STEMS / "htdemucs_6s" / "2Pac - Only God Can Judge Me" / "guitar.wav"
+S5_TEMPO_BPM = 105.0            # 1.1785x the record's 89.1 felt BPM
+S5_PRE_S = 0.3                  # pyin context before the window (cropped off)
+S5_EXTRACT_BARS = 4             # always extracted; cropped to 2 or 4 bars
+S5_CONTINUE_GAP_S = 0.3         # phrase "continues" past the 2-bar boundary
+S5_VIB_MAX_PP_CENTS = 40.0      # synthetic vibrato only below this (s5r)
+S5_AGREE_TOL_ST = 1.0           # riff-agreement pitch tolerance
+S5_TIMBRE_DEFAULT = {"sine": 1.0, "saw": 0.35, "lpf_hz": None}
+S5_TIMBRE_SAW = {"sine": 0.3, "saw": 1.0, "lpf_hz": 5000.0,
+                 "lpf_resonance": 0.2}
+S5_TIMBRE_TEXTURE = {"sine": 1.0, "saw": 0.35, "lpf_hz": 2200.0,
+                     "lpf_resonance": 0.1}
+S5_A_WAIL_DB = -3.0             # wail under the S4 lead in the layer variant
+S5_B_WAIL_DB = 0.0              # wail AS the lead: same level as the S4 lead
+S5_C_TEXTURE_DB = -12.0         # post-FX texture level vs the S4 lead
+S5_TEXTURE_SLOW = 2.0           # half speed: contour time axis x2
+S5_TEXTURE_FB = 0.40
+
+
+def _region_start_s(region: str) -> float:
+    """Record time of a region MIDI's t=0, from its ``region_<a>_<b>...`` name."""
+    m = re.match(r"region_(\d+(?:\.\d+)?)_(\d+(?:\.\d+)?)", region)
+    if not m:
+        raise SystemExit(f"[s5] cannot read the record start time from region "
+                         f"name {region!r}")
+    return float(m.group(1))
+
+
+def _rms(a: np.ndarray, n: int) -> float:
+    x = np.asarray(a[:n], dtype=np.float64)
+    return float(np.sqrt(np.mean(x * x))) if x.size else 0.0
+
+
+def _sum_pad(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    n = max(a.shape[0], b.shape[0])
+    out = np.zeros((n, 2), dtype=np.float64)
+    out[: a.shape[0]] += a
+    out[: b.shape[0]] += b
+    return out.astype(np.float32)
+
+
+def _phrase_continues(c4: Dict, boundary_s: float) -> Tuple[bool, str]:
+    """Does the wail phrase clearly continue past the 2-bar boundary? Yes if
+    the contour is voiced at the boundary, or voiced again within
+    ``S5_CONTINUE_GAP_S`` after it (no rest straddles the boundary)."""
+    t, v = c4["times"], c4["voiced"]
+    i = int(np.searchsorted(t, boundary_s))
+    if i < len(t) and v[i]:
+        return True, (f"voiced at the {boundary_s:.3f} s boundary: a note "
+                      f"sustains across it")
+    later = np.flatnonzero(v & (t >= boundary_s))
+    if later.size and t[later[0]] - boundary_s <= S5_CONTINUE_GAP_S:
+        return True, (f"next voiced frame {t[later[0]] - boundary_s:.3f} s "
+                      f"after the boundary (<= {S5_CONTINUE_GAP_S} s)")
+    return False, "rest straddles the 2-bar boundary"
+
+
+def _riff_agreement(riff_native: List[bed_lanes.BedNote], segs: List[Dict],
+                    cell_s: float, n_cells: int) -> Dict:
+    """Do the contour's note segments coincide with the S4 riff notes, in the
+    NATIVE key? A riff note is matched when a segment starts within one
+    sixteenth of it and its median pitch is within one semitone."""
+    six = sv.GRID_16TH_S
+
+    def match(off: float, r_note: bed_lanes.BedNote):
+        best = None
+        for s in segs:
+            dt = s["start_s"] - (r_note.start_s + off)
+            dp = s["median_midi"] - r_note.note
+            if abs(dt) <= six + 1e-9 and abs(dp) <= S5_AGREE_TOL_ST + 1e-9:
+                if best is None or abs(dt) < abs(best[0]):
+                    best = (dt, dp, s)
+        return best
+
+    def recall(off: float, cell: int) -> float:
+        shifted = [bed_lanes.BedNote(n.start_s + cell * cell_s, n.end_s,
+                                     n.note, n.velocity) for n in riff_native]
+        return sum(match(off, n) is not None for n in shifted) / len(shifted)
+
+    rows = []
+    hit = 0
+    for i, n in enumerate(riff_native):
+        b = match(0.0, n)
+        hit += b is not None
+        rows.append({"riff_i": i, "riff_start_s": round(n.start_s, 4),
+                     "riff_name_native": sv.note_name(n.note),
+                     "riff_midi_native": n.note,
+                     "matched": b is not None,
+                     "seg_start_s": None if b is None
+                     else round(b[2]["start_s"], 4),
+                     "seg_median_midi": None if b is None
+                     else round(b[2]["median_midi"], 3),
+                     "dt_s": None if b is None else round(b[0], 4),
+                     "dpitch_st": None if b is None else round(b[1], 3)})
+    cell_segs = [s for s in segs if s["start_s"] < cell_s]
+    seg_hit = sum(any(abs(s["start_s"] - r.start_s) <= six + 1e-9
+                      and abs(s["median_midi"] - r.note) <= S5_AGREE_TOL_ST
+                      for r in riff_native) for s in cell_segs)
+    sweep_step = six / 4.0
+    sweep = [(round(k * sweep_step, 4), recall(k * sweep_step, 0))
+             for k in range(-12, 13)]
+    best_off, best_rec = max(sweep, key=lambda x: (x[1], -abs(x[0])))
+    out = {"tolerance": {"onset_s": round(six, 4),
+                         "onset_label": "1 sixteenth at the felt 89.1 BPM",
+                         "pitch_st": S5_AGREE_TOL_ST},
+           "key": "native F# minor (contour before the -4 transpose)",
+           "riff_notes": len(riff_native),
+           "riff_notes_matched": int(hit),
+           "riff_recall": round(hit / len(riff_native), 4),
+           "contour_segments_in_cell": len(cell_segs),
+           "contour_segments_matching_riff": int(seg_hit),
+           "contour_precision": (round(seg_hit / len(cell_segs), 4)
+                                 if cell_segs else 0.0),
+           "per_note": rows,
+           "offset_sweep_best_s": best_off,
+           "offset_sweep_best_recall": round(best_rec, 4),
+           "offset_sweep_note": "riff onsets shifted by k*(sixteenth/4), "
+                                "k=-12..12; best at 0 supports the "
+                                "54.0 + cell_t0 time mapping"}
+    if n_cells >= 2:
+        out["riff_recall_cell2"] = round(recall(0.0, 1), 4)
+    return out
+
+
+def _s5_wail(src: Dict, region: str, bars_arg: str, transpose_st: int) -> Dict:
+    """Read the guitar stem ONLY to extract a pitch contour + RMS envelope.
+
+    The window is the S4 riff cell: absolute ``region_start + cell_t0`` (record
+    time). A 4-bar contour is always extracted (pyin has ``S5_PRE_S`` of
+    context); the wail is then cropped to 2 or 4 bars (rule in
+    ``_phrase_continues``). The audio array never leaves this function.
+    """
+    t_abs0 = _region_start_s(region) + src["cell_t0"]
+    win_full = S5_EXTRACT_BARS * sv.BAR_S
+    start = t_abs0 - S5_PRE_S
+    if start < 0.0:
+        raise SystemExit(f"[s5] window start {start:.3f} s is before the stem")
+    with sf.SoundFile(str(S5_STEM)) as f:
+        sr_in = f.samplerate
+        f.seek(int(round(start * sr_in)))
+        y = f.read(int(round((win_full + 2 * S5_PRE_S) * sr_in)),
+                   dtype="float32", always_2d=True)
+    t_wall = time.time()
+    raw = sv.extract_f0_contour(y, sr_in)
+    del y                                   # pitch + RMS are all that survive
+    print(f"[s5] pyin on the guitar stem: {len(raw['times'])} frames, "
+          f"{time.time() - t_wall:.1f} s wall", flush=True)
+    if not raw["voiced"].any():
+        raise SystemExit("[s5] no voiced frames in the guitar window")
+    clean = sv.clean_contour(raw)
+    c4 = sv.crop_contour(clean, S5_PRE_S, S5_PRE_S + win_full)
+    if bars_arg == "auto":
+        cont, reason = _phrase_continues(c4, 2.0 * sv.BAR_S)
+        bars = 4 if cont else 2
+        reason = f"auto: {reason} -> {bars} bars"
+    else:
+        bars = int(bars_arg)
+        reason = f"forced by --wail-bars {bars}"
+    native = c4 if bars == 4 else sv.crop_contour(
+        clean, S5_PRE_S, S5_PRE_S + bars * sv.BAR_S)
+    dm = sv.transpose_contour(native, transpose_st)
+    stats = sv.contour_stats(dm)
+    segs4 = sv.note_segments(c4)
+    agreement = _riff_agreement(src["riff_native"], segs4, src["cell_s"],
+                                n_cells=2)
+    return {"t_abs0": t_abs0, "bars": bars, "reason": reason,
+            "native": native, "dm": dm, "stats": stats,
+            "agreement": agreement, "stem_sr": sr_in,
+            "win_full_s": win_full}
+
+
+def _texture_fx(wail: np.ndarray, delay_s: float) -> np.ndarray:
+    """Fully wet echo + fully wet reverb for the half-speed texture lane."""
+    from pedalboard import Delay, Pedalboard, Reverb
+    board = Pedalboard([
+        Delay(delay_seconds=delay_s, feedback=S5_TEXTURE_FB, mix=1.0),
+        Reverb(room_size=0.8, damping=0.5, wet_level=1.0, dry_level=0.0,
+               width=1.0)])
+    return board(np.ascontiguousarray(wail.T), SR).T.astype(np.float32)
+
+
+def _render_s5_bus(lead_audio: np.ndarray, chords: List[dict], bar_s: float,
+                   n_bars: int, lead_delay_s: float,
+                   texture: Optional[np.ndarray] = None) -> np.ndarray:
+    """``_render_s3``'s bus with a pre-rendered lead lane, a tempo (``bar_s``)
+    and an optional dry texture lane. Lane order / gains / chain match
+    ``_render_s3`` so s5_00 at 89.1 BPM is byte-identical to the s5a probe."""
+    lanes: Dict[str, np.ndarray] = {
+        "lead": lead_audio,
+        "rhodes": sv.render_rhodes(
+            sv.chord_bednotes(chords, bar_s=bar_s, velocity=0.45), sr=SR),
+        "sub": sv.render_sub(
+            sv.bass_root_notes(chords, bar_s=bar_s, velocity=0.7), sr=SR),
+    }
+    lanes = {k: a * S3_GAINS.get(k, 1.0) for k, a in lanes.items()}
+    if texture is not None:
+        lanes["texture"] = texture         # not in the chain table: stays dry
+    bus = sv.west_coast_chain(lanes, sr=SR, lead_delay_s=lead_delay_s)
+    return sv.fit_loop(bus, SR, n_bars * bar_s)
+
+
+def _s5_variants(region: str, transpose_st: int, tempo_bpm: float,
+                 wail_bars_arg: str
+                 ) -> Tuple[Dict[str, Callable[[], np.ndarray]], Dict, Dict]:
+    """The S5 pack at ``tempo_bpm``: riff, chords, sub, wail contour and the
+    loop all time-scale by ``FELT_BPM / tempo_bpm`` (S4's grid is 89.1).
+
+    Returns (variants, meta, extra) — extra carries the manifest additions,
+    ``lead_delay_s`` and the ``contour.npz`` arrays."""
     src = _s4_source(region, transpose_st)
     tonic_pc = src["tonic_pc"]
+    f = bed_lanes.FELT_BPM / tempo_bpm
+    bar_s = 4.0 * 60.0 / tempo_bpm
+    n_bars = src["n_bars"]
+    reps = n_bars // 2
+    loop_s = n_bars * bar_s
+    loop_n = int(loop_s * SR)
+    lead_delay = 0.75 * 60.0 / tempo_bpm       # dotted 8th at this tempo
+    print(f"[s5] tempo {tempo_bpm:g} BPM = {tempo_bpm / bed_lanes.FELT_BPM:.4f}x "
+          f"the felt {bed_lanes.FELT_BPM} BPM; time factor {f:.6f}; bar "
+          f"{bar_s:.4f} s; loop {loop_s:.3f} s; lead echo {lead_delay:.4f} s")
+
+    riff_native_t = sv.tempo_scale(src["riff_native"], f)
+    riff_dm_t = sv.tempo_scale(src["riff_dm"], f)
+    tiled_t = sv.tile_motif(riff_dm_t, 2.0 * bar_s, reps)
+    chords = sv.derive_chords(sv.tempo_scale(src["bass_dm"], f), [], n_bars,
+                              bar_s=bar_s)
+    chords_match_s4 = ([c["name"] for c in chords]
+                       == [c["name"] for c in src["chords"]])
+
+    w = _s5_wail(src, region, wail_bars_arg, transpose_st)
+    bars = w["bars"]
+    if n_bars % bars or (n_bars % (bars * 2)):
+        raise SystemExit(f"[s5] {bars}-bar wail does not tile an {n_bars}-bar "
+                         f"loop (and its half-speed copy)")
+    c_t = sv.time_scale_contour(w["dm"], f)
+    tiled_w = sv.tile_contour(c_t, bars * bar_s, n_bars // bars)
+    c_slow = sv.time_scale_contour(c_t, S5_TEXTURE_SLOW)
+    tiled_slow = sv.tile_contour(c_slow, bars * bar_s * S5_TEXTURE_SLOW,
+                                 n_bars // (bars * 2))
+    vib_pp = w["stats"]["vibrato_pp_cents"]
+    n_sus = w["stats"]["n_sustained"]
+    add_vib = bool(n_sus == 0 or vib_pp < S5_VIB_MAX_PP_CENTS)
+    print(f"[s5] window {w['t_abs0']:.4f}-{w['t_abs0'] + bars * sv.BAR_S:.4f} s "
+          f"({bars} bars): {w['reason']}")
+    print(f"[s5] contour_stats {json.dumps(w['stats'])}")
+    print(f"[s5] measured contour vibrato {vib_pp} cents pk-pk over {n_sus} "
+          f"sustained notes -> add_vibrato={add_vib} (threshold "
+          f"{S5_VIB_MAX_PP_CENTS})")
+    print(f"[s5] riff agreement (native key, 1 sixteenth / 1 st): "
+          f"{w['agreement']['riff_notes_matched']}/"
+          f"{w['agreement']['riff_notes']} riff notes matched")
+
+    riff_lead = sv.render_simple_lead(tiled_t, sr=SR)   # the S4 sine lead
+    lead_rms = _rms(riff_lead, loop_n)
+    wail_def = sv.render_f0_lead(tiled_w, sr=SR, add_vibrato=add_vib,
+                                 **S5_TIMBRE_DEFAULT)
+    wail_saw = sv.render_f0_lead(tiled_w, sr=SR, add_vibrato=add_vib,
+                                 **S5_TIMBRE_SAW)
+    wail_tex = sv.render_f0_lead(tiled_slow, sr=SR, add_vibrato=False,
+                                 **S5_TIMBRE_TEXTURE)
+    tex_fx = _texture_fx(wail_tex, lead_delay)
+
+    def gain_for(audio: np.ndarray, db: float) -> float:
+        r = _rms(audio, loop_n)
+        return float(lead_rms * 10.0 ** (db / 20.0) / r) if r > 0 else 0.0
+
+    g_a = gain_for(wail_def, S5_A_WAIL_DB)
+    g_b = gain_for(wail_def, S5_B_WAIL_DB)
+    g_bs = gain_for(wail_saw, S5_B_WAIL_DB)
+    g_c = gain_for(tex_fx, S5_C_TEXTURE_DB)     # calibrated AFTER the fx
+
+    def bus(lead: np.ndarray, texture: Optional[np.ndarray] = None
+            ) -> np.ndarray:
+        return _render_s5_bus(lead, chords, bar_s, n_bars, lead_delay, texture)
+
+    variants: Dict[str, Callable[[], np.ndarray]] = {
+        "s5_00_riff_whine": lambda: bus(sv.render_gfunk_lead(tiled_t, sr=SR)),
+        "s5_A_layer": lambda: bus(_sum_pad(riff_lead, wail_def * g_a)),
+        "s5_B_replace": lambda: bus(wail_def * g_b),
+        "s5_B_replace_saw": lambda: bus(wail_saw * g_bs),
+        "s5_C_texture": lambda: bus(riff_lead, tex_fx * g_c),
+    }
+
+    tonic = sv.PC_NAMES[tonic_pc]
     meta = {
         "region": region,
         "riff_source": "S4 _s4_source (raw native-key transcription, "
                        "transposed, never scale-snapped)",
         "transpose_st": transpose_st,
-        "source_key": {"tonic_pc": tonic_pc,
-                       "tonic": sv.PC_NAMES[tonic_pc],
+        "source_key": {"tonic_pc": tonic_pc, "tonic": tonic,
                        "mode": src["mode"], "r": round(src["key_r"], 4)},
         "cell_t0_s": round(src["cell_t0"], 4),
-        "cell_s": round(src["cell_s"], 4),
-        "riff": _riff_rows(src["riff_native"], src["riff_dm"]),
+        "cell_s": round(2.0 * bar_s, 4),
+        "riff": _riff_rows(riff_native_t, riff_dm_t),
         "riff_stats": src["stats"],
-        "chords_per_bar": [c["name"] for c in src["chords"]],
+        "chords_per_bar": [c["name"] for c in chords],
+        "chords_match_s4": chords_match_s4,
         "snapped_notes": src["snapped"],
         "lead_voice": "render_gfunk_lead (glide 100 ms, vib 5.5 Hz, "
                       "180 ms delay, 0.45 st)",
-        "lead_delay_label": "dotted 8th at felt 89.1 BPM",
+        "lead_delay_label": f"dotted 8th at {tempo_bpm:g} BPM",
+        "variants": {
+            "s5_00_riff_whine": "riff on render_gfunk_lead (probe)",
+            "s5_A_layer": "S4 body (riff on the S4 sine lead + chords + sub) "
+                          "+ resynthesized wail on top",
+            "s5_B_replace": "wail as the lead over the S4 chords + sub; "
+                            "riff muted",
+            "s5_B_replace_saw": "B with a saw-heavy timbre (saw 1.0, sine "
+                                "0.3, 24 dB/oct LPF 5 kHz, mild resonance)",
+            "s5_C_texture": "S4 riff as lead; wail at half speed, low-passed, "
+                            "fully wet echo + reverb, -12 dB under",
+        },
     }
-    variants = {
-        "s5_00_riff_whine": lambda: _render_s3(
-            src["tiled"], sv.render_gfunk_lead, chords=src["chords"],
-            lead_delay_s=sv.DOTTED_8TH_S),
+
+    def rec_timbre(d: Dict) -> Dict:
+        return dict(d, attack_ms=10.0, release_ms=70.0, smooth_ms=20.0,
+                    dyn_exp=0.5, drive=1.4)
+
+    npz = {"times": w["dm"]["times"], "f0_hz": w["dm"]["f0_hz"],
+           "voiced": w["dm"]["voiced"], "rms": w["dm"]["rms"],
+           "f0_hz_native": w["native"]["f0_hz"],
+           "transpose_st": np.float64(transpose_st),
+           "hop_s": np.float64(w["dm"]["hop_s"]),
+           "window_start_abs_s": np.float64(w["t_abs0"]),
+           "window_bars": np.int64(bars)}
+    extra = {
+        "lead_delay_s": lead_delay,
+        "npz": npz,
+        "manifest": {
+            "bpm": tempo_bpm,
+            "felt_bpm_source": bed_lanes.FELT_BPM,
+            "tempo_factor": round(f, 6),
+            "tempo_ratio_vs_source": round(tempo_bpm / bed_lanes.FELT_BPM, 4),
+            "loop_s": round(loop_s, 4),
+            "wail_source": {
+                "stem": S5_STEM.relative_to(REPO).as_posix(),
+                "stem_role": "htdemucs_6s guitar stem (G1 pick)",
+                "stem_used_for": "pitch contour + RMS envelope ONLY; no stem "
+                                 "sample in any output lane",
+                "region": region,
+                "window_abs_start_s": round(w["t_abs0"], 4),
+                "window_abs_end_s": round(w["t_abs0"] + bars * sv.BAR_S, 4),
+                "window_bars": bars,
+                "window_bar_s_at_89p1": round(sv.BAR_S, 4),
+                "window_bars_reason": w["reason"],
+                "context_pre_s": S5_PRE_S,
+                "stem_sr": w["stem_sr"],
+            },
+            "contour_stats": w["stats"],
+            "riff_agreement": w["agreement"],
+            "recipe": {
+                "pyin": {"sr": sv.CONTOUR_SR, "fmin_hz": sv.CONTOUR_FMIN_HZ,
+                         "fmax_hz": sv.CONTOUR_FMAX_HZ,
+                         "frame_length": sv.CONTOUR_FRAME,
+                         "hop_length": sv.CONTOUR_HOP,
+                         "voiced_mask": "voiced_flag AND prob>=0.5 AND "
+                                        "RMS gate (>-60 dBFS, within 35 dB "
+                                        "of p95)",
+                         "other": "librosa defaults, fill_na=nan"},
+                "clean": {"order": ["octave fix per segment", "median "
+                                    "filter", "drop islands", "bridge gaps"],
+                          "median_frames": 5, "min_island_frames": 9,
+                          "max_gap_frames": 17, "max_bridge_st": 3.0,
+                          "frames_quoted_at_hop": sv.CONTOUR_HOP},
+                "transpose_st": transpose_st,
+                "time_scale": round(f, 6),
+                "tile": f"{bars}-bar contour x{n_bars // bars} over "
+                        f"{n_bars} bars",
+                "vibrato": {"measured_pp_cents": vib_pp,
+                            "n_sustained": n_sus,
+                            "threshold_pp_cents": S5_VIB_MAX_PP_CENTS,
+                            "synthetic_vibrato_added": add_vib},
+                "render": {"default": rec_timbre(S5_TIMBRE_DEFAULT),
+                           "saw_heavy": rec_timbre(S5_TIMBRE_SAW),
+                           "texture": dict(rec_timbre(S5_TIMBRE_TEXTURE),
+                                           time_scale_x=S5_TEXTURE_SLOW,
+                                           echo_mix=1.0,
+                                           echo_feedback=S5_TEXTURE_FB,
+                                           reverb_wet=1.0, reverb_dry=0.0),
+                           "pitch_smoothing_ms": 20.0},
+                "levels": {
+                    "reference": "S4 sine lead lane RMS over the loop",
+                    "A_wail_db": S5_A_WAIL_DB, "B_wail_db": S5_B_WAIL_DB,
+                    "C_texture_db_post_fx": S5_C_TEXTURE_DB,
+                    "gains": {"A": round(g_a, 4), "B": round(g_b, 4),
+                              "B_saw": round(g_bs, 4),
+                              "C_texture": round(g_c, 4)}},
+                "lead_delay_s": round(lead_delay, 6),
+            },
+        },
     }
-    return variants, meta
+    return variants, meta, extra
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -448,7 +822,19 @@ def main(argv: Optional[List[str]] = None) -> int:
                    help="semitones to shift the chop into D minor")
     p.add_argument("--transpose", type=int, default=S4_TRANSPOSE_ST,
                    help="s4: semitones to shift the riff (default -4, F#m->Dm)")
+    p.add_argument("--tempo-bpm", type=float, default=None,
+                   help=f"s5 only: tempo of the whole pack (default "
+                        f"{S5_TEMPO_BPM:g}; the record's felt tempo is "
+                        f"{bed_lanes.FELT_BPM})")
+    p.add_argument("--wail-bars", choices=("auto", "2", "4"), default="auto",
+                   help="s5 only: wail window length in bars (auto = 4 when "
+                        "the phrase continues past bar 2)")
     args = p.parse_args(argv)
+    if args.tempo_bpm is not None and args.pack != "s5":
+        raise SystemExit("--tempo-bpm applies to --pack s5 only (S2-S4 stay "
+                         "at the felt tempo)")
+    if args.tempo_bpm is not None and args.tempo_bpm <= 0:
+        raise SystemExit("--tempo-bpm must be positive")
 
     region = args.region or (S4_REGION if args.pack in ("s4", "s5")
                              else S3_REGION)
@@ -458,13 +844,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     aud.mkdir(parents=True, exist_ok=True)
     s4_meta: Optional[Dict] = None
     s5_meta: Optional[Dict] = None
+    s5_extra: Optional[Dict] = None
     if args.pack == "s2":
         variants = dict(S2_VARIANTS)
     elif args.pack == "s4":
         variants, s4_meta = _s4_variants(region, chop, args.shift,
                                          args.transpose)
     elif args.pack == "s5":
-        variants, s5_meta = _s5_variants(region, args.transpose)
+        variants, s5_meta, s5_extra = _s5_variants(
+            region, args.transpose, args.tempo_bpm or S5_TEMPO_BPM,
+            args.wail_bars)
     else:
         variants = _s3_variants(region, chop, args.shift)
     manifest: Dict = {"pack": f"GATE_{args.pack.upper()}_suno_sample",
@@ -485,7 +874,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                              "into the Suno-bound pack")
         manifest["s5"] = s5_meta
         manifest["source_audio_in_output"] = has_source_audio
-        manifest["lead_delay_s"] = round(sv.DOTTED_8TH_S, 6)
+        manifest["lead_delay_s"] = round(s5_extra["lead_delay_s"], 6)
+        manifest.update(s5_extra["manifest"])
+        np.savez(str(aud / "contour.npz"), **s5_extra["npz"])
     for name, build in variants.items():
         print(f"[render] {name} ...", flush=True)
         audio = _to_target(build(), TARGET_LUFS)
@@ -518,6 +909,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         verification["source_audio_in_output"] = manifest[
             "source_audio_in_output"]
         verification["lead_delay_s"] = manifest["lead_delay_s"]
+        verification["bpm"] = manifest["bpm"]
+        verification["tempo_factor"] = manifest["tempo_factor"]
+        verification["loop_s"] = manifest["loop_s"]
     (aud / "manifest.json").write_text(json.dumps(manifest, indent=2),
                                        encoding="utf-8")
     (aud / "verification.json").write_text(json.dumps(verification, indent=2),
