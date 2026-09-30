@@ -1,0 +1,10 @@
+{
+  "headers": {
+    "status": "failed",
+    "code": 6,
+    "error_message": "Rate limit exceeded. Please slow down.",
+    "warnings": "",
+    "results_count": 0
+  },
+  "results": []
+}

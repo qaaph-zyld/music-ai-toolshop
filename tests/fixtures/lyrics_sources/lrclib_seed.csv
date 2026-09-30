@@ -1,0 +1,4 @@
+artist,title,album,duration
+Fixture Artist,Synthetic Song,Fixture Album,200.5
+Fixture Artist,Synced Only,Fixture Album,190
+Fixture Artist,Loose Lookup,,

@@ -1,0 +1,14 @@
+{
+  "id": 999001,
+  "name": "Synthetic Song",
+  "trackName": "Synthetic Song",
+  "artistName": "Fixture Artist",
+  "albumName": "Fixture Album",
+  "duration": 200.5,
+  "instrumental": false,
+  "hasWordSync": false,
+  "plainLyrics": "Synthetic plain line one\nSynthetic plain line two\n\nSynthetic stanza break\nSynthetic plain line four",
+  "syncedLyrics": "[00:00.00] Synthetic plain line one\n[00:12.34] Synthetic plain line two\n[00:24.50] Synthetic stanza break\n[00:36.78] Synthetic plain line four",
+  "lyricsfile": "- start_ms: 0\n  end_ms: 12340\n  text: Synthetic plain line one\n- start_ms: 12340\n  end_ms: 24500\n  text: Synthetic plain line two\n- start_ms: 24500\n  end_ms: 36780\n  text: Synthetic stanza break\n- start_ms: 36780\n  end_ms: 45000\n  text: Synthetic plain line four\n",
+  "meta_fixture": true
+}

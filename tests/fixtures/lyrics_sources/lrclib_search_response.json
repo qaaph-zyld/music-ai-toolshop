@@ -1,0 +1,30 @@
+[
+  {
+    "id": 999010,
+    "name": "Synthetic Song (Karaoke Version)",
+    "trackName": "Synthetic Song (Karaoke Version)",
+    "artistName": "Fixture Artist",
+    "albumName": "Karaoke Album",
+    "duration": 200.0,
+    "instrumental": false,
+    "hasWordSync": false,
+    "plainLyrics": "Karaoke variant synthetic line",
+    "syncedLyrics": null,
+    "lyricsfile": null,
+    "meta_fixture": true
+  },
+  {
+    "id": 999001,
+    "name": "Synthetic Song",
+    "trackName": "Synthetic Song",
+    "artistName": "Fixture Artist",
+    "albumName": "Fixture Album",
+    "duration": 200.5,
+    "instrumental": false,
+    "hasWordSync": false,
+    "plainLyrics": "Synthetic plain line one\nSynthetic plain line two",
+    "syncedLyrics": "[00:00.00] Synthetic plain line one\n[00:12.34] Synthetic plain line two",
+    "lyricsfile": "- start_ms: 0\n  end_ms: 12340\n  text: Synthetic plain line one\n",
+    "meta_fixture": true
+  }
+]

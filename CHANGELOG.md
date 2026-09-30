@@ -1,5 +1,30 @@
 # Changelog
 
+### Answer #066 - lyrics-sources wave B (I8): jamendo env-gated adapter + lrclib study-only adapter (syncedLyrics + lyricsfile capture).
+**Timestamp:** 2026-10-01
+**Action Type:** Implementation — wave B agent I8 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`).
+
+**What landed:** `sources/jamendo.py` — env-gated per GATE R: `JAMENDO_CLIENT_ID` read from process env **or** `Genious_lyrics_extractor/.env` (import-time `bootstrap_env()` does `os.environ.setdefault` — pure file IO, zero network — so the W1 dispatcher's env-only gate also sees .env keys). Unkeyed: module `main()` prints `inert — register at devportal.jamendo.com` and exits 0; `iter_catalog`/`fetch_lyrics` raise `EnvGateError` (or yield nothing with `allow_inert=True` — SPEC §6.3 runner flag); dispatcher exits 2 via `check_env_gate` before any request — **zero network in every unkeyed path** (tested). Keyed: `/v3.0/tracks` paging `limit≤200`+`offset`, `include=lyrics`, `license_ccurl` → SPDX via `LICENSE_URL_MAP` (never free text); license-classed categories (`by|cc0|by-sa|by-nc|by-nd|other`); TASL populated (creator=`artist_name`, source_url=track `shareurl`); code-6 rate-limit backoff; `fetch_lyrics` re-queries by `id`, drops `no-lyric-text`/`not-found`; paging terminates on empty OR non-exact-size pages (loops-forever guard). `sources/lrclib.py` — study-only FOREVER (`license=proprietary`, `license_tier=study-only`, `release_ok=no` hard-locked; a `yes` is a blocker): `iter_catalog` reads a local seed (`data/toolshop/lyrics/lrclib/_seed.json|.csv` or `LRCLIB_SEED`), no network at catalog stage; `fetch_lyrics` prefers `/api/get-cached` → `/api/get` (±2 s signature) when album+duration known, else `/api/search` with exact-hit preference; captures `plainLyrics`→raw/clean, `syncedLyrics`→`synced_lyrics` (LRC), `lyricsfile`→`lyricsfile` (YAML per-line ms — whisperX weak-label fuel); drops `instrumental`/`not-found`/`no-lyrics`; catalog `foreign_identifier` stays the stable `seed:` key (lrclib numeric id lands on the song JSON + `meta.lrclib_id`) so relists never duplicate. Pacing pinned to the shared **≥1.5 s** `polite_get` floor despite the ~20 req/s API ceiling (wave-B constraint), 429/`Retry-After` honored by `polite_get`.
+
+#### Files Affected:
+- **NEW:** `Genious_lyrics_extractor/sources/{jamendo,lrclib}.py` — SPEC §6.3 contract modules.
+- **NEW:** `tests/test_lyrics_sources_jamendo.py` — 19 tests: inert path (EnvGateError + zero-network spy + inert main exit 0 + dispatcher rc 2), env/.env resolution, license_ccurl→SPDX matrix + never-upgrade, paging/code-6 backoff, song-v2 fetch, dispatcher e2e, `@pytest.mark.slow` key-gated live smoke.
+- **NEW:** `tests/test_lyrics_sources_lrclib.py` — 23 tests: seed json/csv/env/missing, **release_ok='no' invariant** on catalog rows AND fetched songs, get-cached→get→search order, drops, pacing ≥1.5 s on every call, dispatcher e2e, `@pytest.mark.slow` offline-degrading live test.
+- **NEW:** `tests/fixtures/lyrics_sources/` — `jamendo_tracks_page.json`, `jamendo_track_single.json`, `jamendo_rate_limit.json`, `lrclib_get_response.json`, `lrclib_get_synced_only.json`, `lrclib_instrumental.json`, `lrclib_search_response.json`, `lrclib_seed.json`, `lrclib_seed.csv` — ALL synthetic (`meta_fixture: true`), no real lyric text (lrclib = gray source, SPEC §7).
+- **MODIFIED:** `tests/fixtures/lyrics_sources/CREDITS.md` — fixture provenance rows (landed inside wave-A commit `471cdf7` — shared-file sweep, content verified correct).
+- **NEW:** `data/toolshop/lyrics/lrclib/_seed.json` + `tracks/` corpus — `data/` gitignored, never committed.
+
+#### Verification (run this session):
+- `pytest tests/test_lyrics_sources_jamendo.py tests/test_lyrics_sources_lrclib.py -m "not slow" -q` → **47 passed, 2 deselected** (exit 0).
+- Jamendo inert: `sources/jamendo.py` → `inert — register at devportal.jamendo.com` exit **0**; `fetch_lyrics_source.py --source jamendo --catalog-only` → env-gate error exit **2**, zero requests.
+- lrclib pilot `--limit 25` live — counts quoted in `ORCHESTRATION/lyrics_sources/wave_b/I8_handoff.md`.
+
+#### Next Actions Required:
+- Keyed jamendo pilot pending `JAMENDO_CLIENT_ID` (register at devportal.jamendo.com) — lyric fill-rate still unverified (GATE 0 Q2).
+- W5: `build_database(corpus='lrclib', incremental=)` — synced_lyrics/lyricsfile ride song JSONs; consider a `derived_from` link back to genius-pro rows for the alignment lane.
+
+---
+
 ### Answer #065 - lyrics-sources wave A (I2): ccMixter adapter — license-classed acappella catalog + lyric extraction + live pilot (17 fetched / 8 dropped / 0 failed).
 **Timestamp:** 2026-10-01
 **Action Type:** Implementation — wave A agent I2 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md`). First `fetch_policy='auto'` source adapter shipped.

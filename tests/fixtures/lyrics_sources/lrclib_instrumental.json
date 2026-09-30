@@ -1,0 +1,14 @@
+{
+  "id": 999003,
+  "name": "Instrumental Cut",
+  "trackName": "Instrumental Cut",
+  "artistName": "Fixture Artist",
+  "albumName": "Fixture Album",
+  "duration": 210.0,
+  "instrumental": true,
+  "hasWordSync": false,
+  "plainLyrics": null,
+  "syncedLyrics": null,
+  "lyricsfile": null,
+  "meta_fixture": true
+}

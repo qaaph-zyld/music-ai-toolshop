@@ -1,0 +1,27 @@
+{
+  "headers": {
+    "status": "success",
+    "code": 0,
+    "error_message": "",
+    "warnings": "",
+    "results_count": 1
+  },
+  "results": [
+    {
+      "id": "100001",
+      "name": "Synthetic Dawn",
+      "artist_name": "Fixture Artist A",
+      "artist_id": "9001",
+      "album_name": "Test EP",
+      "album_id": "5001",
+      "duration": "181",
+      "releasedate": "2020-05-01",
+      "license_ccurl": "https://creativecommons.org/licenses/by/4.0/",
+      "shareurl": "https://www.jamendo.com/track/100001",
+      "lang": "en",
+      "audio": "https://prod-1.storage.jamendo.com/?trackid=100001",
+      "lyrics": "Synthetic lyric line one\nSynthetic lyric line two\n\nSecond stanza, still synthetic",
+      "meta_fixture": true
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": 999002,
+  "name": "Synced Only",
+  "trackName": "Synced Only",
+  "artistName": "Fixture Artist",
+  "albumName": "Fixture Album",
+  "duration": 190.0,
+  "instrumental": false,
+  "hasWordSync": true,
+  "plainLyrics": null,
+  "syncedLyrics": "[ti:Synced Only]\n[ar:Fixture Artist]\n[00:05.00] Synced invented line\n[00:10.00] Another invented line",
+  "lyricsfile": "- start_ms: 5000\n  end_ms: 10000\n  text: Synced invented line\n- start_ms: 10000\n  end_ms: 15000\n  text: Another invented line\n",
+  "meta_fixture": true
+}

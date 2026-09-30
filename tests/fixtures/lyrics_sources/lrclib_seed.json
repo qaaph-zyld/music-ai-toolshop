@@ -1,0 +1,9 @@
+{
+  "comment": "Synthetic seed fixture — fabricated artist/title/album/duration rows, matching the SPEC §9 seed schema. No real LRCLIB data.",
+  "entries": [
+    {"artist": "Fixture Artist", "title": "Synthetic Song", "album": "Fixture Album", "duration": 200.5},
+    {"artist": "Fixture Artist", "title": "Synced Only", "album": "Fixture Album", "duration": 190},
+    {"artist": "Fixture Artist", "title": "Instrumental Cut", "album": "Fixture Album", "duration": 210},
+    {"artist": "Fixture Artist", "title": "Loose Lookup"}
+  ]
+}
