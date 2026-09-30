@@ -1,0 +1,81 @@
+{
+  "task": "OGCM Suno-sample GATE S6 — organ x synthwave 'night drive', energetic street-rap cut: three organ types as rhythmic chord stabs, driving 8th-note octave bass, drumless pump, over the S5-A riff + saw wail; 105 BPM, D minor, synthesis only",
+  "project_root": "d:/Projects/Music-AI-Toolshop",
+  "orchestration_dir": "ORCHESTRATION/ogcm_flip",
+  "plan": "d:/Projects/.workspace_archive/plans/ogcm-s6-organ-synthwave.md",
+  "ledger": "handoffs/orchestration_ledger_ogcm_s6_20261001.md",
+  "dispatch": "Claude Code Agent tool (general-purpose, model sonnet); orchestrator does not code; one long agent at a time, foreground",
+  "waves": [
+    {
+      "wave": "s6r",
+      "name": "Research: street-rap signatures + synthwave/organ synthesis recipes + Suno style prompt",
+      "parallel": false,
+      "background": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "R",
+          "role": "researcher",
+          "name": "s6r web research (report-only)",
+          "task": "See TASK_S6R in the ledger.",
+          "scope": "web + write ORCHESTRATION/ogcm_flip/wave_s6r/research_s6_report.md only",
+          "output": "wave_s6r/research_s6_report.md",
+          "constraints": [
+            "Report-only: no code, no git, no other writes.",
+            "Out of scope: techniques to get copyrighted audio past Suno's or any content filter.",
+            "Every claim cites a URL + confidence; 'unknown' is acceptable."
+          ],
+          "context_budget": "80k"
+        }
+      ]
+    },
+    {
+      "wave": "s6a",
+      "name": "Organ voices + stabs + driving bass + pump + --pack s6 + page fixes",
+      "parallel": false,
+      "background": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "A",
+          "role": "implementer",
+          "name": "s6a organ/synthwave pack",
+          "task": "Finalized at dispatch with the s6r recipe, stab pattern and style prompt injected (TASK_S6A in the ledger).",
+          "scope": "toolshop/flip/sample_voices.py (additive), scripts/ogcm_sample.py (--pack s6), scripts/check_pack_meta.py (new), tests/test_flip_sample.py, Stemmeca_alatkka/stems/flip_sample/ (index.html, audition_s6/), ORCHESTRATION/ogcm_flip/LEDGER.md, CHANGELOG.md, D:/Projects/.workspace_archive/plans/expected_output_ogcm_suno_sample_s6_<stamp>.md",
+          "output": "wave_s6a/agent_a_s6a_handoff.md",
+          "constraints": [
+            "Python: only the project .venv; absolute paths; CPU only.",
+            "No edits to bed_lanes.py, arrange.py, master.py; existing functions unchanged; S2-S5 outputs byte-identical; no new deps; deterministic.",
+            "No drums/percussion; no source audio in any Suno-bound file.",
+            "git -C, explicit paths, separate add/commit; never stage foreign-lane files; no WAVs; no --no-verify.",
+            "Quote command + exit code + key output; commit before claiming; foreground only."
+          ],
+          "context_budget": "180k"
+        }
+      ]
+    },
+    {
+      "wave": "s6b",
+      "name": "Independent verification + provenance + percussion audit (read-only)",
+      "parallel": false,
+      "background": false,
+      "gate_after": true,
+      "gate": "G3 — user ear test (pick organ type) + user's Suno upload with the style prompt",
+      "agents": [
+        {
+          "id": "B",
+          "role": "reviewer",
+          "name": "s6b verifier",
+          "task": "Finalized at dispatch (TASK_S6B in the ledger): re-run O1'''-O7, own-code recompute, provenance trace + file-open hook, percussion audit, S4/S5 byte identity, page labels.",
+          "scope": "read-only; writes only wave_s6b/agent_b_s6b_verify_handoff.md",
+          "output": "wave_s6b/agent_b_s6b_verify_handoff.md",
+          "constraints": [
+            "READ-ONLY except the handoff file.",
+            "Recompute headline numbers with own code; trust no self-reports."
+          ],
+          "context_budget": "100k"
+        }
+      ]
+    }
+  ]
+}
