@@ -95,6 +95,15 @@ CATEGORY_PD = "acappella-pd"
 CATEGORY_NC = "acappella-nc"
 CATEGORY_SA = "acappella-sa"
 
+#: PD-dedication mark URL stamped on ccMixter ``lic=pd`` items. ccMixter's
+#: public-domain lane is a dedication-by-declaration that PREDATES CC0 — the
+#: site has no true CC0 (SPEC §1.3 / R1 §3), yet its API reports
+#: ``publicdomain/zero/1.0`` on those uploads. Mapping them to ``CC0-1.0``
+#: would mis-record the legal state, so ``_resolve_license`` remaps the
+#: resolved token to ``LicenseRef-public-domain`` and rewrites the deed URL
+#: to this mark URL.
+CCMIXTER_PD_MARK_URL = "https://creativecommons.org/publicdomain/mark/1.0/"
+
 #: Resolved license_tier -> frozen category slug.
 TIER_CATEGORY = {
     "cc-by": CATEGORY_BY,
@@ -155,6 +164,12 @@ def _resolve_license(
     if not isinstance(license_url, str):
         license_url = None
     token = license_from_url(license_url)
+    # SPEC §1.3 / R1 §3: ccMixter ``lic=pd`` items are PD dedications — the
+    # site has no CC0, its ``publicdomain/zero/1.0`` report is their PD mark.
+    # Remap to LicenseRef-public-domain + the PD mark URL (never CC0-1.0).
+    if token == "CC0-1.0":
+        token = "LicenseRef-public-domain"
+        license_url = CCMIXTER_PD_MARK_URL
     if token is None:
         return LicenseInfo(
             license="unknown",

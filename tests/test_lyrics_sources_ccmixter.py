@@ -2,7 +2,7 @@
 
 Covers ``sources/ccmixter.py`` against the committed fixture
 ``tests/fixtures/lyrics_sources/ccmixter_query_page.json`` — a real
-``f=json&dataview=default`` Query API page (5 cleared CC-BY/CC0 upload rows)
+``f=json&dataview=default`` Query API page (5 cleared CC-BY/PD upload rows)
 plus synthetic metadata-only rows for NC/SA/sampling+/unknown license
 mapping. NO live fetch in the default suite — the live smoke test is
 ``@pytest.mark.slow`` and skips cleanly when the network is unavailable.
@@ -126,10 +126,12 @@ class TestIterCatalog:
         assert e.category == "acappella-by"
         # lyric source rides the catalog meta (halves the request budget)
         assert "Lyrics" in e.meta["description_plain"]
-        # CC0 (pd-lane content) resolves to the release-safe pd bucket
+        # pd-lane content resolves to the release-safe pd bucket —
+        # ccMixter 'public domain' marks are dedications, never CC0 (SPEC §1.3)
         pd_e = by_fid["31321"]
-        assert pd_e.license == "CC0-1.0"
-        assert pd_e.license_tier == "cc0"
+        assert pd_e.license == "LicenseRef-public-domain"
+        assert pd_e.license_url == ccmixter.CCMIXTER_PD_MARK_URL
+        assert pd_e.license_tier == "pd"
         assert pd_e.release_ok == "yes"
         assert pd_e.category == "acappella-pd"
 
@@ -207,7 +209,10 @@ class TestLicenseMapping:
         ("http://creativecommons.org/licenses/by-sa/3.0/", "CC-BY-SA-3.0", "cc-by-sa", "conditional"),
         ("https://creativecommons.org/licenses/sampling+/1.0/",
          "LicenseRef-sampling-plus-1.0", "study-only", "no"),
-        ("http://creativecommons.org/publicdomain/zero/1.0/", "CC0-1.0", "cc0", "yes"),
+        # ccMixter reports its PD-dedication lane as publicdomain/zero/1.0 —
+        # remapped to LicenseRef-public-domain, never CC0-1.0 (SPEC §1.3)
+        ("http://creativecommons.org/publicdomain/zero/1.0/",
+         "LicenseRef-public-domain", "pd", "yes"),
         ("http://creativecommons.org/publicdomain/mark/1.0/",
          "LicenseRef-public-domain", "pd", "yes"),
         ("https://example.org/not-a-license", "unknown", "study-only", "no"),
@@ -227,8 +232,8 @@ class TestLicenseMapping:
             "47456": ("CC-BY-3.0", "cc-by", "yes"),
             "33699": ("CC-BY-3.0", "cc-by", "yes"),
             "41323": ("CC-BY-3.0", "cc-by", "yes"),
-            "31321": ("CC0-1.0", "cc0", "yes"),
-            "22762": ("CC0-1.0", "cc0", "yes"),
+            "31321": ("LicenseRef-public-domain", "pd", "yes"),
+            "22762": ("LicenseRef-public-domain", "pd", "yes"),
             "900001": ("CC-BY-NC-3.0", "cc-by-nc", "no"),
             "900002": ("CC-BY-SA-3.0", "cc-by-sa", "conditional"),
             "900003": ("LicenseRef-sampling-plus-1.0", "study-only", "no"),
@@ -246,6 +251,21 @@ class TestLicenseMapping:
         assert info.license_tier == "cc-by"          # tier kept (SPEC §6.3)
         assert info.release_ok == "yes"
         assert "ccplus" in (info.copyright_notice or "").lower()
+
+    def test_lic_pd_maps_to_public_domain_ref(self):
+        """SPEC §1.3 / R1 §3 (frozen): ccMixter ``lic=pd`` items are PD
+        dedications-by-declaration — the site has no CC0. Its
+        ``publicdomain/zero/1.0`` report must resolve to
+        ``LicenseRef-public-domain`` + the PD mark URL, never ``CC0-1.0``."""
+        e = common.CatalogEntry(
+            source_id="ccmixter",
+            license_url="http://creativecommons.org/publicdomain/zero/1.0/")
+        info = ccmixter.license_of(e)
+        assert info.license == "LicenseRef-public-domain"
+        assert info.license_url == ccmixter.CCMIXTER_PD_MARK_URL
+        assert info.license_url.endswith("/publicdomain/mark/1.0/")
+        assert info.license_tier == "pd"
+        assert info.release_ok == "yes"
 
     def test_never_upgrades_existing_restriction(self):
         """license_of may only DOWNGRADE — a row already at 'no' stays 'no'
@@ -376,8 +396,9 @@ class TestFetchLyrics:
 
     def test_pd_item_release_safe(self, page_items):
         song = ccmixter.fetch_lyrics(self._entry(page_items, 31321, "pd"))
-        assert song["license"] == "CC0-1.0"
-        assert song["license_tier"] == "cc0"
+        assert song["license"] == "LicenseRef-public-domain"
+        assert song["license_url"] == ccmixter.CCMIXTER_PD_MARK_URL
+        assert song["license_tier"] == "pd"
         assert song["release_ok"] == "yes"
         assert song["category"] == "acappella-pd"
         assert song["language"] == "en"
@@ -454,7 +475,7 @@ class TestEndToEnd:
                            .read_text(encoding="utf-8"))
         assert len(index) == 5
         tiers = sorted(e["license_tier"] for e in index)
-        assert tiers == ["cc-by", "cc-by", "cc-by-nc", "cc0", "cc0"]
+        assert tiers == ["cc-by", "cc-by", "cc-by-nc", "pd", "pd"]
         release = sorted(e["release_ok"] for e in index)
         assert release == ["no", "yes", "yes", "yes", "yes"]
         for e in index:

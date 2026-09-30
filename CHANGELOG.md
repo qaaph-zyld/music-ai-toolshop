@@ -1,5 +1,19 @@
 # Changelog
 
+### Answer #071 - lyrics-sources wave 5b: export_release.py — release-cleared export with TASL credits + ccMixter pd-token fix.
+**Timestamp:** 2026-09-30
+**Action Type:** Implementation — wave-5b gap-fix (SPEC §8.2 fell between W5 scope and wave text); agent ended pre-commit, orchestrator verified + committed.
+
+**What landed:** `export_release.py` — `--release-cleared` reads lyrics.db directly (no `import toolshop`), emits only `release_ok='yes'` songs + `CREDITS.md` TASL attribution lines grouped by corpus+license + `RELEASE_MANIFEST.json` (counts per corpus, `pending_decisions` list for conditional items). ccMixter `lic=pd` items remapped `CC0-1.0` → `LicenseRef-public-domain` + PD mark URL (ccMixter has no true CC0 — SPEC §1.3/R1 §3); 6 existing `acappella-pd` song JSONs repaired.
+
+#### Files Affected:
+- **NEW:** `Genious_lyrics_extractor/export_release.py`, `tests/test_export_release.py`
+- **MODIFIED:** `Genious_lyrics_extractor/sources/ccmixter.py` (pd→LicenseRef mapping), `tests/test_lyrics_sources_ccmixter.py` (pd-token assert)
+
+#### Verification:
+- `pytest tests/test_{export_release,lyrics_sources_ccmixter}.py -m "not slow" -q` → **50 passed** (exit 0).
+- Live smoke: `--release-cleared` → **69 emitted** (ccmixter 17, gutenberg 3, hymnary 1, mudcat 25, sacred-texts 23); **genius-pro + lrclib emit ZERO**; CREDITS.md TASL lines + manifest verified.
+
 ### Answer #070 - lyrics-sources wave 5 (I5): multi-corpus lyricsdb — license columns, corpus-scoped rebuild + additive incremental, `--corpus` plumbing.
 **Timestamp:** 2026-10-01
 **Action Type:** Implementation — wave 5 agent I5 of the lyrics-sources megaplan (frozen spec: `ORCHESTRATION/lyrics_sources/SPEC.md` §4-5, §8.1).
