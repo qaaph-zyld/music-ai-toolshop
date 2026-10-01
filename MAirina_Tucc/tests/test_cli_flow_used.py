@@ -85,6 +85,20 @@ def test_tests_never_write_the_real_data_dir(run, tmp_path):
     run("rhyme", "imaš", "--line", "mala mogla si da me", "--target", "9")
     run("anchors", "--rng-seed", "1")
     run("flow", f)
+    # wave 2: stars, fingerprint, hint votes, atlas, comparisons (all pass data_dir through)
+    run("star", f, "1", "--tag", "punchline")
+    run("star", f, "2")
+    run("star", f, "1", "--lane", "drill")
+    run("stars")
+    run("me")
+    run("xray", f)                                  # 3 stars: vs-star column, atlas priors
+    run("hint-vote", "cliche", "-")
+    run("hint-vote", "cliche", "reset")
+    run("atlas", "--lane", "drill")
+    run("compare", "--lane", "drill")
+    run("vote", "1+")
+    run("unstar", "1")
+    run("stats")
     assert sorted(p.name for p in DATA_DIR.iterdir()) == before
 
 

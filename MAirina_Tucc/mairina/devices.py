@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import sys
+import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -107,6 +108,31 @@ def _split_gazetteer(gazetteer) -> tuple[set, list]:
     return singles, phrases
 
 
+_PREP: dict = {}        # single-entry memo for _prepared_gazetteer
+
+
+def _prepared_gazetteer(gazetteer, index):
+    """(singles, phrases_by_first_token), memoised on the (gazetteer, index) objects.
+
+    Splitting the gazetteer and filtering it against the index is O(|gazetteer|);
+    doing it per line made a whole-corpus scan (the device atlas) take minutes.
+    """
+    if (_PREP.get("gaz") is gazetteer and _PREP.get("index") is index
+            and _PREP.get("n") == len(gazetteer)):
+        return _PREP["prep"]
+    singles, phrases = _split_gazetteer(gazetteer)
+    if index is not None:
+        def _common_word(s: str) -> bool:
+            e = index.forms.get(s)
+            return bool(e) and e["freq"] >= NAME_MIN_FREQ and e["upos"] != "PROPN"
+        singles = {s for s in singles if not _common_word(s)}
+    by_first: dict[str, list[str]] = {}
+    for p in sorted(phrases):
+        by_first.setdefault(p.split(" ", 1)[0], []).append(p)
+    _PREP.update(gaz=gazetteer, index=index, n=len(gazetteer), prep=(singles, by_first))
+    return _PREP["prep"]
+
+
 def consonance_density(line: str) -> float:
     """Consonant units whose class repeats >=2x, divided by syllables.
 
@@ -184,30 +210,55 @@ def _ko_is_who(toks, j: int | None, index) -> bool:
     return False
 
 
-def _similes(line: str, index=None) -> list[dict]:
-    """kao/k'o/ka'o/poput are similes (curly ’ recognised); 'ko' also means
-    'who', checked at ANY position, not only line-initial."""
-    low = line.lower().replace("’", "'")
-    toks = token_spans(low)
-    starts = {s: i for i, (_, s, _e) in enumerate(toks)}
+def simile_scan(line: str, index=None) -> tuple[list[str], list[tuple[str, int, int]]]:
+    """(tokens, positions) for the simile markers of a line.
+
+    Tokens are lowercased with the curly ’ folded to ' (so k’o matches). Each
+    position is ``(marker, marker_tok_idx, next_tok_idx)``; ``next_tok_idx`` may
+    equal ``len(tokens)`` when the marker ends the line. 'ko' read as 'who' (a
+    question, or a verb/aux follows, at ANY position) is excluded; 'kao da/što'
+    and line-initial 'ko' are kept — ``simile_confidence`` grades them low.
+    """
+    low = unicodedata.normalize("NFC", line).lower().replace("’", "'")
+    spans = token_spans(low)
+    toks = [t for t, _s, _e in spans]
+    starts = {s: i for i, (_, s, _e) in enumerate(spans)}
     is_question = low.rstrip().endswith("?")
     out = []
     for m in SIMILE_RE.finditer(low):
         marker = m.group(1)
         i = starts.get(m.start())                    # token where the marker starts
-        j = i + (2 if "'" in marker else 1) if i is not None else None
-        nxt = toks[j][0] if j is not None and j < len(toks) else None
-        if marker == "kao":
-            out.append(_tag("simile", marker, "low" if nxt in _KAO_CONJ else "high"))
+        if i is None:
             continue
-        if marker != "ko":
-            out.append(_tag("simile", marker, "high"))      # k'o, ka'o, poput
-            continue
-        if is_question or _ko_is_who(toks, j, index):
-            continue                                        # 'ko' = 'who' here
-        initial = not line[:m.start()].strip()
-        out.append(_tag("simile", marker, "low" if initial else "medium"))
-    return out
+        j = i + (2 if "'" in marker else 1)
+        if marker == "ko" and (is_question or _ko_is_who(spans, j, index)):
+            continue                                 # 'ko' = 'who' here
+        out.append((marker, i, j))
+    return toks, out
+
+
+def simile_positions(line: str, index=None) -> list[tuple[str, int, int]]:
+    """``[(marker, marker_tok_idx, next_tok_idx)]`` — see ``simile_scan``."""
+    return simile_scan(line, index)[1]
+
+
+def simile_confidence(marker: str, nxt: str | None, initial: bool) -> str:
+    """kao is high unless a conjunction follows ('kao da/što' -> low); k'o,
+    ka'o, poput are high; 'ko' is medium mid-line and low line-initially."""
+    if marker == "kao":
+        return "low" if nxt in _KAO_CONJ else "high"
+    if marker != "ko":
+        return "high"
+    return "low" if initial else "medium"
+
+
+def _similes(line: str, index=None) -> list[dict]:
+    """kao/k'o/ka'o/poput are similes (curly ’ recognised); 'ko' also means
+    'who', checked at ANY position, not only line-initial."""
+    toks, positions = simile_scan(line, index)
+    return [_tag("simile", marker,
+                 simile_confidence(marker, toks[j] if j < len(toks) else None, i == 0))
+            for marker, i, j in positions]
 
 
 def _maximal_internal_rhymes(line: str) -> list:
@@ -238,16 +289,13 @@ def _epizeuxis(tokens: list[str]) -> list[dict]:
 def _name_drops(line: str, tokens: list[str], gazetteer, index=None) -> list[dict]:
     if not gazetteer:
         return []
-    singles, phrases = _split_gazetteer(gazetteer)
-    if index is not None:
-        def _common_word(s: str) -> bool:
-            e = index.forms.get(s)
-            return bool(e) and e["freq"] >= NAME_MIN_FREQ and e["upos"] != "PROPN"
-        singles = {s for s in singles if not _common_word(s)}
+    singles, by_first = _prepared_gazetteer(gazetteer, index)
     token_set = set(tokens)
     out = [_tag("name_drop", w, "high") for w in sorted(token_set & singles)]
     joined = " " + " ".join(tokens) + " "
-    out += [_tag("name_drop", p, "high") for p in phrases if f" {p} " in joined]
+    out += [_tag("name_drop", p, "high")
+            for first in sorted(token_set & by_first.keys())
+            for p in by_first[first] if f" {p} " in joined]
     return out
 
 
@@ -380,6 +428,48 @@ def _common_prefix(a: list[str], b: list[str]) -> int:
     return k
 
 
+def anaphora_runs(tokens: list[list[str]]) -> list[tuple[int, int, int]]:
+    """``[(first, end, p)]``: lines first..end-1 share an opening of ``p`` tokens
+    that holds at least one non-stopword. Shared by ``analyze_verse`` and the
+    device atlas so both apply identical rules."""
+    out = []
+    i = 0
+    while i < len(tokens) - 1:
+        p = _common_prefix(tokens[i], tokens[i + 1])
+        if p and any(t not in ANAPHORA_STOP for t in tokens[i][:p]):
+            j = i + 2
+            while j < len(tokens) and _common_prefix(tokens[i], tokens[j]) == p:
+                j += 1
+            out.append((i, j, p))
+            i = j
+        else:
+            i += 1
+    return out
+
+
+# Per-line numeric features shared by the personal fingerprint (stars) and the
+# corpus atlas (lane priors): one definition so both measure the same thing.
+NUMERIC_FEATURES = ("syllables", "words", "cons_density", "end_tail", "multi_len", "allit")
+
+
+def has_alliteration(tokens: list[str]) -> bool:
+    return _alliteration(tokens) is not None
+
+
+def end_tail_len(tokens: list[str]) -> int:
+    """Letters in the 2-nucleus tail of the last content word (0 when none)."""
+    w = _last_content(tokens)
+    return len(keys.tail_key(w, 2)) if w else 0
+
+
+def line_features(syllables: int, cons_density: float, tokens: list[str],
+                  kinds, multi_len: int = 0) -> dict:
+    """Numeric feature snapshot of one line. ``kinds`` = device kinds on the line."""
+    return {"syllables": int(syllables), "words": len(tokens),
+            "cons_density": float(cons_density), "end_tail": end_tail_len(tokens),
+            "multi_len": int(multi_len), "allit": "alliteration" in kinds}
+
+
 def analyze_verse(lines: list[str], gazetteer=frozenset(), index=None) -> VerseReport:
     """Per-line tags plus the cross-line devices: rhyme scheme, multisyllabic
     rhymes, anaphora, epistrophe, anadiplosis and hook repetition."""
@@ -401,19 +491,10 @@ def analyze_verse(lines: list[str], gazetteer=frozenset(), index=None) -> VerseR
 
     # anaphora: >=2 consecutive lines sharing an opening that contains at least
     # one non-stopword. The reported span is the shared opening text itself.
-    i = 0
-    while i < len(texts) - 1:
-        p = _common_prefix(tokens[i], tokens[i + 1])
-        if p and any(t not in ANAPHORA_STOP for t in tokens[i][:p]):
-            j = i + 2
-            while j < len(texts) and _common_prefix(tokens[i], tokens[j]) == p:
-                j += 1
-            for k in range(i, j):
-                reports[k].devices.append(
-                    _tag("anaphora", _opening_surface(texts[k], p), "high"))
-            i = j
-        else:
-            i += 1
+    for first, end, p in anaphora_runs(tokens):
+        for k in range(first, end):
+            reports[k].devices.append(
+                _tag("anaphora", _opening_surface(texts[k], p), "high"))
 
     lasts = [_last_content(t) for t in tokens]
     i = 0

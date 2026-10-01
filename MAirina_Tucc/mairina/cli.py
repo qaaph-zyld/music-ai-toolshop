@@ -1,19 +1,24 @@
-"""Command line: anchors, rhyme, multi, vote, used, flow, stats. Never prompts."""
+"""Command line: anchors, rhyme, multi, vote, used, flow, xray, star, stars, unstar, me,
+hint-vote, atlas, compare, stats. Never prompts."""
 
 from __future__ import annotations
 
 import argparse
 import random
 import re
+import sqlite3
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 from mairina import DATA_DIR, LANES, RANKER_VERSION, anchors as anchors_mod, corpus, devices
+from mairina import atlas as atlas_mod, comparisons, fingerprint, hints
 from mairina import flow as flow_mod, multis as multis_mod, rank, rules, targets
 from mairina import used as used_mod, votes
 
 HINT = "Hint: relax --artist, lower --fresh, or try --mode assonance / --lane all."
 _VOTE = re.compile(r"^(\d+)([+-])$")
+_CLIP = 60
 
 
 def _fresh(s: str) -> float:
@@ -64,6 +69,28 @@ def build_parser() -> argparse.ArgumentParser:
     x.add_argument("file")
     x.add_argument("--lane", choices=LANES, default="all")
     x.add_argument("--section", choices=targets.SECTION_TYPES, default="strofa")
+    st = sub.add_parser("star", help="star one of your own lines (use the number xray prints)")
+    st.add_argument("file")
+    st.add_argument("line_no", type=int, help="lyric-line number as in xray (blank lines and [headers] skipped)")
+    st.add_argument("--tag", action="append", default=[], metavar="TAG",
+                    help="metaphor | double-meaning | wordplay | punchline | any text; repeatable")
+    st.add_argument("--lane", choices=LANES, default="all")
+    sl = sub.add_parser("stars", help="list your starred lines")
+    sl.add_argument("--lane", choices=LANES, default="all")
+    us = sub.add_parser("unstar", help="remove a star by its id")
+    us.add_argument("id", type=int)
+    me = sub.add_parser("me", help="your fingerprint: starred lines vs the corpus lane")
+    me.add_argument("--lane", choices=LANES, default="all")
+    hv = sub.add_parser("hint-vote", help="thumbs on an xray hint rule; 3 down and 0 up mutes it")
+    hv.add_argument("rule_id")
+    hv.add_argument("vote", choices=("+", "-", "reset"))
+    at = sub.add_parser("atlas", help="device rates per lane/artist in the corpus (stats only)")
+    at.add_argument("--lane", choices=LANES, default="all")
+    at.add_argument("--artist", default=None, help="comma-separated target_artist slugs")
+    cp = sub.add_parser("compare", help="words that follow simile markers (ko lava -> lava)")
+    cp.add_argument("--max", type=int, default=20)
+    cp.add_argument("--theme", default=None, help="only comparisons from lines about this word")
+    common(cp)
     s = sub.add_parser("stats", help="week-1 numbers")
     s.add_argument("--ab", action="store_true", help="learned vs base ranking arms")
     return p
@@ -71,6 +98,38 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _artists(args) -> tuple:
     return tuple(x.strip() for x in (args.artist or "").split(",") if x.strip())
+
+
+def _clip(text: str, n: int = _CLIP) -> str:
+    return text if len(text) <= n else text[: n - 1] + "…"
+
+
+def _open_app_db(data_dir, write: bool = False):
+    """mairina.db only if it already exists (None otherwise): read-only commands
+    must not create it. Read-only unless ``write``."""
+    path = Path(data_dir) / "mairina.db"
+    if not path.is_file():
+        return None
+    if write:
+        return sqlite3.connect(str(path))
+    return sqlite3.connect(f"file:{quote(path.resolve().as_posix(), safe='/:')}?mode=ro", uri=True)
+
+
+def _create_app_db(data_dir):
+    """mairina.db with the v1 tables plus stars and hint_votes (all IF NOT EXISTS)."""
+    con = votes.connect(Path(data_dir) / "mairina.db")
+    fingerprint.ensure(con)
+    hints.ensure(con)
+    return con
+
+
+def _lane_priors(lyrics_db, data_dir, lane):
+    """Corpus priors for the fingerprint, or None (with a Note) when the atlas cannot be built."""
+    try:
+        return atlas_mod.lane_numeric(atlas_mod.load(lyrics_db, data_dir), lane)
+    except corpus.DbUnavailable as exc:
+        print(f"Note: {exc} - fingerprint without corpus priors (plain means).", file=sys.stderr)
+        return None
 
 
 def _setup(args, lyrics_db, data_dir):
@@ -188,8 +247,7 @@ def _cmd_xray(args, lyrics_db, data_dir) -> int:
     if not path.is_file():
         print(f"File not found: {path}", file=sys.stderr)
         return 1
-    lines = [raw.strip() for raw in used_mod.read_text(path).splitlines()]
-    lines = [l for l in lines if l and not (l.startswith("[") and l.endswith("]"))]
+    lines = fingerprint.lyric_lines(path)
     if not lines:
         print("No lyric lines to analyze.")
         return 0
@@ -205,11 +263,26 @@ def _cmd_xray(args, lyrics_db, data_dir) -> int:
         print(f"Note: {exc} — running without lane targets and gazetteer.",
               file=sys.stderr)
     rep = devices.analyze_verse(lines, gazetteer, index)
-    hints: dict[int, list[str]] = {}
+    app = _open_app_db(data_dir)                     # None until the first star/vote exists
+    try:
+        muted = hints.muted(app) if app else []
+        star_rows = fingerprint.stars(app, args.lane) if app else []
+    finally:
+        if app:
+            app.close()
+    fp = None
+    if len(star_rows) >= fingerprint.MIN_STARS_FOR_XRAY:
+        priors = _lane_priors(lyrics_db, data_dir, args.lane)
+        fp = fingerprint.fingerprint(None, args.lane, priors, rows=star_rows)
+    line_hints: dict[int, list[str]] = {}
     for h in rules.verse_hints(lines, index=index):
-        hints.setdefault(h["line"], []).append(
+        if h["rule_id"] in muted:
+            continue
+        line_hints.setdefault(h["line"], []).append(
             rules.SHORT_LABELS.get(h["rule_id"], h["rule_id"]))
     head = f"X-ray {len(rep.lines)} lines  lane={args.lane} section={args.section} (advisory only — you write)"
+    if muted:
+        head += f"  muted hints: {', '.join(muted)}"
     print(head)
     for lr in rep.lines:
         parts = [str(lr.n),
@@ -221,9 +294,103 @@ def _cmd_xray(args, lyrics_db, data_dir) -> int:
         tags = [f"≈{d['kind']}({d['span']})" for d in lr.devices
                 if d["kind"] not in ("alliteration", "consonance")]
         parts += tags
-        if hints.get(lr.n):
-            parts.append("hints: " + ", ".join(hints[lr.n]))
+        if line_hints.get(lr.n):
+            parts.append("hints: " + ", ".join(line_hints[lr.n]))
+        if fp:
+            top = fingerprint.compare(lr.text, fp, top=1, skip=("allit",))   # row shows allit itself
+            parts.append("vs★ " + (top[0] if top else "close to your ★ lines"))
         print(" | ".join(parts))
+    return 0
+
+
+def _cmd_star(args, lyrics_db, data_dir) -> int:
+    path = Path(args.file)
+    if not path.is_file():
+        print(f"File not found: {path}", file=sys.stderr)
+        return 1
+    con = _create_app_db(data_dir)
+    rec = fingerprint.star(con, path, args.line_no, args.lane, args.tag, lyrics_db, data_dir)
+    tags = f" [{', '.join(rec['tags'])}]" if rec["tags"] else ""
+    print(f"★ #{rec['id']}{' (updated)' if rec['updated'] else ''} line {rec['line_no']} "
+          f"\"{_clip(rec['text'])}\"{tags} lane={rec['lane']}")
+    return 0
+
+
+def _cmd_stars(args, data_dir) -> int:
+    con = _open_app_db(data_dir)
+    rows = fingerprint.stars(con, args.lane) if con else []
+    if not rows:
+        print(f"No stars yet for lane '{args.lane}'. Star a line: mt star <file> <line_no> [--tag T]")
+        return 0
+    print(f"{len(rows)} star(s)  lane={args.lane}")
+    for r in rows:
+        tags = f" [{', '.join(r['tags'])}]" if r["tags"] else ""
+        print(f"#{r['id']:<3} {r['lane']:<5} {Path(r['file'] or '?').name} line {r['line_no']}: "
+              f"\"{_clip(r['text'])}\"{tags}")
+    return 0
+
+
+def _cmd_unstar(args, data_dir) -> int:
+    con = _open_app_db(data_dir, write=True)
+    if not (con and fingerprint.unstar(con, args.id)):
+        raise votes.VoteError(f"No star #{args.id}. List them with: mt stars")
+    print(f"Removed ★ #{args.id}.")
+    return 0
+
+
+def _cmd_me(args, lyrics_db, data_dir) -> int:
+    con = _open_app_db(data_dir)
+    rows = fingerprint.stars(con, args.lane) if con else []
+    priors = _lane_priors(lyrics_db, data_dir, args.lane) if rows else None
+    print("\n".join(fingerprint.render(
+        fingerprint.fingerprint(None, args.lane, priors, rows=rows), args.lane)))
+    return 0
+
+
+def _cmd_hint_vote(args, data_dir) -> int:
+    con = _create_app_db(data_dir)
+    rid = args.rule_id.strip()
+    if rid not in rules.SHORT_LABELS:
+        print(f"Note: '{rid}' is not a known hint rule ({', '.join(sorted(rules.SHORT_LABELS))}); "
+              "saved anyway.", file=sys.stderr)
+    if args.vote == "reset":
+        n = hints.reset(con, rid)
+        print(f"Reset '{rid}': {n} vote(s) removed; its hints are shown again.")
+        return 0
+    up, down = hints.vote(con, rid, 1 if args.vote == "+" else -1)
+    print(f"Hint '{rid}': {up} up / {down} down.")
+    if rid in hints.muted(con):
+        print(f"Muted: xray no longer shows '{rid}' (undo: mt hint-vote {rid} reset).")
+    return 0
+
+
+def _cmd_atlas(args, lyrics_db, data_dir) -> int:
+    blob = atlas_mod.load(lyrics_db, data_dir)
+    print("\n".join(atlas_mod.render(blob, args.lane, _artists(args))))
+    return 0
+
+
+def _cmd_compare(args, lyrics_db, data_dir) -> int:
+    theme = None
+    if args.theme:
+        words = used_mod.tokenize(args.theme)
+        if len(words) != 1:
+            raise votes.VoteError("--theme takes exactly one word.")
+        theme = words[0]
+    index, con, rng, arm, boosts = _setup(args, lyrics_db, data_dir)
+    counts = comparisons.collect(lyrics_db, args.lane, _artists(args), theme, index)
+    res = comparisons.rank_words(counts, index, args.lane, _artists(args), args.fresh,
+                                 boosts)[: args.max]
+    if not res:
+        print(f"No comparison words found in lane '{args.lane}'"
+              + (f" for theme '{theme}'" if theme else "") + f".\n{HINT}")
+        return 0
+    lid = votes.log_shown(con, "compare", f"lane={args.lane},theme={theme or ''}", arm,
+                          [_pack(s) for s in res])
+    print(_head("Comparisons (single words after kao/ko/k'o/poput)", args, arm, lid)
+          + (f" theme={theme}" if theme else ""))
+    for i, s in enumerate(res, 1):
+        print(f"{i:>3}. {s.candidate:<16} {s.score:>6.2f}  {s.meta['count']:>3}x  {rank.explain(s)}")
     return 0
 
 
@@ -232,7 +399,8 @@ def _pct(x) -> str:
 
 
 def _cmd_stats(args, data_dir) -> int:
-    st = votes.stats(votes.connect(Path(data_dir) / "mairina.db"))
+    con = votes.connect(Path(data_dir) / "mairina.db")
+    st = votes.stats(con)
     if args.ab:
         print(f"Ranking A/B (votes so far: {st['votes']}, need {votes.AB_MIN_VOTES})")
         if not st["ab_ready"]:
@@ -250,6 +418,8 @@ def _cmd_stats(args, data_dir) -> int:
     print(f"First 50 votes: {st['first50_votes']}/50 cast, up-rate {_pct(st['first50_rate'])} (pass: 40% or more)")
     print(f"Used: {st['used_candidates']} of {st['shown_candidates']} distinct shown suggestions ({_pct(st['used_rate'])})")
     print(f"Multi lists (first 20): {st['multi_lists']} seen, {st['multi_hits']} with an up-vote or used hit (pass: 10 of 20)")
+    if muted := hints.muted(con):
+        print(f"Muted hint rules: {', '.join(muted)}  (undo: mt hint-vote <rule_id> reset)")
     print("Run 'stats --ab' for the learned-vs-base test.")
     return 0
 
@@ -277,6 +447,20 @@ def main(argv=None, *, lyrics_db=None, data_dir=None) -> int:
             return _cmd_flow(args, lyrics_db)
         if args.cmd == "xray":
             return _cmd_xray(args, lyrics_db, data_dir)
+        if args.cmd == "star":
+            return _cmd_star(args, lyrics_db, data_dir)
+        if args.cmd == "stars":
+            return _cmd_stars(args, data_dir)
+        if args.cmd == "unstar":
+            return _cmd_unstar(args, data_dir)
+        if args.cmd == "me":
+            return _cmd_me(args, lyrics_db, data_dir)
+        if args.cmd == "hint-vote":
+            return _cmd_hint_vote(args, data_dir)
+        if args.cmd == "atlas":
+            return _cmd_atlas(args, lyrics_db, data_dir)
+        if args.cmd == "compare":
+            return _cmd_compare(args, lyrics_db, data_dir)
         return _cmd_stats(args, data_dir)
     except corpus.DbUnavailable as exc:
         print(f"Error: {exc}", file=sys.stderr)
