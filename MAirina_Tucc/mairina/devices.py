@@ -41,6 +41,26 @@ ANAPHORA_STOP = phonetics.CLITICS | frozenset({
 # are ordinary words ('mala', 'niko'), not name drops.
 NAME_MIN_FREQ = 20
 
+# Gazetteer noise (CLASSLA NER tags ad-libs and filler repeats as names): an entry
+# is dropped when it is shorter than 3 letters in total, is one token repeated
+# ('a a a', 'yeah yeah'), or when every token is an interjection (corpus majority
+# UPOS INTJ) or in this ad-lib list. Real names and brands never match all three.
+ADLIB = frozenset("yeah yea ye aha uh oh ey hey brr skrr ja la na da a e o".split())
+MIN_ENTRY_LETTERS = 3
+
+
+def is_noise_entry(entry: str, forms=None) -> bool:
+    """True when a gazetteer entry is ad-lib/filler noise, not a name drop.
+    ``forms`` (``Index.forms``) enables the majority-INTJ test; without it only
+    the corpus-free rules (length, repeat, ad-lib list) apply."""
+    toks = entry.split()
+    if not toks or sum(len(t) for t in toks) < MIN_ENTRY_LETTERS:
+        return True
+    if len(toks) > 1 and len(set(toks)) == 1:
+        return True
+    return all(t in ADLIB or (forms is not None and (forms.get(t) or {}).get("upos") == "INTJ")
+               for t in toks)
+
 
 def _tag(kind: str, span: str, confidence: str) -> dict:
     return {"kind": kind, "span": span, "confidence": confidence,
@@ -67,17 +87,15 @@ def load_gazetteer(db_path: str | None = None) -> frozenset:
     Multi-word entities stay whole phrases — 'Tabak Mala' must match as
     'tabak mala', never lend 'mala' as a standalone name. Single tokens are
     kept as-is; whether a common word is suppressed is decided at match time
-    against corpus UPOS/frequency (see ``_name_drops``). Only CORPORA rows count.
+    against corpus UPOS/frequency (see ``_name_drops``). Ad-lib/filler noise
+    (``is_noise_entry``) is dropped here and, for interjections, at match time.
+    Only CORPORA rows count.
     """
     out: set[str] = set()
 
     def _add(text: str):
         t = " ".join(tokenize(text))
-        if not t:
-            return
-        if " " in t:
-            out.add(t)
-        elif len(t) >= 3:
+        if t and not is_noise_entry(t):
             out.add(t)
 
     con = corpus.open_ro(db_path)
@@ -120,7 +138,8 @@ def _prepared_gazetteer(gazetteer, index):
     if (_PREP.get("gaz") is gazetteer and _PREP.get("index") is index
             and _PREP.get("n") == len(gazetteer)):
         return _PREP["prep"]
-    singles, phrases = _split_gazetteer(gazetteer)
+    forms = index.forms if index is not None else None
+    singles, phrases = _split_gazetteer(e for e in gazetteer if not is_noise_entry(e, forms))
     if index is not None:
         def _common_word(s: str) -> bool:
             e = index.forms.get(s)
@@ -452,8 +471,19 @@ def anaphora_runs(tokens: list[list[str]]) -> list[tuple[int, int, int]]:
 NUMERIC_FEATURES = ("syllables", "words", "cons_density", "end_tail", "multi_len", "allit")
 
 
+def device_kinds(tags) -> set[str]:
+    """Device kinds on a line for flags, stars and the atlas. Weak (same-class)
+    alliteration stays in the tag list as detail but is NOT a kind here: only
+    same-phoneme (strong) alliteration counts as 'alliteration'."""
+    return {t["kind"] for t in tags
+            if not (t["kind"] == "alliteration" and t["confidence"] != "high")}
+
+
 def has_alliteration(tokens: list[str]) -> bool:
-    return _alliteration(tokens) is not None
+    """Strong alliteration only (>= 2 content-word onsets with the same phoneme
+    in the 4-word window)."""
+    tag = _alliteration(tokens)
+    return tag is not None and tag["confidence"] == "high"
 
 
 def end_tail_len(tokens: list[str]) -> int:

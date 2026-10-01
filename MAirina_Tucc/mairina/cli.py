@@ -289,7 +289,7 @@ def _cmd_xray(args, lyrics_db, data_dir) -> int:
                  f"syl {lr.syllables}" + (f" ({targets.fmt_range(trange)})" if trange else ""),
                  f"rhyme {lr.rhyme_letter or '-'}",
                  f"cons {devices.gauge(lr.cons_density, cons_thr)}"]
-        if any(d["kind"] == "alliteration" for d in lr.devices):
+        if "alliteration" in devices.device_kinds(lr.devices):      # strong (same phoneme) only
             parts.append("allit ✓")
         tags = [f"≈{d['kind']}({d['span']})" for d in lr.devices
                 if d["kind"] not in ("alliteration", "consonance")]

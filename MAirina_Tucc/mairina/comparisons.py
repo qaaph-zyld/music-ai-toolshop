@@ -5,7 +5,8 @@ artist filtered) the simile markers of ``devices`` are located with the very
 same ``ko`` = "who" exclusion; the first NOUN/ADJ/PROPN within three tokens
 after the marker (not a clitic, not an artist-name token) is counted. Output is
 a ranked list of SINGLE WORDS with counts: no line, phrase or song is ever
-returned. Low-confidence markers ('kao da/što', a line-initial 'ko') are not
+returned. Pronouns, determiners and pronoun-like adjectives (``STOPWORDS``) are
+never comparison words. Low-confidence markers ('kao da/što', a line-initial 'ko') are not
 comparisons and are skipped.
 
 Identical lines inside one song (refrains) count once, so a repeated chorus
@@ -22,6 +23,14 @@ from mairina import corpus, devices, phonetics, rank
 from mairina.used import tokenize
 
 CONTENT_UPOS = frozenset({"NOUN", "ADJ", "PROPN"})
+# Pronouns/determiners (by corpus majority UPOS) and pronoun-like adjectives are
+# function words, not things a line can be compared to. CLASSLA tags many of them
+# ADJ ('kao sve', 'ko nijedna'), hence the explicit stoplist (matched on the form
+# and on the lemma, so 'mojih' goes with 'moj').
+STOP_UPOS = frozenset({"DET", "PRON"})
+STOPWORDS = frozenset("""sve svi svaki svaka svako nijedna nijedan nijedno takav takva taj ta to
+    ovaj ova ovo onaj ona neki neka svoj svoja moj moja tvoj tvoja isti ista sam sama ceo cela
+    celi""".split())
 LOOKAHEAD = 3                    # tokens scanned after the marker
 W_SIMILE = 1.0                   # * log(1 + times seen after a simile marker)
 # Cheap SQL superset of the SIMILE_RE markers (the regex does the exact work).
@@ -59,7 +68,9 @@ def _comparison_word(tok: str, index, skip_lemma: str | None) -> str | None:
     if len(tok) < 2 or tok in phonetics.CLITICS or tok in index.artist_names:
         return None
     entry = index.forms.get(tok)
-    if not entry or entry["upos"] not in CONTENT_UPOS:
+    if not entry or entry["upos"] in STOP_UPOS or entry["upos"] not in CONTENT_UPOS:
+        return None
+    if tok in STOPWORDS or entry["lemma"].lower() in STOPWORDS:
         return None
     if skip_lemma and entry["lemma"].lower() == skip_lemma:
         return None                              # the theme word itself is no comparison

@@ -32,7 +32,17 @@ LEX = {w: (l, u) for w, l, u in [
     ("laku", "lak", "ADJ"), ("noc", "noc", "NOUN"), ("majko", "majka", "NOUN"),
     ("brate", "brat", "NOUN"), ("zid", "zid", "NOUN"), ("svetla", "svetao", "ADJ"),
     ("zvezda", "zvezda", "NOUN"), ("thelion", "thelion", "NOUN"),
-    ("wanders", "wander", "VERB"), ("lamb", "lamb", "NOUN")]}
+    ("wanders", "wander", "VERB"), ("lamb", "lamb", "NOUN"),
+    # alliteration fixtures
+    ("kučka", "kučka", "NOUN"), ("kuca", "kuca", "NOUN"), ("kroz", "kroz", "ADP"),
+    ("kapiju", "kapija", "NOUN"), ("sala", "sala", "NOUN"), ("šalju", "slati", "VERB"),
+    ("mala", "mali", "ADJ"), ("voda", "voda", "NOUN"), ("ima", "imati", "VERB"),
+    ("ona", "ona", "PRON"), ("oko", "oko", "NOUN"),
+    # comparison stopword fixtures
+    ("sve", "sav", "ADJ"), ("onaj", "onaj", "DET"), ("ti", "ti", "PRON"), ("moja", "moj", "ADJ"),
+    ("mama", "mama", "NOUN"), ("mojih", "moj", "ADJ"), ("nijedna", "nijedan", "ADJ"),
+    ("taj", "taj", "ADJ"), ("tih", "taj", "ADJ"), ("bela", "beo", "ADJ"), ("mek", "mek", "ADJ"),
+    ("hladan", "hladan", "ADJ")]}
 
 SONG1_VERSE = [
     "usne crvene ko lava",            # simile: ko + noun
@@ -64,11 +74,11 @@ LONG_TEXTS = sorted({t for t in ALL_TEXTS if len(t.split()) >= 3})
 DRILL_LINES = SONG1_VERSE + SONG1_FILLER + ["usne crvene ko lava"]
 
 
-def build_mini(path):
+def build_mini(path, songs=None):
     con = sqlite3.connect(str(path))
     con.executescript(SCHEMA)
     n = {"sec": 0, "line": 0, "tok": 0}
-    for sid, cohort, target, primary, corp, sections in SONGS:
+    for sid, cohort, target, primary, corp, sections in (songs or SONGS):
         con.execute("INSERT INTO songs VALUES (?,?,?,?,?,?)",
                     (sid, f"song{sid}", primary, target, cohort, corp))
         for stype, lines in sections:
@@ -370,3 +380,71 @@ def test_compare_cli_stats_count_the_new_kind(run):
     run("vote", "1+")
     code, out, _ = run("stats")
     assert code == 0 and "compare 1 lists" in out and "Votes: 1" in out
+
+
+# --- wave 2F: strong-only alliteration in the atlas -------------------------------------
+
+def test_atlas_allit_rate_counts_strong_alliteration_only(tmp_path):
+    songs = [(1, "drill_trap", "devito", "Devito", "genius-pro",
+              [("strofa", ["kučka kuca kroz kapiju",   # strong: k, k, k
+                           "sala šalju",                # weak: s/š same class
+                           "mala voda",                        # none
+                           "ima ona oko"])])]                  # vowel onsets: none
+    db = build_mini(tmp_path / "lyrics.db", songs)
+    blob = atlas.load(db, tmp_path / "cache", notify=False)
+    st = blob["lanes"]["drill"]
+    assert st["n_lines"] == 4 and st["counts"]["allit"] == 1
+    assert st["numeric"]["allit"]["mean"] == pytest.approx(0.25)
+    assert blob["v"] == atlas.ATLAS_VERSION == 2
+
+
+# --- wave 2F: comparison stopwords -----------------------------------------------------
+
+STOP_SONGS = [(1, "drill_trap", "devito", "Devito", "genius-pro", [("strofa", [
+    "svetla kao sve",            # pronoun-like ADJ (stoplist) and nothing after it
+    "jak ko onaj zid",           # DET is skipped, the noun after it counts
+    "lep ko ti",                 # PRON (and a clitic)
+    "mek ko moja mama",          # stoplist form 'moja', then 'mama'
+    "hladan ko mojih led",       # inflected: caught through the lemma 'moj'
+    "bela kao nijedna",
+    "tih ko taj san",            # stoplist form 'taj' (and lemma), then 'san'
+    "jak ko led"])])]            # control: an ordinary noun
+
+
+@pytest.fixture(scope="module")
+def stop_db(tmp_path_factory):
+    return build_mini(tmp_path_factory.mktemp("stop") / "lyrics.db", STOP_SONGS)
+
+
+def test_stopwords_and_pronoun_upos_are_never_comparison_words(stop_db, tmp_path):
+    idx = corpus.load_index(stop_db, tmp_path)
+    counts = comparisons.collect(stop_db, "drill", (), None, idx)
+    assert counts == Counter({"led": 2, "zid": 1, "mama": 1, "san": 1})
+    for gone in ("sve", "onaj", "ti", "moja", "mojih", "nijedna", "taj", "tih"):
+        assert gone not in counts
+    ranked = comparisons.rank_words(counts, idx, "drill", (), 0.0, None)
+    assert {s.candidate for s in ranked} == {"led", "zid", "mama", "san"}
+
+
+def test_comparison_word_filter_uses_upos_form_and_lemma():
+    class Idx:
+        artist_names = frozenset({"devito"})
+        forms = {"mali": {"upos": "ADJ", "lemma": "mali"}, "lava": {"upos": "NOUN", "lemma": "lava"},
+                 "tog": {"upos": "DET", "lemma": "taj"}, "njega": {"upos": "PRON", "lemma": "on"},
+                 "sve": {"upos": "ADJ", "lemma": "sav"}, "mojih": {"upos": "ADJ", "lemma": "moj"},
+                 "devito": {"upos": "PROPN", "lemma": "devito"},
+                 "svaki": {"upos": "ADJ", "lemma": "svaki"}, "led": {"upos": "NOUN", "lemma": "led"}}
+    ok = lambda w, skip=None: comparisons._comparison_word(w, Idx(), skip)
+    assert ok("mali") == "mali" and ok("lava") == "lava" and ok("led") == "led"
+    assert ok("tog") is None and ok("njega") is None          # majority UPOS DET / PRON
+    assert ok("sve") is None and ok("svaki") is None          # stoplist on the form
+    assert ok("mojih") is None                                # stoplist on the lemma
+    assert ok("devito") is None and ok("nepoznata") is None   # artist name / not in the index
+    assert ok("lava", "lava") is None                         # the theme word itself
+
+
+def test_stopword_list_is_exactly_the_agreed_one():
+    agreed = """sve svi svaki svaka svako nijedna nijedan nijedno takav takva taj ta to ovaj ova
+        ovo onaj ona neki neka svoj svoja moj moja tvoj tvoja isti ista sam sama ceo cela celi"""
+    assert comparisons.STOPWORDS == frozenset(agreed.split())
+    assert comparisons.STOP_UPOS == frozenset({"DET", "PRON"})

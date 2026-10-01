@@ -338,3 +338,15 @@ def test_star_fingerprint_compare_round_trip_through_the_atlas(run, verse, data_
     else:                                               # fixture lane has one syllable count
         assert fp["numeric"]["syllables"]["sigma_source"] == "stars"
     assert fingerprint.compare("u panameri da se snimaš", fp, top=3) is not None
+
+
+def test_snapshot_allit_and_kinds_count_strong_alliteration_only():
+    rep = devices.analyze_verse(["kučka kuca kroz kapiju", "sala šalju", "mala voda"])
+    strong, weak, none = (fingerprint.snapshot(lr) for lr in rep.lines)
+    assert strong["allit"] is True and "alliteration" in strong["kinds"]
+    assert weak["allit"] is False and "alliteration" not in weak["kinds"]
+    assert any(d["kind"] == "alliteration" and d["confidence"] == "low" for d in rep.lines[1].devices)
+    assert none["allit"] is False
+    # compare() measures the line with the very same definition
+    assert fingerprint._values("kučka kuca kroz kapiju")["allit"] == 1.0
+    assert fingerprint._values("sala šalju")["allit"] == 0.0

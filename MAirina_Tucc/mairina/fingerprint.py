@@ -72,7 +72,7 @@ def normalize_tags(tags) -> list[str]:
 
 def snapshot(lr) -> dict:
     """Feature snapshot of one analysed line (``devices.LineReport``)."""
-    kinds = sorted({d["kind"] for d in lr.devices})
+    kinds = sorted(devices.device_kinds(lr.devices))
     multi = max((len(d["span"]) for d in lr.devices if d["kind"] == "multisyllabic_rhyme"),
                 default=0)
     feats = devices.line_features(lr.syllables, lr.cons_density, tokenize(lr.text), kinds, multi)

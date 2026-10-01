@@ -30,7 +30,7 @@ from toolshop.syllables import count_line
 from mairina import DATA_DIR, corpus, devices
 from mairina.used import tokenize
 
-ATLAS_VERSION = 1
+ATLAS_VERSION = 2               # 2: strong-only alliteration, gazetteer noise filtered
 MIN_ARTIST_LINES = 30           # an artist with fewer corpus lines gets no row
 KINDS = ("simile", "anaphora", "allit", "internal", "code_switch", "name_drop", "multi")
 # atlas counter -> device kind(s) on the line (anaphora/multi come from the section scan)
@@ -102,7 +102,7 @@ def _section(buf, cohort, artist, lanes, artists, gazetteer, index) -> None:
     if artist:
         targets.append(artists.setdefault(artist, _Acc()))
     for k, text in enumerate(texts):
-        kinds = {t["kind"] for t in devices.analyze_line(text, k + 1, (), gazetteer, index)}
+        kinds = devices.device_kinds(devices.analyze_line(text, k + 1, (), gazetteer, index))
         hits = {name for name, kind in _LINE_KIND.items() if kind in kinds}
         if k in anaphora:
             hits.add("anaphora")

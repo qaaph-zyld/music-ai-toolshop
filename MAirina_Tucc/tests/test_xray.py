@@ -95,3 +95,13 @@ def test_anchors_rows_show_target_range(run):
     rows = [l for l in out.splitlines() if "[" in l and l.strip()[:1].isdigit()]
     assert len(rows) == 4
     assert all("syl n/a" in l for l in rows)              # fixture has no strofa/refren types
+
+
+def test_xray_allit_flag_is_strong_alliteration_only(run, tmp_path):
+    f = tmp_path / "v.txt"
+    f.write_text("kučka kuca kroz kapiju\nsala šalju\nmala voda\n", encoding="utf-8")
+    code, out, _ = run("xray", f)
+    rows = out.splitlines()
+    assert code == 0 and "allit ✓" in rows[1]               # k, k, k: same phoneme
+    assert "allit" not in rows[2]                            # s/š: same class only (weak detail)
+    assert "allit" not in rows[3]
