@@ -76,9 +76,14 @@ def test_rhyme_over_target_note(run):
     assert code == 0 and "over target" in out            # line already exceeds the target
 
 
+def _dir_state(path):
+    """name -> (size, mtime_ns): a rewrite of an existing cache file shows up, not only a new name."""
+    return {p.name: (p.stat().st_size, p.stat().st_mtime_ns) for p in path.iterdir()}
+
+
 def test_tests_never_write_the_real_data_dir(run, tmp_path):
     """Regression for the stray targets_*.pkl found in MAirina_Tucc\\data."""
-    before = sorted(p.name for p in DATA_DIR.iterdir())
+    before = _dir_state(DATA_DIR)
     f = tmp_path / "v.txt"
     f.write_text("usne crvene ko lava\nu panameri da se snimaš\n", encoding="utf-8")
     run("xray", f)
@@ -99,7 +104,7 @@ def test_tests_never_write_the_real_data_dir(run, tmp_path):
     run("vote", "1+")
     run("unstar", "1")
     run("stats")
-    assert sorted(p.name for p in DATA_DIR.iterdir()) == before
+    assert _dir_state(DATA_DIR) == before
 
 
 def test_missing_lyrics_db_exits_2_with_path(run, tmp_path):

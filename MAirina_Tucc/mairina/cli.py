@@ -17,6 +17,8 @@ from mairina import flow as flow_mod, multis as multis_mod, rank, rules, targets
 from mairina import used as used_mod, votes
 
 HINT = "Hint: relax --artist, lower --fresh, or try --mode assonance / --lane all."
+# compare has no --mode, and --fresh only re-ranks (it never empties a result)
+COMPARE_HINT = "Hint: relax --artist or --theme, or try --lane all."
 _VOTE = re.compile(r"^(\d+)([+-])$")
 _CLIP = 60
 
@@ -298,7 +300,8 @@ def _cmd_xray(args, lyrics_db, data_dir) -> int:
             parts.append("hints: " + ", ".join(line_hints[lr.n]))
         if fp:
             top = fingerprint.compare(lr.text, fp, top=1, skip=("allit",))   # row shows allit itself
-            parts.append("vs★ " + (top[0] if top else "close to your ★ lines"))
+            near = "close to your ★ lines" + (f" (n={fp['n']})" if fp["low_confidence"] else "")
+            parts.append("vs★ " + (top[0] if top else near))     # phrases quote the raw ★ mean
         print(" | ".join(parts))
     return 0
 
@@ -350,10 +353,7 @@ def _cmd_me(args, lyrics_db, data_dir) -> int:
 def _cmd_hint_vote(args, data_dir) -> int:
     con = _create_app_db(data_dir)
     rid = args.rule_id.strip()
-    if rid not in rules.SHORT_LABELS:
-        print(f"Note: '{rid}' is not a known hint rule ({', '.join(sorted(rules.SHORT_LABELS))}); "
-              "saved anyway.", file=sys.stderr)
-    if args.vote == "reset":
+    if args.vote == "reset":                      # any well-formed id: old stray votes can go
         n = hints.reset(con, rid)
         print(f"Reset '{rid}': {n} vote(s) removed; its hints are shown again.")
         return 0
@@ -383,7 +383,7 @@ def _cmd_compare(args, lyrics_db, data_dir) -> int:
                                  boosts)[: args.max]
     if not res:
         print(f"No comparison words found in lane '{args.lane}'"
-              + (f" for theme '{theme}'" if theme else "") + f".\n{HINT}")
+              + (f" for theme '{theme}'" if theme else "") + f".\n{COMPARE_HINT}")
         return 0
     lid = votes.log_shown(con, "compare", f"lane={args.lane},theme={theme or ''}", arm,
                           [_pack(s) for s in res])

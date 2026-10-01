@@ -30,11 +30,12 @@ from toolshop.syllables import count_line
 from mairina import DATA_DIR, corpus, devices
 from mairina.used import tokenize
 
-ATLAS_VERSION = 2               # 2: strong-only alliteration, gazetteer noise filtered
+ATLAS_VERSION = 3               # 3: simile counts non-low-confidence similes only (like compare)
 MIN_ARTIST_LINES = 30           # an artist with fewer corpus lines gets no row
 KINDS = ("simile", "anaphora", "allit", "internal", "code_switch", "name_drop", "multi")
-# atlas counter -> device kind(s) on the line (anaphora/multi come from the section scan)
-_LINE_KIND = {"simile": "simile", "allit": "alliteration", "internal": "internal_rhyme",
+# atlas counter -> device kind(s) on the line (anaphora/multi come from the section scan;
+# simile is special-cased in _line_hits: low-confidence similes are not counted)
+_LINE_KIND = {"allit": "alliteration", "internal": "internal_rhyme",
               "code_switch": "code_switch", "name_drop": "name_drop"}
 _CYRILLIC = re.compile("[Ѐ-ӿ]")      # phonetics is Latin-only: skip such lines
 
@@ -85,6 +86,17 @@ class _Acc:
                 "median_syl": self.median_syl(), "numeric": numeric}
 
 
+def _line_hits(tags) -> tuple[set, set]:
+    """(atlas counters hit by one line's tags, device kinds on the line). A simile counts
+    only when it is not low-confidence ('kao da/što', a line-initial 'ko'): the very
+    rule ``comparisons.collect`` applies, so the two commands agree on what a simile is."""
+    kinds = devices.device_kinds(tags)
+    hits = {name for name, kind in _LINE_KIND.items() if kind in kinds}
+    if any(t["kind"] == "simile" and t["confidence"] != "low" for t in tags):
+        hits.add("simile")
+    return hits, kinds
+
+
 def _section(buf, cohort, artist, lanes, artists, gazetteer, index) -> None:
     """Analyse one corpus section and fold the per-line results into the tallies."""
     rows = [(t, s) for t, s in buf if not _CYRILLIC.search(t)]
@@ -102,8 +114,7 @@ def _section(buf, cohort, artist, lanes, artists, gazetteer, index) -> None:
     if artist:
         targets.append(artists.setdefault(artist, _Acc()))
     for k, text in enumerate(texts):
-        kinds = devices.device_kinds(devices.analyze_line(text, k + 1, (), gazetteer, index))
-        hits = {name for name, kind in _LINE_KIND.items() if kind in kinds}
+        hits, kinds = _line_hits(devices.analyze_line(text, k + 1, (), gazetteer, index))
         if k in anaphora:
             hits.add("anaphora")
         if k in multi:

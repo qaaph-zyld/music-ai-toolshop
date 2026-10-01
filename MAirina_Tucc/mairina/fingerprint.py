@@ -8,8 +8,13 @@ features toward the corpus lane prior (empirical Bayes, k = 8):
     shrunk = (n * x_bar + K * mu_lane) / (n + K)
 
 ``compare`` then reports the largest deviations of a line from that fingerprint,
-in plain words, as z-scores against the lane's own spread. It only measures: it
-never suggests or writes a line.
+in plain words. The shrunk mean and the lane's spread only rank the deviations
+(z-scores); the words always quote the user's own raw star mean, the number the
+user can check against their stars. It only measures: it never suggests or writes
+a line.
+
+A star saved with lane 'all' belongs to every lane's view; a lane-specific star
+belongs to its own lane (and to 'all') only.
 """
 
 from __future__ import annotations
@@ -37,6 +42,7 @@ LOW_CONFIDENCE_N = 10         # fewer stars than this: say so
 MIN_STARS_FOR_XRAY = 3        # `mt xray` shows the vs-star column from this many stars
 MIN_Z = 0.5                   # smaller deviations are not worth a sentence
 MAX_TAG_LEN = 40
+FEATS_VERSION = 1             # stamped into every new star snapshot; rows without it are version 0
 COMPARE_FEATURES = ("syllables", "words", "cons_density", "end_tail", "allit")
 
 
@@ -77,6 +83,7 @@ def snapshot(lr) -> dict:
                 default=0)
     feats = devices.line_features(lr.syllables, lr.cons_density, tokenize(lr.text), kinds, multi)
     feats["kinds"] = kinds
+    feats["feats_version"] = FEATS_VERSION
     return feats
 
 
@@ -92,8 +99,10 @@ def _context(lyrics_db, data_dir):
 
 
 def _row(r) -> dict:
+    feats = json.loads(r[7])
+    feats.setdefault("feats_version", 0)           # snapshots from before versioning
     return {"id": r[0], "ts": r[1], "file": r[2], "line_no": r[3], "text": r[4], "lane": r[5],
-            "tags": json.loads(r[6]), "feats": json.loads(r[7])}
+            "tags": json.loads(r[6]), "feats": feats}
 
 
 _COLS = "id, ts, file, line_no, text, lane, tags_json, feats_json"
@@ -105,7 +114,7 @@ def star(con, path: Path | str, line_no: int, lane: str = "all", tags=(),
 
     Starring the same text of the same file in the same lane again updates that
     star (tags merge) instead of counting the line twice. Returns the stored row
-    plus ``updated: bool``.
+    plus ``updated: bool``. A line with no word in it ('...', '123') is rejected.
     """
     if lane not in LANES:
         raise VoteError(f"Unknown lane '{lane}' (use {', '.join(LANES)}).")
@@ -114,6 +123,9 @@ def star(con, path: Path | str, line_no: int, lane: str = "all", tags=(),
     if not 1 <= line_no <= len(lines):
         raise VoteError(f"Line {line_no} is out of range: {Path(path).name} has {len(lines)} "
                         "lyric line(s) (blank lines and [Section] headers are not numbered).")
+    if not tokenize(lines[line_no - 1]):
+        raise VoteError(f"Line {line_no} has no words ('{lines[line_no - 1][:30]}'): "
+                        "a star needs at least one word to measure.")
     gazetteer, index = _context(lyrics_db, data_dir)
     lr = devices.analyze_verse(lines, gazetteer, index).lines[line_no - 1]
     feats = snapshot(lr)
@@ -141,11 +153,14 @@ def star(con, path: Path | str, line_no: int, lane: str = "all", tags=(),
 
 
 def stars(con, lane: str | None = None) -> list[dict]:
-    """Stored stars, oldest first. ``lane`` None or 'all' pools every star."""
+    """Stored stars, oldest first. ``lane`` None or 'all' pools every star; a specific
+    lane returns that lane's stars plus those saved with lane 'all' (they fit every
+    lane), never another specific lane's."""
     if not _has_table(con):
         return []
     if lane and lane != "all":
-        rows = con.execute(f"SELECT {_COLS} FROM stars WHERE lane=? ORDER BY id", (lane,))
+        rows = con.execute(f"SELECT {_COLS} FROM stars WHERE lane IN (?, 'all') ORDER BY id",
+                           (lane,))
     else:
         rows = con.execute(f"SELECT {_COLS} FROM stars ORDER BY id")
     return [_row(r) for r in rows]
@@ -223,25 +238,33 @@ def _n(v: float) -> str:
 
 
 def _phrase(feature: str, x: float, nf: dict) -> str:
-    shrunk, below = nf["shrunk"], x < nf["shrunk"]
+    """One deviation in plain words. It quotes the user's RAW star mean (``mean``), never
+    the shrunk value (that only ranks), and says which way the line sits against it.
+    Fewer than ``LOW_CONFIDENCE_N`` stars: the actual n is appended, e.g. ' (n=3)'."""
+    mean, below = nf["mean"], x < nf["mean"]
     if feature == "syllables":
-        return f"{'shorter' if below else 'longer'} than your ★ lines: {x:g} vs {_n(shrunk)} syllables"
-    if feature == "words":
-        return f"{'fewer' if below else 'more'} words than your ★ lines: {x:g} vs {_n(shrunk)}"
-    if feature == "cons_density":
-        return f"{'sparser' if below else 'denser'} consonance than your ★ lines: {x:.2f} vs {shrunk:.2f}"
-    if feature == "end_tail":
-        return (f"{'shorter' if below else 'longer'} end-rhyme tail than your ★ lines: "
-                f"{x:g} vs {_n(shrunk)} letters")
-    # like the other phrases, quote the shrunk value the z-score was measured against
-    return (f"no alliteration here; your ★ lines run ~{shrunk:.0%} alliterative" if below
-            else f"alliteration here; your ★ lines run only ~{shrunk:.0%} alliterative")
+        text = f"{'shorter' if below else 'longer'} than your ★ lines: {x:g} vs {_n(mean)} syllables"
+    elif feature == "words":
+        text = f"{'fewer' if below else 'more'} words than your ★ lines: {x:g} vs {_n(mean)}"
+    elif feature == "cons_density":
+        text = f"{'sparser' if below else 'denser'} consonance than your ★ lines: {x:.2f} vs {mean:.2f}"
+    elif feature == "end_tail":
+        text = (f"{'shorter' if below else 'longer'} end-rhyme tail than your ★ lines: "
+                f"{x:g} vs {_n(mean)} letters")
+    elif below:
+        text = f"no alliteration here; your ★ lines run ~{mean:.0%} alliterative"
+    else:
+        text = f"alliteration here; your ★ lines run only ~{mean:.0%} alliterative"
+    return text + (f" (n={nf['n']})" if nf["n"] < LOW_CONFIDENCE_N else "")
 
 
 def deviations(text: str, fp: dict, skip=()) -> list[tuple[str, float, str]]:
     """``[(feature, z, phrase)]`` sorted by |z| desc, only |z| >= MIN_Z. z is the line's
-    distance from the shrunk mean in lane standard deviations. ``skip`` names features
-    to leave out (the xray row already shows ``allit`` itself)."""
+    distance from the shrunk mean in lane standard deviations (ranking only: the phrase
+    quotes the raw star mean). The raw and the shrunk mean must agree on which side the
+    line sits: a line between them (or equal to the raw mean) would make the sentence
+    contradict the ranking, so it is left out. ``skip`` names features to leave out
+    (the xray row already shows ``allit`` itself)."""
     if not fp or not fp.get("n"):
         return []
     vals = _values(text)
@@ -251,7 +274,7 @@ def deviations(text: str, fp: dict, skip=()) -> list[tuple[str, float, str]]:
         if not nf or f in skip:
             continue
         z = (vals[f] - nf["shrunk"]) / nf["sigma"]
-        if abs(z) >= MIN_Z:
+        if abs(z) >= MIN_Z and (vals[f] - nf["mean"]) * z > 0:
             out.append((f, z, _phrase(f, vals[f], nf)))
     out.sort(key=lambda t: (-abs(t[1]), t[0]))
     return out

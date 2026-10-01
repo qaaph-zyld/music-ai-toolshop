@@ -75,6 +75,30 @@ def test_bad_rule_ids_and_votes_are_rejected(con):
     assert hints.counts(con) == {}                      # nothing was saved
 
 
+def test_only_rules_that_exist_can_be_voted_on(con):
+    for rid in sorted(rules.RULE_IDS):
+        assert hints.vote(con, rid, -1) == (0, 1)
+    for bad in ("mystery_rule", "cliche2", "CLICHE", "x" * 64):
+        with pytest.raises(votes.VoteError, match="Unknown hint rule"):
+            hints.vote(con, bad, -1)
+    with pytest.raises(votes.VoteError, match="too long"):
+        hints.vote(con, "x" * (hints.MAX_RULE_ID_LEN + 1), 1)
+    assert set(hints.counts(con)) == set(rules.RULE_IDS)            # nothing else was stored
+    assert hints.reset(con, "x" * 80) == 0                           # reset is format-only
+
+
+def test_rule_ids_are_every_rule_the_hints_can_emit():
+    defined = {v for k, v in vars(rules).items() if k.startswith("RULE_") and isinstance(v, str)}
+    assert rules.RULE_IDS == frozenset(defined) == frozenset(rules.SHORT_LABELS)
+    lex = {"calques": ["na kraju dana"], "cliches": ["plamen ljubavi"],
+           "abstract": {"sreca", "ljubav"}, "concrete": set(),
+           "ekavica": {"lepo"}, "ijekavica": {"lijepo"}}
+    emitted = {h["rule_id"] for h in rules.verse_hints(
+        ["plamen ljubavi gori", "na kraju dana lepo", "sreca ljubav lijepo", "idem sada",
+         "ostajem sada"], lex)}
+    assert emitted == set(rules.RULE_IDS)                            # all five fire, none unknown
+
+
 def test_readers_tolerate_a_db_without_the_table(tmp_path):
     bare = sqlite3.connect(str(tmp_path / "bare.db"))
     assert hints.counts(bare) == {} and hints.muted(bare) == [] and hints.reset(bare, "cliche") == 0
@@ -133,10 +157,34 @@ def test_reset_brings_the_hint_back_and_an_upvote_prevents_muting(run, tmp_path,
     assert "cliché?" in run("xray", f)[1]                        # 1 up keeps it alive
 
 
-def test_unknown_rule_id_is_saved_with_a_note_and_bad_ids_exit_1(run):
+def test_unknown_overlong_and_malformed_rule_ids_exit_1_and_store_nothing(run, data_dir):
     code, out, err = run("hint-vote", "mystery_rule", "-")
-    assert code == 0 and "1 down" in out and "not a known hint rule" in err
+    assert code == 1 and out == "" and "Unknown hint rule 'mystery_rule'" in err
+    assert "cliche" in err and "self_rhyme" in err                  # the known ids are listed
+    code, _, err = run("hint-vote", "Cliche", "+")                  # ids are exact
+    assert code == 1 and "Unknown hint rule" in err
+    code, _, err = run("hint-vote", "x" * 65, "-")
+    assert code == 1 and "too long" in err
     code, _, err = run("hint-vote", "bad id!", "-")
     assert code == 1 and "Bad rule id" in err
     with pytest.raises(SystemExit):
         run("hint-vote", "cliche", "maybe")
+    con = sqlite3.connect(str(data_dir / "mairina.db"))
+    assert con.execute("SELECT COUNT(*) FROM hint_votes").fetchone()[0] == 0
+    code, out, _ = run("hint-vote", "cliche", "-")                  # a known rule still works
+    assert code == 0 and "0 up / 1 down" in out
+    assert con.execute("SELECT COUNT(*) FROM hint_votes").fetchone()[0] == 1
+
+
+def test_reset_still_accepts_any_well_formed_id_so_stray_votes_can_be_cleared(run, data_dir):
+    run("hint-vote", "cliche", "-")
+    con = sqlite3.connect(str(data_dir / "mairina.db"))
+    con.execute("INSERT INTO hint_votes VALUES ('old_unknown_rule', -1, '2026-01-01T00:00:00')")
+    con.commit()
+    code, out, _ = run("hint-vote", "old_unknown_rule", "reset")
+    assert code == 0 and "1 vote(s) removed" in out
+    assert con.execute("SELECT rule_id FROM hint_votes").fetchall() == [("cliche",)]
+    code, out, _ = run("hint-vote", "never_existed", "reset")
+    assert code == 0 and "0 vote(s) removed" in out
+    code, _, err = run("hint-vote", "bad id!", "reset")
+    assert code == 1 and "Bad rule id" in err

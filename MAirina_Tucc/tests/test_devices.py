@@ -159,6 +159,7 @@ def test_gazetteer_from_fixture_db(corpus_db):
     assert "glava" in gaz                                   # kept at load; suppressed at match
     assert "panamera" not in gaz                            # MISC is not ORG/PER/LOC
     assert not ({"yeah yeah", "a a a", "oh", "ja la"} & gaz)   # ad-lib/filler NER noise dropped
+    assert {"bora bora", "pelle pelle", "aisha", "eazy"} <= gaz  # ... but repeated/INTJ-tagged names stay
     assert "thameshouse" not in gaz and "english bard" not in gaz   # English corpus excluded
 
 
@@ -197,32 +198,47 @@ def test_strong_alliteration_needs_two_content_onsets_in_the_four_word_window():
 
 def test_noise_entries_are_recognised_and_real_names_survive():
     for noise in ("a a a", "yeah yeah", "bu bu bu", "oh yeah", "ja la", "hey", "skrr skrr",
-                  "ab", "o a", "ye", "e"):
+                  "ab", "o a", "ye", "e", "ab cd", "hey hey", "uh uh uh uh", "ey ey"):
         assert D.is_noise_entry(noise), noise
     for name in ("gucci", "bmw", "sarajevo", "beograd", "porsche", "panamera",
-                 "tabak mala", "toni montana", "a gucci", "kol ko", "acme corp"):
+                 "tabak mala", "toni montana", "a gucci", "kol ko", "acme corp",
+                 "bora bora", "pelle pelle", "aisha", "eazy", "amore", "chérie", "okay"):
         assert not D.is_noise_entry(name), name
-    forms = {"bre": {"upos": "INTJ"}, "ajde": {"upos": "INTJ"}, "gucci": {"upos": "PROPN"},
-             "beograd": {"upos": "PROPN"}}
-    assert D.is_noise_entry("bre ajde", forms) and D.is_noise_entry("bre", forms)
-    assert not D.is_noise_entry("bre ajde")                  # INTJ test needs the corpus index
-    assert not D.is_noise_entry("bre gucci", forms) and not D.is_noise_entry("beograd", forms)
+
+
+def test_repeated_token_is_noise_only_when_short_or_an_adlib():
+    assert D.MAX_REPEAT_FILLER_LETTERS == 3
+    for filler in ("a a", "bu bu bu", "yo yo", "hej hej", "yeah yeah", "skrr skrr", "brr brr brr"):
+        assert D.is_noise_entry(filler), filler               # <= 3 letters, or in ADLIB
+    for name in ("bora bora", "pelle pelle", "ajde ajde", "tabak tabak"):
+        assert not D.is_noise_entry(name), name               # a longer, non-ad-lib token repeated
+
+
+def test_all_tokens_noise_rule_needs_every_token_adlib_or_two_letters_at_most():
+    assert D.MAX_FILLER_TOKEN_LETTERS == 2
+    assert D.is_noise_entry("oh yeah") and D.is_noise_entry("ja la") and D.is_noise_entry("dj mc")
+    for name in ("oh gucci", "ja lila", "yeah baby", "bre ajde", "dj khaled", "mc stan"):
+        assert not D.is_noise_entry(name), name               # one real token keeps the entry
+    # 'okay'/'eazy'/'aisha' are tagged INTJ by the corpus NER; the corpus no longer decides
+    assert not D.is_noise_entry("okay") and not D.is_noise_entry("eazy aisha")
 
 
 def test_noise_gazetteer_entries_never_become_name_drops():
     gaz = frozenset({"yeah yeah", "a a a", "ja la", "gucci", "bmw", "sarajevo", "beograd",
-                     "porsche", "panamera", "bre ajde"})
+                     "porsche", "panamera", "bre ajde", "bora bora", "aisha"})
 
     class Idx:                                               # only .forms is read
         forms = {"bre": {"upos": "INTJ", "freq": 90, "lemma": "bre"},
                  "ajde": {"upos": "INTJ", "freq": 80, "lemma": "ajde"}}
 
-    line = "yeah yeah a a a ja la bre ajde gucci bmw sarajevo beograd porsche panamera"
+    line = ("yeah yeah a a a ja la bre ajde bora bora aisha gucci bmw sarajevo beograd porsche "
+            "panamera")
     names = lambda index: {d["span"] for d in D.analyze_line(line, gazetteer=gaz, index=index)
                            if d["kind"] == "name_drop"}
-    real = {"gucci", "bmw", "sarajevo", "beograd", "porsche", "panamera"}
-    assert names(Idx()) == real                              # INTJ phrase dropped with the index
-    assert names(None) == real | {"bre ajde"}                # corpus-free rules only
+    real = {"gucci", "bmw", "sarajevo", "beograd", "porsche", "panamera", "bora bora", "aisha",
+            "bre ajde"}                                      # INTJ tags no longer make a name noise
+    assert names(Idx()) == real
+    assert names(None) == real                               # same with or without the index
     cs = {d["span"] for d in D.analyze_line("yeah yeah gucci", gazetteer=gaz)
           if d["kind"] == "code_switch"}
     assert "yeah" in cs                                      # the ad-lib is code-switching, not a name

@@ -7,6 +7,7 @@ reads their blobs or printed output asserts that no corpus line text leaks.
 import builtins
 import math
 import os
+import pickle
 import shutil
 import sqlite3
 import statistics
@@ -42,7 +43,9 @@ LEX = {w: (l, u) for w, l, u in [
     ("sve", "sav", "ADJ"), ("onaj", "onaj", "DET"), ("ti", "ti", "PRON"), ("moja", "moj", "ADJ"),
     ("mama", "mama", "NOUN"), ("mojih", "moj", "ADJ"), ("nijedna", "nijedan", "ADJ"),
     ("taj", "taj", "ADJ"), ("tih", "taj", "ADJ"), ("bela", "beo", "ADJ"), ("mek", "mek", "ADJ"),
-    ("hladan", "hladan", "ADJ")]}
+    ("hladan", "hladan", "ADJ"),
+    # comparison fragment fixtures
+    ("la", "la", "NOUN"), ("gt", "gt", "NOUN"), ("ap", "ap", "NOUN"), ("krv", "krv", "NOUN")]}
 
 SONG1_VERSE = [
     "usne crvene ko lava",            # simile: ko + noun
@@ -183,7 +186,7 @@ def test_atlas_counts_lanes_and_respects_corpus_scope(mini_atlas):
     assert lanes["pop"]["n_lines"] == 3                    # the gutenberg_pd line is not counted
     assert lanes["all"]["n_lines"] == 40                   # + the no-cohort song, still no English
     assert set(lanes) == {"drill", "pop", "all"}
-    assert lanes["drill"]["counts"]["simile"] == 9
+    assert lanes["drill"]["counts"]["simile"] == 8      # 9 simile lines, minus 'tiho kao da spava'
     assert lanes["drill"]["counts"]["anaphora"] == 2
     assert set(mini_atlas["artists"]) == {"devito"}        # jala/rasta have < 30 lines
     assert mini_atlas["artists"]["devito"]["n_lines"] == 36
@@ -369,6 +372,10 @@ def test_compare_cli_theme_artist_max_and_errors(run, data_dir):
     assert code == 0 and len([l for l in out.splitlines()[1:] if l.strip()]) == 1
     code, out, _ = run("compare", "--artist", "nobody")
     assert code == 0 and "No comparison words" in out and "Hint" in out
+    assert "--mode" not in out and "assonance" not in out and "--fresh" not in out   # compare has none
+    assert "relax --artist or --theme" in out and "--lane all" in out
+    code, out, _ = run("rhyme", "xyz", "--artist", "nobody")                 # the other lists keep theirs
+    assert "--mode assonance" in out
     code, _, err = run("compare", "--theme", "dva reci")
     assert code == 1 and "one word" in err
     with pytest.raises(SystemExit):
@@ -395,7 +402,43 @@ def test_atlas_allit_rate_counts_strong_alliteration_only(tmp_path):
     st = blob["lanes"]["drill"]
     assert st["n_lines"] == 4 and st["counts"]["allit"] == 1
     assert st["numeric"]["allit"]["mean"] == pytest.approx(0.25)
-    assert blob["v"] == atlas.ATLAS_VERSION == 2
+    assert blob["v"] == atlas.ATLAS_VERSION == 3
+
+
+# --- wave 2R: the atlas simile rate counts what compare counts -------------------------
+
+def test_atlas_simile_rate_counts_non_low_confidence_similes_only(tmp_path):
+    songs = [(1, "drill_trap", "devito", "Devito", "genius-pro",
+              [("strofa", ["usne crvene ko lava",              # mid-line 'ko': medium, counts
+                           "tiho kao da spava",                 # 'kao da' = conjunction: low
+                           "ko lava",                           # line-initial 'ko': low
+                           "lep kao san i miran poput vode",    # two high similes, one line
+                           "mala voda"])])]                     # none
+    db = build_mini(tmp_path / "lyrics.db", songs)
+    blob = atlas.load(db, tmp_path / "cache", notify=False)
+    st = blob["lanes"]["drill"]
+    assert st["n_lines"] == 5 and st["counts"]["simile"] == 2
+    assert blob["artists"] == {}                                # < 30 lines: no artist row
+    idx = corpus.load_index(db, tmp_path / "cache")
+    # compare reads the very same lines: the low-confidence markers give it nothing either
+    assert comparisons.collect(db, "drill", (), None, idx) == Counter(
+        {"lava": 1, "san": 1, "vode": 1})
+    row = atlas.render(blob, "drill")[2]
+    assert row.split()[:4] == ["lane", "drill", "5", "40.0"]    # 2 of 5 lines
+
+
+def test_a_version_2_atlas_cache_is_rebuilt(mini_db, tmp_path, monkeypatch):
+    db = tmp_path / "lyrics.db"
+    shutil.copy(mini_db, db)
+    cache = tmp_path / "cache"
+    blob = atlas.load(db, cache, notify=False)
+    assert blob["v"] == 3
+    with open(atlas.cache_path(db, cache), "wb") as fh:           # a cache written by wave 2F
+        pickle.dump(dict(blob, v=2), fh)
+    calls = []
+    real = atlas._scan
+    monkeypatch.setattr(atlas, "_scan", lambda *a: (calls.append(1), real(*a))[1])
+    assert atlas.load(db, cache, notify=False)["v"] == 3 and len(calls) == 1
 
 
 # --- wave 2F: comparison stopwords -----------------------------------------------------
@@ -441,6 +484,42 @@ def test_comparison_word_filter_uses_upos_form_and_lemma():
     assert ok("mojih") is None                                # stoplist on the lemma
     assert ok("devito") is None and ok("nepoznata") is None   # artist name / not in the index
     assert ok("lava", "lava") is None                         # the theme word itself
+
+
+FRAGMENT_SONGS = [(1, "drill_trap", "devito", "Devito", "genius-pro", [("strofa", [
+    "hladna ko la",              # 2 letters
+    "jak ko gt",                 # no vowel
+    "lep ko ap san",             # 'ap' is skipped, the noun after it counts
+    "mek ko krv",                # no vowel letter, but a syllabic r: a real word
+    "jak ko led"])])]            # control
+
+
+@pytest.fixture(scope="module")
+def fragment_db(tmp_path_factory):
+    return build_mini(tmp_path_factory.mktemp("frag") / "lyrics.db", FRAGMENT_SONGS)
+
+
+def test_fragments_are_never_comparison_words(fragment_db, tmp_path):
+    idx = corpus.load_index(fragment_db, tmp_path)
+    counts = comparisons.collect(fragment_db, "drill", (), None, idx)
+    assert counts == Counter({"san": 1, "krv": 1, "led": 1})
+    for gone in ("la", "gt", "ap"):
+        assert gone not in counts
+    ranked = comparisons.rank_words(counts, idx, "drill", (), 0.0, None)
+    assert {s.candidate for s in ranked} == {"san", "krv", "led"}
+
+
+def test_comparison_word_fragment_filter_units():
+    class Idx:
+        artist_names = frozenset()
+        forms = {w: {"upos": "NOUN", "lemma": w} for w in
+                 ("la", "ap", "gt", "ko", "krv", "prst", "led", "lava", "mrk", "tmn")}
+    ok = lambda w: comparisons._comparison_word(w, Idx(), None)
+    assert comparisons.MIN_WORD_LETTERS == 3
+    assert ok("la") is None and ok("ap") is None              # under 3 letters
+    assert ok("gt") is None and ok("tmn") is None             # no nucleus at all
+    assert ok("krv") == "krv" and ok("prst") == "prst" and ok("mrk") == "mrk"   # syllabic r
+    assert ok("led") == "led" and ok("lava") == "lava"
 
 
 def test_stopword_list_is_exactly_the_agreed_one():

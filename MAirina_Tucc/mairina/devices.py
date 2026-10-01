@@ -41,25 +41,31 @@ ANAPHORA_STOP = phonetics.CLITICS | frozenset({
 # are ordinary words ('mala', 'niko'), not name drops.
 NAME_MIN_FREQ = 20
 
-# Gazetteer noise (CLASSLA NER tags ad-libs and filler repeats as names): an entry
-# is dropped when it is shorter than 3 letters in total, is one token repeated
-# ('a a a', 'yeah yeah'), or when every token is an interjection (corpus majority
-# UPOS INTJ) or in this ad-lib list. Real names and brands never match all three.
+# Gazetteer noise (CLASSLA NER tags ad-libs and filler repeats as names). An entry is
+# dropped when ANY ONE of these three rules fires (they are alternatives, not a
+# conjunction), each kept narrow so real names survive:
+#   1. fewer than 3 letters in total;
+#   2. one token repeated ('a a a', 'yeah yeah'), but only when that token is at most
+#      3 letters or an ad-lib - 'bora bora' and 'pelle pelle' are names and stay;
+#   3. every token is an ad-lib or at most 2 letters ('oh yeah', 'ja la', 'o a') - a
+#      name like aisha, eazy, amore, chérie or okay has a longer token and stays, even
+#      though the corpus tags many of them INTJ (so the index is not consulted).
 ADLIB = frozenset("yeah yea ye aha uh oh ey hey brr skrr ja la na da a e o".split())
 MIN_ENTRY_LETTERS = 3
+MAX_REPEAT_FILLER_LETTERS = 3     # rule 2: a repeated token this short is filler
+MAX_FILLER_TOKEN_LETTERS = 2      # rule 3: a token this short is filler
 
 
-def is_noise_entry(entry: str, forms=None) -> bool:
-    """True when a gazetteer entry is ad-lib/filler noise, not a name drop.
-    ``forms`` (``Index.forms``) enables the majority-INTJ test; without it only
-    the corpus-free rules (length, repeat, ad-lib list) apply."""
+def is_noise_entry(entry: str) -> bool:
+    """True when a gazetteer entry is ad-lib/filler noise, not a name drop (see the
+    three rules above). Corpus-free: it needs no index."""
     toks = entry.split()
     if not toks or sum(len(t) for t in toks) < MIN_ENTRY_LETTERS:
         return True
-    if len(toks) > 1 and len(set(toks)) == 1:
+    if (len(toks) > 1 and len(set(toks)) == 1
+            and (len(toks[0]) <= MAX_REPEAT_FILLER_LETTERS or toks[0] in ADLIB)):
         return True
-    return all(t in ADLIB or (forms is not None and (forms.get(t) or {}).get("upos") == "INTJ")
-               for t in toks)
+    return all(t in ADLIB or len(t) <= MAX_FILLER_TOKEN_LETTERS for t in toks)
 
 
 def _tag(kind: str, span: str, confidence: str) -> dict:
@@ -88,8 +94,8 @@ def load_gazetteer(db_path: str | None = None) -> frozenset:
     'tabak mala', never lend 'mala' as a standalone name. Single tokens are
     kept as-is; whether a common word is suppressed is decided at match time
     against corpus UPOS/frequency (see ``_name_drops``). Ad-lib/filler noise
-    (``is_noise_entry``) is dropped here and, for interjections, at match time.
-    Only CORPORA rows count.
+    (``is_noise_entry``) is dropped here and again at match time (for gazetteers
+    passed in by hand). Only CORPORA rows count.
     """
     out: set[str] = set()
 
@@ -138,8 +144,7 @@ def _prepared_gazetteer(gazetteer, index):
     if (_PREP.get("gaz") is gazetteer and _PREP.get("index") is index
             and _PREP.get("n") == len(gazetteer)):
         return _PREP["prep"]
-    forms = index.forms if index is not None else None
-    singles, phrases = _split_gazetteer(e for e in gazetteer if not is_noise_entry(e, forms))
+    singles, phrases = _split_gazetteer(e for e in gazetteer if not is_noise_entry(e))
     if index is not None:
         def _common_word(s: str) -> bool:
             e = index.forms.get(s)

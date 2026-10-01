@@ -35,7 +35,11 @@ ENTITIES = [(1, "Timbuktu", "LOC"), (2, "Acme Corp", "ORG"), (1, "Panamera", "MI
             (5, "Thameshouse", "LOC"), (1, "Tabak Mala", "PER"), (1, "Glava", "PER"),
             (1, "Melisa", "PER"),
             # ad-lib/filler noise from NER: never gazetteer entries (devices.is_noise_entry)
-            (1, "Yeah Yeah", "PER"), (1, "A A A", "ORG"), (2, "Oh", "LOC"), (1, "Ja La", "PER")]
+            (1, "Yeah Yeah", "PER"), (1, "A A A", "ORG"), (2, "Oh", "LOC"), (1, "Ja La", "PER"),
+            # real names a too-wide noise rule once dropped: a repeated name, and names the
+            # corpus tags INTJ (devices.is_noise_entry must keep them)
+            (1, "Bora Bora", "LOC"), (2, "Pelle Pelle", "ORG"), (1, "Aisha", "PER"),
+            (2, "Eazy", "PER")]
 
 # (song id, cohort, target artist, syllables per line, primary_artist, corpus)
 # Song 5 is an English-corpus song (cohort pop): nothing from it may leak into

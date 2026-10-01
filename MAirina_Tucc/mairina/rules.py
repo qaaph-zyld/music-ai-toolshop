@@ -26,6 +26,10 @@ RULE_CALQUE = "calque"
 RULE_ABSTRACT_STACK = "abstract_stack"
 RULE_SELF_RHYME = "self_rhyme"
 
+# Every rule_id a hint can carry. `hints.vote` accepts nothing else.
+RULE_IDS = frozenset({RULE_DIALECT_MIX, RULE_CLICHE, RULE_CALQUE, RULE_ABSTRACT_STACK,
+                      RULE_SELF_RHYME})
+
 SHORT_LABELS = {RULE_DIALECT_MIX: "dialect?", RULE_CLICHE: "cliché?",
                 RULE_CALQUE: "calque?", RULE_ABSTRACT_STACK: "abstract×n?",
                 RULE_SELF_RHYME: "self-rhyme?"}

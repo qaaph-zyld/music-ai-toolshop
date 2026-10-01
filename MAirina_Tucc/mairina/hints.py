@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from mairina import rules
 from mairina.votes import VoteError, now_iso
 
 HINT_SCHEMA = """
@@ -16,6 +17,7 @@ CREATE TABLE IF NOT EXISTS hint_votes(
 CREATE INDEX IF NOT EXISTS idx_hint_votes_rule ON hint_votes(rule_id);
 """
 MUTE_AFTER_DOWN = 3
+MAX_RULE_ID_LEN = 64
 _RULE = re.compile(r"^[\w-]+$")
 
 
@@ -36,9 +38,22 @@ def _check_rule(rule_id: str) -> str:
     return rid
 
 
-def vote(con, rule_id: str, v: int) -> tuple[int, int]:
-    """Record +1/-1 for a rule. Returns the rule's new cumulative (up, down)."""
+def _check_votable(rule_id: str) -> str:
+    """A rule id a vote may be stored under: well-formed, at most 64 chars and a rule
+    that exists in ``rules.RULE_IDS``. (``reset`` only needs it well-formed, so votes
+    stored under an id that no longer exists can still be cleared.)"""
     rid = _check_rule(rule_id)
+    if len(rid) > MAX_RULE_ID_LEN:
+        raise VoteError(f"Rule id too long ({len(rid)} chars, max {MAX_RULE_ID_LEN}).")
+    if rid not in rules.RULE_IDS:
+        raise VoteError(f"Unknown hint rule '{rid}'. Known rules: "
+                        f"{', '.join(sorted(rules.RULE_IDS))}.")
+    return rid
+
+
+def vote(con, rule_id: str, v: int) -> tuple[int, int]:
+    """Record +1/-1 for a known rule. Returns the rule's new cumulative (up, down)."""
+    rid = _check_votable(rule_id)
     if v not in (1, -1):
         raise VoteError("A hint vote is + or - (or 'reset').")
     ensure(con)

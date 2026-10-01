@@ -6,7 +6,8 @@ same ``ko`` = "who" exclusion; the first NOUN/ADJ/PROPN within three tokens
 after the marker (not a clitic, not an artist-name token) is counted. Output is
 a ranked list of SINGLE WORDS with counts: no line, phrase or song is ever
 returned. Pronouns, determiners and pronoun-like adjectives (``STOPWORDS``) are
-never comparison words. Low-confidence markers ('kao da/što', a line-initial 'ko') are not
+never comparison words, nor are fragments (under 3 letters, or no vowel; a syllabic
+r counts as one). Low-confidence markers ('kao da/što', a line-initial 'ko') are not
 comparisons and are skipped.
 
 Identical lines inside one song (refrains) count once, so a repeated chorus
@@ -31,6 +32,7 @@ STOP_UPOS = frozenset({"DET", "PRON"})
 STOPWORDS = frozenset("""sve svi svaki svaka svako nijedna nijedan nijedno takav takva taj ta to
     ovaj ova ovo onaj ona neki neka svoj svoja moj moja tvoj tvoja isti ista sam sama ceo cela
     celi""".split())
+MIN_WORD_LETTERS = 3             # 'la', 'ap' are fragments, not things to compare to
 LOOKAHEAD = 3                    # tokens scanned after the marker
 W_SIMILE = 1.0                   # * log(1 + times seen after a simile marker)
 # Cheap SQL superset of the SIMILE_RE markers (the regex does the exact work).
@@ -64,8 +66,12 @@ def _query(lane: str, artists, lemma: str | None) -> tuple[str, list]:
 
 
 def _comparison_word(tok: str, index, skip_lemma: str | None) -> str | None:
-    """The token if it can be a comparison word, else None."""
-    if len(tok) < 2 or tok in phonetics.CLITICS or tok in index.artist_names:
+    """The token if it can be a comparison word, else None. Fragments are out: fewer
+    than 3 letters, or no vowel at all ('gt'; a syllabic r still counts as one, so
+    'krv' and 'prst' stay)."""
+    if len(tok) < MIN_WORD_LETTERS or not phonetics.syllables(tok):
+        return None
+    if tok in phonetics.CLITICS or tok in index.artist_names:
         return None
     entry = index.forms.get(tok)
     if not entry or entry["upos"] in STOP_UPOS or entry["upos"] not in CONTENT_UPOS:
