@@ -13,12 +13,16 @@ resynthesized-wail pack into audition_s5: the whine probe s5_00, the wail
 layered on / replacing the S4 lead (A, B, B_saw) and the half-speed texture
 (C). The wail is a pitch contour (pyin) of the htdemucs_6s guitar stem
 re-performed on our own oscillators; stem audio is read only for that
-contour. The whole s5 pack runs at --tempo-bpm (default 105).)
+contour. The whole s5 pack runs at --tempo-bpm (default 105).
+--pack s6 renders the DRUMLESS, SYNTHESIS-ONLY organ x synthwave "night drive"
+pack into audition_s6: the S5-A lead layering (riff + saw wail), the S4
+chords as string-machine / combo / drawbar organ stabs (plus an EP control),
+a driving 8th-note octave synth bass and a quarter-note pump, at 105 BPM.)
 
 Usage:
     python scripts/ogcm_sample.py [--pack s3] [--region region_63_66_cleaned_Dm.mid]
         [--chop cand_317_8bar_F#min_score0.47.wav] [--shift -4]
-        [--tempo-bpm 105] [--wail-bars auto|2|4]   # --pack s5 only
+        [--tempo-bpm 105] [--wail-bars auto|2|4]   # --pack s5 / s6 only
         [--outdir <root>]   # pack goes to <root>/audition_<pack>
 """
 
@@ -611,14 +615,12 @@ def _render_s5_bus(lead_audio: np.ndarray, chords: List[dict], bar_s: float,
     return sv.fit_loop(bus, SR, n_bars * bar_s)
 
 
-def _s5_variants(region: str, transpose_st: int, tempo_bpm: float,
-                 wail_bars_arg: str
-                 ) -> Tuple[Dict[str, Callable[[], np.ndarray]], Dict, Dict]:
-    """The S5 pack at ``tempo_bpm``: riff, chords, sub, wail contour and the
-    loop all time-scale by ``FELT_BPM / tempo_bpm`` (S4's grid is 89.1).
-
-    Returns (variants, meta, extra) — extra carries the manifest additions,
-    ``lead_delay_s`` and the ``contour.npz`` arrays."""
+def _s5_core(region: str, transpose_st: int, tempo_bpm: float,
+             wail_bars_arg: str) -> Dict:
+    """Shared S5/S6 construction at ``tempo_bpm``: riff, chords, wail contour
+    and the loop all time-scale by ``FELT_BPM / tempo_bpm`` (S4's grid is
+    89.1). The body is the moved, unchanged head of ``_s5_variants`` (S5
+    output stays byte-identical); the stem is read only inside ``_s5_wail``."""
     src = _s4_source(region, transpose_st)
     tonic_pc = src["tonic_pc"]
     f = bed_lanes.FELT_BPM / tempo_bpm
@@ -662,6 +664,58 @@ def _s5_variants(region: str, transpose_st: int, tempo_bpm: float,
     print(f"[s5] riff agreement (native key, 1 sixteenth / 1 st): "
           f"{w['agreement']['riff_notes_matched']}/"
           f"{w['agreement']['riff_notes']} riff notes matched")
+    return {"src": src, "tonic_pc": tonic_pc, "f": f, "bar_s": bar_s,
+            "n_bars": n_bars, "loop_s": loop_s, "loop_n": loop_n,
+            "lead_delay": lead_delay, "riff_native_t": riff_native_t,
+            "riff_dm_t": riff_dm_t, "tiled_t": tiled_t, "chords": chords,
+            "chords_match_s4": chords_match_s4, "w": w, "bars": bars,
+            "tiled_w": tiled_w, "tiled_slow": tiled_slow, "vib_pp": vib_pp,
+            "n_sus": n_sus, "add_vib": add_vib}
+
+
+def _gain_for(audio: np.ndarray, db: float, ref_rms: float,
+              loop_n: int) -> float:
+    """Gain that puts ``audio``'s loop RMS ``db`` dB from ``ref_rms``."""
+    r = _rms(audio, loop_n)
+    return float(ref_rms * 10.0 ** (db / 20.0) / r) if r > 0 else 0.0
+
+
+def _wail_source_meta(w: Dict, region: str, bars: int) -> Dict:
+    """Manifest ``wail_source`` block (shared by the S5 and S6 manifests)."""
+    return {
+        "stem": S5_STEM.relative_to(REPO).as_posix(),
+        "stem_role": "htdemucs_6s guitar stem (G1 pick)",
+        "stem_used_for": "pitch contour + RMS envelope ONLY; no stem "
+                         "sample in any output lane",
+        "region": region,
+        "window_abs_start_s": round(w["t_abs0"], 4),
+        "window_abs_end_s": round(w["t_abs0"] + bars * sv.BAR_S, 4),
+        "window_bars": bars,
+        "window_bar_s_at_89p1": round(sv.BAR_S, 4),
+        "window_bars_reason": w["reason"],
+        "context_pre_s": S5_PRE_S,
+        "stem_sr": w["stem_sr"],
+    }
+
+
+def _s5_variants(region: str, transpose_st: int, tempo_bpm: float,
+                 wail_bars_arg: str
+                 ) -> Tuple[Dict[str, Callable[[], np.ndarray]], Dict, Dict]:
+    """The S5 pack at ``tempo_bpm``: riff, chords, sub, wail contour and the
+    loop all time-scale by ``FELT_BPM / tempo_bpm`` (S4's grid is 89.1).
+    Construction: ``_s5_core``.
+
+    Returns (variants, meta, extra) — extra carries the manifest additions,
+    ``lead_delay_s`` and the ``contour.npz`` arrays."""
+    core = _s5_core(region, transpose_st, tempo_bpm, wail_bars_arg)
+    src, tonic_pc, f = core["src"], core["tonic_pc"], core["f"]
+    bar_s, n_bars = core["bar_s"], core["n_bars"]
+    loop_s, loop_n, lead_delay = core["loop_s"], core["loop_n"], core["lead_delay"]
+    riff_native_t, riff_dm_t = core["riff_native_t"], core["riff_dm_t"]
+    tiled_t, chords = core["tiled_t"], core["chords"]
+    chords_match_s4, w, bars = core["chords_match_s4"], core["w"], core["bars"]
+    tiled_w, tiled_slow = core["tiled_w"], core["tiled_slow"]
+    vib_pp, n_sus, add_vib = core["vib_pp"], core["n_sus"], core["add_vib"]
 
     riff_lead = sv.render_simple_lead(tiled_t, sr=SR)   # the S4 sine lead
     lead_rms = _rms(riff_lead, loop_n)
@@ -674,8 +728,7 @@ def _s5_variants(region: str, transpose_st: int, tempo_bpm: float,
     tex_fx = _texture_fx(wail_tex, lead_delay)
 
     def gain_for(audio: np.ndarray, db: float) -> float:
-        r = _rms(audio, loop_n)
-        return float(lead_rms * 10.0 ** (db / 20.0) / r) if r > 0 else 0.0
+        return _gain_for(audio, db, lead_rms, loop_n)
 
     g_a = gain_for(wail_def, S5_A_WAIL_DB)
     g_b = gain_for(wail_def, S5_B_WAIL_DB)
@@ -745,20 +798,7 @@ def _s5_variants(region: str, transpose_st: int, tempo_bpm: float,
             "tempo_factor": round(f, 6),
             "tempo_ratio_vs_source": round(tempo_bpm / bed_lanes.FELT_BPM, 4),
             "loop_s": round(loop_s, 4),
-            "wail_source": {
-                "stem": S5_STEM.relative_to(REPO).as_posix(),
-                "stem_role": "htdemucs_6s guitar stem (G1 pick)",
-                "stem_used_for": "pitch contour + RMS envelope ONLY; no stem "
-                                 "sample in any output lane",
-                "region": region,
-                "window_abs_start_s": round(w["t_abs0"], 4),
-                "window_abs_end_s": round(w["t_abs0"] + bars * sv.BAR_S, 4),
-                "window_bars": bars,
-                "window_bar_s_at_89p1": round(sv.BAR_S, 4),
-                "window_bars_reason": w["reason"],
-                "context_pre_s": S5_PRE_S,
-                "stem_sr": w["stem_sr"],
-            },
+            "wail_source": _wail_source_meta(w, region, bars),
             "contour_stats": w["stats"],
             "riff_agreement": w["agreement"],
             "recipe": {
@@ -805,11 +845,303 @@ def _s5_variants(region: str, transpose_st: int, tempo_bpm: float,
     return variants, meta, extra
 
 
+# ---------------------------------------------------------------------------
+# GATE S6 — organ x synthwave "night drive", street-rap energy. SYNTHESIS ONLY
+# and DRUMLESS (Suno builds the beat): no source audio, no noise, no
+# percussion voice. Lead = the S5-A layering (S4 riff + the resynthesized wail
+# in the SAW timbre, -3 dB under the riff); chords = the S4-derived chords
+# (existing voicings) as organ stabs; bass = driving 8th-note octave synth
+# bass; pump = quarter-note duck. The guitar stem is read ONLY by ``_s5_wail``
+# (pitch + RMS), exactly as in S5.
+# ---------------------------------------------------------------------------
+
+S6_TEMPO_BPM = 105.0
+S6_STAB_DB = -6.0               # organ stabs under the lead lane (RMS, pre-FX)
+S6_BASS_DB = -6.0               # driving bass under the lead lane (RMS, pre-FX)
+S6_PUMP_DB = {"bass": -6.0, "ep": -9.0, "organ": -2.0}   # the lead is NOT pumped
+S6_PUMP_ATTACK_MS = 5.0
+S6_PUMP_RELEASE_BEATS = 0.6     # 343 ms at 105 BPM
+S6_TAIL_S = 3.0                 # lane length past the loop: tails fold in
+S6_RETURN = {"pre_delay_s": 0.025, "reverb_room_size": 0.8,
+             "reverb_damping": 0.5, "hp_hz": 200.0, "wet_db": -16.0}
+S6_LANE_NAMES = ("lead", "rhodes", "organ", "bass", "fx_return")
+S6_FILES = (("s6_00_drive_control", None), ("s6_01_organ_string", "string"),
+            ("s6_02_organ_combo", "combo"), ("s6_03_organ_drawbar", "drawbar"))
+# s6r report (research_s6_report.md), copied verbatim
+S6_SUNO_STYLE_PROMPT = {
+    "primary": "German street rap x synthwave night drive, energetic, hard "
+               "trap drums, organ stabs, driving octave synth bass, gritty "
+               "male rap vocals, dark neon mood, 105 BPM, D minor",
+    "alt1": "Gritty German gangsta rap meets 80s synthwave, neon midnight "
+            "drive, retro organ chord stabs, pulsing octave saw bass, punchy "
+            "808 drums, raspy male rap, energetic, 105 BPM",
+    "alt2": "Aggressive German rap over retro synthwave, combo organ stabs, "
+            "pumping sidechain bass, tight trap hi-hats, hard kick, dark "
+            "cinematic night drive, male rap vocal, 105 BPM",
+}
+_DRUM_LANE_TAGS = ("drum", "perc", "kick", "snare", "hat", "clap", "noise")
+
+
+def _fit_len(a: np.ndarray, n: int) -> np.ndarray:
+    """Zero-pad / trim a lane to exactly ``n`` samples (float32)."""
+    out = np.zeros((n,) + a.shape[1:], dtype=np.float32)
+    m = min(n, a.shape[0])
+    out[:m] = a[:m]
+    return out
+
+
+def _db(x: float) -> float:
+    return round(20.0 * math.log10(x), 2) if x > 0 else float("-inf")
+
+
+def _s6_return(send: np.ndarray, loop_n: int) -> Tuple[np.ndarray, float]:
+    """Hall return for the organ + bass send: 25 ms pre-delay (a sample
+    shift), wet-only Freeverb (room 0.8), 200 Hz high-pass on the return, then
+    scaled so the return's RMS over the loop is ``wet_db`` (-16 dB) under the
+    send's. Returns (return audio, scale)."""
+    from pedalboard import HighpassFilter, Pedalboard, Reverb
+    n = send.shape[0]
+    pre = int(round(S6_RETURN["pre_delay_s"] * SR))
+    x = np.zeros_like(send)
+    x[pre:] = send[: n - pre]
+    board = Pedalboard([
+        Reverb(room_size=S6_RETURN["reverb_room_size"],
+               damping=S6_RETURN["reverb_damping"], wet_level=1.0,
+               dry_level=0.0, width=1.0),
+        HighpassFilter(cutoff_frequency_hz=S6_RETURN["hp_hz"])])
+    wet = board(np.ascontiguousarray(x.T), SR).T.astype(np.float32)
+    r_wet = _rms(wet, loop_n)
+    g = (_rms(send, loop_n) * 10.0 ** (S6_RETURN["wet_db"] / 20.0) / r_wet
+         if r_wet > 0 else 0.0)
+    return (wet * g).astype(np.float32), float(g)
+
+
+def _render_s6_bus(lead: np.ndarray, chord_lane: np.ndarray, chord_name: str,
+                   bass: np.ndarray, fx_return: np.ndarray,
+                   lead_delay_s: float, loop_s: float) -> np.ndarray:
+    """S6 bus: ``west_coast_chain`` unchanged (lead: dotted-8th echo + reverb;
+    ``rhodes``: chorus + reverb for the control; ``organ`` / ``bass`` /
+    ``fx_return`` stay dry in the chain table, so the hall return is the only
+    FX on them), summed and glued by the chain's bus compressor, folded into
+    a seamless loop."""
+    lanes = {"lead": lead, chord_name: chord_lane, "bass": bass,
+             "fx_return": fx_return}
+    bus = sv.west_coast_chain(lanes, sr=SR, lead_delay_s=lead_delay_s)
+    return sv.fit_loop(bus, SR, loop_s)
+
+
+def _s6_variants(region: str, transpose_st: int, tempo_bpm: float,
+                 wail_bars_arg: str
+                 ) -> Tuple[Dict[str, Callable[[], np.ndarray]], Dict, Dict]:
+    """The S6 pack at ``tempo_bpm``. Returns (variants, meta, extra) like
+    ``_s5_variants``; every lane is rendered (and level-calibrated) here, the
+    variant callables only run the bus."""
+    core = _s5_core(region, transpose_st, tempo_bpm, wail_bars_arg)
+    src, tonic_pc, f = core["src"], core["tonic_pc"], core["f"]
+    bar_s, n_bars = core["bar_s"], core["n_bars"]
+    loop_s, loop_n, lead_delay = core["loop_s"], core["loop_n"], core["lead_delay"]
+    riff_native_t, riff_dm_t = core["riff_native_t"], core["riff_dm_t"]
+    tiled_t, chords = core["tiled_t"], core["chords"]
+    w, bars = core["w"], core["bars"]
+    add_vib = core["add_vib"]
+    beat_s = 60.0 / tempo_bpm
+    n_total = loop_n + int(S6_TAIL_S * SR)
+
+    # lead: S5-A layering with the SAW wail (riff at 1.0, wail -3 dB under it)
+    riff_lead = sv.render_simple_lead(tiled_t, sr=SR)
+    riff_rms = _rms(riff_lead, loop_n)
+    wail_saw = sv.render_f0_lead(core["tiled_w"], sr=SR, add_vibrato=add_vib,
+                                 **S5_TIMBRE_SAW)
+    g_wail = _gain_for(wail_saw, S5_A_WAIL_DB, riff_rms, loop_n)
+    lead = _fit_len(_sum_pad(riff_lead, wail_saw * g_wail), n_total)
+    lead_ref = _rms(lead, loop_n)        # level reference: the lead lane
+
+    def pumped(a: np.ndarray, depth_db: float) -> np.ndarray:
+        return sv.pump(_fit_len(a, n_total), SR, beat_s, depth_db,
+                       attack_ms=S6_PUMP_ATTACK_MS,
+                       release_s=S6_PUMP_RELEASE_BEATS * beat_s)
+
+    # bass: driving 8th-note octave synth bass, pumped, -6 dB vs the lead
+    bass_notes = sv.driving_bass(chords, bar_s)
+    bass_p = pumped(sv.render_synth_bass(bass_notes, sr=SR), S6_PUMP_DB["bass"])
+    g_bass = _gain_for(bass_p, S6_BASS_DB, lead_ref, loop_n)
+    bass = (bass_p * g_bass).astype(np.float32)
+
+    # control chords: the S5 EP lane (whole notes, S5 gain), pumped -9 dB
+    ep_raw = sv.render_rhodes(
+        sv.chord_bednotes(chords, bar_s=bar_s, velocity=0.45), sr=SR
+    ) * S3_GAINS["rhodes"]
+    ep = pumped(ep_raw, S6_PUMP_DB["ep"])
+
+    # organ stab lanes: same chords, same stab notes, -2 dB pump, -6 dB level
+    stabs = sv.stab_pattern(chords, bar_s)
+    organs: Dict[str, np.ndarray] = {}
+    g_organ: Dict[str, float] = {}
+    for kind in sv.ORGAN_KINDS:
+        p_org = pumped(sv.render_organ(stabs, kind, sr=SR), S6_PUMP_DB["organ"])
+        g_organ[kind] = _gain_for(p_org, S6_STAB_DB, lead_ref, loop_n)
+        organs[kind] = (p_org * g_organ[kind]).astype(np.float32)
+
+    # hall returns (organ + bass send; bass only for the control)
+    rets: Dict[Optional[str], np.ndarray] = {}
+    g_ret: Dict[str, float] = {}
+    rets[None], g_ret["control"] = _s6_return(bass, loop_n)
+    for kind in sv.ORGAN_KINDS:
+        rets[kind], g_ret[kind] = _s6_return(organs[kind] + bass, loop_n)
+
+    def lane_report(chord_lane: np.ndarray, ret: np.ndarray) -> Dict:
+        rows = {"lead": lead, "chords": chord_lane, "bass": bass,
+                "fx_return": ret}
+        out = {}
+        for k, a in rows.items():
+            r = _rms(a, loop_n)
+            out[k] = {"rms_dbfs": _db(r), "db_vs_lead": _db(r / lead_ref)}
+        return out
+
+    variants: Dict[str, Callable[[], np.ndarray]] = {}
+    per_file: Dict[str, Dict] = {}
+    for name, kind in S6_FILES:
+        chord_lane = ep if kind is None else organs[kind]
+        chord_name = "rhodes" if kind is None else "organ"
+        per_file[name] = dict(
+            chord_voice="render_rhodes whole notes (as S5)" if kind is None
+            else f"organ stabs: {kind}",
+            lanes=lane_report(chord_lane, rets[kind]))
+        variants[name] = (lambda cl=chord_lane, cn=chord_name, r=rets[kind]:
+                          _render_s6_bus(lead, cl, cn, bass, r, lead_delay,
+                                         loop_s))
+
+    lane_names = S6_LANE_NAMES
+    drums = any(tag in lane for lane in lane_names for tag in _DRUM_LANE_TAGS)
+    st_odd = [i for i, c in enumerate(sv.STAB_GRIDS[0]) if c == "x"]
+    st_even = [i for i, c in enumerate(sv.STAB_GRIDS[1]) if c == "x"]
+    tonic = sv.PC_NAMES[tonic_pc]
+    meta = {
+        "region": region,
+        "riff_source": "S4 _s4_source (raw native-key transcription, "
+                       "transposed, never scale-snapped)",
+        "transpose_st": transpose_st,
+        "source_key": {"tonic_pc": tonic_pc, "tonic": tonic,
+                       "mode": src["mode"], "r": round(src["key_r"], 4)},
+        "cell_t0_s": round(src["cell_t0"], 4),
+        "cell_s": round(2.0 * bar_s, 4),
+        "riff": _riff_rows(riff_native_t, riff_dm_t),
+        "riff_stats": src["stats"],
+        "chords_per_bar": [c["name"] for c in chords],
+        "chords_match_s4": core["chords_match_s4"],
+        "chord_voicings_midi": [list(c["notes"]) for c in chords],
+        "snapped_notes": src["snapped"],
+        "lead_delay_label": f"dotted 8th at {tempo_bpm:g} BPM",
+        "variants": {
+            "s6_00_drive_control": "control: riff + saw wail lead, EP whole "
+                                   "notes as in S5, driving bass, pump "
+                                   "(EP -9 dB, bass -6 dB); no organ",
+            "s6_01_organ_string": "same lead and bass; string-machine stabs "
+                                  "replace the EP",
+            "s6_02_organ_combo": "same lead and bass; combo-organ stabs "
+                                 "replace the EP",
+            "s6_03_organ_drawbar": "same lead and bass; drawbar + rotary "
+                                   "(Leslie) stabs replace the EP",
+        },
+    }
+    extra = {
+        "lead_delay_s": lead_delay,
+        "manifest": {
+            "bpm": tempo_bpm,
+            "felt_bpm_source": bed_lanes.FELT_BPM,
+            "tempo_factor": round(f, 6),
+            "tempo_ratio_vs_source": round(tempo_bpm / bed_lanes.FELT_BPM, 4),
+            "loop_s": round(loop_s, 4),
+            "n_bars": n_bars,
+            "key": "D minor",
+            "drums": drums,
+            "lanes": list(lane_names),
+            "wail_source": _wail_source_meta(w, region, bars),
+            "contour_stats": w["stats"],
+            "riff_agreement": w["agreement"],
+            "lead": {
+                "layering": "S5-A: S4 riff on render_simple_lead + the "
+                            "resynthesized wail in the SAW timbre "
+                            "(S5_TIMBRE_SAW), one shared lead chain; the lead "
+                            "is not pumped",
+                "wail_db_vs_riff": S5_A_WAIL_DB,
+                "wail_gain": round(g_wail, 4),
+                "wail_render": dict(S5_TIMBRE_SAW, attack_ms=10.0,
+                                    release_ms=70.0, smooth_ms=20.0,
+                                    dyn_exp=0.5, drive=1.4,
+                                    add_vibrato=add_vib),
+                "lead_delay_s": round(lead_delay, 6),
+                "lead_delay_label": f"dotted 8th at {tempo_bpm:g} BPM",
+            },
+            "organ_kinds": list(sv.ORGAN_KINDS),
+            "organ": {k: sv.organ_recipe(k) for k in sv.ORGAN_KINDS},
+            "stab_grids": {
+                "grids": list(sv.STAB_GRIDS),
+                "velocities": list(sv.STAB_VELOCITIES),
+                "gates_ms": [[t, ms] for t, ms in sv.STAB_GATES_MS],
+                "bars": "grid 0 on bars 1,3,5,7; grid 1 on bars 2,4,6,8 "
+                        "(1-indexed)",
+                "step_s": round(bar_s / 16.0, 6),
+                "hit_steps_grid0": st_odd, "hit_steps_grid1": st_even,
+                "voicing": "derive_chords' own 'notes' per bar (unchanged); "
+                           "velocity = digit / 9",
+                "n_stab_notes": len(stabs),
+            },
+            "bass": {
+                "pattern": "8ths, alternating low / high octave on the bar's "
+                           "chord root",
+                "velocities": sv.BASS_VELOCITIES,
+                "gate_frac_of_8th": sv.BASS_GATE_FRAC,
+                "notes_per_bar": 8,
+                "low_octave_window_midi": [sv.BASS_LOW_FLOOR_MIDI,
+                                           sv.BASS_LOW_FLOOR_MIDI + 11],
+                "low_notes_midi": [sv.bass_low_midi(c["root_pc"])
+                                   for c in chords],
+                "recipe": dict(sv.BASS_RECIPE),
+            },
+            "pump": {
+                "kind": "quarter-note duck, no sidechain source, no drums",
+                "beat_s": round(beat_s, 6),
+                "depth_db": dict(S6_PUMP_DB),
+                "attack_ms": S6_PUMP_ATTACK_MS,
+                "release_s": round(S6_PUMP_RELEASE_BEATS * beat_s, 6),
+                "release_curve": "exponential, time constant = release / 3",
+                "lead_pumped": False,
+            },
+            "fx": {
+                "lead": "west_coast_chain lead chain (Delay 0.22 mix fb 0.28 "
+                        "at the dotted 8th + Reverb 0.45), unchanged",
+                "organ_bass_return": dict(S6_RETURN, send="organ + bass "
+                                          "(bass only in the control)"),
+                "return_scale": {k: round(v, 4) for k, v in g_ret.items()},
+                "bus": "west_coast_chain bus glue compressor, unchanged",
+            },
+            "levels": {
+                "reference": "the lead lane (riff + saw wail) RMS over the "
+                             "loop, before any FX",
+                "lead_rms_dbfs": _db(lead_ref),
+                "targets_db_vs_lead": {"organ_stabs": S6_STAB_DB,
+                                       "bass": S6_BASS_DB},
+                "note": "control EP keeps the S5 gain (0.30), it is not "
+                        "re-calibrated; fx_return is -16 dB vs its send",
+                "gains": {"bass": round(g_bass, 4),
+                          **{f"organ_{k}": round(v, 4)
+                             for k, v in g_organ.items()}},
+                "per_file": per_file,
+            },
+            "suno_style_prompt": dict(S6_SUNO_STYLE_PROMPT),
+        },
+    }
+    return variants, meta, extra
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(prog="ogcm_sample",
-                                description="OGCM Suno-sample builder (S3/S4/S5).")
-    p.add_argument("--pack", choices=("s2", "s3", "s4", "s5"), default="s3")
+                                description="OGCM Suno-sample builder "
+                                            "(S3/S4/S5/S6).")
+    p.add_argument("--pack", choices=("s2", "s3", "s4", "s5", "s6"),
+                   default="s3")
     p.add_argument("--outdir", default=None,
                    help="output root (default: stems/flip_sample); the pack "
                         "is written to <outdir>/audition_<pack>")
@@ -823,20 +1155,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--transpose", type=int, default=S4_TRANSPOSE_ST,
                    help="s4: semitones to shift the riff (default -4, F#m->Dm)")
     p.add_argument("--tempo-bpm", type=float, default=None,
-                   help=f"s5 only: tempo of the whole pack (default "
+                   help=f"s5/s6 only: tempo of the whole pack (default "
                         f"{S5_TEMPO_BPM:g}; the record's felt tempo is "
                         f"{bed_lanes.FELT_BPM})")
     p.add_argument("--wail-bars", choices=("auto", "2", "4"), default="auto",
-                   help="s5 only: wail window length in bars (auto = 4 when "
-                        "the phrase continues past bar 2)")
+                   help="s5/s6 only: wail window length in bars (auto = 4 "
+                        "when the phrase continues past bar 2)")
     args = p.parse_args(argv)
-    if args.tempo_bpm is not None and args.pack != "s5":
-        raise SystemExit("--tempo-bpm applies to --pack s5 only (S2-S4 stay "
-                         "at the felt tempo)")
+    if args.tempo_bpm is not None and args.pack not in ("s5", "s6"):
+        raise SystemExit("--tempo-bpm applies to --pack s5 / s6 only (S2-S4 "
+                         "stay at the felt tempo)")
     if args.tempo_bpm is not None and args.tempo_bpm <= 0:
         raise SystemExit("--tempo-bpm must be positive")
 
-    region = args.region or (S4_REGION if args.pack in ("s4", "s5")
+    region = args.region or (S4_REGION if args.pack in ("s4", "s5", "s6")
                              else S3_REGION)
     chop = args.chop or (S4_CHOP if args.pack == "s4" else S3_CHOP)
 
@@ -845,6 +1177,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     s4_meta: Optional[Dict] = None
     s5_meta: Optional[Dict] = None
     s5_extra: Optional[Dict] = None
+    s6_meta: Optional[Dict] = None
+    s6_extra: Optional[Dict] = None
     if args.pack == "s2":
         variants = dict(S2_VARIANTS)
     elif args.pack == "s4":
@@ -853,6 +1187,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     elif args.pack == "s5":
         variants, s5_meta, s5_extra = _s5_variants(
             region, args.transpose, args.tempo_bpm or S5_TEMPO_BPM,
+            args.wail_bars)
+    elif args.pack == "s6":
+        variants, s6_meta, s6_extra = _s6_variants(
+            region, args.transpose, args.tempo_bpm or S6_TEMPO_BPM,
             args.wail_bars)
     else:
         variants = _s3_variants(region, chop, args.shift)
@@ -877,6 +1215,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         manifest["lead_delay_s"] = round(s5_extra["lead_delay_s"], 6)
         manifest.update(s5_extra["manifest"])
         np.savez(str(aud / "contour.npz"), **s5_extra["npz"])
+    if s6_meta is not None:
+        # Suno-bound pack: structurally forbid any chop/REF variant
+        has_source_audio = any(n.endswith("_REF") or "chop" in n.lower()
+                               for n in variants)
+        if has_source_audio:
+            raise SystemExit("[s6] refusing to render a chop/REF variant "
+                             "into the Suno-bound pack")
+        manifest["s6"] = s6_meta
+        manifest["source_audio_in_output"] = has_source_audio
+        manifest["lead_delay_s"] = round(s6_extra["lead_delay_s"], 6)
+        manifest.update(s6_extra["manifest"])
     for name, build in variants.items():
         print(f"[render] {name} ...", flush=True)
         audio = _to_target(build(), TARGET_LUFS)
@@ -912,6 +1261,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         verification["bpm"] = manifest["bpm"]
         verification["tempo_factor"] = manifest["tempo_factor"]
         verification["loop_s"] = manifest["loop_s"]
+    if s6_meta is not None:
+        verification["source_audio_in_output"] = manifest[
+            "source_audio_in_output"]
+        verification["drums"] = manifest["drums"]
+        verification["organ_kinds"] = manifest["organ_kinds"]
+        verification["lead_delay_s"] = manifest["lead_delay_s"]
+        verification["bpm"] = manifest["bpm"]
+        verification["tempo_factor"] = manifest["tempo_factor"]
+        verification["loop_s"] = manifest["loop_s"]
+        verification["lane_rms_db_vs_lead"] = {
+            k: {lane: row["db_vs_lead"] for lane, row in v["lanes"].items()}
+            for k, v in manifest["levels"]["per_file"].items()}
     (aud / "manifest.json").write_text(json.dumps(manifest, indent=2),
                                        encoding="utf-8")
     (aud / "verification.json").write_text(json.dumps(verification, indent=2),

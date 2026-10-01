@@ -1329,3 +1329,481 @@ def render_f0_lead(contour: dict, sr: int = 44100, sine: float = 1.0,
         out = out.astype(np.float64)
     out = _soft_clip(out, drive)
     return np.stack([out, out], axis=1)
+
+
+# ---------------------------------------------------------------------------
+# S6 - organ x synthwave "night drive". SYNTHESIS ONLY and DRUMLESS: no source
+# audio, no noise and no percussion voice anywhere below. Additive: no function
+# above this line is touched. Deterministic: there is no RNG, every phase is a
+# fixed constant.
+#
+#   render_organ       string machine / combo organ / drawbar + Leslie stabs
+#   stab_pattern       16th-grid organ stab BedNotes on the chords' voicings
+#   driving_bass       8th-note low/high octave bass BedNotes on chord roots
+#   render_synth_bass  saw + square + sub through an enveloped 24 dB low-pass
+#   pump               drumless quarter-note duck (sidechain feel)
+#
+# Recipe values come from the s6r research report
+# (ORCHESTRATION/ogcm_flip/wave_s6r/research_s6_report.md); every number that
+# report marks INF (its own inference, no source) is an inference here too.
+# ---------------------------------------------------------------------------
+
+ORGAN_KINDS = ("string", "combo", "drawbar")
+
+# Stab grids: 16 steps per bar, "x" = hit, "." = rest. The velocity string is
+# aligned to the grid (a digit 1-9 under every "x"). Grid 0 is used for bars
+# 1, 3, 5, 7 (1-indexed, i.e. chord["bar"] = 0, 2, 4, 6), grid 1 for bars
+# 2, 4, 6, 8.
+STAB_GRIDS = ("x..x..x...x..x..", "x..x..x.x..x..x.")
+STAB_VELOCITIES = ("9..6..8...5..7..", "8..5..7.9..5..6.")
+# velocity digit >= threshold -> gate length in ms (the last entry is the floor)
+STAB_GATES_MS = ((8, 200.0), (6, 110.0), (1, 80.0))
+BASS_VELOCITIES = "8.6.8.6.8.6.8.6."    # one digit per 8th (even 16th steps)
+BASS_GATE_FRAC = 0.75                   # gate = 75 % of one 8th
+BASS_LOW_FLOOR_MIDI = 34                # Bb1: the low-octave window is 34..45
+
+# Drawbar order: 16' 5 1/3' 8' 4' 2 2/3' 2' 1 3/5' 1 1/3' 1' (Hammond ratios).
+DRAWBAR_RATIOS = (0.5, 1.4988, 1.0, 2.0, 2.9976, 4.0, 5.0409, 5.9953, 8.0)
+
+ORGAN_RECIPES: Dict[str, dict] = {
+    # divide-down saws + 3-line BBD-style ensemble; stab envelope A10 / R150
+    "string": {
+        "ratios": (0.5, 1.0, 2.0), "footages": (0.3, 1.0, 0.6),
+        "attack_ms": 10.0, "release_ms": 150.0, "lpf_hz": 5000.0,
+        "ens_center_ms": 6.0, "ens_phases_deg": (0.0, 120.0, 240.0),
+        "ens_slow_hz": 0.6, "ens_slow_ms": 2.5,
+        "ens_fast_hz": 6.0, "ens_fast_ms": 0.3,
+        "ens_mix_slow": 0.79, "ens_mix_fast": 0.21,
+        "ens_dry": 0.35, "ens_wet": 0.65,
+        "out_gain": 0.30, "drive": 1.1},
+    # 50 % pulse footages 16'/8'/4'/2'; HP 150 Hz, +4 dB @ 2.8 kHz, LPF 6.5 kHz;
+    # vibrato is for pad use only and OFF for stabs
+    "combo": {
+        "ratios": (0.5, 1.0, 2.0, 4.0), "footages": (0.25, 1.0, 0.7, 0.35),
+        "duty": 0.5, "attack_ms": 2.0, "release_ms": 60.0,
+        "hp_hz": 150.0, "peak_hz": 2800.0, "peak_db": 4.0, "peak_q": 1.0,
+        "lpf_hz": 6500.0,
+        "vibrato": False, "vib_hz": 5.5, "vib_cents": 8.0,
+        "out_gain": 0.13, "drive": 1.1},
+    # additive drawbars ~3 dB per step; R1 = main stabs (+ percussion 3rd
+    # harmonic at 0.5x), R3 = accent stabs (velocity >= accent_vel);
+    # key click = a 6th-harmonic burst only (no noise component); Leslie on top
+    "drawbar": {
+        "ratios": DRAWBAR_RATIOS, "db_per_step": 3.0,
+        "registrations": {"R1": (8, 8, 8, 0, 0, 0, 0, 0, 0),
+                          "R3": (8, 8, 8, 6, 1, 1, 3, 4, 8)},
+        "main": "R1", "accent": "R3", "accent_vel": 0.85,
+        "perc_ratio": 2.9976, "perc_level": 0.5, "perc_decay_s": 0.2,
+        "click_ratio": 5.9953, "click_ms": 6.0, "click_db": -18.0,
+        "attack_ms": 3.0, "release_ms": 70.0, "norm": 3.0,
+        "leslie": {"horn_hz": 6.67, "drum_hz": 5.67, "crossover_hz": 800.0,
+                   "horn_am_db": 3.0, "drum_am_db": 1.5, "doppler_ms": 0.44,
+                   "mic_deg": 90.0, "horn_phase_deg": 0.0,
+                   "drum_phase_deg": 60.0},
+        "out_gain": 0.15, "drive": 1.1},
+}
+
+BASS_RECIPE: dict = {
+    "saw_cents": -12.0, "square_cents": -12.0, "sub_octave_db": -6.0,
+    "cutoff_base_hz": 350.0, "env_octaves": 2.2, "decay_s": 0.14, "q": 1.2,
+    "attack_ms": 3.0, "release_ms": 30.0, "drive_db": 4.0}
+
+
+def organ_recipe(kind: str, **overrides) -> dict:
+    """The merged recipe ``render_organ`` uses for ``kind`` (JSON-safe copy);
+    a dict override (e.g. ``leslie={...}``) is merged into the default dict."""
+    import copy
+    if kind not in ORGAN_KINDS:
+        raise ValueError(f"organ kind must be one of {ORGAN_KINDS}, "
+                         f"got {kind!r}")
+    r = copy.deepcopy(ORGAN_RECIPES[kind])
+    for k, v in overrides.items():
+        if isinstance(v, dict) and isinstance(r.get(k), dict):
+            r[k].update(v)
+        else:
+            r[k] = v
+    return r
+
+
+def _ar_env(n_gate: int, n_att: int, n_rel: int) -> np.ndarray:
+    """Linear attack, flat hold to the end of the gate, linear release that
+    continues past the gate (length ``n_gate + n_rel``)."""
+    n_gate, n_rel = max(1, int(n_gate)), max(1, int(n_rel))
+    env = np.ones(n_gate + n_rel, dtype=np.float64)
+    a = min(max(1, int(n_att)), n_gate)
+    env[:a] = np.linspace(0.0, 1.0, a, endpoint=False)
+    end = env[n_gate - 1]
+    env[n_gate:] = end * np.linspace(1.0, 0.0, n_rel, endpoint=False)
+    return env
+
+
+def _pulse(phase: np.ndarray, dt: np.ndarray, duty: float = 0.5) -> np.ndarray:
+    """Band-limited pulse (difference of two PolyBLEP saws), 50 % = square."""
+    return _polyblep_saw(phase, dt) - _polyblep_saw(phase + duty, dt)
+
+
+def _digit(ch: str) -> int:
+    if not (len(ch) == 1 and ch in "123456789"):
+        raise ValueError(f"velocity step must be a digit 1-9, got {ch!r}")
+    return int(ch)
+
+
+def _stab_gate_ms(vd: int, gates_ms: Sequence[Tuple[int, float]]) -> float:
+    rows = sorted(gates_ms, key=lambda g: -g[0])
+    for thr, ms in rows:
+        if vd >= thr:
+            return float(ms)
+    return float(rows[-1][1])
+
+
+def stab_pattern(chords: Sequence[dict], bar_s: float,
+                 patterns: Sequence[str] = STAB_GRIDS,
+                 velocities: Sequence[str] = STAB_VELOCITIES,
+                 gates_ms: Sequence[Tuple[int, float]] = STAB_GATES_MS
+                 ) -> List[BedNote]:
+    """Organ stab BedNotes: every chord's own ``"notes"`` voicing is struck on
+    the 16th grid of its bar. ``patterns[bar % len(patterns)]`` picks the grid
+    ("x" = hit, "." = rest, 16 steps) and ``velocities[...]`` the digit 1-9
+    under each hit (velocity = digit / 9). The gate comes from the digit via
+    ``gates_ms``. Onsets are exact multiples of ``bar_s / 16``; a note is cut
+    so that it ends before its bar ends (nothing crosses into the next bar)."""
+    if len(patterns) != len(velocities) or not patterns:
+        raise ValueError("patterns and velocities must be equal-length, "
+                         "non-empty sequences")
+    step = bar_s / 16.0
+    out: List[BedNote] = []
+    for c in chords:
+        k = c["bar"] % len(patterns)
+        grid, vel = patterns[k], velocities[k]
+        if len(grid) != 16 or len(vel) != 16:
+            raise ValueError("stab grids must have 16 steps")
+        b0 = c["bar"] * bar_s
+        b1 = (c["bar"] + 1) * bar_s
+        for i, (g, v) in enumerate(zip(grid, vel)):
+            if g == ".":
+                if v != ".":
+                    raise ValueError("velocity digit under a rest step")
+                continue
+            if g != "x":
+                raise ValueError(f"grid step must be 'x' or '.', got {g!r}")
+            vd = _digit(v)
+            start = b0 + i * step
+            end = min(start + _stab_gate_ms(vd, gates_ms) / 1000.0,
+                      b1 - 0.002)
+            for m in c["notes"]:
+                out.append(BedNote(start_s=start, end_s=end, note=int(m),
+                                   velocity=vd / 9.0))
+    out.sort(key=lambda n: (n.start_s, n.note))
+    return out
+
+
+def bass_low_midi(root_pc: int, root_octave_low: int = 2) -> int:
+    """Low-octave bass note for a chord root: the ``root_pc`` pitch inside the
+    12-semitone window starting at Bb1 (34) for ``root_octave_low`` = 2, so
+    D -> D2 (38) and Bb -> Bb1 (34)."""
+    base = BASS_LOW_FLOOR_MIDI + 12 * (root_octave_low - 2)
+    return base + ((int(root_pc) - base) % 12)
+
+
+def driving_bass(chords: Sequence[dict], bar_s: float,
+                 root_octave_low: int = 2,
+                 velocities: str = BASS_VELOCITIES,
+                 gate_frac: float = BASS_GATE_FRAC) -> List[BedNote]:
+    """Eight 8th-note BedNotes per bar on the chord root, alternating the low
+    octave (even 8ths) and the octave above (odd 8ths). The velocity string
+    has one digit per 8th at the even 16th steps ("8.6.8.6.8.6.8.6.")."""
+    if len(velocities) != 16:
+        raise ValueError("bass velocity string must have 16 steps")
+    step = bar_s / 8.0
+    out: List[BedNote] = []
+    for c in chords:
+        low = bass_low_midi(c["root_pc"], root_octave_low)
+        b0 = c["bar"] * bar_s
+        for k in range(8):
+            vd = _digit(velocities[2 * k])
+            start = b0 + k * step
+            out.append(BedNote(start_s=start, end_s=start + gate_frac * step,
+                               note=low + (12 if k % 2 else 0),
+                               velocity=vd / 9.0))
+    return out
+
+
+def _ensemble(x: np.ndarray, sr: int, p: dict) -> np.ndarray:
+    """3-line BBD-style ensemble: each line is a modulated delay around
+    ``ens_center_ms``; slow (0.6 Hz) and fast (6.0 Hz) LFOs are mixed 79/21
+    and the lines sit 120 degrees apart. Mono in, stereo out."""
+    n = len(x)
+    idx = np.arange(n, dtype=np.float64)
+    t = idx / sr
+    phases = p["ens_phases_deg"]
+    lines = []
+    for ph in phases:
+        phr = math.radians(ph)
+        mod_ms = (p["ens_mix_slow"] * p["ens_slow_ms"]
+                  * np.sin(2.0 * np.pi * p["ens_slow_hz"] * t + phr)
+                  + p["ens_mix_fast"] * p["ens_fast_ms"]
+                  * np.sin(2.0 * np.pi * p["ens_fast_hz"] * t + phr))
+        delay = (p["ens_center_ms"] + mod_ms) * sr / 1000.0
+        lines.append(np.interp(idx - delay, idx, x, left=0.0, right=0.0))
+    m = len(lines)
+    pans = [i / (m - 1) if m > 1 else 0.5 for i in range(m)]
+    wl = np.array([1.0 - q for q in pans])
+    wr = np.array(pans)
+    if m == 1:
+        wl = wr = np.array([0.5])
+    wet_l = sum(w * ln for w, ln in zip(wl, lines)) / wl.sum()
+    wet_r = sum(w * ln for w, ln in zip(wr, lines)) / wr.sum()
+    return np.stack([p["ens_dry"] * x + p["ens_wet"] * wet_l,
+                     p["ens_dry"] * x + p["ens_wet"] * wet_r], axis=1)
+
+
+def rotary_leslie(x: np.ndarray, sr: int, horn_hz: float = 6.67,
+                  drum_hz: float = 5.67, crossover_hz: float = 800.0,
+                  horn_am_db: float = 3.0, drum_am_db: float = 1.5,
+                  doppler_ms: float = 0.44, mic_deg: float = 90.0,
+                  horn_phase_deg: float = 0.0, drum_phase_deg: float = 60.0
+                  ) -> np.ndarray:
+    """Numpy rotary-speaker model (FAST rotor speeds): a zero-phase
+    complementary crossover at ``crossover_hz`` (the two bands sum back to the
+    input) splits horn (above) and drum (below). Each rotor applies AM
+    (+/- ``*_am_db`` dB) and a Doppler delay of +/- ``doppler_ms`` a quarter
+    turn away from the AM; the two "microphones" are ``mic_deg`` apart on the
+    rotor, so L != R. Deterministic (fixed start phases). Mono in, stereo out."""
+    n = len(x)
+    nfft = 1 << int(np.ceil(np.log2(n + 1)))
+    spec = np.fft.rfft(x, nfft)
+    freq = np.fft.rfftfreq(nfft, 1.0 / sr)
+    h_lp = 1.0 / (1.0 + (freq / crossover_hz) ** 4)
+    low = np.fft.irfft(spec * h_lp, nfft)[:n]
+    high = x - low
+    idx = np.arange(n, dtype=np.float64)
+    t = idx / sr
+    out = np.zeros((n, 2), dtype=np.float64)
+    for ch in range(2):
+        for band, hz, am_db, ph0 in ((high, horn_hz, horn_am_db,
+                                      horn_phase_deg),
+                                     (low, drum_hz, drum_am_db,
+                                      drum_phase_deg)):
+            th = 2.0 * np.pi * hz * t + math.radians(ph0 + ch * mic_deg)
+            gain = 10.0 ** (am_db * np.sin(th) / 20.0)
+            delay = (doppler_ms * sr / 1000.0) * (1.0 + np.sin(th + np.pi / 2))
+            out[:, ch] += np.interp(idx - delay, idx, band,
+                                    left=0.0, right=0.0) * gain
+    return out
+
+
+def _organ_note(kind: str, p: dict, f: float, n_gate: int, n_rel: int,
+                vel: float, sr: int) -> np.ndarray:
+    """One mono stab (length ``n_gate + n_rel``) at unit velocity scale."""
+    n = n_gate + n_rel
+    t = np.arange(n, dtype=np.float64) / sr
+    env = _ar_env(n_gate, int(round(p["attack_ms"] * sr / 1000.0)), n_rel)
+    if kind == "string":
+        sig = np.zeros(n)
+        wsum = 0.0
+        for ratio, lv in zip(p["ratios"], p["footages"]):
+            if lv <= 0.0:
+                continue
+            fr = f * ratio
+            sig += lv * _polyblep_saw(fr * t, np.full(n, fr / sr))
+            wsum += lv
+        return sig / max(wsum, 1e-9) * env
+    if kind == "combo":
+        sig = np.zeros(n)
+        wsum = 0.0
+        for ratio, lv in zip(p["ratios"], p["footages"]):
+            if lv <= 0.0:
+                continue
+            fr = f * ratio
+            if p["vibrato"]:
+                inst = fr * 2.0 ** ((p["vib_cents"] / 1200.0)
+                                    * np.sin(2.0 * np.pi * p["vib_hz"] * t))
+                phase = np.cumsum(inst) / sr
+                dt = inst / sr
+            else:
+                phase = fr * t
+                dt = np.full(n, fr / sr)
+            sig += lv * _pulse(phase, dt, p["duty"])
+            wsum += lv
+        return sig / max(wsum, 1e-9) * env
+    # drawbar
+    reg = p["registrations"][p["accent"] if vel >= p["accent_vel"]
+                             else p["main"]]
+    sig = np.zeros(n)
+    for ratio, setting in zip(p["ratios"], reg):
+        if setting <= 0:
+            continue
+        amp = 10.0 ** (-(8 - setting) * p["db_per_step"] / 20.0)
+        sig += amp * np.sin(2.0 * np.pi * f * ratio * t)
+    if p["perc_level"] > 0.0:
+        sig += (p["perc_level"] * np.sin(2.0 * np.pi * f * p["perc_ratio"] * t)
+                * np.exp(-t / max(p["perc_decay_s"], 1e-3)))
+    sig = sig / p["norm"] * env
+    # key click: a pitched 6th-harmonic burst (no noise component)
+    click = (10.0 ** (p["click_db"] / 20.0)
+             * np.sin(2.0 * np.pi * f * p["click_ratio"] * t)
+             * np.exp(-t / max(p["click_ms"] / 1000.0, 1e-4)))
+    return sig + click
+
+
+def render_organ(notes: Sequence[BedNote], kind: str, sr: int = 44100,
+                 **params) -> np.ndarray:
+    """Organ stab voice, ``kind`` in ``ORGAN_KINDS``; stereo (n, 2) float32,
+    peak-guarded (<= 0.99), deterministic.
+
+    - ``"string"``: saws 16'/8'/4' (0.3 / 1.0 / 0.6), 5 kHz low-pass, stab
+      envelope A10 / R150 ms, then a 3-line BBD-style ensemble (0 / 120 / 240
+      degrees, 0.6 Hz +/-2.5 ms and 6.0 Hz +/-0.3 ms mixed 79/21 around 6 ms).
+    - ``"combo"``: 50 % pulse footages 16'/8'/4'/2' (0.25 / 1.0 / 0.7 / 0.35),
+      HP 150 Hz, +4 dB at 2.8 kHz, LPF 6.5 kHz, A2 / R60 ms. Vibrato
+      (5.5 Hz, +/-8 cents) exists for pad use and is OFF by default.
+    - ``"drawbar"``: nine additive drawbars (Hammond ratios, ~3 dB per
+      step). Registration 888000000 plus a percussion-style 3rd harmonic at
+      0.5x for normal stabs, 888611348 when the note's velocity >= 0.85; a
+      6th-harmonic key-click burst (6 ms, -18 dB); A3 / R70 ms; then the
+      ``rotary_leslie`` model (L != R).
+
+    Every note uses its own ``velocity`` (amplitude, and the registration
+    switch for the drawbar). ``params`` override ``ORGAN_RECIPES[kind]``.
+    """
+    p = organ_recipe(kind, **params)
+    if not notes:
+        return np.zeros((sr, 2), dtype=np.float32)
+    seq = sorted(notes, key=lambda n: (n.start_s, n.note))
+    n_rel = max(1, int(round(p["release_ms"] * sr / 1000.0)))
+    end_s = max(n.start_s + max(n.duration_s, 0.005) for n in seq)
+    n_samples = int((end_s + p["release_ms"] / 1000.0 + 1.0) * sr)
+    mono = np.zeros(n_samples, dtype=np.float64)
+    for n in seq:
+        s0 = int(round(n.start_s * sr))
+        n_gate = max(1, int(round(max(n.duration_s, 0.005) * sr)))
+        seg = _organ_note(kind, p, _midi_to_freq(n.note), n_gate, n_rel,
+                          n.velocity, sr)
+        e = min(n_samples, s0 + len(seg))
+        if e > s0:
+            mono[s0:e] += seg[: e - s0] * max(0.0, float(n.velocity))
+    from pedalboard import (HighpassFilter, LowpassFilter, Pedalboard,
+                            PeakFilter)
+
+    def board(fx, x):
+        return Pedalboard(fx)(np.ascontiguousarray(
+            x[np.newaxis, :], dtype=np.float32), sr)[0].astype(np.float64)
+
+    if kind == "string":
+        mono = board([LowpassFilter(cutoff_frequency_hz=p["lpf_hz"])], mono)
+        out = _ensemble(mono, sr, p)
+    elif kind == "combo":
+        mono = board([HighpassFilter(cutoff_frequency_hz=p["hp_hz"]),
+                      PeakFilter(cutoff_frequency_hz=p["peak_hz"],
+                                 gain_db=p["peak_db"], q=p["peak_q"]),
+                      LowpassFilter(cutoff_frequency_hz=p["lpf_hz"])], mono)
+        out = np.stack([mono, mono], axis=1)
+    else:
+        out = rotary_leslie(mono, sr, **p["leslie"])
+    return _soft_clip(out * p["out_gain"], p["drive"])
+
+
+def _svf_lowpass(x: np.ndarray, fc: np.ndarray, q: float, sr: int
+                 ) -> np.ndarray:
+    """2-pole zero-delay-feedback (TPT) state-variable low-pass with a
+    per-sample cutoff ``fc`` (Hz). Stable under fast cutoff modulation."""
+    g = np.tan(np.pi * np.minimum(fc, 0.45 * sr) / sr)
+    k = 1.0 / q
+    a1 = 1.0 / (1.0 + g * (g + k))
+    a2 = g * a1
+    a3 = g * a2
+    xs, a1s, a2s, a3s = x.tolist(), a1.tolist(), a2.tolist(), a3.tolist()
+    y = [0.0] * len(xs)
+    ic1 = ic2 = 0.0
+    for i in range(len(xs)):
+        v3 = xs[i] - ic2
+        v1 = a1s[i] * ic1 + a2s[i] * v3
+        v2 = ic2 + a2s[i] * ic1 + a3s[i] * v3
+        ic1 = 2.0 * v1 - ic1
+        ic2 = 2.0 * v2 - ic2
+        y[i] = v2
+    return np.asarray(y, dtype=np.float64)
+
+
+def _bass_note(midi: int, n_gate: int, n_rel: int, p: dict, sr: int
+               ) -> np.ndarray:
+    n = n_gate + n_rel
+    t = np.arange(n, dtype=np.float64) / sr
+    f = _midi_to_freq(midi)
+    fs = f * 2.0 ** (p["saw_cents"] / 1200.0)
+    fq = f * 2.0 ** (p["square_cents"] / 1200.0)
+    sub = 10.0 ** (p["sub_octave_db"] / 20.0)
+    osc = (_polyblep_saw(fs * t, np.full(n, fs / sr))
+           + _pulse(fq * t, np.full(n, fq / sr))
+           + sub * np.sin(2.0 * np.pi * (f / 2.0) * t)) / (2.0 + sub)
+    fc = (p["cutoff_base_hz"]
+          * 2.0 ** (p["env_octaves"] * np.exp(-t / p["decay_s"])))
+    y = _svf_lowpass(osc, fc, p["q"], sr)          # 2 poles, resonant
+    y = _svf_lowpass(y, fc, 0.7071, sr)            # + 2 poles = 24 dB/oct
+    env = _ar_env(n_gate, int(round(p["attack_ms"] * sr / 1000.0)), n_rel)
+    return y * env
+
+
+def render_synth_bass(notes: Sequence[BedNote], sr: int = 44100,
+                      **recipe) -> np.ndarray:
+    """Night-drive synth bass: saw (-12 cents) + square (-12 cents) + a sine
+    one octave below the note at -6 dB, through a 24 dB low-pass (two TPT
+    state-variable stages, Q ~1.2) whose cutoff starts at base x 2^2.2
+    (~1.6 kHz) and falls to 350 Hz with a 140 ms exponential decay; amp
+    envelope A3 ms / R30 ms around the BedNote gate; tanh soft clip at about
+    +4 dB drive. Mono -> stereo (n, 2) float32, peak-guarded, deterministic.
+    Identical (pitch, gate) notes are rendered once and reused (exact)."""
+    p = dict(BASS_RECIPE)
+    p.update(recipe)
+    if not notes:
+        return np.zeros((sr, 2), dtype=np.float32)
+    seq = sorted(notes, key=lambda n: n.start_s)
+    n_rel = max(1, int(round(p["release_ms"] * sr / 1000.0)))
+    end_s = max(n.start_s + max(n.duration_s, 0.005) for n in seq)
+    n_samples = int((end_s + p["release_ms"] / 1000.0 + 1.0) * sr)
+    mono = np.zeros(n_samples, dtype=np.float64)
+    cache: Dict[Tuple[int, int], np.ndarray] = {}
+    for n in seq:
+        s0 = int(round(n.start_s * sr))
+        n_gate = max(1, int(round(max(n.duration_s, 0.005) * sr)))
+        key = (int(n.note), n_gate)
+        if key not in cache:
+            cache[key] = _bass_note(int(n.note), n_gate, n_rel, p, sr)
+        seg = cache[key]
+        e = min(n_samples, s0 + len(seg))
+        if e > s0:
+            mono[s0:e] += seg[: e - s0] * max(0.0, float(n.velocity))
+    out = _soft_clip(mono, 10.0 ** (p["drive_db"] / 20.0))
+    return np.stack([out, out], axis=1)
+
+
+def pump(audio: np.ndarray, sr: int, beat_s: float, depth_db: float,
+         attack_ms: float = 5.0, release_s: Optional[float] = None,
+         n_beats: Optional[int] = None) -> np.ndarray:
+    """Drumless quarter-note duck (sidechain feel, no sidechain source).
+
+    On every beat (the grid starts at sample 0) the gain falls from 1 to
+    ``depth_db`` (negative dB; the sign is ignored) over ``attack_ms``, then
+    recovers exponentially with a time constant of ``release_s / 3`` (95 %
+    back after ``release_s``; default 0.6 beat). ``n_beats`` limits the
+    ducking to the first n beats (default: the whole buffer). ``depth_db == 0``
+    returns an exact copy. Works on (n,) and (n, channels) arrays."""
+    x = np.asarray(audio)
+    depth_db = -abs(float(depth_db))
+    if depth_db == 0.0:
+        return x.astype(np.float32, copy=True)
+    d = 10.0 ** (depth_db / 20.0)
+    rel = 0.6 * beat_s if release_s is None else float(release_s)
+    att = max(attack_ms / 1000.0, 1e-6)
+    tau = max(rel / 3.0, 1e-6)
+    i = np.arange(x.shape[0], dtype=np.float64)
+    beat_n = beat_s * sr
+    k = np.floor(i / beat_n)
+    t_in = (i - k * beat_n) / sr
+    env = np.where(t_in < att, 1.0 + (d - 1.0) * (t_in / att),
+                   1.0 - (1.0 - d) * np.exp(-(t_in - att) / tau))
+    if n_beats is not None:
+        env = np.where(k < n_beats, env, 1.0)
+    if x.ndim > 1:
+        env = env.reshape((-1,) + (1,) * (x.ndim - 1))
+    return (x.astype(np.float64) * env).astype(np.float32)

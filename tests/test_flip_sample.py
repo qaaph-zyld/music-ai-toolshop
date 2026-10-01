@@ -800,3 +800,291 @@ def test_s5_level_helpers(om):
     assert om._rms(a, 50) == pytest.approx(1.0)
     b = om._sum_pad(a, np.ones((150, 2), dtype=np.float32))
     assert b.shape == (150, 2) and b[0, 0] == 2.0 and b[120, 0] == 1.0
+
+# --- S6: organ x synthwave voices, stabs, driving bass, pump, O7 -------------
+
+S6_SR = 22050
+S6_BPM = 105.0
+S6_BAR = 4.0 * 60.0 / S6_BPM
+S6_BEAT = 60.0 / S6_BPM
+
+
+def _s6_chords(n_bars=4):
+    return sv.derive_chords([], [], n_bars, bar_s=S6_BAR)   # Dm7 Bbmaj7 Fmaj7 C7
+
+
+def _rms_of(y):
+    y = np.asarray(y, dtype=np.float64)
+    return float(np.sqrt(np.mean(y * y)))
+
+
+@pytest.mark.parametrize("kind", sv.ORGAN_KINDS)
+def test_render_organ_nonsilent_finite_bounded_deterministic(kind):
+    stabs = sv.stab_pattern(_s6_chords(2), S6_BAR)
+    a = sv.render_organ(stabs, kind, sr=S6_SR)
+    b = sv.render_organ(stabs, kind, sr=S6_SR)
+    assert a.ndim == 2 and a.shape[1] == 2 and a.dtype == np.float32
+    assert np.isfinite(a).all()
+    assert float(np.abs(a).max()) <= 1.0
+    assert float(np.abs(a).max()) > 0.05                      # not silent
+    assert np.array_equal(a, b)                               # deterministic
+
+
+def test_render_organ_drawbar_rotary_makes_left_differ_from_right():
+    stabs = sv.stab_pattern(_s6_chords(2), S6_BAR)
+    y = sv.render_organ(stabs, "drawbar", sr=S6_SR)
+    assert float(np.abs(y[:, 0] - y[:, 1]).max()) > 1e-3
+    # the string ensemble is stereo too; the combo organ is plain (L == R)
+    s = sv.render_organ(stabs, "string", sr=S6_SR)
+    assert float(np.abs(s[:, 0] - s[:, 1]).max()) > 1e-3
+    c = sv.render_organ(stabs, "combo", sr=S6_SR)
+    assert np.array_equal(c[:, 0], c[:, 1])
+
+
+def _partial_ratio(y, f0, mult, sr):
+    x = (y[:, 0].astype(np.float64) + y[:, 1])[int(0.15 * sr):int(0.45 * sr)]
+    spec = np.abs(np.fft.rfft(x * np.hanning(len(x))))
+    fr = np.fft.rfftfreq(len(x), 1.0 / sr)
+
+    def peak(f):
+        m = (fr > f * 0.97) & (fr < f * 1.03)
+        return float(spec[m].max())
+    return peak(f0 * mult) / peak(f0)
+
+
+def test_render_organ_drawbar_accent_velocity_switches_registration():
+    f0 = 220.0                                       # A3 (57)
+    lo = sv.render_organ([_note(0.1, 0.5, 57, 0.5)], "drawbar", sr=S6_SR)
+    hi = sv.render_organ([_note(0.1, 0.5, 57, 0.9)], "drawbar", sr=S6_SR)
+    # R1 (888000000) has no 4' partial, R3 (888611348) has one at -6 dB
+    assert _partial_ratio(hi, f0, 2.0, S6_SR) > 5.0 * _partial_ratio(
+        lo, f0, 2.0, S6_SR)
+
+
+def test_render_organ_combo_vibrato_is_off_by_default_and_switchable():
+    n = [_note(0.1, 0.5, 57, 0.8)]
+    off = sv.render_organ(n, "combo", sr=S6_SR)
+    on = sv.render_organ(n, "combo", sr=S6_SR, vibrato=True)
+    assert sv.organ_recipe("combo")["vibrato"] is False
+    assert not np.array_equal(off, on)
+
+
+def test_render_organ_uses_velocity_and_rejects_unknown_kind():
+    quiet = sv.render_organ([_note(0.1, 0.3, 60, 0.3)], "combo", sr=S6_SR)
+    loud = sv.render_organ([_note(0.1, 0.3, 60, 0.6)], "combo", sr=S6_SR)
+    assert float(np.abs(loud).max()) > float(np.abs(quiet).max())
+    with pytest.raises(ValueError):
+        sv.render_organ([_note(0.0, 0.2, 60)], "theremin", sr=S6_SR)
+    for kind in sv.ORGAN_KINDS:
+        assert sv.render_organ([], kind, sr=S6_SR).shape == (S6_SR, 2)
+
+
+def test_organ_recipe_merges_without_mutating_the_defaults():
+    r = sv.organ_recipe("drawbar", leslie={"horn_hz": 0.83})
+    assert r["leslie"]["horn_hz"] == 0.83 and r["leslie"]["drum_hz"] == 5.67
+    assert sv.ORGAN_RECIPES["drawbar"]["leslie"]["horn_hz"] == 6.67
+    assert sv.organ_recipe("string")["footages"] == (0.3, 1.0, 0.6)
+
+
+def test_stab_pattern_onsets_on_16th_grid_and_inside_their_bar():
+    chords = _s6_chords(8)
+    notes = sv.stab_pattern(chords, S6_BAR)
+    step = S6_BAR / 16.0
+    hits = {}
+    for n in notes:
+        k = n.start_s / step
+        assert abs(k - round(k)) < 1e-6                     # on the 16th grid
+        bar = int((n.start_s + 1e-9) // S6_BAR)
+        assert n.end_s < (bar + 1) * S6_BAR                 # never crosses
+        assert n.end_s > n.start_s
+        hits.setdefault(bar, set()).add(int(round(k)) - bar * 16)
+        assert n.note in chords[bar]["notes"]               # existing voicing
+    assert hits[0] == {0, 3, 6, 10, 13} == hits[2] == hits[6]
+    assert hits[1] == {0, 3, 6, 8, 11, 14} == hits[3] == hits[7]
+    assert len(notes) == 4 * (5 * 4 + 6 * 4)                # 4 tones per hit
+
+
+def test_stab_pattern_velocity_digit_sets_velocity_and_gate():
+    notes = sv.stab_pattern(_s6_chords(1), S6_BAR)
+    by_step = {int(round(n.start_s / (S6_BAR / 16.0))): n for n in notes}
+    # bar 1 velocities "9..6..8...5..7.."
+    assert by_step[0].velocity == pytest.approx(9 / 9)
+    assert by_step[0].duration_s == pytest.approx(0.200)    # 8-9  -> 200 ms
+    assert by_step[3].velocity == pytest.approx(6 / 9)
+    assert by_step[3].duration_s == pytest.approx(0.110)    # 6-7  -> 110 ms
+    assert by_step[6].duration_s == pytest.approx(0.200)    # 8    -> 200 ms
+    assert by_step[10].velocity == pytest.approx(5 / 9)
+    assert by_step[10].duration_s == pytest.approx(0.080)   # 1-5  ->  80 ms
+    assert by_step[13].duration_s == pytest.approx(0.110)   # 7    -> 110 ms
+
+
+def test_stab_pattern_rejects_malformed_grids():
+    c = _s6_chords(1)
+    with pytest.raises(ValueError):
+        sv.stab_pattern(c, S6_BAR, patterns=("x..x",), velocities=("9..9",))
+    with pytest.raises(ValueError):
+        sv.stab_pattern(c, S6_BAR, patterns=("x" + "." * 15,),
+                        velocities=("." * 16,))               # no digit on a hit
+    with pytest.raises(ValueError):
+        sv.stab_pattern(c, S6_BAR, patterns=("x" + "." * 15,),
+                        velocities=("9" + "5" + "." * 14,))   # digit on a rest
+
+
+def test_driving_bass_eight_notes_per_bar_on_the_root_alternating_octaves():
+    chords = _s6_chords(4)                                   # D Bb F C roots
+    notes = sv.driving_bass(chords, S6_BAR)
+    assert len(notes) == 8 * len(chords)
+    eighth = S6_BAR / 8.0
+    for bar, c in enumerate(chords):
+        row = notes[bar * 8:(bar + 1) * 8]
+        assert all(n.note % 12 == c["root_pc"] for n in row)
+        low = row[0].note
+        assert [n.note for n in row] == [low, low + 12] * 4  # low/high octave
+        assert [round(n.velocity * 9) for n in row] == [8, 6] * 4
+        for k, n in enumerate(row):
+            assert n.start_s == pytest.approx(bar * S6_BAR + k * eighth)
+            assert n.duration_s == pytest.approx(0.75 * eighth)
+            assert n.end_s < (bar + 1) * S6_BAR
+    assert notes[0].note == 38 and notes[8].note == 34       # D2 / Bb1
+    assert sv.bass_low_midi(2) == 38 and sv.bass_low_midi(10) == 34
+
+
+def test_pump_is_identity_at_zero_depth():
+    x = np.random.default_rng(1).uniform(-1, 1, (S6_SR * 2, 2)).astype(
+        np.float32)
+    assert np.array_equal(sv.pump(x, S6_SR, S6_BEAT, 0.0), x)
+
+
+def test_pump_ducks_about_depth_db_at_the_beat_onset_and_recovers():
+    x = np.ones((int(S6_SR * S6_BEAT * 4), 2), dtype=np.float32)
+    y = sv.pump(x, S6_SR, S6_BEAT, -6.0)
+    beat_n = S6_SR * S6_BEAT
+    for b in range(4):
+        i = int(round(b * beat_n + 0.006 * S6_SR))           # just past the attack
+        assert -7.0 <= 20 * np.log10(y[i, 0]) <= -5.0
+        end = int(round((b + 1) * beat_n - 0.01 * S6_SR))    # end of the beat
+        if end < len(y):
+            assert 20 * np.log10(y[end, 0]) > -0.5           # back near unity
+    assert float(y.min()) == pytest.approx(10 ** (-6 / 20), abs=2e-3)
+    y1 = sv.pump(x[:, 0], S6_SR, S6_BEAT, -6.0)              # 1-D input works
+    assert y1.shape == (len(x),) and np.array_equal(y1, y[:, 0])
+    lim = sv.pump(x, S6_SR, S6_BEAT, -6.0, n_beats=1)        # only beat 1 ducks
+    assert float(lim[int(beat_n * 2), 0]) == pytest.approx(1.0, abs=1e-6)
+
+
+def test_render_synth_bass_finite_bounded_deterministic_and_enveloped():
+    notes = sv.driving_bass(_s6_chords(2), S6_BAR)
+    a = sv.render_synth_bass(notes, sr=S6_SR)
+    b = sv.render_synth_bass(notes, sr=S6_SR)
+    assert a.ndim == 2 and a.shape[1] == 2 and a.dtype == np.float32
+    assert np.isfinite(a).all() and float(np.abs(a).max()) <= 1.0
+    assert float(np.abs(a).max()) > 0.05
+    assert np.array_equal(a, b)
+    assert np.array_equal(a[:, 0], a[:, 1])                  # mono bass
+    assert sv.render_synth_bass([], sr=S6_SR).shape == (S6_SR, 2)
+    # the filter envelope closes: a long note is brighter at its start
+    one = sv.render_synth_bass([_note(0.0, 0.6, 50, 1.0)], sr=S6_SR)[:, 0]
+
+    def centroid(seg):
+        s = np.abs(np.fft.rfft(seg * np.hanning(len(seg))))
+        f = np.fft.rfftfreq(len(seg), 1.0 / S6_SR)
+        return float((s * f).sum() / s.sum())
+    n = int(0.06 * S6_SR)
+    assert centroid(one[int(0.005 * S6_SR):int(0.005 * S6_SR) + n]) > 1.3 * \
+        centroid(one[int(0.4 * S6_SR):int(0.4 * S6_SR) + n])
+
+
+def test_rotary_leslie_crossover_is_complementary_and_stereo():
+    x = np.random.default_rng(3).normal(0, 0.1, S6_SR)
+    y = sv.rotary_leslie(x, S6_SR, horn_am_db=0.0, drum_am_db=0.0,
+                         doppler_ms=0.0)
+    assert y.shape == (len(x), 2)
+    assert np.allclose(y[:, 0], x, atol=1e-9)                # bands sum back
+    y2 = sv.rotary_leslie(x, S6_SR)
+    assert float(np.abs(y2[:, 0] - y2[:, 1]).max()) > 1e-3
+
+
+# --- O7 check_pack_meta ------------------------------------------------------
+
+def _meta_pack(tmp_path, **kw):
+    import json
+    names = ["s6_00_drive_control.wav", "s6_01_organ_string.wav"]
+    for nm in names:
+        (tmp_path / nm).write_bytes(b"RIFFdata")
+    man = {"bpm": 105.0, "source_audio_in_output": False, "drums": False,
+           "organ_kinds": ["string", "combo", "drawbar"],
+           "files": [{"file": nm} for nm in names]}
+    man.update(kw)
+    (tmp_path / "manifest.json").write_text(json.dumps(man), encoding="utf-8")
+    return str(tmp_path / "manifest.json")
+
+
+def test_check_pack_meta_passes_a_sound_manifest(tmp_path):
+    cp = _load_script("check_pack_meta")
+    assert cp.main(["--manifest", _meta_pack(tmp_path)]) == 0
+
+
+@pytest.mark.parametrize("kw", [
+    {"source_audio_in_output": True}, {"source_audio_in_output": None},
+    {"drums": True}, {"bpm": 89.1}, {"bpm": 120.0},
+    {"organ_kinds": ["string", "combo"]},
+    {"organ_kinds": ["string", "combo", "drawbar", "theremin"]},
+    {"organ_kinds": ["string", "string", "combo"]},
+    {"files": []},
+])
+def test_check_pack_meta_fails_bad_manifests(tmp_path, kw):
+    cp = _load_script("check_pack_meta")
+    assert cp.main(["--manifest", _meta_pack(tmp_path, **kw)]) == 1
+
+
+def test_check_pack_meta_fails_missing_or_empty_files_and_honours_flags(
+        tmp_path):
+    cp = _load_script("check_pack_meta")
+    mp = _meta_pack(tmp_path)
+    (tmp_path / "s6_01_organ_string.wav").write_bytes(b"")          # empty
+    assert cp.main(["--manifest", mp]) == 1
+    (tmp_path / "s6_01_organ_string.wav").unlink()                  # missing
+    assert cp.main(["--manifest", mp]) == 1
+    (tmp_path / "s6_01_organ_string.wav").write_bytes(b"RIFF")
+    assert cp.main(["--manifest", mp, "--bpm-min", "106",
+                    "--bpm-max", "110"]) == 1                       # bpm range
+    assert cp.main(["--manifest", mp, "--require-organ-kinds",
+                    "drawbar,combo,string"]) == 0                   # set, any order
+    assert cp.main(["--manifest", str(tmp_path / "nope.json")]) == 1
+
+
+# --- ogcm_sample s6 helpers --------------------------------------------------
+
+def test_s6_tempo_flag_and_pack_choice(om):
+    with pytest.raises(SystemExit):
+        om.main(["--pack", "s6", "--tempo-bpm", "-5"])
+    with pytest.raises(SystemExit):
+        om.main(["--pack", "s3", "--tempo-bpm", "105"])
+    assert om.S6_TEMPO_BPM == 105.0
+    assert [n for n, _ in om.S6_FILES] == [
+        "s6_00_drive_control", "s6_01_organ_string", "s6_02_organ_combo",
+        "s6_03_organ_drawbar"]
+    assert not any(tag in lane for lane in om.S6_LANE_NAMES
+                   for tag in om._DRUM_LANE_TAGS)
+
+
+def test_s6_return_is_minus_16_db_under_its_send(om):
+    sr = om.SR
+    t = np.arange(int(3.0 * sr)) / sr
+    send = np.stack([np.sin(2 * np.pi * 440 * t) * (t % 0.5 < 0.1)] * 2,
+                    axis=1).astype(np.float32)
+    ret, g = om._s6_return(send, int(2.0 * sr))
+    assert ret.shape == send.shape and g > 0
+    ratio_db = 20 * np.log10(om._rms(ret, int(2.0 * sr))
+                             / om._rms(send, int(2.0 * sr)))
+    assert ratio_db == pytest.approx(-16.0, abs=0.05)
+
+
+def test_s6_gain_helper_and_lane_fit(om):
+    a = np.full((100, 2), 0.25, dtype=np.float32)
+    g = om._gain_for(a, -6.0, 1.0, 100)
+    assert 20 * np.log10(g * 0.25) == pytest.approx(-6.0, abs=1e-4)
+    assert om._gain_for(np.zeros((10, 2), np.float32), 0.0, 1.0, 10) == 0.0
+    assert om._fit_len(a, 150).shape == (150, 2)
+    assert om._fit_len(a, 50).shape == (50, 2)
+    assert om._db(1.0) == 0.0 and om._db(0.0) == float("-inf")
