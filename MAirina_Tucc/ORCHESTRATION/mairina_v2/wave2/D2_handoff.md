@@ -131,3 +131,13 @@ Then `unstar 1`, `unstar 2`, `unstar 3` ("Removed"), `stars` -> "No stars yet", 
 
 - No commit (per wave constraints); tree stays dirty-but-declared. `toolshop closeout` not run.
 - Wave 3 (API) / wave 4 (UI) not started. No metaphor/wordplay/double-meaning auto-detection (tags are user-only); no stress prediction.
+
+---
+
+## Closeout addendum (Claude orchestrator, 2026-10-01): supersedes "No commit" above
+
+- **Committed:** `b33f0fd` ("feat(mairina): v2 wave 2 - stars/fingerprint, hint votes, atlas, compare"). Not pushed.
+- **Re-verified by the orchestrator:** 195 passed at the commit; `lyrics.db` modified time and size unchanged; `MAirina_Tucc\data\` unchanged.
+- **Adversarial review:** `.workspace_archive/reviews/2026-10-01_mairina_v2_w2_w2f.md`, approved-with-fixes, 0 blockers, 0 high.
+- **Correction:** the `devices.py` simile refactor was "behavior-identical" on all but 1 of 8,320 real simile-candidate lines. A line starting with a quote (`'Ko vas jebe…`) moved from medium to low confidence.
+- The medium findings are fixed in wave 2R: the vs★ wording, token-less stars, lane-`all` stars, and simile counting.

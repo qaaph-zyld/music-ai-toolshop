@@ -188,6 +188,28 @@ originality check (#037) — plus ten craft modules: `score-ai`, `cliches`, `tem
 `clean-tokens`, `inject-slang`, `check-scheme`, `retrieve-similar`, `theme-match`, `improve-loop`,
 `centaur` (#036).
 
+### MAirina Tucc: line-craft finder (`MAirina_Tucc/mt.ps1`)
+
+This is separate from `toolshop lyrics`. MAirina is a **finder that never writes lines**: the songwriter writes every line, and MAirina shows what real artists rhyme, say and flow like.
+- It reads `lyrics.db` **read-only**, genius-pro corpus only, through an immutable URI with a writer guard.
+- It needs the CLASSLA layer: `toolshop lyrics annotate --resume`.
+- It keeps the user's votes and stars in `MAirina_Tucc/data/mairina.db`, which is gitignored.
+
+```powershell
+MAirina_Tucc\mt.ps1 anchors --scheme AABB --lane drill          # end-words to write toward
+MAirina_Tucc\mt.ps1 rhyme imaš --lane drill --line "Mala, mogla si da me" --target 9
+MAirina_Tucc\mt.ps1 multi "da me imaš"                          # attested phrase multis
+MAirina_Tucc\mt.ps1 xray verse.txt --lane drill --section strofa # syllables vs target, rhyme letters, devices, soft hints
+MAirina_Tucc\mt.ps1 star verse.txt 5 --tag punchline            # then: me --lane drill
+MAirina_Tucc\mt.ps1 atlas --lane drill                          # device rates in real songs (stats only)
+MAirina_Tucc\mt.ps1 compare --lane drill                        # single words real artists use after ko/kao
+MAirina_Tucc\mt.ps1 vote 2+ 4- ; MAirina_Tucc\mt.ps1 hint-vote <rule_id> - ; MAirina_Tucc\mt.ps1 stats
+```
+
+- **Docs:** `MAirina_Tucc/README.md`.
+- **Plans:** `.workspace_archive/plans/mairina-v2-craft-4d7a19.md` and `mairina-v2-api-ui-15383c.md`.
+- **In progress:** a local Flask API (127.0.0.1 only, no external services) and the `rimer-ui` React writing screen.
+
 ### Suno Tools (`toolshop suno`)
 
 ```bash

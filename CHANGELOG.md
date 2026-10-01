@@ -1,5 +1,68 @@
 # Changelog
 
+### Answer #077 - MAirina Tucc v2 "line craft beyond rhyme": a finder that never writes lines (waves 1, 1F, 1F2, 2, 2F, 2R; retrospective record)
+**Timestamp:** 2026-10-01
+**Action Type:** Implementation, recorded retrospectively.
+- **Plan:** `.workspace_archive/plans/mairina-v2-craft-4d7a19.md`. Continuation plan: `.workspace_archive/plans/mairina-v2-api-ui-15383c.md`. Ledger: `handoffs/orchestration_ledger_mairina_v2_20260930.md`.
+- **Commits:** `b1c066b` (W1 + 1F + 1F2), `b33f0fd` (W2), `75362fa` (W2F) and `4d227b1` (W2R).
+- **Why retrospective:** the first three commits went in without an Answer number, and without the same-session README and PROJECTS_INDEX update. This entry and the docs commit repair that. History is not rewritten, because an OGCM commit (`174cf23`) sits between them.
+- **Concurrency:** the workspace `ACTIVE` marker belongs to the OGCM task. The user authorized MAirina to proceed alongside it with a disjoint scope, and the marker was not touched.
+
+**Previous state:** MAirina v1 (`886b333`), a terminal finder with anchors, ranked rhymes, multis, votes, "used" and flow.
+
+**Current state:** MAirina analyzes the craft of each line against real artists and against the user's own starred lines. **It never writes or completes a lyric line.** That is the user's rule, after every agent-written line failed their ear.
+- `mairina/phonetics.py`: Serbian phoneme units (`lj`/`nj`/`dž`, syllabic `r`), consonant classes and voicing pairs, and the clitic set.
+- `mairina/devices.py`:
+  - strong-only alliteration, consonance density, and internal and longest-suffix multisyllabic rhyme (reusing `toolshop.rhyme_miner`)
+  - simile detection: `ko`/`kao`/`k'o`/`poput`, aware that `ko` can mean "who"
+  - anaphora on the shared non-stopword opening, epistrophe, epizeuxis, anadiplosis
+  - code-switch and name-drop, using a phrase-aware gazetteer with noise filters
+  - hook repeat
+  - rhyme letters from perfect tails, including the one-syllable vowel+coda case (`znaš/imaš/snimaš`)
+- `mairina/rules.py`: soft hints only (dialect mix, cliché/calque, abstract stacking, self-rhyme with a stem of 4 or more letters). **There is no lazy-rhyme rule.** The lexicons moved to `MAirina_Tucc/lexicons/`, with their provenance documented.
+- `mairina/targets.py`: syllable IQR targets per lane × section (drill strofa 10/13/15, drill and pop refren 8/11/13), with a fallback when n < 30.
+- `rank.py`: line and target shaping, with match tiers preserved.
+- `corpus.py`:
+  - genius-pro scope
+  - the `CorpusNotAnnotated` guard
+  - a writer guard that refuses only a non-empty `-wal` or a `-journal`
+  - caches keyed on path + mtime + size
+- `mairina/fingerprint.py`: stars with user tags; a shrunk-mean fingerprint (k=8) against the lane prior; vs★ phrases that quote the raw star mean plus n.
+- `hints.py`: hint votes. Three down-votes and no up-votes mute a rule, and only known rule ids are accepted.
+- `atlas.py`: device rates per lane and artist, stats only.
+- `comparisons.py`: single words that follow a simile marker.
+- The CLI gains `xray`, `star`, `stars`, `unstar`, `me`, `hint-vote`, `atlas` and `compare`.
+
+**Incident handled in this lane:** the lyrics-sources rebuild (#070–#072) left `tokens` and `entities` at 0. They were restored with `toolshop lyrics annotate --resume`: genius-pro has **501,386 tokens**, identical to the count before the rebuild. The lyrics-sources lane still owes a root-cause fix: rebuilds must keep L3, and its invariant must count `tokens` and `entities`.
+
+#### Files Affected:
+- **NEW:**
+  - `MAirina_Tucc/mairina/{phonetics,devices,rules,targets,fingerprint,hints,atlas,comparisons}.py`
+  - `MAirina_Tucc/lexicons/*`
+  - the tests `MAirina_Tucc/tests/test_{phonetics,devices,rules,targets,xray,stars_fingerprint,hints,atlas_compare}.py`
+  - `MAirina_Tucc/ORCHESTRATION/mairina_v2/` (`waves.json`, prompts, handoffs `wave1`–`wave2R`)
+  - `handoffs/orchestration_ledger_mairina_v2_20260930.md`
+- **MODIFIED:** `MAirina_Tucc/mairina/{corpus,cli,rank,keys,flow,used,__init__}.py`, `MAirina_Tucc/tests/{conftest,test_cli_flow_used,test_keys_corpus,test_rank_anchors_multis,test_live_smoke}.py`, `MAirina_Tucc/README.md`, `README.md`, `PROJECTS_INDEX.md`
+- **Local, gitignored:** `MAirina_Tucc/data/index_3a770ed6.pre-rebuild-20260930.pkl`, a backup of the index from before the rebuild.
+
+#### Verification (re-run by the asserting session):
+- **At `4d227b1`:** `pytest MAirina_Tucc/tests -q -p no:cacheprovider` gives **220 passed, 0 skipped**. The live smoke tests run against the real annotated `lyrics.db`.
+- **Invariants before and after the suite:** the `lyrics.db` modified time and size are equal (78,524,416 bytes), and `MAirina_Tucc/data/` is identical (names, sizes, mtimes).
+- **Live checks** against a DB copy and against the real DB with a temporary data dir:
+  - the user's verse gives rhyme letters A,-,A,B,B,B, a simile on line 1, and the `iaeia` multi on lines 5–6
+  - `mala` and `niko` are not tagged as name drops; gucci, bmw and sarajevo are, as name drops only
+  - `rhyme imaš` puts `snimaš` at #5
+- **Adversarial reviews** (all findings fixed or backlogged with reasons):
+  - W1: `.workspace_archive/reviews/2026-09-30_mairina_v2_w1.md`
+  - W2 + 2F: `.workspace_archive/reviews/2026-10-01_mairina_v2_w2_w2f.md`
+- **Backlog:**
+  - the atlas internal (65.0) and multi (62.7%) definitions are near-constant
+  - vote boosts are pooled across kinds
+  - the manual `ATLAS_VERSION`
+  - compare drops `bmw` (no vowel)
+
+  The MAirina README was brought up to date with the 2R behaviour in the same docs commit.
+
 ### Answer #076 - OGCM flip GATE S6a: organ x synthwave "night drive" pack (string-machine / combo / drawbar organ stabs, driving octave synth bass, drumless pump) at 105 BPM, synthesis only.
 **Timestamp:** 2026-10-01
 **Action Type:** Implementation - wave s6a of the ogcm_flip lane (plan: `.workspace_archive/plans/ogcm-s6-organ-synthwave.md`; research: `ORCHESTRATION/ogcm_flip/wave_s6r/research_s6_report.md`; spec: `.workspace_archive/plans/expected_output_ogcm_suno_sample_s6_20261001_015743.md`). Gate G3 (the user's ear: pick an organ, then the user's own Suno upload) is pending.

@@ -91,3 +91,15 @@ Tests (+10): `tests\test_devices.py` (weak vs strong alliteration, 4-word window
 
 - Stars saved by wave-2 code carry the old (any-alliteration) `allit` feature. None exist (the live db was wiped), but a db with older stars would mix definitions; `mt unstar` and re-star if that ever happens.
 - Not done: the residual name_drop noise listed in section 2.
+
+---
+
+## Closeout addendum (Claude orchestrator, 2026-10-01)
+
+- **Committed:** `75362fa` ("fix(mairina): v2 wave 2F - strong-only alliteration, gazetteer noise, compare stoplist"). Not pushed.
+- **Re-verified by the orchestrator:** 205 passed; `lyrics.db` and `data\` unchanged.
+- **Corrections** (from the adversarial review `.workspace_archive/reviews/2026-10-01_mairina_v2_w2_w2f.md`):
+  - (a) The stoplist has **33** entries, not 35.
+  - (b) "panamera survives (tested)" is inaccurate. `Panamera` is a MISC entity, and the gazetteer loads ORG/PER/LOC only, so it was never in the list.
+  - (c) `test_stopword_list_is_exactly_the_agreed_one` repeats the code's own list, so it proves nothing.
+  - (d) The repeated-token and INTJ noise rules also dropped real names (`bora bora`, `pelle pelle`, aisha, eazy, amore). They are narrowed in wave 2R.
