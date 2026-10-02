@@ -53,6 +53,17 @@
    - deliver http://127.0.0.1:8777/beats/nachtfahrt_flip/ with the numbers
    - **do not merge** the branch; merging is the user's call
 
+## Execution-readiness amendments (recorded at dispatch, 2026-10-02 ~22:40)
+
+Verified state vs the "Execution start" assumptions; drift becomes amendment lines, not redesign. 7/7 checks PASS (see plan `~/.devin/plans/plan-f6f911268f786c8d.md`).
+
+- **A-HEAD:** master moved `56da498 → e0b44ba` (b-lane b2 landed as `7b6ed92`, #079; plus docs `afc19fd`, `e0b44ba`). No protected paths touched. The worktree branches from `e0b44ba`.
+- **A-CHANGELOG:** #079 is now taken → f4's single Answer entry uses **#080** ("renumber at merge if taken" still applies).
+- **A-GOAL:** `goal_state.json` holds a paused vocal-chain goal (2026-09-01, 20/20 iters). `goal_helper.py set` unconditionally REPLACES it (no guard — goal_helper.py:179-189). Condition "no other goal active" is met (paused ≠ active); the paused record is overwritten.
+- **A-DIRTY:** main worktree is dirty with b-lane b3 in-flight (`M scripts/build_nachtfahrt.py`, `M tests/test_beat_nachtfahrt.py`, `?? toolshop/beat/mixdown.py` — untracked, so absent from the worktree; nothing in f1-f5 imports it) plus MAirina churn. Ledger commits on master stay explicit-path-only.
+- **A-DISPATCH:** verified against source: the editable finder maps `toolshop` → `D:\Projects\Music-AI-Toolshop\toolshop` (pitfall confirmed verbatim); :8777 is rooted at `Stemmeca_alatkka/stems` (`/instrumental.wav` → 200, `/htdemucs_6s/` lists the 2Pac dir); all four `test_flip_*.py` regression files exist.
+- **f2 confirmed SKIPPED:** `toolshop/beat/drums_synth.py` on master at `e0b44ba` with `one_shots(sr,seed)`, `riser(duration_s,sr,seed)`, `gated_reverb(x,sr,room_size,wet_db,gate_ms,fade_ms)`.
+
 ## Waves
 
 | Wave | Agent | Status | Handoff (in WT) | Notes |
