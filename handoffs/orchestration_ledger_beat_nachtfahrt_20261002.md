@@ -34,7 +34,7 @@
 |---|---|---|---|---|
 | b1 synth drums | A | done | `ORCHESTRATION/beat_nachtfahrt/b1/agent_a_b1_handoff.md` | TASK_B1 |
 | b2 composition + render | B | done | `…/b2/agent_b_b2_handoff.md` | TASK_B2 |
-| b3 mix + master + check | C | planned | `…/b3/agent_c_b3_handoff.md` | TASK_B3 |
+| b3 mix + master + check | C | done | `…/b3/agent_c_b3_handoff.md` | TASK_B3 |
 | b4 verify (read-only) | D | planned | `…/b4/agent_d_b4_verify_handoff.md` | TASK_B4 |
 | b5+ fix waves | F | only on defects | `…/b5/…` | composed from b4's numbered defects |
 
@@ -360,3 +360,4 @@ CONSTRAINTS: venv python only, absolute paths, foreground only, and never re-run
 ```
 - 2026-10-02 — **b1 done** (implementer 8edf13f2). Commits: `092d276` feat(#078) [toolshop/beat/__init__.py, drums_synth.py, tests/test_beat_nachtfahrt.py, CHANGELOG], `6036a2f` docs handoff. Orchestrator re-verified: `pytest tests/test_beat_nachtfahrt.py -q` = 15 passed; protected-file diff 6c51d81..HEAD empty; no WAVs committed; scope clean (foreign lanes untouched).
 - 2026-10-02 — **b2 done** (implementer 55e4534e). Commits: `7b6ed92` feat(#079) [nachtfahrt.py 603L, build_nachtfahrt.py, tests +20], `afc19fd` docs. Orchestrator re-verified: pytest = 35 passed; render_manifest files_read_during_render=[] + source_audio_in_output=false; 10 stereo stems 186.857 s PCM_24; 9 sections cover bars 1-80; composition_hash 89b1fa48. Lane peak guards engaged at 0.95 (hats/snare/808/synthbass/lead). Note: foreign-lane commit 56da498 (OGCM-flip plan) landed mid-wave; unaffected.
+- 2026-10-02 — **b3 done** (implementer 0a639dee). Commits: `b7c09d7` feat(#080) [mixdown.py 257L, build_nachtfahrt +193L, check_beat_release.py 197L, tests +100L, CHANGELOG], `0bbfc98` docs. **O1 re-run by orchestrator: PASS 21/21 exit 0** (main −9.01 LUFS/−1.006 dBTP; streaming −14.00/−2.47; stem residual −107.4 dB). pytest 43 passed; O4 both globs 200. **Deviation recorded:** main master uses `mixdown.loud_master` (gain + soft-knee clip), NOT `master_audio` — the limiter loop lifted quiet sections ~2 LU of hooks, destroying required section contrast; streaming master still uses master_audio. Bridge-p1 needed −4 dB lead automation (−3.27→−6.67 LU). Agent killed :8777 by accident (taskkill python.exe) and restarted it; verified serving 200 + master 200.
