@@ -27,22 +27,46 @@ def _hook(event, args):
         p = args[0]
         if isinstance(p, bytes):
             p = p.decode("utf-8", "replace")
-        if isinstance(p, (str, Path)) and str(p).lower().endswith(AUDIO_EXT):
-            _state["opened"].append(str(p))
+        _record_open(p)
 
 
 sys.addaudithook(_hook)
 
 
+def _record_open(p, mode="r"):
+    if not _state["active"]:
+        return
+    if isinstance(p, (str, Path)) and str(p).lower().endswith(AUDIO_EXT):
+        if "r" in str(mode):
+            _state["opened"].append(str(p))
+
+
 def audited_call(fn, *a, **kw):
-    """Run fn with the open-audit active; returns (result, audio/MIDI opens)."""
+    """Run fn with the open-audit active; returns (result, audio/MIDI opens).
+
+    ``sys.addaudithook`` only sees Python-level ``open`` calls, not libsndfile's
+    C-level reads, so ``sf.read``/``sf.SoundFile`` are wrapped for the duration
+    of the audited call too.  Read-mode opens only; deduped in order."""
+    orig_read, orig_sf = sf.read, sf.SoundFile
+
+    def read_wrap(file, *a, **kw):
+        _record_open(file)
+        return orig_read(file, *a, **kw)
+
+    class sf_watch(orig_sf):  # noqa: N801
+        def __init__(self, file, mode="r", *a, **kw):
+            _record_open(file, mode)
+            super().__init__(file, mode, *a, **kw)
+
     _state["opened"] = []
     _state["active"] = True
+    sf.read, sf.SoundFile = read_wrap, sf_watch
     try:
         res = fn(*a, **kw)
     finally:
+        sf.read, sf.SoundFile = orig_read, orig_sf
         _state["active"] = False
-    return res, list(_state["opened"])
+    return res, list(dict.fromkeys(_state["opened"]))
 
 
 def _db(x):
@@ -106,7 +130,7 @@ def mix_stage(outdir: Path, sr: int) -> dict:
         "sends_db": mx.SENDS_DB, "lead_delay": mx.DELAY,
         "rooms": {"plate": mx.PLATE_ROOM, "hall": mx.HALL_ROOM,
                   "short": mx.SHORT_ROOM},
-        "mono_low_hz": mx.MONO_LOW_HZ,
+        "mono_low_hz": mx.MONO_LOW_HZ, "mud_eq": mx.MUD_EQ,
         "automation_kind_db": mx.AUTO_KIND,
         "automation_bars_db": {k: [list(t) for t in v]
                                for k, v in mx.AUTO_BARS.items()},
@@ -155,7 +179,8 @@ def _sha(p: Path) -> str:
 def _artifacts(outdir: Path) -> list:
     files = ["nachtfahrt_master.wav", "nachtfahrt_master_streaming.wav",
              "nachtfahrt_premix.wav"]
-    files += [f"stems_mixed/{n}.wav" for n in nf.LANES] + ["index.html"]
+    files += [f"stems_mixed/{n}.wav" for n in nf.LANES]
+    files += [f"stems/{n}.wav" for n in nf.LANES] + ["index.html"]
     out = []
     for f in files:
         p = outdir / f
@@ -172,6 +197,7 @@ def _index_html(outdir: Path, meas: dict, smap: list) -> str:
             player("Streaming master (-14 LUFS)", "nachtfahrt_master_streaming.wav"),
             player("Premix (no bus processing)", "nachtfahrt_premix.wav")]
     rows += [player(f"Stem: {n}", f"stems_mixed/{n}.wav") for n in nf.LANES]
+    rows += [player(f"Dry stem: {n}", f"stems/{n}.wav") for n in nf.LANES]
     nums = "".join(f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in meas["numbers"].items())
     secs = "".join(
         f"<tr><td>{s['name']}</td><td>{s['first_bar']}-{s['first_bar'] + s['n_bars'] - 1}"
@@ -230,7 +256,8 @@ def master_stage(outdir: Path) -> dict:
         "bpm": nf.BPM, "key": nf.KEY, "bars": nf.N_BARS, "section_map": smap,
         "mix": {k: mixrep[k] for k in (
             "gains_db", "highpass_hz", "sidechain_depth_db", "sends_db",
-            "automation_kind_db", "automation_bars_db", "premix_scalar_db")}
+            "automation_kind_db", "automation_bars_db", "premix_scalar_db",
+            "mud_eq")}
         ,"master_chain": {"glue": {"threshold_db": -16.0, "ratio": 2.0, "attack_ms": 30.0, "release_ms": 150.0}, "main_softclip_knee": mx.SOFTCLIP_KNEE},
         "master_reports": reports, "measured": numbers,
         "section_loudness": sec,

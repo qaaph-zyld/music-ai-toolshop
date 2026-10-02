@@ -445,6 +445,68 @@ def test_process_lane_smoke_slice():
         assert y.shape == lanes[k].shape and np.isfinite(y).all()
 
 
+def test_peaking_eq_dips_at_f0():
+    sr = 44100
+    b, a = mx._peaking_ba(320.0, 1.0, -3.0, sr)
+    w = 2 * np.pi * 320.0 / sr
+    h = np.abs(np.polyval(b, np.exp(1j * w)) / np.polyval(a, np.exp(1j * w)))
+    assert 20 * np.log10(h) == pytest.approx(-3.0, abs=0.2)
+    w_off = 2 * np.pi * 4000.0 / sr   # far above the dip: ~unity
+    h_off = np.abs(np.polyval(b, np.exp(1j * w_off)) /
+                   np.polyval(a, np.exp(1j * w_off)))
+    assert abs(20 * np.log10(h_off)) < 0.5
+
+
+def test_section_mask_only_hooks():
+    sr = 8000
+    n = int(nf.N_BARS * nf.BAR_S * sr)
+    m = mx._section_mask(n, sr, ("hook",))
+    hook_bar, verse_bar = 5, 14     # hook_a starts bar 5; bar 14 is verse1
+    assert m[int(nf._bar_t(hook_bar + 1) * sr)] > 0.99
+    assert m[int(nf._bar_t(verse_bar) * sr + sr)] == pytest.approx(0.0)
+    m_v = mx._section_mask(n, sr, ("verse",))
+    assert m_v[int(nf._bar_t(verse_bar) * sr + sr)] > 0.99
+
+
+def test_mud_eq_biquad_actually_dips_impulse():
+    # a 320 Hz burst inside a hook is attenuated; in a verse it is not.
+    # lane "arp": in MUD_EQ, no send, no sidechain -> cleanest readout.
+    sr = 22050
+    s_in = int((nf._bar_t(6) + 1.0) * sr)            # inside hook_a
+    s_out = int((nf._bar_t(13) + 1.0) * sr)          # inside verse1
+    n = s_out + sr
+    x = np.zeros((n, 2))
+    for s in (s_in, s_out):
+        burst = 0.4 * np.sin(2 * np.pi * 320 * np.arange(sr // 2) / sr)
+        x[s:s + sr // 2] = burst[:, None]
+    y = mx.process_lane("arp", x, sr, np.array([]))
+    rin = np.sqrt(np.mean(y[s_in + 4000:s_in + 9000] ** 2))
+    rout = np.sqrt(np.mean(y[s_out + 4000:s_out + 9000] ** 2))
+    rin_ref = np.sqrt(np.mean(x[s_in + 4000:s_in + 9000] ** 2))
+    # hook burst: lane gain -16 dB plus ~-3 dB EQ dip; verse burst: gain plus
+    # the +3 dB verse lift and NO dip -> identical bursts separate by ~6 dB.
+    assert 20 * np.log10(rin / rin_ref) < -18.0
+    assert 20 * np.log10(rout / rin) > 3.0
+
+
+def test_index_html_links_dry_stems():
+    mod = _script("build_nachtfahrt")
+    meas = {"numbers": {}, "section": {"lufs": {}, "rel_lu": {}}}
+    html = mod._index_html(Path("x"), meas, [])
+    for lane in nf.LANES:
+        assert f"stems/{lane}.wav" in html
+        assert f"stems_mixed/{lane}.wav" in html
+
+
+def test_audit_hook_catches_libsndfile_read(tmp_path):
+    mod = _script("build_nachtfahrt")
+    wav = tmp_path / "probe.wav"
+    sf_mod = __import__("soundfile")
+    sf_mod.write(str(wav), np.zeros((8, 2), dtype=np.float32), 8000)
+    _, opened = mod.audited_call(lambda: mod.sf.read(str(wav)))
+    assert opened == [str(wav)]
+
+
 def test_check_beat_release_fails_on_broken_dir(tmp_path):
     chk = _script("check_beat_release")
     assert chk.run(tmp_path) == 1

@@ -44,8 +44,17 @@ TP_AIM_DBTP = -1.02
 
 # Section automation: lane -> {section kind: dB}, then {lane: [(bar0, bar1, dB)]}
 # (bar ranges override kinds).  Tuned against the O1 section-loudness targets.
-AUTO_KIND: Dict[str, Dict[str, float]] = {}
+# The verse pad/arp lifts also feed the O6 mud guard: verses were near-empty
+# in 200-500 Hz, which made the hooks-vs-verses band-share ratio explode.
+AUTO_KIND: Dict[str, Dict[str, float]] = {"pad": {"verse": 4.0},
+                                         "arp": {"verse": 3.0}}
 AUTO_BARS: Dict[str, List[Tuple[int, int, float]]] = {"lead": [(61, 64, -4.0)]}
+# Hook-side half of the mud guard (O6): a broad peaking dip centred in the
+# 200-500 Hz band, applied to the mid-heavy lanes only while a hook plays.
+# Blend is masked per-section with SMOOTH_MS edges, so verses keep the lanes'
+# natural 200-500 Hz content.
+MUD_EQ = {"lanes": ("pad", "stabs", "arp"), "f0_hz": 320.0, "q": 1.0,
+          "gain_db": -3.0, "kinds": ("hook",)}
 
 
 # ---- helpers ---------------------------------------------------------------
@@ -141,6 +150,31 @@ def automation_db(n: int, sr: int, lane: str) -> np.ndarray:
     return np.interp(t, np.arange(nctl) / rate, ctl)
 
 
+def _peaking_ba(f0: float, q: float, gain_db: float, sr: int):
+    """RBJ peaking-EQ biquad, normalized (b, a); gain_db < 0 is a dip."""
+    A = 10.0 ** (gain_db / 40.0)
+    w0 = 2.0 * np.pi * f0 / sr
+    alpha = np.sin(w0) / (2.0 * q)
+    c = np.cos(w0)
+    b = np.array([1 + alpha * A, -2.0 * c, 1 - alpha * A])
+    a = np.array([1 + alpha / A, -2.0 * c, 1 - alpha / A])
+    return b / a[0], a / a[0]
+
+
+def _section_mask(n: int, sr: int, kinds) -> np.ndarray:
+    """0/1 per-sample mask, 1 inside sections whose kind is in ``kinds``."""
+    rate = 1000
+    nctl = int(n / sr * rate) + 2
+    ctl = np.zeros(nctl)
+    for s in nf.section_map():
+        if nf.SECTION_KIND[s["name"]] in kinds:
+            a = int(s["start_s"] * rate)
+            ctl[a:min(int(s["end_s"] * rate), nctl)] = 1.0
+    ctl = ndimage.uniform_filter1d(ctl, max(1, int(SMOOTH_MS * rate / 1000)),
+                                   mode="nearest")
+    return np.interp(np.arange(n) / sr, np.arange(nctl) / rate, ctl)
+
+
 def process_lane(name: str, x: np.ndarray, sr: int,
                  kicks: np.ndarray) -> np.ndarray:
     """Gain -> HP -> sidechain -> sends -> section automation -> mono-low."""
@@ -168,6 +202,11 @@ def process_lane(name: str, x: np.ndarray, sr: int,
     a = automation_db(n, sr, name)
     if np.any(a):
         y = y * (10.0 ** (a / 20.0))[:, None]
+    if name in MUD_EQ["lanes"]:
+        b, aq = _peaking_ba(MUD_EQ["f0_hz"], MUD_EQ["q"], MUD_EQ["gain_db"], sr)
+        yeq = signal.lfilter(b, aq, y, axis=0)
+        m = _section_mask(n, sr, MUD_EQ["kinds"])[:, None]
+        y = y * (1.0 - m) + yeq * m
     return mono_low(y, sr)
 
 

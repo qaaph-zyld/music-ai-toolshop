@@ -1,5 +1,14 @@
 # Changelog
 
+### Answer #081 - Nachtfahrt b5: mud-guard EQ, dry-stem links, hardened provenance audit
+**Timestamp:** 2026-10-02
+**Action Type:** Implementation (fix wave b5 of the Nachtfahrt beat; addresses b4 verification defects D1/D2/D3).
+- **D1 mud guard (partial):** `mixdown.py` gains `MUD_EQ` — an RBJ peaking dip (320 Hz, Q=1, -3 dB) blended into pad/stabs/arp inside hook sections only (smoothed `_section_mask`), plus `AUTO_KIND` verse lifts (pad +4 dB, arp +3 dB) so verses are not bare 808. Result: master 200-500 Hz share ratio 36.6 -> 23.9 (limit 1.25); absolute band level hooks 38.6 dB vs verses 26.0 dB. The remaining ratio is denominator-driven — verses are intentionally sub-dominated — see the b5 handoff.
+- **D2:** generated `index.html` now links the dry `stems/*.wav` as well as `stems_mixed/*.wav`; `release_manifest.json` artifacts include them.
+- **D3:** `build_nachtfahrt.audited_call` now wraps `soundfile.read`/`SoundFile` so C-level libsndfile opens cannot bypass the provenance audit (still `files_read=[]`).
+- **Gates:** `check_beat_release` PASS 21/21; `test_beat_nachtfahrt.py` 48 passed; flip regression 151 passed; `check_audition_serve` PASS for `*.wav`, `stems/*.wav`, `stems_mixed/*.wav`.
+- **Not touched:** `toolshop/flip/*`, `toolshop/premaster.py`. No audio committed.
+
 ### Answer #080 - Nachtfahrt b3: mixdown, master (-9 / -14 LUFS), release check (`toolshop/beat/mixdown.py`, `scripts/check_beat_release.py`, `build_nachtfahrt.py --stage mix|master|all`)
 **Timestamp:** 2026-10-02
 **Action Type:** Implementation (wave b3 of the Nachtfahrt beat; plan `.workspace_archive/plans/nachtfahrt-beat-from-scratch.md`).
