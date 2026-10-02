@@ -417,3 +417,31 @@ Final message: the verdict, the table and the defects.
 
 CONSTRAINTS: venv python only, absolute paths, foreground only, and never re-run an identical failed command.
 ```
+
+## f1 DONE — verify-and-complete (2026-10-02/03 ~00:10, Devin orchestrator, Normal mode)
+
+- A prior session's f1 agent wrote the implementation (23:07-23:19) and was killed by the
+  quota wall before verification/commit. Found disk state was verified, not trusted:
+  gates re-run on the code as found, one real defect fixed, then committed.
+- Native dispatch of a verify-and-complete wave failed again on weekly quota
+  (trace 7b59939542622806291597d306d32ac5) — orchestrator executed per the b5 precedent
+  (b-lane: "executed by orchestrator in Normal mode after subagent quota exhausted"),
+  covered by the ACTIVE override line naming this lane's waves.
+- Commits on beat/nachtfahrt-flip: `fa4db22` (code, 3 files) + `2d97f1c` (f1 handoff).
+- Gates re-run green on committed code: toolshop.__file__ resolves to worktree;
+  test_beat_nachtfahrt_flip 6/6; flip regression 151/151; prep exit 0;
+  determinism 27/27 outputs sha256-identical; protected diff (toolshop/flip,
+  toolshop/premaster.py) empty.
+- Fix applied by completing executor: refine_phrase_length fine-search quantized L to
+  fine_step=16 samples (synthetic test failed 0.855 < 0.9, L off by 8 samples);
+  added per-sample NCC local argmax + rescore. Post-fix: test score 1.0000, L err 0;
+  real-audio L moved 10.5751 -> 10.6443 s (onto the coarse onset peak).
+- Manifest headline: tempo 90.18 BPM local; phase +77.9 ms > 40 ms cap -> not applied;
+  L=10.6443 s; r=1.175307 (+2.7964 st -> 106 BPM); drum residue clean (onset corr -0.065).
+- Deviations carried for f3/f5 (documented in f1 handoff, not forced):
+  recognizability 0.7697 < 0.80 target; bass roots C#/B/A/F# != expected F#/D/F#/D
+  (low-confidence chroma either way); audit open_events empty because libsndfile reads
+  bypass sys.addaudithook — explicit_reads list covers provenance (same class as b-lane D3).
+- A-CHANGELOG-2: Answer #081 taken by b5 fix wave (commit 70776f6); flip f4 entry now
+  uses the next free number (#082 as of 3a948c4) — re-grep master's CHANGELOG at f4.
+- f2 remains skipped (drums_synth.py on master). Next wave: f3 (arrangement + lanes).
