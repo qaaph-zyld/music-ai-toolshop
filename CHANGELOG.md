@@ -1,5 +1,11 @@
 # Changelog
 
+### Answer #078 - Nachtfahrt b1: from-scratch synth drum + FX one-shots (`toolshop/beat/drums_synth.py`)
+**Timestamp:** 2026-10-02
+**Action Type:** Implementation (wave b1 of the Nachtfahrt beat; plan `.workspace_archive/plans/nachtfahrt-beat-from-scratch.md`).
+- **Added:** `toolshop/beat/__init__.py`, `toolshop/beat/drums_synth.py` (kick, snare, clap, closed/open hat, crash, riser, gated_reverb, `one_shots()` with `render_drums`-compatible keys; numpy + scipy + pedalboard, seeded, deterministic, peak -1 dBFS, no audio reads) and `tests/test_beat_nachtfahrt.py` (drums_synth section, 15 tests).
+- **Not touched:** `toolshop/flip/*`, `toolshop/premaster.py`.
+
 ### Answer #077 - MAirina Tucc v2 "line craft beyond rhyme": a finder that never writes lines (waves 1, 1F, 1F2, 2, 2F, 2R; retrospective record)
 **Timestamp:** 2026-10-01
 **Action Type:** Implementation, recorded retrospectively.
