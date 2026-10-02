@@ -93,3 +93,274 @@ def test_one_shots_keys():
     for v in d.values():
         assert v.dtype == np.float32 and v.ndim == 1
 
+
+
+# ---------------------------------------------------------------------------
+# nachtfahrt composition + lanes (wave b2). Expected values are typed from the
+# plan, not imported from the module under test.
+# ---------------------------------------------------------------------------
+import importlib.util
+import tempfile
+from pathlib import Path
+
+from toolshop.beat import nachtfahrt as nf
+
+PLAN_VOICINGS = {
+    "Dm7": [57, 60, 62, 65], "Bbmaj7": [58, 62, 65, 69],
+    "Gm7": [58, 62, 65, 67], "A7": [57, 61, 64, 67],
+    "Cadd9": [60, 62, 64, 67], "Fmaj7": [57, 60, 64, 65],
+}
+PLAN_ROOTS = {"D": 38, "Bb": 34, "G": 31, "A": 33, "C": 36, "F": 29}
+PLAN_MELODY = [
+    (0, 0, 4, 74), (0, 4, 2, 77), (0, 6, 2, 76), (0, 8, 4, 74), (0, 12, 4, 72),
+    (1, 0, 6, 76), (1, 6, 2, 79), (1, 8, 4, 76), (1, 12, 4, 72),
+    (2, 0, 4, 77), (2, 4, 2, 76), (2, 6, 2, 74), (2, 8, 8, 69),
+    (3, 0, 4, 74), (3, 4, 2, 76), (3, 6, 2, 77), (3, 8, 8, 81),
+]
+
+
+def _plan_progression(bar):
+    v = ["Dm7", "Bbmaj7", "Gm7", "A7"]
+    h = ["Bbmaj7", "Cadd9", "Dm7", "Dm7"]
+    b = ["Gm7", "Bbmaj7", "Fmaj7", "A7"]
+    o = ["Dm7", "Bbmaj7", "Gm7", "Dm7"]
+    if bar <= 4:
+        return v[bar - 1]
+    if bar <= 12:
+        return h[(bar - 5) % 4]
+    if bar <= 28:
+        return v[(bar - 13) % 4]
+    if bar <= 36:
+        return h[(bar - 29) % 4]
+    if bar <= 52:
+        return v[(bar - 37) % 4]
+    if bar <= 60:
+        return h[(bar - 53) % 4]
+    if bar <= 68:
+        return b[(bar - 61) % 4]
+    if bar <= 76:
+        return h[(bar - 69) % 4]
+    return o[bar - 77]
+
+
+def _steps(items, piece, bar):
+    """16th-step positions of `piece` in 1-indexed `bar`."""
+    return sorted(round((beat - (bar - 1) * 4) * 4, 3)
+                  for beat, p, _v in items
+                  if p == piece and (bar - 1) * 4 <= beat < bar * 4)
+
+
+def _grid_steps(g):
+    return [i for i, c in enumerate(g) if c == "x"]
+
+
+def test_constants():
+    assert (nf.BPM, nf.N_BARS, nf.SR, nf.TAIL_S, nf.KEY) == (105, 80, 44100, 4.0, "D minor")
+    assert nf.BAR_S == pytest.approx(2.285714, abs=1e-6)
+    assert nf.STEP_S == pytest.approx(0.142857, abs=1e-6)
+
+
+def test_voicings_and_roots():
+    assert nf.VOICINGS == PLAN_VOICINGS
+    assert nf.ROOT_808 == PLAN_ROOTS
+
+
+def test_progression_all_80_bars():
+    for bar in range(1, 81):
+        assert nf.chord_at(bar) == _plan_progression(bar), bar
+
+
+def test_arrangement_covers_each_bar_once():
+    assert nf.ARRANGEMENT == [
+        ("intro", 1, 4), ("hook_a", 5, 8), ("verse1", 13, 16),
+        ("hook_b", 29, 8), ("verse2", 37, 16), ("hook_c", 53, 8),
+        ("bridge", 61, 8), ("hook_d", 69, 8), ("outro", 77, 4)]
+    bars = [b for _n, f, k in nf.ARRANGEMENT for b in range(f, f + k)]
+    assert sorted(bars) == list(range(1, 81))
+
+
+def test_hook_melody_matches_plan():
+    assert nf.HOOK_MELODY == PLAN_MELODY
+    assert nf.HOOK_RESOLUTION == (3, 8, 8, 74)
+    assert nf.HOOK_MELODY_REPEAT == PLAN_MELODY[:-1] + [(3, 8, 8, 74)]
+    notes = nf._melody(5, 1, 0.9)
+    assert round((notes[-1].start_s - nf._bar_t(12)) / nf.STEP_S) == 8
+    assert notes[-1].note == 74
+    assert nf._melody(5, 0, 0.9)[-1].note == 81
+
+
+def test_drum_grids_match_plan():
+    g = nf.DRUM_GRIDS
+    assert g["verse_kick_A"] == "x.....x...x....."
+    assert g["verse_kick_B"] == "x..x......x..x.."
+    assert g["snare"] == "....x.......x..."
+    assert g["verse_hat"] == "x.x.x.x.x.x.x.x."
+    assert g["hook_kick"] == "x...x...x...x..."
+    assert g["hook_open_hat"] == "..x...x...x...x."
+    assert g["hook_hat_accents"] == [1.0, 0.6]
+    assert g["verse_open_hat_step"] == 14
+    assert g["verse_roll_steps"] == [12, 13, 14, 14.5, 15, 15.5]
+
+
+def test_verse_drum_events():
+    kick, snare, hat = nf.kick_items(), nf.snare_items(), nf.hat_items()
+    assert _steps(kick, "kick", 13) == _grid_steps("x.....x...x.....")
+    assert _steps(kick, "kick", 14) == _grid_steps("x..x......x..x..")
+    assert _steps(snare, "snare", 13) == [4, 12]
+    assert _steps(snare, "clap", 13) == [4, 12]
+    assert _steps(hat, "hat", 13) == [0, 2, 4, 6, 8, 10, 12, 14]  # plain 8ths bar
+    # every 4th verse bar (16, 20, ...): roll + ratchet, open hat at 14
+    assert _steps(hat, "hat", 16) == [0, 2, 4, 6, 8, 10, 12, 13, 14, 14.5, 15, 15.5]
+    assert _steps(hat, "openhat", 16) == [14]
+    assert _steps(hat, "openhat", 15) == []
+    assert _steps(hat, "openhat", 40) == [14]
+
+
+def test_hook_drum_events():
+    kick, hat, fx = nf.kick_items(), nf.hat_items(), nf.fx_items()
+    for bar in (5, 12):
+        assert _steps(kick, "kick", bar) == [0, 4, 8, 12]
+        assert _steps(hat, "hat", bar) == list(range(16))
+        assert _steps(hat, "openhat", bar) == [2, 6, 10, 14]
+    vel = {round((b - 16) * 4): v for b, p, v in hat if p == "hat" and 16 <= b < 20}
+    assert vel[0] == 1.0 and vel[1] == 0.6
+    crashes = sorted(b for b, p, _v in fx if p == "crash")
+    assert crashes == [4 * 4, 28 * 4, 52 * 4, 68 * 4]
+
+
+def test_bridge_drum_rules():
+    kick, snare = nf.kick_items(), nf.snare_items()
+    for bar in (61, 62, 63, 64):
+        ks = [x for x in kick if (bar - 1) * 4 <= x[0] < bar * 4]
+        assert [(round((x[0] - (bar - 1) * 4) * 4), x[1]) for x in ks] == [(0, "kick_lp")]
+        assert not [x for x in snare if (bar - 1) * 4 <= x[0] < bar * 4]
+    for bar in (65, 66, 67, 68):
+        assert _steps(kick, "kick", bar) == [0, 4, 8, 12]
+    assert _steps(snare, "snare", 67) == [0, 2, 4, 6, 8, 10, 12, 14]
+    roll = sorted((b, p, v) for b, p, v in snare if 67 * 4 <= b < 68 * 4)
+    assert [p for _b, p, _v in roll] == [f"snare_r{i}" for i in range(16)]
+    assert roll[0][2] == pytest.approx(0.4) and roll[-1][2] == pytest.approx(1.0)
+    assert all(a[2] < b[2] for a, b in zip(roll, roll[1:]))
+    sh = nf._shots(22050)
+    assert len(sh["snare_r15"]) < len(sh["snare_r0"])  # resampled up in pitch
+
+
+def test_risers_end_on_downbeat():
+    fx = nf.fx_items()
+    starts = sorted(b / 4 + 1 for b, p, _v in fx if p == "riser")
+    assert starts == [3, 27, 51, 67]
+    assert nf.RISERS == [(3, 2), (27, 2), (51, 2), (67, 2)]
+    assert (3 - 1 + 2) * nf.BAR_S == pytest.approx(nf._bar_t(5))
+
+
+def _bar_of(t):
+    return int((t + 1e-6) // nf.BAR_S) + 1
+
+
+def test_808_silent_where_no_drums():
+    bars = {_bar_of(n.start_s) for n in nf.bass808_notes()}
+    silent = set(range(1, 5)) | set(range(61, 65)) | set(range(77, 81))
+    assert not bars & silent
+    assert {65, 66, 67, 68} <= bars
+    hook = [n for n in nf.bass808_notes() if _bar_of(n.start_s) == 5]
+    assert [(round((n.start_s - nf._bar_t(5)) / nf.STEP_S), n.duration_s / nf.STEP_S, n.note)
+            for n in hook] == [(0, 8, 34), (8, 8, 34)]
+
+
+def test_808_slides_only_m3_p4():
+    notes = nf.bass808_notes()
+    phrases = nf.split_808_phrases(notes)
+    assert sum(len(p) for p in phrases) == len(notes)
+    for p in phrases:
+        for a, b in zip(p, p[1:]):
+            assert abs(int(a.note) - int(b.note)) in (0, 3, 5)
+    assert len(phrases) > 1
+
+
+def test_synthbass_only_in_hooks_one_octave_up():
+    sb = nf.synthbass_notes()
+    assert sb and {nf.kind_of(_bar_of(n.start_s)) for n in sb} == {"hook"}
+    assert min(n.note for n in sb) == 46  # Bb2
+    d_bar = [n.note for n in sb if _bar_of(n.start_s) == 7]  # Dm7 bar
+    assert min(d_bar) == 50  # D3 = 808 D2 (38) + 12
+
+
+def test_lead_only_in_hooks_and_bridge_front():
+    bars = {_bar_of(n.start_s) for n in nf.lead_notes()}
+    assert all(nf.kind_of(b) == "hook" or 61 <= b <= 64 for b in bars)
+    assert {61, 62, 63, 64} <= bars and not bars & {65, 66, 67, 68}
+    br = [n for n in nf.lead_notes() if _bar_of(n.start_s) in (61, 62, 63, 64)]
+    assert len(br) == 17 and {n.velocity for n in br} == {0.7}
+
+
+def test_hook_d_double_at_plus_12():
+    main = [n for n in nf.lead_notes() if 69 <= _bar_of(n.start_s) <= 76]
+    dbl = nf.lead_double_notes()
+    assert len(dbl) == len(main) == 34
+    assert [d.note - m.note for d, m in zip(dbl, main)] == [12] * 34
+    assert all(69 <= _bar_of(n.start_s) <= 76 for n in dbl)
+    assert nf.LEVELS["lead_double_db"] == -8.0
+
+
+def test_stab_grids_hooks_and_verses():
+    st = nf.stab_notes()
+    def onsets(bar):
+        return sorted({round((n.start_s - nf._bar_t(bar)) / nf.STEP_S) for n in st
+                       if _bar_of(n.start_s) == bar})
+    assert onsets(5) == _grid_steps("x..x..x...x..x..")
+    assert onsets(6) == _grid_steps("x..x..x.x..x..x.")
+    assert onsets(13) == [0] and onsets(14) == [] and onsets(15) == [0]
+    assert onsets(37) == [0] and onsets(61) == [] and onsets(2) == []
+
+
+def test_pad_and_arp_lanes():
+    pad = nf.pad_notes()
+    at = lambda b: sorted(n.note for n in pad if _bar_of(n.start_s) == b)
+    assert at(44) == sorted(PLAN_VOICINGS[nf.chord_at(44)])
+    assert at(45) == sorted(PLAN_VOICINGS["Dm7"] + [m + 12 for m in PLAN_VOICINGS["Dm7"]])
+    assert len(at(12)) == 4 and len(at(77)) == 4
+    arp = [n for n in nf.arp_notes() if _bar_of(n.start_s) == 1]
+    tones = sorted(PLAN_VOICINGS["Dm7"] + [m + 12 for m in PLAN_VOICINGS["Dm7"]])
+    assert [n.note for n in arp] == tones + tones[::-1]
+    fc = nf.arp_cutoff_hz(np.array([0.0, nf._bar_t(5) + 1, nf._bar_t(81)]))
+    assert fc[0] == pytest.approx(400.0) and fc[1] == pytest.approx(4000.0)
+    assert fc[2] == pytest.approx(400.0)
+    assert nf.arp_cutoff_hz(np.array([nf._bar_t(3)]))[0] == pytest.approx(
+        400 * 10 ** 0.5, rel=0.01)
+
+
+def test_section_map_and_hash():
+    sm = nf.section_map()
+    assert sum(s["n_bars"] for s in sm) == 80
+    assert sm[0]["start_s"] == 0.0
+    assert sm[-1]["end_s"] == pytest.approx(182.857, abs=1e-3)
+    for a, b in zip(sm, sm[1:]):
+        assert a["end_s"] == pytest.approx(b["start_s"]) or b["first_bar"] > a["first_bar"] + a["n_bars"] - 1
+    assert nf.composition_hash() == nf.composition_hash()
+    assert len(nf.composition_hash()) == 64
+    assert nf.LANES == ["kick", "snare", "hats", "fx", "bass808", "synthbass",
+                        "pad", "arp", "stabs", "lead"]
+
+
+def test_render_lanes_smoke_slice():
+    lanes = nf.render_lanes(22050, bars=(5, 6))
+    assert list(lanes) == nf.LANES
+    n = int((2 * nf.BAR_S + 1.0) * 22050)
+    for k, x in lanes.items():
+        assert x.shape == (n, 2), k
+        assert np.isfinite(x).all(), k
+        assert np.abs(x).max() <= 1.0, k
+    assert all(np.abs(lanes[k]).max() > 0 for k in nf.LANES)  # hook bars: all present
+
+
+def test_audit_hook_catches_audio_open():
+    spec = importlib.util.spec_from_file_location(
+        "build_nachtfahrt", Path(nf.__file__).parents[2] / "scripts" / "build_nachtfahrt.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "x.mid"
+        _, opened = mod.audited_call(lambda: open(p, "wb").close())
+        assert opened == [str(p)]
+        _, opened = mod.audited_call(lambda: open(Path(d) / "x.txt", "wb").close())
+        assert opened == []

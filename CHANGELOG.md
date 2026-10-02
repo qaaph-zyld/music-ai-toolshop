@@ -1,5 +1,11 @@
 # Changelog
 
+### Answer #079 - Nachtfahrt b2: composition data + dry lane render (`toolshop/beat/nachtfahrt.py`, `scripts/build_nachtfahrt.py --stage render`)
+**Timestamp:** 2026-10-02
+**Action Type:** Implementation (wave b2 of the Nachtfahrt beat; plan `.workspace_archive/plans/nachtfahrt-beat-from-scratch.md`).
+- **Added:** `toolshop/beat/nachtfahrt.py` (the plan's composition as plain data: voicings, progressions, arrangement, hook melody, drum grids, bridge/riser rules; lane builders; `render_lanes()` returning 10 dry stereo lanes; `section_map()`, `composition_hash()`), `scripts/build_nachtfahrt.py` (stage `render`: stems, `section_map.json`, `render_manifest.json` with an `addaudithook` audio/MIDI open audit), and 20 tests appended to `tests/test_beat_nachtfahrt.py`.
+- **Not touched:** `toolshop/flip/*`, `toolshop/premaster.py`. Stems stay under the gitignored `Stemmeca_alatkka/stems/beats/nachtfahrt/`.
+
 ### Answer #078 - Nachtfahrt b1: from-scratch synth drum + FX one-shots (`toolshop/beat/drums_synth.py`)
 **Timestamp:** 2026-10-02
 **Action Type:** Implementation (wave b1 of the Nachtfahrt beat; plan `.workspace_archive/plans/nachtfahrt-beat-from-scratch.md`).
