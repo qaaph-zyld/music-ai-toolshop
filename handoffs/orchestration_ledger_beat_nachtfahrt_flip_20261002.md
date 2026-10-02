@@ -68,8 +68,8 @@ Verified state vs the "Execution start" assumptions; drift becomes amendment lin
 
 | Wave | Agent | Status | Handoff (in WT) | Notes |
 |---|---|---|---|---|
-| f1 sample prep | A | planned | `ORCHESTRATION/beat_nachtfahrt_flip/f1/agent_a_f1_handoff.md` | TASK_F1 |
-| f2 synth drums | B | planned, **expected skip** (`drums_synth.py` on master at `092d276`) | `…/f2/…` | TASK_F2 (conditional) |
+| f1 sample prep | A | **dispatched** 2026-10-02 ~22:45 — paste-mode (this session has no `run_subagent`; user carries the verbatim prompt to a fresh Devin session) | `ORCHESTRATION/beat_nachtfahrt_flip/f1/agent_a_f1_handoff.md` | TASK_F1 + harness preamble |
+| f2 synth drums | B | **SKIPPED** — `drums_synth.py` confirmed on master `e0b44ba` (one_shots/riser/gated_reverb) | `…/f2/…` | TASK_F2 not dispatched |
 | f3 arrangement + lanes | C | planned | `…/f3/agent_c_f3_handoff.md` | TASK_F3 |
 | f4 mix + master + check | D | planned | `…/f4/agent_d_f4_handoff.md` | TASK_F4 |
 | f5 verify (read-only) | E | planned | `…/f5/agent_e_f5_verify_handoff.md` | TASK_F5 |
