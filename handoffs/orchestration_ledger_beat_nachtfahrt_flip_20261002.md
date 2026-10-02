@@ -477,3 +477,15 @@ CONSTRAINTS: venv python only, absolute paths, foreground only, and never re-run
   sample mono-collapse (source bed anticorrelated solo); additive automation.
 - 3 mix iterations logged. Open item for f5: f1 recognizability 0.770 < 0.80.
 - Next: f5 read-only verification (dispatch or per A-DISPATCH).
+
+## f5 — verification complete (orchestrator self-executed; quota wall on native dispatch x2)
+
+- Fix commit added post-verification: `6ee1030` (f5-driven mix iteration — mud EQ, hook lift; code-level fix work, not verifier scope).
+- **O1 release gate: PASS 24/24** (exit 0) on final artifacts — main −9.03 LUFS/−1.00 dBTP, streaming −13.99/−2.01.
+- O2: 19/19 · O3: 151/151 · O4: both audition globs HTTP 200 + page content verified (badge, credit, 19 links).
+- O5: audithook rebuild → **12/12 sha256 MATCH on final artifacts**; render reads ⊆ prep/**; bass/drums confirmed metadata-only.
+- O6: sample-is-lead ✓, mud 1.183≤1.25 ✓, premix −6.0 ✓, residue −0.03 ✓, no silence spans ✓, seams ≤1.22×RMS; crest 5.56/PLR 6.72 (genre-typical).
+- **Defect D1: hook recognizability 0.681–0.695 < 0.75.** Decomposition: dry lane ceiling 0.715–0.72, f1 baseline 0.770 — structural gap vs full-instrumental reference, not mix error. Options (per handoff): spec-level reference amendment / accept documented deviation. **Decision needed from user.**
+- Defect D2: composition_hash varies across prep re-runs (timestamp hashed) — cosmetic, audio deterministic.
+- f5 handoff `ORCHESTRATION/beat_nachtfahrt_flip/f5/agent_e_f5_verify_handoff.md` written; left uncommitted per f5 spec ("no git add/commit") — flag for close-out decision.
+- CHANGELOG: entry landed as **#083** (#082 taken by toolshop-fx lane mid-flight; renumber check at merge time if conflicts).
