@@ -175,11 +175,16 @@ def consonance_density(line: str) -> float:
     return repeated / syl
 
 
+def gauge_level(density: float, thresholds=None, blocks: int = 3) -> int:
+    """Filled gauge blocks 0..`blocks` for `density` (the API's 0-3 `cons` level)."""
+    steps = thresholds or GAUGE_STEPS
+    return sum(1 for thr in steps[:blocks] if density >= thr)
+
+
 def gauge(density: float, thresholds=None, blocks: int = 3) -> str:
     """'▮▮▯' style gauge. `thresholds` are the lane's corpus quantiles
     (``targets.cons_thresholds``); GAUGE_STEPS is the offline fallback."""
-    steps = thresholds or GAUGE_STEPS
-    filled = sum(1 for thr in steps[:blocks] if density >= thr)
+    filled = gauge_level(density, thresholds, blocks)
     return "▮" * filled + "▯" * (blocks - filled)
 
 

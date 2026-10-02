@@ -19,9 +19,11 @@ belongs to its own lane (and to 'all') only.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import sys
+import unicodedata
 from pathlib import Path
 
 from toolshop.syllables import count_line
@@ -42,6 +44,7 @@ LOW_CONFIDENCE_N = 10         # fewer stars than this: say so
 MIN_STARS_FOR_XRAY = 3        # `mt xray` shows the vs-star column from this many stars
 MIN_Z = 0.5                   # smaller deviations are not worth a sentence
 MAX_TAG_LEN = 40
+MAX_DRAFT_ID_LEN = 200        # an opaque UI draft identity, never a filesystem path
 FEATS_VERSION = 1             # stamped into every new star snapshot; rows without it are version 0
 COMPARE_FEATURES = ("syllables", "words", "cons_density", "end_tail", "allit")
 
@@ -56,10 +59,15 @@ def _has_table(con) -> bool:
                        ).fetchone() is not None
 
 
+def lyric_lines_from_text(text: str) -> list[str]:
+    """The lyric lines `mt xray` numbers, straight from text (no file)."""
+    lines = [raw.strip() for raw in unicodedata.normalize("NFC", text).splitlines()]
+    return [l for l in lines if l and not (l.startswith("[") and l.endswith("]"))]
+
+
 def lyric_lines(path: Path | str) -> list[str]:
     """The lyric lines `mt xray` numbers: blank lines and [Section] headers skipped."""
-    lines = [raw.strip() for raw in used_mod.read_text(path).splitlines()]
-    return [l for l in lines if l and not (l.startswith("[") and l.endswith("]"))]
+    return lyric_lines_from_text(used_mod.read_text(path))
 
 
 def normalize_tags(tags) -> list[str]:
@@ -108,29 +116,24 @@ def _row(r) -> dict:
 _COLS = "id, ts, file, line_no, text, lane, tags_json, feats_json"
 
 
-def star(con, path: Path | str, line_no: int, lane: str = "all", tags=(),
-         lyrics_db=None, data_dir=None) -> dict:
-    """Star lyric line ``line_no`` (the number `mt xray` prints) of the user's file.
-
-    Starring the same text of the same file in the same lane again updates that
-    star (tags merge) instead of counting the line twice. Returns the stored row
-    plus ``updated: bool``. A line with no word in it ('...', '123') is rejected.
-    """
-    if lane not in LANES:
-        raise VoteError(f"Unknown lane '{lane}' (use {', '.join(LANES)}).")
-    tags = normalize_tags(tags)
-    lines = lyric_lines(path)
+def _check_line(lines: list[str], line_no: int, where: str) -> None:
+    """Shared star() guards: the lyric-line number must exist and hold a word."""
     if not 1 <= line_no <= len(lines):
-        raise VoteError(f"Line {line_no} is out of range: {Path(path).name} has {len(lines)} "
+        raise VoteError(f"Line {line_no} is out of range: {where} has {len(lines)} "
                         "lyric line(s) (blank lines and [Section] headers are not numbered).")
     if not tokenize(lines[line_no - 1]):
         raise VoteError(f"Line {line_no} has no words ('{lines[line_no - 1][:30]}'): "
                         "a star needs at least one word to measure.")
-    gazetteer, index = _context(lyrics_db, data_dir)
+
+
+def _store_star(con, lines: list[str], file_key: str, where: str, line_no: int,
+                lane: str, tags: list[str], gazetteer, index) -> dict:
+    """Analyse `lines`, snapshot lyric line `line_no` and upsert it under
+    (file_key, text, lane). Returns the stored row plus ``updated: bool``."""
+    _check_line(lines, line_no, where)
     lr = devices.analyze_verse(lines, gazetteer, index).lines[line_no - 1]
     feats = snapshot(lr)
     ensure(con)
-    file_key = str(Path(path).resolve())
     prev = con.execute(f"SELECT {_COLS} FROM stars WHERE file=? AND text=? AND lane=?",
                        (file_key, lr.text, lane)).fetchone()
     if prev:
@@ -150,6 +153,61 @@ def star(con, path: Path | str, line_no: int, lane: str = "all", tags=(),
     row = _row(con.execute(f"SELECT {_COLS} FROM stars WHERE id=?", (sid,)).fetchone())
     row["updated"] = updated
     return row
+
+
+def star(con, path: Path | str, line_no: int, lane: str = "all", tags=(),
+         lyrics_db=None, data_dir=None) -> dict:
+    """Star lyric line ``line_no`` (the number `mt xray` prints) of the user's file.
+
+    Starring the same text of the same file in the same lane again updates that
+    star (tags merge) instead of counting the line twice. Returns the stored row
+    plus ``updated: bool``. A line with no word in it ('...', '123') is rejected.
+    """
+    if lane not in LANES:
+        raise VoteError(f"Unknown lane '{lane}' (use {', '.join(LANES)}).")
+    tags = normalize_tags(tags)
+    lines = lyric_lines(path)
+    gazetteer, index = _context(lyrics_db, data_dir)
+    return _store_star(con, lines, str(Path(path).resolve()), Path(path).name,
+                       line_no, lane, tags, gazetteer, index)
+
+
+def draft_key(draft_id, text: str) -> str:
+    """The ``file`` column key for a text draft: ``draft:<id>`` or ``text:<sha1[:16]>``.
+
+    ``draft_id`` is the caller's opaque draft identity (a UI localStorage key);
+    it is validated here and NEVER treated as a filesystem path.
+    """
+    if draft_id is not None:
+        draft_id = str(draft_id).strip()
+        if not draft_id or len(draft_id) > MAX_DRAFT_ID_LEN:
+            raise VoteError(f"draft_id must be 1-{MAX_DRAFT_ID_LEN} characters.")
+        return f"draft:{draft_id}"
+    return "text:" + hashlib.sha1(
+        unicodedata.normalize("NFC", text).encode("utf-8")).hexdigest()[:16]
+
+
+def star_text(con, text: str, line_no: int, lane: str = "all", tags=(),
+              draft_id=None, lyrics_db=None, data_dir=None, context=None) -> dict:
+    """``star`` for the API: the draft arrives as text, not as a file.
+
+    ``draft_id`` is the caller's opaque draft identity (a UI localStorage key); it is
+    stored in the ``file`` column as ``draft:<id>`` and is NEVER treated as a path.
+    Without it the draft key is ``text:<sha1 of the draft>`` — stable for identical
+    text, so re-starring the same line still updates instead of duplicating.
+    ``context`` may pass a preloaded ``(gazetteer, index)``; None loads like the CLI.
+    """
+    if lane not in LANES:
+        raise VoteError(f"Unknown lane '{lane}' (use {', '.join(LANES)}).")
+    tags = normalize_tags(tags)
+    file_key = draft_key(draft_id, text)
+    lines = lyric_lines_from_text(text)
+    if context is None:
+        gazetteer, index = _context(lyrics_db, data_dir)
+    else:
+        gazetteer, index = context
+    return _store_star(con, lines, file_key, "the draft", line_no, lane, tags,
+                       gazetteer, index)
 
 
 def stars(con, lane: str | None = None) -> list[dict]:
@@ -283,6 +341,14 @@ def deviations(text: str, fp: dict, skip=()) -> list[tuple[str, float, str]]:
 def compare(text: str, fp: dict, top: int = 3, skip=()) -> list[str]:
     """The ``top`` largest deviations of ``text`` from the fingerprint, in plain words."""
     return [phrase for _f, _z, phrase in deviations(text, fp, skip)[:top]]
+
+
+def vs_star_phrase(text: str, fp: dict) -> str:
+    """The xray/API vs★ cell: the top-1 deviation (allit excluded — the row shows
+    it) or the low-n aware 'close to your ★ lines' fallback. Quotes raw means."""
+    top = compare(text, fp, top=1, skip=("allit",))
+    near = "close to your ★ lines" + (f" (n={fp['n']})" if fp["low_confidence"] else "")
+    return top[0] if top else near
 
 
 def render(fp: dict, lane: str) -> list[str]:

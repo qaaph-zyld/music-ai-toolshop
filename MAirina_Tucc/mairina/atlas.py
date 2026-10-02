@@ -22,6 +22,7 @@ import os
 import pickle
 import re
 import sys
+import threading
 from collections import Counter
 from pathlib import Path
 
@@ -154,12 +155,24 @@ def cache_path(db_path: Path, cache_dir: Path) -> Path:
     return Path(cache_dir) / f"atlas_{tag}.pkl"
 
 
+# The corpus pass takes ~20 s: two callers at once (the API's startup warm-up and a CLI-style
+# caller in the same process, say) must not each run it. The second one waits, then finds
+# the cache the first one wrote.
+_LOAD_LOCK = threading.Lock()
+
+
 def load(db_path=None, cache_dir=None, rebuild: bool = False, notify: bool = True) -> dict:
     """The atlas blob for this lyrics.db, cached while its mtime+size are unchanged.
 
     ``{v, mtime_ns, size, lanes: {lane: stats}, artists: {slug: stats}}``. Built inside
     ``corpus.build_guarded`` (refuses while a writer is active) after ``check_annotated``.
+    Thread-safe: concurrent callers never scan twice (module-level lock).
     """
+    with _LOAD_LOCK:
+        return _load(db_path, cache_dir, rebuild, notify)
+
+
+def _load(db_path, cache_dir, rebuild: bool, notify: bool) -> dict:
     path = Path(db_path or corpus.DEFAULT_LYRICS_DB)
     if not path.is_file():
         raise corpus.DbUnavailable(f"lyrics.db not found. Expected at: {path}")

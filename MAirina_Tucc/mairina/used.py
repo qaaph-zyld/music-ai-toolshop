@@ -31,17 +31,22 @@ def token_spans(text: str) -> list[tuple[str, int, int]]:
             for m in _WORD.finditer(unicodedata.normalize("NFC", text).lower())]
 
 
-def scan(path: Path | str, days: int, con) -> list[str]:
-    """Candidates shown in the last `days` days that appear in the file.
+def scan_text(text: str, days: int, con) -> list[str]:
+    """Candidates shown in the last `days` days that appear in `text`.
 
     Multi-word candidates match as consecutive words. Sorted alphabetically.
     """
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
     shown = [r[0] for r in con.execute("SELECT DISTINCT candidate FROM shown WHERE ts >= ?", (cutoff,))]
-    hay = " " + " ".join(tokenize(read_text(path))) + " "
+    hay = " " + " ".join(tokenize(text)) + " "
     hits = []
     for cand in shown:
         toks = tokenize(cand)
         if toks and f" {' '.join(toks)} " in hay:
             hits.append(cand)
     return sorted(hits)
+
+
+def scan(path: Path | str, days: int, con) -> list[str]:
+    """``scan_text`` over the file at ``path`` (the `mt used` path)."""
+    return scan_text(read_text(path), days, con)

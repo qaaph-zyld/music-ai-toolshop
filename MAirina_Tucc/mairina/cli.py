@@ -95,6 +95,9 @@ def build_parser() -> argparse.ArgumentParser:
     common(cp)
     s = sub.add_parser("stats", help="week-1 numbers")
     s.add_argument("--ab", action="store_true", help="learned vs base ranking arms")
+    sv = sub.add_parser("serve", help="run the local JSON API for rimer-ui on 127.0.0.1:8000")
+    sv.add_argument("--data-dir", default=None,
+                    help="mairina.db + cache directory (default MAirina_Tucc\\data)")
     return p
 
 
@@ -299,9 +302,7 @@ def _cmd_xray(args, lyrics_db, data_dir) -> int:
         if line_hints.get(lr.n):
             parts.append("hints: " + ", ".join(line_hints[lr.n]))
         if fp:
-            top = fingerprint.compare(lr.text, fp, top=1, skip=("allit",))   # row shows allit itself
-            near = "close to your ★ lines" + (f" (n={fp['n']})" if fp["low_confidence"] else "")
-            parts.append("vs★ " + (top[0] if top else near))     # phrases quote the raw ★ mean
+            parts.append("vs★ " + fingerprint.vs_star_phrase(lr.text, fp))  # raw ★ mean, allit skipped
         print(" | ".join(parts))
     return 0
 
@@ -461,6 +462,9 @@ def main(argv=None, *, lyrics_db=None, data_dir=None) -> int:
             return _cmd_atlas(args, lyrics_db, data_dir)
         if args.cmd == "compare":
             return _cmd_compare(args, lyrics_db, data_dir)
+        if args.cmd == "serve":
+            from mairina import api                  # lazy: Flask only loads for `serve`
+            return api.run(lyrics_db, Path(args.data_dir) if args.data_dir else data_dir)
         return _cmd_stats(args, data_dir)
     except corpus.DbUnavailable as exc:
         print(f"Error: {exc}", file=sys.stderr)

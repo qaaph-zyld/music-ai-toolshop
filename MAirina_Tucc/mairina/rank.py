@@ -48,6 +48,18 @@ class Ctx:
     def vocab(self) -> dict[str, int]:
         return self.index.vocab(self.lane, self.artists or None)
 
+    def line_syllables(self) -> int:
+        """Syllables of ``line`` (the line being written), counted once per request."""
+        if "line_syl" not in self._classes:
+            self._classes["line_syl"] = count_line(self.line) if self.line else 0
+        return self._classes["line_syl"]
+
+    def line_dominant(self):
+        """Dominant consonant class of ``line``, computed once per request."""
+        if "line_dom" not in self._classes:
+            self._classes["line_dom"] = phonetics.dominant_class(self.line) if self.line else None
+        return self._classes["line_dom"]
+
     def overuse(self, form: str) -> float:
         """0..1: how overused the form's tail class (2 nuclei) is in the lane."""
         if "totals" not in self._classes:
@@ -77,12 +89,12 @@ def features_for(cand: str, ctx: Ctx, terms: dict, freq: int) -> dict:
     if ctx.fresh:
         f["fresh"] = -ctx.fresh * W_FRESH * ctx.overuse(cand.split()[-1])
     if ctx.line and ctx.target_syl:
-        gap = ctx.target_syl - count_line(ctx.line)
+        gap = ctx.target_syl - ctx.line_syllables()
         if gap > 0:
             miss = abs(count_line(cand) - gap)
             f["gap"] = W_GAP * max(0.0, 1.0 - miss / max(gap, 2))
     if ctx.line:
-        dom = phonetics.dominant_class(ctx.line)
+        dom = ctx.line_dominant()
         if dom and phonetics.dominant_class(cand) == dom:
             f["dom-class"] = W_CLASS
     if ctx.boosts is not None:
@@ -117,7 +129,7 @@ def rank(target: str, candidates, ctx: Ctx) -> list[Scored]:
     t = prepare_target(target)
     vocab = ctx.vocab()
     tlemma = (ctx.index.forms.get(t["word"]) or {}).get("lemma")
-    over = bool(ctx.line and ctx.target_syl and count_line(ctx.line) > ctx.target_syl)
+    over = bool(ctx.line and ctx.target_syl and ctx.line_syllables() > ctx.target_syl)
     out = []
     for cand in candidates:
         freq = vocab.get(cand, 0)

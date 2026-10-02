@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import random
 import sqlite3
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,6 +19,8 @@ CREATE TABLE IF NOT EXISTS shown(
   id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, list_id INTEGER NOT NULL,
   arm TEXT NOT NULL, ranker_version TEXT NOT NULL, kind TEXT NOT NULL, query TEXT,
   candidate TEXT NOT NULL, rank INTEGER NOT NULL, score REAL, features_json TEXT);
+CREATE TABLE IF NOT EXISTS lists(
+  list_id INTEGER PRIMARY KEY, ts TEXT NOT NULL, kind TEXT NOT NULL, arm TEXT, query TEXT);
 CREATE TABLE IF NOT EXISTS votes(shown_id INTEGER NOT NULL, vote INTEGER NOT NULL, ts TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS used(candidate TEXT NOT NULL, source_file TEXT, ts TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_shown_list ON shown(list_id);
@@ -47,17 +50,39 @@ def assign_arm(rng: random.Random | None = None) -> str:
     return (rng or random).choice(ARMS)
 
 
+# One list id per call, even when several request threads (or the CLI in another process)
+# log at once: the lock serialises threads, BEGIN IMMEDIATE serialises processes.
+_LIST_LOCK = threading.Lock()
+
+
 def log_shown(con, kind: str, query: str, arm: str, items, ts: str | None = None) -> int:
-    """items: iterable of (candidate, score, features). Returns the new list_id."""
+    """items: iterable of (candidate, score, features). Returns the new list_id.
+
+    The id is allocated and the rows inserted in one write transaction, so two callers
+    never share an id. A header row in ``lists`` is written even when ``items`` is empty,
+    so an id that was handed out (an empty list) is never reused by the next list.
+    """
     ts = ts or now_iso()
-    list_id = (con.execute("SELECT COALESCE(MAX(list_id), 0) FROM shown").fetchone()[0]) + 1
-    con.executemany(
-        "INSERT INTO shown(ts,list_id,arm,ranker_version,kind,query,candidate,rank,score,features_json)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?)",
-        [(ts, list_id, arm, RANKER_VERSION, kind, query, cand, i, float(score),
-          json.dumps(feats, ensure_ascii=False)) for i, (cand, score, feats) in enumerate(items, 1)],
-    )
-    con.commit()
+    rows = [(ts, i, arm, RANKER_VERSION, kind, query, cand, float(score),
+             json.dumps(feats, ensure_ascii=False)) for i, (cand, score, feats) in enumerate(items, 1)]
+    with _LIST_LOCK:
+        if con.in_transaction:
+            con.commit()
+        con.execute("BEGIN IMMEDIATE")
+        try:
+            list_id = con.execute(
+                "SELECT MAX(COALESCE((SELECT MAX(list_id) FROM shown), 0),"
+                " COALESCE((SELECT MAX(list_id) FROM lists), 0))").fetchone()[0] + 1
+            con.execute("INSERT INTO lists(list_id, ts, kind, arm, query) VALUES (?,?,?,?,?)",
+                        (list_id, ts, kind, arm, query))
+            con.executemany(
+                "INSERT INTO shown(ts,list_id,arm,ranker_version,kind,query,candidate,rank,score,features_json)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?)",
+                [(r[0], list_id, r[2], r[3], r[4], r[5], r[6], r[1], r[7], r[8]) for r in rows])
+            con.commit()
+        except BaseException:
+            con.rollback()
+            raise
     return list_id
 
 
@@ -70,16 +95,38 @@ def last_list(con):
     return row[0], row[1], rows
 
 
-def cast_votes(con, pairs) -> int:
-    """pairs: [(item_number, +1|-1)] against the last list. All-or-nothing."""
-    last = last_list(con)
-    if last is None:
-        raise VoteError("No list to vote on yet. Run anchors, rhyme or multi first.")
-    by_n = {n: sid for n, sid, _ in last[2]}
+def list_rows(con, list_id: int):
+    """(list_id, kind, [(n, shown_id, candidate)]) for one list, or None when the id was
+    never handed out. A list that was logged empty comes back with no items."""
+    rows = con.execute("SELECT rank, id, candidate FROM shown WHERE list_id=? ORDER BY rank",
+                       (list_id,)).fetchall()
+    if rows:
+        kind = con.execute("SELECT kind FROM shown WHERE id=?", (rows[0][1],)).fetchone()[0]
+        return list_id, kind, rows
+    header = con.execute("SELECT kind FROM lists WHERE list_id=?", (list_id,)).fetchone()
+    return (list_id, header[0], []) if header else None
+
+
+def cast_votes(con, pairs, list_id=None) -> int:
+    """pairs: [(item_number, +1|-1)]. With ``list_id`` the vote lands on exactly that
+    list (unknown/stale ids are an error); omitted means the newest list, as the CLI
+    has always done. All-or-nothing."""
+    if list_id is None:
+        target = last_list(con)
+        if target is None:
+            raise VoteError("No list to vote on yet. Run anchors, rhyme or multi first.")
+    else:
+        target = list_rows(con, list_id)
+        if target is None:
+            raise VoteError(f"Unknown list #{list_id}. The lists shown are numbered "
+                            "in each response's list_id.")
+    by_n = {n: sid for n, sid, _ in target[2]}
+    if pairs and not by_n:
+        raise VoteError(f"List #{target[0]} is empty: there is nothing to vote on. Nothing was saved.")
     bad = [n for n, _ in pairs if n not in by_n]
     if bad:
         raise VoteError(f"Item number(s) out of range: {', '.join(map(str, bad))} "
-                        f"(the last list has 1-{len(by_n)}). Nothing was saved.")
+                        f"(list #{target[0]} has 1-{len(by_n)}). Nothing was saved.")
     ts = now_iso()
     con.executemany("INSERT INTO votes(shown_id, vote, ts) VALUES (?,?,?)",
                     [(by_n[n], v, ts) for n, v in pairs])
