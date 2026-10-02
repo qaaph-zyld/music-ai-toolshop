@@ -3,7 +3,8 @@
 - **Plan:** `D:\Projects\.workspace_archive\plans\nachtfahrt-beat-from-scratch.md` (hash-identical mirror of the user-approved plan)
 - **Spec:** `D:\Projects\.workspace_archive\plans\expected_output_nachtfahrt_beat_20261002_200955.md` (O1–O6)
 - **Waves:** `ORCHESTRATION/beat_nachtfahrt/waves.json`
-- **Status:** **PLANNED, NOT DISPATCHED.** The user said "finish up planning stage but no implementation".
+- **Status:** **EXECUTING** (Devin orchestrator session, started 2026-10-02). Dispatch = native Devin `run_subagent`, `implementer`/`reviewer` profiles (model: sonnet), foreground, one wave at a time. No goal_helper tracking (user decision — prior goal was a stale paused vocal-chain goal). Orchestrator marker: Nachtfahrt override line appended to `.workspace_archive/orchestration/ACTIVE` (other lanes' lines preserved).
+- **Devin prompt adaptation:** every TASK_BN below is dispatched verbatim plus this preamble: shell is Git Bash WITH git/grep/ls (`git -C`, separate add/commit calls); "SendMessage" N/A — killed waves are resumed or re-dispatched after disk-state check; handoff file + ≤12KB returned summary required. b4 (`reviewer`, no write tools) returns the full handoff markdown; orchestrator persists and commits it.
 - **User goal (verbatim intent):** "/goal fully done instrumental, mixed and mastered by you. Don't stop until done; always apply /orchestrate-waves to optimize token usage". It follows "can you make a beat yourself from scratch?"
 - **Mode at execution:** Claude Code orchestrator (does not code). Agents are `general-purpose` on model sonnet. One long agent at a time, in the foreground. **No user gates:** the orchestrator gates each wave and loops fix waves until O1 exits 0 and b4 PASSes.
 
