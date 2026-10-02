@@ -58,7 +58,7 @@
 Verified state vs the "Execution start" assumptions; drift becomes amendment lines, not redesign. 7/7 checks PASS (see plan `~/.devin/plans/plan-f6f911268f786c8d.md`).
 
 - **A-HEAD:** master moved `56da498 → e0b44ba` (b-lane b2 landed as `7b6ed92`, #079; plus docs `afc19fd`, `e0b44ba`). No protected paths touched. The worktree branches from `e0b44ba`.
-- **A-CHANGELOG:** #079 is now taken → f4's single Answer entry uses **#080** ("renumber at merge if taken" still applies).
+- **A-CHANGELOG:** #079 is now taken → f4's single Answer entry uses the next free number ("renumber at merge if taken" applies; **update at ~22:55: b3 landed `b7c09d7` #080 on master — next free is #081**; the f4 prompt re-greps master's CHANGELOG at write time, so it self-corrects).
 - **A-GOAL:** `goal_state.json` holds a paused vocal-chain goal (2026-09-01, 20/20 iters). `goal_helper.py set` unconditionally REPLACES it (no guard — goal_helper.py:179-189). Condition "no other goal active" is met (paused ≠ active); the paused record is overwritten.
 - **A-DIRTY:** main worktree is dirty with b-lane b3 in-flight (`M scripts/build_nachtfahrt.py`, `M tests/test_beat_nachtfahrt.py`, `?? toolshop/beat/mixdown.py` — untracked, so absent from the worktree; nothing in f1-f5 imports it) plus MAirina churn. Ledger commits on master stay explicit-path-only.
 - **A-DISPATCH:** verified against source: the editable finder maps `toolshop` → `D:\Projects\Music-AI-Toolshop\toolshop` (pitfall confirmed verbatim); :8777 is rooted at `Stemmeca_alatkka/stems` (`/instrumental.wav` → 200, `/htdemucs_6s/` lists the 2Pac dir); all four `test_flip_*.py` regression files exist.
@@ -68,7 +68,7 @@ Verified state vs the "Execution start" assumptions; drift becomes amendment lin
 
 | Wave | Agent | Status | Handoff (in WT) | Notes |
 |---|---|---|---|---|
-| f1 sample prep | A | **dispatched** 2026-10-02 ~22:45 — paste-mode (this session has no `run_subagent`; user carries the verbatim prompt to a fresh Devin session) | `ORCHESTRATION/beat_nachtfahrt_flip/f1/agent_a_f1_handoff.md` | TASK_F1 + harness preamble |
+| f1 sample prep | A | **dispatch attempted** 2026-10-02 ~22:50 — `run_subagent(implementer, TASK_F1+preamble)` failed: weekly usage quota exhausted (trace 46e64c43…). Fallback = paste-mode block emitted in session; re-dispatch when quota reloads. | `ORCHESTRATION/beat_nachtfahrt_flip/f1/agent_a_f1_handoff.md` | TASK_F1 + harness preamble |
 | f2 synth drums | B | **SKIPPED** — `drums_synth.py` confirmed on master `e0b44ba` (one_shots/riser/gated_reverb) | `…/f2/…` | TASK_F2 not dispatched |
 | f3 arrangement + lanes | C | planned | `…/f3/agent_c_f3_handoff.md` | TASK_F3 |
 | f4 mix + master + check | D | planned | `…/f4/agent_d_f4_handoff.md` | TASK_F4 |
