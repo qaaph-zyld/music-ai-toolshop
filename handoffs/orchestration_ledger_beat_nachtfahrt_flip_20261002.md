@@ -445,3 +445,19 @@ CONSTRAINTS: venv python only, absolute paths, foreground only, and never re-run
 - A-CHANGELOG-2: Answer #081 taken by b5 fix wave (commit 70776f6); flip f4 entry now
   uses the next free number (#082 as of 3a948c4) — re-grep master's CHANGELOG at f4.
 - f2 remains skipped (drums_synth.py on master). Next wave: f3 (arrangement + lanes).
+
+## f3 DONE (2026-10-03 ~00:35, Devin orchestrator, Normal mode — quota still exhausted)
+
+- `ff14127` code (flip_arrange.py, build --stage render, f3 tests) + `499e55c` handoff.
+- Gates: 13/13 tests, render exit 0, 8/8 stems sha256-identical in scratch re-render,
+  composition_hash stable, audit reads = 27 files all inside OUT/prep/**,
+  protected diff empty.
+- Structure verified in the render RMS table: sample_oct only in hook_d (-33.2 dB),
+  808 silent in intro/bridge-61-64/outro, stabs hooks-only, hats absent in bridge,
+  bridge sample louder (-24 dB) due to the spec'd hall wash.
+- Decisions inside spec latitude (documented in f3 handoff): chords voiced from the
+  measured shifted roots E/D/C/A (Em7/Dm7/Cmaj7/Am7); ~60 ms run-up head trim;
+  tape-stops applied to the already-placed beat-4 material; bar-68 snare pitch ramp
+  rendered per-hit (render_drums has no per-event pitch); per-block swept one-pole
+  LPF with carried zi state.
+- Next wave: f4 (mix + master + release check + page). CHANGELOG: next free #082.
