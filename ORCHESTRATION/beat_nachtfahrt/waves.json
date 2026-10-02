@@ -1,0 +1,77 @@
+{
+  "task": "Nachtfahrt - original instrumental from scratch (synthwave night drive x energetic German street rap), 105 BPM D minor, 80 bars; composed by the orchestrator, synthesized, arranged, mixed and mastered",
+  "project_root": "d:/Projects/Music-AI-Toolshop",
+  "orchestration_dir": "ORCHESTRATION/beat_nachtfahrt",
+  "plan": "d:/Projects/.workspace_archive/plans/nachtfahrt-beat-from-scratch.md",
+  "spec": "d:/Projects/.workspace_archive/plans/expected_output_nachtfahrt_beat_20261002_200955.md",
+  "ledger": "handoffs/orchestration_ledger_beat_nachtfahrt_20261002.md",
+  "status": "PLANNED - not dispatched (user: finish planning stage, no implementation)",
+  "dispatch": "Claude Code Agent tool (general-purpose, model sonnet); orchestrator does not code; one long agent at a time, foreground; no user gates - orchestrator gates each wave and loops fix waves until check_beat_release.py exits 0 and b4 PASSes",
+  "waves": [
+    {
+      "wave": "b1",
+      "name": "Synth drums + FX one-shots",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [{
+        "id": "A", "role": "implementer", "name": "b1 drums_synth",
+        "task": "TASK_B1 in the ledger (verbatim).",
+        "scope": "toolshop/beat/__init__.py (new), toolshop/beat/drums_synth.py (new), tests/test_beat_nachtfahrt.py (new), CHANGELOG.md",
+        "output": "b1/agent_a_b1_handoff.md",
+        "context_budget": "80k"
+      }]
+    },
+    {
+      "wave": "b2",
+      "name": "Composition data + lane renders (render stage)",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [{
+        "id": "B", "role": "implementer", "name": "b2 nachtfahrt composition + render",
+        "task": "TASK_B2 in the ledger (verbatim).",
+        "scope": "toolshop/beat/nachtfahrt.py (new), scripts/build_nachtfahrt.py (new, --stage render), tests/test_beat_nachtfahrt.py, CHANGELOG.md, Stemmeca_alatkka/stems/beats/nachtfahrt/ (outputs, gitignored)",
+        "output": "b2/agent_b_b2_handoff.md",
+        "context_budget": "170k"
+      }]
+    },
+    {
+      "wave": "b3",
+      "name": "Mix + master + release check + page",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [{
+        "id": "C", "role": "implementer", "name": "b3 mixdown + master + check",
+        "task": "TASK_B3 in the ledger (verbatim).",
+        "scope": "toolshop/beat/mixdown.py (new), scripts/build_nachtfahrt.py (--stage mix|master|all), scripts/check_beat_release.py (new), tests/test_beat_nachtfahrt.py, CHANGELOG.md, Stemmeca_alatkka/stems/beats/nachtfahrt/ (outputs + index.html)",
+        "output": "b3/agent_c_b3_handoff.md",
+        "context_budget": "170k"
+      }]
+    },
+    {
+      "wave": "b4",
+      "name": "Independent verification + QC (read-only)",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [{
+        "id": "D", "role": "reviewer", "name": "b4 verifier",
+        "task": "TASK_B4 in the ledger (verbatim).",
+        "scope": "read-only; writes only b4/agent_d_b4_verify_handoff.md",
+        "output": "b4/agent_d_b4_verify_handoff.md",
+        "context_budget": "100k"
+      }]
+    },
+    {
+      "wave": "b5+",
+      "name": "Fix waves (only if b4 or the orchestrator spot-check reports numbered defects)",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [{
+        "id": "F", "role": "implementer", "name": "fix wave",
+        "task": "Composed at dispatch from the numbered defect list; re-run b4 after each.",
+        "scope": "toolshop/beat/*, scripts/build_nachtfahrt.py, scripts/check_beat_release.py, tests/test_beat_nachtfahrt.py",
+        "output": "b5/agent_f_b5_handoff.md",
+        "context_budget": "80k"
+      }]
+    }
+  ]
+}
