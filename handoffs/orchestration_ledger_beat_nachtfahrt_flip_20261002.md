@@ -461,3 +461,19 @@ CONSTRAINTS: venv python only, absolute paths, foreground only, and never re-run
   rendered per-hit (render_drums has no per-event pitch); per-block swept one-pole
   LPF with carried zi state.
 - Next wave: f4 (mix + master + release check + page). CHANGELOG: next free #082.
+
+## f4 DONE (2026-10-03 ~01:15, Devin orchestrator, Normal mode — quota still exhausted)
+
+- `ff3e4f6` code (flip_mix.py, check_flip_release.py, build +mix/master/all,
+  flip_arrange mono-collapse fix, +6 tests, CHANGELOG Answer **#083** -- #082
+  taken by toolshop/fx lane mid-wave) + `de6f471` handoff.
+- O1 `check_flip_release.py` exits 0, **24/24**: main -9.03 LUFS / -1.004 dBTP,
+  streaming -14.00 / -1.764, premix verdict PASS (corr gate), section curve in
+  spec (intro -16.6, verses -1.8/-2.2, bridge_p1 -4.2, outro -18.5, hooks 0.11),
+  stems sum residual -111.6 dB, manifest + freshness clean (53 artifacts).
+- O2 19/19, O3 151 regression + empty protected diff, O4 serve PASS both globs.
+- Deviations (all measured, in f4 handoff): main master via flip_mix.loud_master
+  (master_audio limiter loop stalls at -9.95, same finding as b3); intro/outro
+  sample mono-collapse (source bed anticorrelated solo); additive automation.
+- 3 mix iterations logged. Open item for f5: f1 recognizability 0.770 < 0.80.
+- Next: f5 read-only verification (dispatch or per A-DISPATCH).
