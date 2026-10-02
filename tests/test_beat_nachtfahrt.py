@@ -364,3 +364,103 @@ def test_audit_hook_catches_audio_open():
         assert opened == [str(p)]
         _, opened = mod.audited_call(lambda: open(Path(d) / "x.txt", "wb").close())
         assert opened == []
+
+
+# ---------------------------------------------------------------- b3: mixdown
+from toolshop.beat import mixdown as mx  # noqa: E402
+
+
+def _script(name):
+    spec = importlib.util.spec_from_file_location(
+        name, Path(nf.__file__).parents[2] / "scripts" / f"{name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_sidechain_dips_at_kick_times_and_recovers():
+    sr = 8000
+    kicks = [0.5, 1.5]
+    for depth_db in (-4.0, -6.0, -2.0):
+        g = mx.sidechain_gain(sr * 3, sr, kicks, depth_db)
+        assert g[int(0.49 * sr)] == pytest.approx(1.0)
+        at = g[4000 + 16 - 1]                         # end of the 2 ms attack
+        assert 20 * np.log10(at) == pytest.approx(depth_db, abs=0.05)
+        assert g[4000 + 5] > at              # attack not instant
+        # exponential release: one tau after the dip ~63% of the way back
+        tau_i = 4000 + 16 + 1200
+        lin = 10 ** (depth_db / 20)
+        assert g[tau_i] == pytest.approx(1 - (1 - lin) * np.exp(-1), abs=0.01)
+        assert g[int(1.4 * sr)] == pytest.approx(1.0, abs=3e-3)   # recovered
+        assert g.min() == pytest.approx(lin, abs=1e-3)
+
+
+def test_kick_times_come_from_builders():
+    t = mx.kick_times_s()
+    assert t.size > 100 and t[0] == pytest.approx(nf.kick_events()[0].time_s)
+
+
+def test_mono_low_removes_side_below_120hz():
+    sr = 44100
+    rng = np.random.default_rng(1)
+    x = rng.standard_normal((sr * 4, 2)) * 0.1
+    y = mx.mono_low(x, sr)
+    mid = 0.5 * (y[:, 0] + y[:, 1])
+    side = 0.5 * (y[:, 0] - y[:, 1])
+    f = np.fft.rfftfreq(side.size, 1 / sr)
+    ps = np.abs(np.fft.rfft(side)) ** 2
+    pm = np.abs(np.fft.rfft(mid)) ** 2
+    lo = f < 120
+    rel = 10 * np.log10(ps[lo].sum() / pm[lo].sum())
+    assert rel < -40
+    # mid is untouched; high side survives
+    assert np.allclose(mid, 0.5 * (x[:, 0] + x[:, 1]), atol=1e-9)
+    hi = f > 300
+    assert ps[hi].sum() > 0.9 * (np.abs(np.fft.rfft(0.5 * (x[:, 0] - x[:, 1]))) ** 2)[hi].sum()
+
+
+def test_stems_sum_equals_premix_and_peak_target():
+    rng = np.random.default_rng(2)
+    proc = {k: rng.standard_normal((4000, 2)) * 0.05 for k in nf.LANES}
+    stems, premix, scalar = mx.finalize(proc)
+    tot = sum(stems[k].astype(np.float64) for k in nf.LANES)
+    assert np.max(np.abs(tot - premix.astype(np.float64))) < 1e-6
+    assert 20 * np.log10(np.abs(premix).max()) == pytest.approx(-6.0, abs=1e-3)
+
+
+def test_process_lane_sum_linearity_of_mono_low():
+    sr = 22050
+    rng = np.random.default_rng(3)
+    a = rng.standard_normal((sr, 2)) * 0.1
+    b = rng.standard_normal((sr, 2)) * 0.1
+    assert np.allclose(mx.mono_low(a + b, sr), mx.mono_low(a, sr) + mx.mono_low(b, sr), atol=1e-9)
+
+
+def test_process_lane_smoke_slice():
+    sr = 22050
+    lanes = nf.render_lanes(sr, bars=(5, 6))
+    kicks = mx.kick_times_s()
+    for k in ("snare", "lead", "pad", "stabs", "bass808"):
+        y = mx.process_lane(k, lanes[k], sr, kicks)
+        assert y.shape == lanes[k].shape and np.isfinite(y).all()
+
+
+def test_check_beat_release_fails_on_broken_dir(tmp_path):
+    chk = _script("check_beat_release")
+    assert chk.run(tmp_path) == 1
+
+
+def test_check_beat_release_condition_functions():
+    chk = _script("check_beat_release")
+    good = {"intro": -9, "verse1": -4, "verse2": -4, "bridge_p1": -5, "outro": -8,
+            "hook_a": 0.2, "hook_b": 0.0, "hook_c": -0.1, "hook_d": 0.0}
+    res = []
+    chk.section_checks(good, res)
+    assert res and all(r[0] for r in res)
+    bad = dict(good, verse1=-0.5, hook_d=2.0)
+    res = []
+    chk.section_checks(bad, res)
+    assert sum(1 for r in res if not r[0]) == 2
+    x = np.random.default_rng(4).standard_normal((1000, 2))
+    assert chk.residual_db([x * 0.5, x * 0.5], x) < -200
+    assert chk.residual_db([x * 0.5], x) == pytest.approx(-6.02, abs=0.01)

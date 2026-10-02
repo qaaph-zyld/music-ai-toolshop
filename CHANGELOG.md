@@ -1,5 +1,12 @@
 # Changelog
 
+### Answer #080 - Nachtfahrt b3: mixdown, master (-9 / -14 LUFS), release check (`toolshop/beat/mixdown.py`, `scripts/check_beat_release.py`, `build_nachtfahrt.py --stage mix|master|all`)
+**Timestamp:** 2026-10-02
+**Action Type:** Implementation (wave b3 of the Nachtfahrt beat; plan `.workspace_archive/plans/nachtfahrt-beat-from-scratch.md`).
+- **Added:** `toolshop/beat/mixdown.py` (per-lane gain/HP, kick-keyed sidechain from builder kick times, gated-reverb / plate+dotted-8th / hall / room sends, bar-range automation, per-stem mono-low (side removed below 120 Hz), exact-sum premix at -6 dBFS, section loudness meter, `loud_master`), build stages `mix`/`master`/`all` (glue compressor, main -9 LUFS master, streaming -14 LUFS master via `master_audio`, `release_manifest.json`, `index.html`), `scripts/check_beat_release.py` (every O1 condition, read-only) and tests.
+- **Deviation:** the -9 LUFS main master is produced by `mixdown.loud_master` (drive + soft-knee clip), not `master_audio`: its limiter loop was measured to flatten section dynamics (see the b3 handoff for the numbers). The -14 LUFS streaming master uses `master_audio`.
+- **Not touched:** `toolshop/flip/*`, `toolshop/premaster.py`. Audio stays under the gitignored `Stemmeca_alatkka/stems/beats/nachtfahrt/`.
+
 ### Answer #079 - Nachtfahrt b2: composition data + dry lane render (`toolshop/beat/nachtfahrt.py`, `scripts/build_nachtfahrt.py --stage render`)
 **Timestamp:** 2026-10-02
 **Action Type:** Implementation (wave b2 of the Nachtfahrt beat; plan `.workspace_archive/plans/nachtfahrt-beat-from-scratch.md`).
