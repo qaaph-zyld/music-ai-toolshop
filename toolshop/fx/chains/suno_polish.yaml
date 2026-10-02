@@ -1,0 +1,13 @@
+# Suno track polish — corrective EQ + saturation + true-peak limiter.
+# Fill `params` after `toolshop fx probe` + `toolshop fx params` runs; every
+# plugin here is VST3-headless-safe (verified by probe verdicts).
+name: suno-polish
+sample_rate: 48000
+assert_wet: true
+stages:
+  - plugin: "FabFilter Pro-Q 3"
+    params: {}
+  - plugin: "FabFilter Saturn 2"
+    params: {}
+  - plugin: "FabFilter Pro-L 2"
+    params: {}

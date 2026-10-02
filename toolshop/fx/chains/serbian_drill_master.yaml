@@ -1,0 +1,11 @@
+# Serbian-drill master chain — Ozone 10 Maximizer on the 2-bus.
+# Ozone module params are deep-hierarchical; dump names via
+# `toolshop fx params "Ozone 10 Maximizer"` after probing before tuning.
+name: serbian-drill-master
+sample_rate: 48000
+assert_wet: true
+stages:
+  - builtin: hpf
+    freq: 30.0
+  - plugin: "Ozone 10 Maximizer"
+    params: {}

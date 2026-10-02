@@ -1,5 +1,16 @@
 # Changelog
 
+### Answer #082 - `toolshop fx`: headless VST3 arsenal rendering + Ableton Live bridge (`toolshop/fx/*`, `toolshop/daw/live_bridge_script.py`)
+**Timestamp:** 2026-10-02
+**Action Type:** Implementation (design `docs/superpowers/specs/2026-10-02-plugin-arsenal-fx-design.md`; megaplan `plugin-arsenal-fx`).
+- **Added `toolshop/fx/`** — a headless lane that renders audio through the installed third-party VST3 arsenal without any DAW open: `registry.py` (pure-filesystem scan → `plugin_registry.json`; `.vst3` bundles handled as directories; Waves members enumerated from `Plug-Ins V14\*.bundle` because bare-loading WaveShell 14.12 was measured to hang >210 s), `probe.py`/`probe_one.py` (per-plugin subprocess audit, 60 s/120 s hard timeouts, staircase probe signal, `ok/dry/load-failed/render-failed/timeout/crash` verdicts + parameter dumps), `chain.py` (ordered-stages YAML; `plugin:` resolved via registry, `builtin:` reuses mastering-tool Chain DSL field names; unknown plugin/param/stage fails loud), `engine.py` (pedalboard `load_plugin` incl. `plugin_name` shell selection, always-resample input, 4 s tail flush, `assert_wet` −80 dBFS guard, plugin cache with `stateful` opt-out), `batch_fx.py` (shared resumable `toolshop.batch` runner), `fx_cli.py` (`scan/probe/params/chains/render/batch/measure`; measure reuses `premaster.analyze_premaster`).
+- **Added `toolshop/daw/live_bridge_script.py`** — Ableton Live 12 Remote Script speaking the same length-prefixed JSON-RPC protocol as the FL bridge on port **9878** (`DAWClient(port=9878)` unmodified). Commands drain on Live's main thread via `schedule_message`. Method names mirror FL (`system/transport/mixer/plugins` aliases→devices) plus `tracks.list`, `scenes.*`, `clips.*`, `devices.*`.
+- **Modified:** `toolshop/cli.py` (fx registration + dispatch), `toolshop/daw/plugins.py` (`plugin_directories()` public accessor — second caller), `README.md`, `PROJECTS_INDEX.md` (row 14), this entry.
+- **Tests:** 26 new fx tests + 13 live-bridge tests (real `DAWClient`↔bridge TCP roundtrip with fake Song tree); `test_daw.py` 143/143 unchanged.
+- **Measured on this machine:** `fx scan` → 571 registry entries, 355 hostable (136 VST3, 227 Waves members, 208 VST2 marked unhostable); `fx render`/`measure`/`params`/`probe --only` verified end-to-end; real VST3 render proven via T-De-Esser slow test.
+- **Explicit limits (documented in the spec):** FL/Ableton-native devices can't render headless; VST2 (Glitch2) deferred pending a VST2-host dependency decision; no `.vstpreset` loading — params by name from `fx params`; probe verdict `dry` is a flag, not a failure.
+- **Not touched:** `mastering_tool/`, `toolshop/flip/*`, `toolshop/beat/*`. No audio committed; artifacts under gitignored `data/toolshop/fx/`.
+
 ### Answer #081 - Nachtfahrt b5: mud-guard EQ, dry-stem links, hardened provenance audit
 **Timestamp:** 2026-10-02
 **Action Type:** Implementation (fix wave b5 of the Nachtfahrt beat; addresses b4 verification defects D1/D2/D3).

@@ -1,0 +1,16 @@
+# Vocal cleanup chain — RX 10 Voice De-noise → de-ess → light compression.
+# Params intentionally empty: run `toolshop fx params "RX 10 Voice De-noise"`
+# after probing to get the normalized parameter names, then fill them in.
+name: vocal-clean
+sample_rate: 48000
+assert_wet: true
+stages:
+  - plugin: "RX 10 Voice De-noise"
+    params: {}
+  - plugin: "T-De-Esser"
+    params: {}
+  - builtin: comp
+    threshold_db: -18.0
+    ratio: 2.5
+    attack_ms: 8.0
+    release_ms: 120.0

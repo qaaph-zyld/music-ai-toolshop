@@ -153,7 +153,29 @@ Install with the `swap` extra: `pip install -e .[swap]`. Mastering needs WSL wit
 ### DAW Bridge (`toolshop daw`)
 
 Live control of FL Studio / Ableton over a TCP bridge — transport, mixer, channels, piano roll,
-plugins, and corpus-informed generators (#025).
+plugins, and corpus-informed generators (#025). FL bridge listens on `127.0.0.1:9876`; the Ableton
+Live 12 Remote Script (`toolshop/daw/live_bridge_script.py`, install into `User Remote
+Scripts\ToolshopLive\__init__.py`) listens on `:9878` — pass `--port 9878` to `toolshop daw` (#082).
+
+### Plugin FX (`toolshop fx`)
+
+Headless rendering through the installed third-party **VST3** arsenal — no DAW required (#082).
+Registry (571 entries on this machine) is a pure-filesystem scan, Waves members enumerate from
+`Plug-Ins V14` bundles; probing loads each plugin in a crash-isolated subprocess with a hard timeout.
+
+```powershell
+toolshop fx scan                                  # -> data/toolshop/fx/plugin_registry.json
+toolshop fx probe --only "T-De-Esser"             # subprocess audit (verdicts + params)
+toolshop fx params "FabFilter Pro-Q 3"            # normalized param names for YAML authoring
+toolshop fx render vocal.wav --chain vocal_clean  # render one file
+toolshop fx batch .\stems --chain suno_polish     # resumable directory render
+toolshop fx measure in.wav out.wav --json         # LUFS / true-peak / PSR deltas
+```
+
+Chains are YAML (`toolshop/fx/chains/*.yaml`): ordered `stages` of `plugin:` (registry name or
+`Vendor/Name`) or `builtin:` (`hpf|eq|comp|deesser|clip|limit`, Chain DSL fields). Unknown params fail
+loud; `assert_wet` catches chains that render unchanged audio. VST2 and DAW-native devices are not
+hostable — see `docs/superpowers/specs/2026-10-02-plugin-arsenal-fx-design.md`.
 
 ### Music Video (`toolshop video`)
 

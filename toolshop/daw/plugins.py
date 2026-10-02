@@ -70,6 +70,16 @@ def _get_plugin_directories() -> List[Path]:
     return dirs
 
 
+def plugin_directories() -> List[Path]:
+    """Public accessor for the plugin scan roots.
+
+    The fx lane's registry shares the same roots — a second caller means the
+    private helper needs a public name (AGENTS.md: fix the class, not the
+    instance).
+    """
+    return _get_plugin_directories()
+
+
 def get_param(
     client: DAWClient, track: int, slot: int, param_index: int
 ) -> Dict[str, Any]:

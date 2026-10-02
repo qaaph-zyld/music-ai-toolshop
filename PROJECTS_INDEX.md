@@ -12,7 +12,8 @@
 | 06 | open-daw | 🟡 Long horizon | Rust/C++ DAW engine; AI modules stubbed |
 | 07 | genius-lyrics | ✅ Active | **1,425-song corpus** at `data/toolshop/lyrics/genius/` + lyrics.db (10,654 sections, 65,912 lines, 273,801 rhyme rows; cohorts drill_trap 808 / pop 524) |
 | 08 | sample-forge | ✅ Active | `toolshop remix` - tempo/key-matched remixes and sample packs (T7) |
-| 09 | daw-bridge | ✅ Active | `toolshop daw` - live FL Studio / Ableton control via TCP bridge (12 modules, #025) |
+| 09 | daw-bridge | ✅ Active | `toolshop daw` - live FL Studio (:9876) + Ableton Live 12 Remote Script (:9878) TCP bridge (#025, #082) |
+| 14 | plugin-arsenal-fx | ✅ Active | `toolshop fx` - headless VST3 arsenal render: registry/probe/chains/batch/measure (571 plugins, #082) |
 | 10 | music-video | ✅ Active | `toolshop video` - FFmpeg compositing, ASS lyrics, audio-reactive shaders, stock footage (#028) |
 | 11 | melody-carrier | ✅ Active | `toolshop melody-carrier` - audio→MIDI→carrier WAVs for Suno cover mode (#039) |
 | 12 | lyrics-writing | ✅ Active | `toolshop lyrics` - L5 rimer DB, brief generator, draft scorer + 10 craft modules (#036, #037) |

@@ -825,6 +825,12 @@ def build_parser() -> argparse.ArgumentParser:
     daw_cli_module.add_parser(subparsers)
 
     # =========================================================================
+    # FX (Headless Plugin Render) COMMANDS
+    # =========================================================================
+    from .fx import fx_cli as fx_cli_module
+    fx_cli_module.add_parser(subparsers)
+
+    # =========================================================================
     # VIDEO (Music Video Generator) COMMANDS
     # =========================================================================
     from . import video_cli as video_cli_module
@@ -2131,6 +2137,15 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     elif args.command == "daw":
         from .daw import daw_cli as daw_cli_module
         code = daw_cli_module.run(args)
+        if code != 0:
+            raise SystemExit(code)
+
+    # =========================================================================
+    # FX (Headless Plugin Render)
+    # =========================================================================
+    elif args.command == "fx":
+        from .fx import fx_cli as fx_cli_module
+        code = fx_cli_module.run(args)
         if code != 0:
             raise SystemExit(code)
 
