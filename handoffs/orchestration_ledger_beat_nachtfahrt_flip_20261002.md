@@ -489,3 +489,27 @@ CONSTRAINTS: venv python only, absolute paths, foreground only, and never re-run
 - Defect D2: composition_hash varies across prep re-runs (timestamp hashed) — cosmetic, audio deterministic.
 - f5 handoff `ORCHESTRATION/beat_nachtfahrt_flip/f5/agent_e_f5_verify_handoff.md` written; left uncommitted per f5 spec ("no git add/commit") — flag for close-out decision.
 - CHANGELOG: entry landed as **#083** (#082 taken by toolshop-fx lane mid-flight; renumber check at merge time if conflicts).
+
+## Lane CLOSED (2026-10-03 — user decisions applied)
+
+- **D1 resolved: accepted as documented deviation.** User chose option (a) from
+  the f5 defect table. Numbers on record: hooks 0.681–0.695 vs ≥0.75;
+  decomposition dry 0.715–0.721 / mixed 0.706 / master 0.688 / streaming 0.676
+  vs f1 baseline 0.770. Rationale: structural — a drumless-bed + synth-drum flip
+  vs the dense full-instrumental reference; no mix-side lever (+2.5 dB lift →
+  +0.003). Audible recognizability preserved (identical melodic chops from the
+  named 54–70.16 s source window).
+- **f5 handoff committed** on `beat/nachtfahrt-flip` as docs `07f45e1` — every
+  wave's handoff is now on the branch (f5 spec's no-commit clause resolved by
+  user; verifier's file committed verbatim, unedited).
+- **Goal completed:** `goal_helper.py evaluate` → `check_flip_release.py` exit 0
+  (dry-run + evaluate evidence in the close-out handoff).
+- **ACTIVE override removed** (2026-10-02 Nachtfahrt flip line; other lanes'
+  overrides untouched).
+- D2 (`composition_hash` timestamp sensitivity) remains cosmetic/known; D3
+  informational only.
+- **Merge remains a non-goal — user's call.** On merge: branch CHANGELOG #083
+  collides with MAirina's #083 on master → renumber to next free at merge time.
+- Deliver: http://127.0.0.1:8777/beats/nachtfahrt_flip/ — main −9.03 LUFS /
+  −1.00 dBTP, streaming −13.99 / −2.01; O1 24/24, O2 19/19, O3 151/151,
+  O4 200×19, O5 12/12 sha256.
