@@ -1,5 +1,76 @@
 # Changelog
 
+### Answer #083 - MAirina Tucc v2 wave 3: local Flask API (`mt serve`), 3S hardening, and the `rimer-ui` writing screen (`start.ps1`)
+**Timestamp:** 2026-10-03
+**Action Type:** Implementation (MAirina v2 waves 3 D3, 3S and D4; plan `.workspace_archive/plans/mairina-v2-api-ui-15383c.md`, closeout plan `.workspace_archive/plans/mairina-v2-w3-closeout-26137c.md`).
+- **Commits:** `92f5c3f` (API + 3S hardening) and `3b8a685` (screen + `start.ps1`). The docs and records are in the `docs(#083)` commit that carries this entry.
+- **Number:** the bootstrap expected #078, but #078–#082 went to other lanes first. This number was taken from the top of the log at commit time.
+- **Concurrency:** the workspace `ACTIVE` marker was not touched. Every commit is `--only`, scoped to MAirina paths and the approved root doc rows.
+
+**Previous state:** MAirina v2 waves 1–2R (#077) ran in the terminal only (`mt`). `rimer-ui` was the starter placeholder, with fake results and calls to `/api/rhymes` and `/api/consonant-play`, which never existed.
+
+**Current state:** the songwriter writes in the browser, and MAirina finds and analyzes beside each line. **It still never writes or completes a lyric line.**
+- `mairina/api.py` (D3): the 14 frozen `/api` endpoints over the existing engine.
+  - Endpoints: anchors, rhyme, multi, xray, vote, star, unstar, stars, me, atlas, compare, hint-vote, used, stats.
+  - List responses carry `list_id`, `arm`, `items[]` and `why`.
+  - Votes target the exact `list_id`. Hint vote `0` resets the rule. Stars and "used" work from the draft text with a stable `draft_id`, and no temporary lyric files are written.
+  - `mt serve [--data-dir]` binds `127.0.0.1:8000` only. Errors are always JSON, and the API answers 503 while the corpus is unavailable.
+- 3S hardening, written test-first: each finding was reproduced, then fixed.
+  - A Host allow-list (`127.0.0.1`/`localhost`), and cross-site `Sec-Fetch-Site` requests refused.
+  - Input caps: 20,000 characters, 300 lines, and 500 characters per line. This also closes a 30 s single-line slowdown.
+  - The atlas is built once, on a background thread, behind a single-flight lock (503 "warming up" until it is ready).
+  - `serve()` runs with the debugger and the reloader off.
+  - List ids are race-free, including for empty lists. Duplicate vote items are refused.
+  - 503 bodies are scrubbed of paths. Absurd ids and deeply nested JSON are refused. Tags and `draft_id` must be strings.
+  - Startup survives sqlite and OS errors.
+- `rimer-ui` (D4):
+  - a controls bar with New anchors
+  - editor rows: syllables against the lane/section target, an anchor chip, a meter (rhyme letter, consonance, alliteration, devices, hints, vs★), and a star with a tag popover
+  - finder tabs (Rhymes, Multis, Compare, Atlas) with 👍/👎 on every list
+  - a stats footer with Save draft
+  - a localStorage draft, and an offline banner instead of fake results
+  - a typed axios client that matches the exact shapes in `src/types.ts`
+- `MAirina_Tucc/start.ps1`: starts the engine and the screen (`127.0.0.1:5174`), warms the atlas and opens the browser.
+
+#### Files Affected:
+- **NEW:**
+  - `MAirina_Tucc/mairina/api.py`
+  - `MAirina_Tucc/tests/test_api.py`, `test_api_hardening.py`
+  - `MAirina_Tucc/rimer-ui/src/{api,types,text}.ts`, `src/components/{Controls,EditorRow,Finder,StatsFooter}.tsx`
+  - `MAirina_Tucc/start.ps1`
+  - `MAirina_Tucc/ORCHESTRATION/mairina_v2/wave3/` (the D3 handoff, session record and reflection)
+  - `MAirina_Tucc/ORCHESTRATION/mairina_v2/wave3S/S3_handoff.md`
+- **MODIFIED:**
+  - `MAirina_Tucc/mairina/{atlas,cli,devices,fingerprint,rank,used,votes}.py`
+  - `MAirina_Tucc/rimer-ui/{index.html,README.md}`, `src/{App.tsx,App.css,index.css}`
+  - `MAirina_Tucc/{README.md,PRD.md}`
+  - `README.md`, `PROJECTS_INDEX.md`
+  - the MAirina ledger, `waves.json`, `prompts/wave3_D3_api_v14.md`
+- **DELETED:** the unused scaffold `rimer-ui/src/components/ui/button.tsx` and `src/lib/utils.ts`.
+- **Unchanged:** `package.json`, `package-lock.json`.
+
+#### Verification (re-run by the asserting session):
+- **Suite:** 321 passed, 0 skipped in 826.88 s (`MAirina_Tucc\tests`, `-p no:cacheprovider`; app closed).
+- **UI:** `npm run build` and `npm run lint` both exit 0 in `MAirina_Tucc\rimer-ui` (`tsc -b && vite build` → dist in 27.13 s; `eslint .` clean).
+- **Through the Vite proxy, in the user's own `start.ps1` session** (read-only requests only):
+  - `GET /api/stats` 200
+  - `GET /api/atlas?lane=drill` 200
+  - `POST /api/xray` with the user's verse: 200, rhyme letters A,-,A,B,B,B, a simile on line 1, alliteration on lines 4–5 and the multisyllabic rhyme on lines 5–6
+  - A direct request with `Host: evil.test:8000` gets 403 JSON.
+- **Invariants:**
+  - `lyrics.db` size and modified time are unchanged (78,524,416 bytes).
+  - Its 0-byte `-wal` and 32 KB `-shm` disappeared during the session. MAirina opens `lyrics.db` only through the immutable read-only URI (`corpus.open_ro`), so another process removed them. The cause was not identified.
+  - `MAirina_Tucc/data` gained `mairina.db` and `atlas_3a770ed6.pkl` from the user's real session. That is expected.
+- **Review:** `.workspace_archive/reviews/2026-10-03_mairina_v2_w3_api_ui.md`.
+- **Not re-run by this session** (source: `MAirina_Tucc/ORCHESTRATION/mairina_v2/wave3S/S3_handoff.md`): S3's per-finding red-before-fix runs and its live smoke. A click-through of every screen control by the agent was not done either; the user is using the screen.
+
+**Backlog:**
+- `/api/compare` makes a full corpus pass on every request, and its GET writes a `shown` list.
+- `targets` builds its cache inside the first request on a cold data dir.
+- An uppercase `LOCALHOST` Host is refused (fails closed).
+- From earlier waves: the atlas internal and multi definitions, and vote boosts pooled across kinds.
+- The lyrics-sources lane still owes a root-cause fix: rebuilds must keep `tokens` and `entities`, and its invariant must count them.
+
 ### Answer #082 - `toolshop fx`: headless VST3 arsenal rendering + Ableton Live bridge (`toolshop/fx/*`, `toolshop/daw/live_bridge_script.py`)
 **Timestamp:** 2026-10-02
 **Action Type:** Implementation (design `docs/superpowers/specs/2026-10-02-plugin-arsenal-fx-design.md`; megaplan `plugin-arsenal-fx`).

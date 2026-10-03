@@ -4,7 +4,45 @@ Anchor sets, a rhyme finder that learns your taste, and a craft engine that meas
 
 Spec: `docs/superpowers/specs/2026-09-29-mairina-anchors-design.md`.
 
-## Run
+## Writing screen (browser)
+
+```powershell
+& "D:\Projects\Music-AI-Toolshop\MAirina_Tucc\start.ps1"
+```
+
+`start.ps1`:
+1. Starts the engine, `mt serve`, which binds to `127.0.0.1:8000` and nothing else.
+2. Starts the writing screen, `rimer-ui` (Vite on `127.0.0.1:5174`), each in its own minimized window.
+3. Waits for the engine, warms the corpus atlas (about 20 s the first time), and opens `http://127.0.0.1:5174`.
+
+To stop, close the two windows titled "MAirina engine" and "MAirina screen".
+
+On the screen:
+- **Controls bar:** scheme, lines, lane, section, mode, fresh, artist and seed. **New anchors** gives one end-word per line.
+- **Editor rows:** you write each line.
+  - The syllable count turns green inside the lane/section target (for example 10–15 for drill strofa), amber when the line is short, red when it runs over.
+  - The anchor chip turns green when the line ends on it.
+  - The meter bar under the line (rhyme letter, consonance gauge, `allit ✓`, devices, hints, `vs★`) opens details on click. Hints can be voted 👍/👎, and 3 down-votes mute a rule.
+  - **☆** stars the line with tags (metaphor, double-meaning, wordplay, punchline, or your own). Those tags are the only way metaphor and wordplay enter MAirina.
+- **Finder:**
+  - Double-click a word, or press **Alt+R**, or click an anchor, to get **Rhymes**. They are shaped by the line's syllable gap and its consonants.
+  - **Multis** finds phrase endings, for example `da me imaš`.
+  - **Compare** finds the words real artists put after `ko`/`kao`.
+  - **Atlas** shows device rates in real songs. These are stats only.
+  - Every list takes 👍/👎.
+- **Footer:** votes and 👍 rate, used, A/B status, muted hints, ★ count. **Save draft** records which suggestions you used.
+- **Your draft** autosaves in the browser (localStorage, with a stable draft id).
+- **If the engine is down**, a banner says so and nothing fake is shown. The screen never generates lyric text.
+
+The engine is local only:
+- Flask on loopback.
+- Host allow-list (`127.0.0.1`/`localhost`); cross-site requests rejected.
+- JSON-only errors.
+- No external services, no API keys, no LLM.
+
+Your votes and stars live in `MAirina_Tucc\data\mairina.db`. Use `mt serve --data-dir <folder>` for a throwaway session.
+
+## Run (terminal)
 
 ```powershell
 & "D:\Projects\Music-AI-Toolshop\MAirina_Tucc\mt.ps1" <command> [options]

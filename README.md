@@ -230,7 +230,7 @@ MAirina_Tucc\mt.ps1 vote 2+ 4- ; MAirina_Tucc\mt.ps1 hint-vote <rule_id> - ; MAi
 
 - **Docs:** `MAirina_Tucc/README.md`.
 - **Plans:** `.workspace_archive/plans/mairina-v2-craft-4d7a19.md` and `mairina-v2-api-ui-15383c.md`.
-- **In progress:** a local Flask API (127.0.0.1 only, no external services) and the `rimer-ui` React writing screen.
+- **Shipped (#083):** the local Flask API (`mt serve`, 127.0.0.1 only, no external services) and the `rimer-ui` React writing screen — `MAirina_Tucc\start.ps1` starts both and opens the browser.
 
 ### Suno Tools (`toolshop suno`)
 

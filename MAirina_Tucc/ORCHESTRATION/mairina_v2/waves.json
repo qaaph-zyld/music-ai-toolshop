@@ -7,7 +7,8 @@
   "review_w1": "D:/Projects/.workspace_archive/reviews/2026-09-30_mairina_v2_w1.md",
   "executor": "Devin Local, model SWE-2 Max, paste mode (one prompt per agent)",
   "completed": {
-    "wave 1 (D1 craft engine)": "delivered 2026-09-30, 124 tests pass, adversarial review approved-with-fixes -> wave 1F; uncommitted until 1F passes"
+    "wave 1 (D1 craft engine)": "delivered 2026-09-30, 124 tests pass, adversarial review approved-with-fixes -> wave 1F; uncommitted until 1F passes",
+    "wave 3 (D3 API + 3S hardening + D4 rimer-ui)": "delivered and verified 2026-10-03; commits 92f5c3f (API + 3S hardening), 3b8a685 (rimer-ui + start.ps1), docs(#083) (records); suite 321 passed / 0 skipped; review .workspace_archive/reviews/2026-10-03_mairina_v2_w3_api_ui.md approved-with-fixes, 0 blockers"
   },
   "external_change_20260930": {
     "source": "lyrics-sources lane closeout (ledger handoffs/orchestration_ledger_lyrics_sources_20260929.md, commits 7afa490..d3c58c7)",

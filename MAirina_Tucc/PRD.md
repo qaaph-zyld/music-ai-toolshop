@@ -1,4 +1,11 @@
 # Product Requirements Document (PRD)
+
+> **Status note (2026-10-02, MAirina v2):** this PRD is the original vision. Where it conflicts with v2, v2 wins:
+> - **MAirina finds and analyzes; it never writes lyric lines.** The user rejected every AI-written line, so the "LLM integration for ideation" items in Phase 2 (for example "generate 4 lines about [topic]") are **parked**, not implemented.
+> - The stack is a local **Flask** API on `127.0.0.1:8000` (not FastAPI) plus the `rimer-ui` React screen. There are no external services, API keys or LLMs.
+> - The rhyme source is the real-artist corpus in `lyrics.db` (genius-pro), not the Hunspell dictionary. `rimer-sr` remains a possible later fallback.
+>
+> Current behaviour: `README.md`. Plans: `.workspace_archive/plans/mairina-v2-craft-4d7a19.md`, `mairina-v2-api-ui-15383c.md`. CHANGELOG #077 onward.
 **Project Name:** MAirina Tucc (formerly RimerSR)
 **Vision:** A personal, professional-grade AI creative writing suite tailored for Serbian songwriting, evolving from a rhyme dictionary into an end-to-end lyric and music production assistant.
 **Target Audience:** Solo developer / Serbian songwriter (Personal Use).

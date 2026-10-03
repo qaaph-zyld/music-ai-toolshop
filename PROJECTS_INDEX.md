@@ -22,7 +22,7 @@
 | - | mastering_tool | ✅ Active | Git submodule: LUFS, reference, vocal doctor, chain DSL |
 | - | suno_prompter | ✅ Active | Git submodule: rules-as-code Suno prompt engine (`suno.py plan`/`validate`/`rules`, 39-rule rulebook v1.0.2) |
 | - | Voicebox | 🟡 External | Vendored fork removed; re-clone when GPU gate opens |
-| - | MAirina_Tucc | ✅ Active (v2) | Serbian line-craft **finder** (never writes lines): `mt` anchors/rhyme/multi/xray/star/me/atlas/compare/vote over `lyrics.db` (genius-pro, read-only). Local API + `rimer-ui` React screen in progress |
+| - | MAirina_Tucc | ✅ Active (v2) | Serbian line-craft **finder** (never writes lines): `mt` anchors/rhyme/multi/xray/star/me/atlas/compare/vote over `lyrics.db` (genius-pro, read-only). Local Flask API + `rimer-ui` writing screen shipped (#083): `MAirina_Tucc\start.ps1` starts both |
 
 ## Strategic Roadmap
 
