@@ -49,7 +49,7 @@
 
 ## Resume point (2026-10-03 — wave 3 closed)
 
-- **Pushing is the user's call.** Unpushed on `master`: the wave-3 triple (`92f5c3f` API+3S, `3b8a685` screen, `docs(#083)` records) plus the earlier lanes (lyrics-sources `f25c664`…`d3c58c7`, Nachtfahrt docs/beats, `e5edb1f` fx).
+- **master pushed** (`origin/master` = `f2317dc`). `92f5c3f`/`3b8a685` (plus the earlier lanes: lyrics-sources `f25c664`…`d3c58c7`, Nachtfahrt docs/beats, `e5edb1f` fx) were pushed by another session at 00:41 on 2026-10-03; `f2317dc` went up in this session's push together with the beat-flip docs `2096c5f`, `ac609a4`, `8920fa0`.
 - **lyrics-sources lane still owes its root-cause fix:** rebuilds must preserve or re-trigger the CLASSLA `tokens`/`entities`, and that lane's invariant must count them (the 2026-09-30 rebuild wiped both; restored by wave 1F).
 - **Backlog** (from `.workspace_archive/reviews/2026-10-03_mairina_v2_w3_api_ui.md`): `/api/compare` runs a full corpus pass per request and its GET writes a `shown` list; `targets` cold-builds inside the first request on a cold data dir; uppercase `LOCALHOST` Host is refused (fails closed); the atlas is a startup snapshot — restart `mt serve` after `lyrics.db` changes; carried from W2: atlas internal/multi definitions, vote boosts pooled across kinds.
 - **Product rule, unchanged:** MAirina finds and analyzes; it never writes lyric lines.

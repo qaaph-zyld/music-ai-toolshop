@@ -119,3 +119,16 @@ Terminal only. `mt stats` tracks it; you decide keep or kill.
 ```
 
 Unit tests run on a tiny hand-written fixture corpus. The live smoke test is skipped when `lyrics.db` is missing.
+
+## Linux / cloud
+
+`mt.ps1`/`start.ps1` are Windows-only. On Linux (e.g. Claude Code on the web), from the repo root:
+
+```bash
+pip install -e . Flask==3.1.3 Werkzeug==3.1.8 pytest==9.1.1
+PYTHONPATH=MAirina_Tucc python -m pytest MAirina_Tucc/tests -q -p no:cacheprovider   # expect test_live_smoke skipped: no lyrics.db
+PYTHONPATH=MAirina_Tucc python -m mairina serve --data-dir /tmp/mairina             # corpus routes answer 503 without lyrics.db
+cd MAirina_Tucc/rimer-ui && npm ci --legacy-peer-deps && npm run build && npm run lint
+```
+
+`lyrics.db` stays local (78 MB, Genius-derived, gitignored); real-corpus checks run on the Windows machine.
