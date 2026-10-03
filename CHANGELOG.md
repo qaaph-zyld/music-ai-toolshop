@@ -1,5 +1,29 @@
 # Changelog
 
+### Answer #084 - `audition_review`: commented listening pages for ear-test gates (`scripts/audition_review.py`)
+**Timestamp:** 2026-10-04
+**Action Type:** Implementation (plan `~/.devin/plans/plan-6afe7ffeb976d7b2.md`, adversarial-reviewed).
+
+**Previous state:** ear-test gates run on plain static pages — `python -m http.server 8777` over `Stemmeca_alatkka/stems` serves generated `index.html` files with `<audio>` players, and the user's verdicts/comments travel out-of-band in chat. Comments are not persisted anywhere an agent can read back.
+
+**Current state:** `scripts/audition_review.py` (stdlib only) provides a review server on `127.0.0.1:8778` that serves the same stems root and **injects a verdict-select + comment widget beside every `<audio>` element at serve time** — files on disk are never touched, so `release_manifest.json` sha256 checks and agent-curated pages (e.g. `flip_sample/index.html`, appended per wave) stay valid. `POST /__audition__/comment` appends `{ts_utc, audio, verdict, comment}` to `<root>/_audition_comments/<page-slug>.jsonl`; `GET /__audition__/comments` pre-fills saved entries. Verdicts: `pick` / `ok` / `flag` / `reject`. Subcommands: `serve` | `page` (index generator for NEW packs) | `comments` (log reader). First use: the OGCM G3 organ ear test at `http://127.0.0.1:8778/flip_sample/`.
+
+#### Files Affected:
+- **NEW:** `scripts/audition_review.py` – serve (ThreadingHTTPServer, 127.0.0.1-only, .html injection, JSONL comment log) / page / comments subcommands.
+- **NEW:** `tests/test_audition_review.py` – 22 tests: injection incl. directory-index serving, wav passthrough, comment round-trip, per-page isolation, guards (traversal slug, bad verdict, oversized body, 404), generator, reader.
+- **NEW:** `docs/superpowers/specs/2026-10-04-audition-review-workflow.md` – the repeatable pack → serve → listen → review workflow.
+- **MODIFIED:** `CHANGELOG.md` – this entry.
+
+#### Technical Decisions:
+- Serve-time injection rather than editing pages on disk: `nachtfahrt_flip` manifests hash `index.html`; `flip_sample/index.html` is hand-curated per wave.
+- `ThreadingHTTPServer` so audio streaming never serializes behind a comment POST.
+- Comments keyed by the player's relative `src` — stable across page edits.
+- No dependencies added (stdlib `http.server` only) per AGENTS dep policy.
+- `:8777` static server untouched; `check_audition_serve.py` still gates it.
+
+#### Next Actions Required:
+- G3: user listens at `http://127.0.0.1:8778/flip_sample/`, marks the chosen organ `pick` (comments optional); agent reads `_audition_comments/flip_sample.jsonl` and records the disposition in `ORCHESTRATION/ogcm_flip/LEDGER.md`.
+
 ### Answer #083 - MAirina Tucc v2 wave 3: local Flask API (`mt serve`), 3S hardening, and the `rimer-ui` writing screen (`start.ps1`)
 **Timestamp:** 2026-10-03
 **Action Type:** Implementation (MAirina v2 waves 3 D3, 3S and D4; plan `.workspace_archive/plans/mairina-v2-api-ui-15383c.md`, closeout plan `.workspace_archive/plans/mairina-v2-w3-closeout-26137c.md`).
