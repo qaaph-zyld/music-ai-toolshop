@@ -1,0 +1,196 @@
+{
+  "task": "Plugin-Arsenal-FX Wave 2 — Ableton bridge (full F) + session->chain (B) + DawDreamer eval/integration (E)",
+  "project_root": "d:/Projects/Music-AI-Toolshop",
+  "orchestration_dir": "ORCHESTRATION",
+  "plan": "d:/Projects/.workspace_archive/plans/plugin-arsenal-fx-wave2-2026-10-03.md",
+  "waves": [
+    {
+      "wave": 1,
+      "name": "Bridge install + DawDreamer eval spike",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "A",
+          "role": "implementer",
+          "name": "Agent A: Live bridge parity fix + install + verify",
+          "task": "Fix plugins.* FL-parity in live_bridge_script.py (param_index kwarg + get_param_name), add 'daw bridge-install' subcommand, copy script to Live 12.1.11 User Remote Scripts, run bridge tests, hand user the Control-Surface prefs gate, verify 'daw --port 9878 status'.",
+          "scope": "toolshop/daw/ + tests/test_live_bridge.py + %APPDATA%/Ableton",
+          "output": "fx_wave2/wave1/agent_a_handoff.md",
+          "constraints": [
+            "Use the venv Python: .venv\\Scripts\\python.exe (3.11.9).",
+            "Stage only lane-owned paths; ~51 foreign dirty paths exist — never stage/clean/reset them.",
+            "USER GATE: Control Surface selection in Live prefs is manual — agent verifies afterward, cannot do it.",
+            "Do NOT commit — ledger records state; commits happen at wave gates."
+          ],
+          "context_budget": "75k",
+          "instructions": [
+            "Read AGENTS.md (repo root) + megaplan section W1A.",
+            "In live_bridge_script.py: rename _plugins_get_param/_plugins_set_param kwarg 'param' -> 'param_index'; add 'plugins.get_param_name' handler returning {'name': p.name, 'param': idx} via _device(track, slot).parameters[param_index].",
+            "Extend tests/test_live_bridge.py: fake-tree roundtrip covering plugins.get_param / get_param_name / set_param with param_index kwargs (the exact kwargs toolshop/daw/plugins.py sends).",
+            "Add 'bridge-install' subcommand in daw_cli.py: copy live_bridge_script.py -> %APPDATA%/Ableton/Live 12.1.11/Preferences/User Remote Scripts/ToolshopLive/__init__.py AND Live 12.2 path; report installed/updated/stale-diff; print manual prefs steps.",
+            "Run: .venv\\Scripts\\python.exe -m pytest tests/test_live_bridge.py -v",
+            "Run install, then hand the user the prefs gate; after user confirms, run: .venv\\Scripts\\python.exe -m toolshop.cli daw --port 9878 status + tracks.list smoke.",
+            "Write handoff with exact commands, exit codes, outputs, and whether the user gate is open/passed."
+          ]
+        },
+        {
+          "id": "B",
+          "role": "implementer",
+          "name": "Agent B: DawDreamer eval spike",
+          "task": "Install dawdreamer==0.9.0 into the umbrella .venv, write toolshop/fx/dawdreamer_eval.py (subprocess-isolated checks), run it, emit data/toolshop/fx/dawdreamer_eval.json + verdict summary for the user's adopt/reject gate.",
+          "scope": "toolshop/fx/ + tests/test_fx_dawdreamer_eval.py + .venv install",
+          "output": "fx_wave2/wave1/agent_b_handoff.md",
+          "constraints": [
+            "Use the venv Python: .venv\\Scripts\\python.exe — NEVER global 3.13 (AGENTS.md hard rule). If no cp311 win_amd64 wheel: verdict 'blocked-env', stop, record.",
+            "Every plugin load inside a subprocess (probe.py pattern) with hard timeout — a plugin crash must not kill the eval.",
+            "Measurement discipline: warmup run + baseline repeated at end; >10% baseline drift = 'inconclusive', never a number.",
+            "Do NOT edit chain.py/registry.py/engine.py — eval only, integration is W3 behind the adopt gate."
+          ],
+          "context_budget": "75k",
+          "instructions": [
+            "pip install dawdreamer==0.9.0 into .venv; record wheel tag. License GPLv3 — note for ledger.",
+            "Write toolshop/fx/dawdreamer_eval.py: checks = vst2_fx (Glitch2_64bit render probe signal, pass max|delta|>-80dBFS), vsti (Serum_x64 + 4-bar MIDI clip, pass RMS>-60dBFS), automation (ramped param -> output differs first vs second half), preset (load .fxp/.vstpreset from disk, no error + state delta), determinism (two renders identical), parity_perf (same VST3 via pedalboard vs dawdreamer, warmup + repeated baseline), dry_gate.",
+            "Eval plugins (from plugin_registry.json): Glitch2 = C:/Program Files/VstPlugins/Glitch2_64bit/Glitch2.dll; Serum_x64 = C:/Program Files/Steinberg/VstPlugins/Serum_x64.dll; VST3 parity arm = first hostable non-shell entry (e.g. Kickstart 2 VST3).",
+            "Write tests/test_fx_dawdreamer_eval.py — importorskip('dawdreamer'), unit tests for eval harness logic (verdict mapping, JSON schema), real-plugin checks @pytest.mark.slow.",
+            "Run the eval; write data/toolshop/fx/dawdreamer_eval.json {check, verdict, evidence, wall_s} + printed summary.",
+            "Handoff: per-check verdicts, wheel tag, timings, recommendation seed (adopt/adopt-scoped/reject) — user makes the call at the gate."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "name": "Extraction + loopback capture",
+      "parallel": true,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "C",
+          "role": "implementer",
+          "name": "Agent C: daw export-chain (Live session -> fx YAML)",
+          "task": "New toolshop/daw/export_chain.py + 'daw export-chain --track N [--master]' subcommand: devices.list + devices.get_params -> FXChain YAML with unresolved-device bypass stages + x_devices/x_unresolved/x_range_warnings metadata.",
+          "scope": "toolshop/daw/ + toolshop/fx/chain.py read-only + tests/test_daw_export_chain.py",
+          "output": "fx_wave2/wave2/agent_c_handoff.md",
+          "constraints": [
+            "Live-only — no FL support (FL bridge lacks slot enumeration).",
+            "FXChain.from_dict folds unknown STAGE keys into params — metadata must be TOP-LEVEL keys only (x_source, x_devices, x_unresolved).",
+            "param index 0 'Device On' -> stage bypass (not a param).",
+            "bridge master-track support: extend _track() so track=-1 -> song.master_track (shared with W4)."
+          ],
+          "context_budget": "90k",
+          "instructions": [
+            "Read megaplan W2C + toolshop/fx/chain.py + toolshop/daw/daw_cli.py + tests/test_live_bridge.py fakes.",
+            "export_chain.py: normalize device names (strip '(VST3)/(VST2)/(AU)', '.vst3', trim) -> registry.find_plugin; unresolved -> bypass:true stage + x_unresolved entry; params {name:value} for enabled params; x_devices holds per-device {value,min,max} capture + class_name; instruments -> x_instrument + bypassed stage.",
+            "daw_cli.py: 'export-chain --track N [--master] [-o out] [--name x]' writing FXChain YAML (chains dir default).",
+            "tests/test_daw_export_chain.py: canned devices.list/get_params payloads, golden YAML, unresolved handling, Device-On->bypass, master mapping, range warnings. No Live needed.",
+            "pytest the new file + test_daw.py + test_live_bridge.py regression.",
+            "If the W1A user gate passed and Live is up: export a real track chain, run 'fx render' + 'fx measure' on a short wav, quote deltas in handoff. Otherwise mark live-proof as pending."
+          ]
+        },
+        {
+          "id": "D",
+          "role": "implementer",
+          "name": "Agent D: loopback capture module",
+          "task": "Feasibility probe first (WASAPI loopback on default output), then toolshop/daw/loopback_capture.py + 'daw capture --seconds N [-o wav] [--play]'.",
+          "scope": "toolshop/daw/ + tests/test_daw_capture.py + pyproject.toml (+soundcard)",
+          "output": "fx_wave2/wave2/agent_d_handoff.md",
+          "constraints": [
+            "FIRST task: 3s loopback feasibility capture. If Live uses exclusive ASIO -> record verdict + mitigation (shared WASAPI/MME or virtual cable) BEFORE building more.",
+            "soundcard (MIT) into pyproject 'all' + 'daw' surface; license ledger note.",
+            "Tests mock soundcard — no real audio in CI.",
+            "Capture writes under data/toolshop/fx/ (data boundary) unless -o given."
+          ],
+          "context_budget": "50k",
+          "instructions": [
+            "pip install soundcard into .venv; verify loopback capture returns non-silent samples while system audio plays.",
+            "loopback_capture.py: record(seconds, sr=48000)->ndarray via soundcard loopback microphone; daw_cli 'capture --seconds N [-o out.wav] [--play]' (--play sends transport.play on the bridge port).",
+            "tests/test_daw_capture.py: mocked soundcard device, wav write, --play ordering.",
+            "Handoff: feasibility verdict (which driver mode Live uses if detectable), sample evidence (RMS/peak of probe capture), commands."
+          ]
+        },
+        {
+          "id": "E",
+          "role": "implementer",
+          "name": "Agent E (optional): lazy-probe persistence",
+          "task": "Persist 'fx params' live-load fallback dumps into plugin_probes.json so a plugin is probed once and cached forever.",
+          "scope": "toolshop/fx/fx_cli.py + probe.py + tests",
+          "output": "fx_wave2/wave2/agent_e_handoff.md",
+          "constraints": [
+            "Optional lane — skip if wave budget tight.",
+            "Only the params fallback path; do not trigger a corpus-wide probe."
+          ],
+          "context_budget": "30k",
+          "instructions": [
+            "In fx_cli.py params fallback: after live-load dump, merge a minimal probe record {name,path,format,parameters,verdict:'params-only'} via probe.save_probe_db / merge_probe_into_registry.",
+            "Test: params command writes probe record; second call reads cache without loading plugin (mock engine.load_plugin_stage).",
+            "Handoff with before/after probe-db evidence."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "name": "DawDreamer engine integration (gated on adopt verdict)",
+      "parallel": false,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "F",
+          "role": "implementer",
+          "name": "Agent F: DawDreamer engine backend",
+          "task": "engine_dd.py + chain schema (engine/preset/automation/instrument+midi) + registry hostable_by + --engine CLI + probe --engine; VST2/VSTi/automation/preset unlock.",
+          "scope": "toolshop/fx/ + tests/test_fx_engine_dd.py + pyproject.toml + requirements.lock.txt + specs + README/CHANGELOG",
+          "output": "fx_wave2/wave3/agent_f_handoff.md",
+          "constraints": [
+            "GATE: only runs after user reviews dawdreamer_eval.json and signs off 'adopt' (scoped or full). If reject: document REAPER (avenue K) fallback note instead — no code.",
+            "chain 'engine:' defaults to pedalboard — backwards compatible; preset/automation/instrument under pedalboard = hard error.",
+            "WaveShell under DawDreamer out of scope.",
+            "dawdreamer==0.9.0 pin + GPLv3 license-ledger row + OSS-map T7 row update.",
+            "Registry version bump 1->2 with load() tolerant of v1."
+          ],
+          "context_budget": "110k",
+          "instructions": [
+            "Read megaplan W3 + engine.py + chain.py + registry.py + eval JSON evidence.",
+            "engine_dd.py: RenderEngine + linear processor graph; params by name; set_automation for 'automation:' stage blocks; load_preset for 'preset:'; assert_wet + tail flush parity.",
+            "chain.py: 'engine' field (default pedalboard); stage 'preset:', 'automation:' ([{time_beats|time_seconds, value}]), 'instrument: true' + chain 'midi:' (file or inline notes) for VSTi->audio feeding downstream stages.",
+            "registry.py: 'hostable_by' per entry (vst3->[pedalboard,dawdreamer], vst2->[dawdreamer], vst3-shell->[pedalboard]); version 2; validate(chain, reg) engine-aware.",
+            "probe_one --engine dawdreamer so VST2 params reach plugin_probes.json.",
+            "fx_cli: --engine on render/batch/params/probe.",
+            "pyproject: 'fx' extra [pedalboard>=0.9, dawdreamer==0.9.0, pyyaml, librosa, soundfile, pyloudnorm]; add to 'all'; regen requirements.lock.txt.",
+            "Spec 2026-10-02 limits amended (VST2/presets/automation/VSTi scope per adopted verdict); README + CHANGELOG #084+.",
+            "Append evidence-citation block for v2 OSS G1/W4b (music_toolshop_v2/ORCHESTRATION/oss_scout/ledger.md or .workspace_archive/reviews/) — flag the cross-repo write in handoff.",
+            "tests: importorskip('dawdreamer'); real-plugin tests @pytest.mark.slow; full suite green."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 4,
+      "name": "Measure->adjust loop + closeout",
+      "parallel": false,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "G",
+          "role": "implementer",
+          "name": "Agent G: capture->measure->adjust + wave closeout",
+          "task": "'daw capture --measure' (premaster report) + '--target-lufs X --apply' one bounded adjust pass via mixer.set_volume/devices.set_param; then wave closeout.",
+          "scope": "toolshop/daw/ + tests + CHANGELOG/README + handoffs",
+          "output": "fx_wave2/wave4/agent_g_handoff.md",
+          "constraints": [
+            "ONE bounded adjust pass in v1 — no convergence loop; second pass = re-run.",
+            "Master-track volume uses the shared track=-1 bridge extension.",
+            "Closeout: 'toolshop closeout' exit 0, full pytest, CHANGELOG committed WITH code, handoff + session_end."
+          ],
+          "context_budget": "45k",
+          "instructions": [
+            "measure_loop.py: capture -> premaster.analyze_premaster report (LUFS/TP/PSR) -> if --apply: compute nudge, apply via bridge, re-capture, re-measure, report both.",
+            "Tests mock capture + client.",
+            "Closeout checklist per AGENTS.md; paste closeout evidence block in handoff; write .windsurf/handoffs/ + .workspace_archive/handoffs/ entries; update ACTIVE override."
+          ]
+        }
+      ]
+    }
+  ]
+}

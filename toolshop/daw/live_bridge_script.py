@@ -44,6 +44,9 @@ Names mirror the FL bridge where semantics match:
 - ``scenes.list|fire``
 - ``clips.list|fire|stop``
 - ``devices.list|get_params|set_param`` (by index or name)
+- ``plugins.get_param_count|get_param|get_param_name|set_param``
+  (FL-compatible; the client sends ``param_index=``, so both ``param_index``
+  and the legacy ``param`` kwarg are accepted)
 """
 
 from __future__ import annotations
@@ -294,6 +297,7 @@ class ToolshopLive(ControlSurface):
             # FL-compatible plugin aliases → device params
             "plugins.get_param_count": self._plugins_get_param_count,
             "plugins.get_param": self._plugins_get_param,
+            "plugins.get_param_name": self._plugins_get_param_name,
             "plugins.set_param": self._plugins_set_param,
         }
         return handlers.get(method)
@@ -557,15 +561,37 @@ class ToolshopLive(ControlSurface):
     def _plugins_get_param_count(self, track: int, slot: int = 0) -> Dict[str, Any]:
         return {"param_count": len(self._device(track, slot).parameters)}
 
-    def _plugins_get_param(self, track: int, slot: int, param: int) -> Dict[str, Any]:
-        p = self._device(track, slot).parameters[param]
+    @staticmethod
+    def _resolve_param_index(
+        param_index: Optional[int], param: Optional[int]
+    ) -> int:
+        """FL/client convention is ``param_index``; ``param`` is the legacy name."""
+        idx = param_index if param_index is not None else param
+        if idx is None:
+            raise ValueError("param_index required")
+        return idx
+
+    def _plugins_get_param(
+        self, track: int, slot: int,
+        param_index: Optional[int] = None, param: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        idx = self._resolve_param_index(param_index, param)
+        p = self._device(track, slot).parameters[idx]
         return {"name": p.name, "value": p.value}
 
-    def _plugins_set_param(
-        self, track: int, slot: int, param: int, value: float
+    def _plugins_get_param_name(
+        self, track: int, slot: int, param_index: int
     ) -> Dict[str, Any]:
+        p = self._device(track, slot).parameters[param_index]
+        return {"name": p.name, "param": param_index}
+
+    def _plugins_set_param(
+        self, track: int, slot: int, value: float,
+        param_index: Optional[int] = None, param: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        idx = self._resolve_param_index(param_index, param)
         return self._devices_set_param(
-            track=track, device=slot, param_index=param, value=value)
+            track=track, device=slot, param_index=idx, value=value)
 
 
 def create_instance(c_instance: Any) -> ToolshopLive:

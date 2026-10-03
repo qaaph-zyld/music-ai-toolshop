@@ -244,6 +244,33 @@ def test_fl_compat_aliases(bridge):
     assert resp["result"]["value"] == 0.3
 
 
+def test_plugins_client_param_index_convention(bridge):
+    """toolshop/daw/plugins.py sends param_index= — the wire kwargs the real
+    DAWClient emits must round-trip on the Live bridge."""
+    b, song = bridge
+
+    resp = b._dispatch("plugins.get_param",
+                       {"track": 0, "slot": 0, "param_index": 1}, 1)
+    assert resp.get("result") == {"name": "Freq", "value": 0.7}
+
+    resp = b._dispatch("plugins.get_param_name",
+                       {"track": 0, "slot": 0, "param_index": 0}, 2)
+    assert resp.get("result") == {"name": "Gain", "param": 0}
+
+    resp = b._dispatch("plugins.set_param",
+                       {"track": 0, "slot": 0, "param_index": 1,
+                        "value": 0.9}, 3)
+    assert resp["result"]["value"] == 0.9
+    assert song.tracks[0].devices[0].parameters[1].value == 0.9
+
+
+def test_plugins_param_index_missing_is_error(bridge):
+    b, _ = bridge
+    resp = b._dispatch("plugins.get_param", {"track": 0, "slot": 0}, 1)
+    assert resp["error"]["code"] == -32000
+    assert "param_index" in resp["error"]["message"]
+
+
 # ---------------------------------------------------------------------------
 # TCP roundtrip — real DAWClient against a live bridge instance
 # ---------------------------------------------------------------------------

@@ -12,8 +12,12 @@ Subcommands:
 from __future__ import annotations
 
 import argparse
+import filecmp
 import json
+import os
+import shutil
 import sys
+from pathlib import Path
 from typing import Optional, Sequence
 
 from .client import (
@@ -58,6 +62,19 @@ def add_parser(subparsers: argparse._SubParsersAction) -> None:
     # status
     daw_subparsers.add_parser(
         "status", help="Show DAW connection state and project info"
+    )
+
+    # bridge-install (local op — no DAW connection needed)
+    install_parser = daw_subparsers.add_parser(
+        "bridge-install",
+        help="Install the ToolshopLive Remote Script into Ableton (local op)",
+    )
+    install_parser.add_argument(
+        "--live-version",
+        type=str,
+        default=None,
+        help="Only this Live version dir, e.g. '12.1.11' "
+        "(default: all 'Live *' folders found under %APPDATA%\\Ableton)",
     )
 
     # transport
@@ -375,6 +392,9 @@ def add_parser(subparsers: argparse._SubParsersAction) -> None:
 
 def run(args: argparse.Namespace) -> int:
     """Execute the `daw` subcommand."""
+    if getattr(args, "daw_command", None) == "bridge-install":
+        return _cmd_bridge_install(args)
+
     client = DAWClient(
         host=getattr(args, "host", DEFAULT_HOST),
         port=getattr(args, "port", DEFAULT_PORT),
@@ -431,6 +451,56 @@ def _dispatch(client: DAWClient, args: argparse.Namespace) -> int:
     else:
         print(f"Unknown daw command: {cmd}", file=sys.stderr)
         return 1
+
+
+def _cmd_bridge_install(args: argparse.Namespace) -> int:
+    """Copy live_bridge_script.py into Ableton's User Remote Scripts.
+
+    Local filesystem op — Live must not be running for the new script to be
+    picked up cleanly, and selecting the Control Surface stays a manual
+    Preferences step (printed at the end).
+    """
+    src = Path(__file__).with_name("live_bridge_script.py")
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        print("Error: %APPDATA% is not set", file=sys.stderr)
+        return 1
+    ableton_dir = Path(appdata) / "Ableton"
+
+    live_version = getattr(args, "live_version", None)
+    if live_version:
+        versions = [live_version if live_version.startswith("Live ")
+                    else f"Live {live_version}"]
+    else:
+        versions = sorted(
+            p.name for p in ableton_dir.glob("Live *")
+            if (p / "Preferences").is_dir()
+        ) if ableton_dir.is_dir() else []
+    if not versions:
+        print(f"No Ableton Live preferences found under {ableton_dir} "
+              "— is Live installed?", file=sys.stderr)
+        return 1
+
+    for ver in versions:
+        dest_dir = (ableton_dir / ver / "Preferences"
+                    / "User Remote Scripts" / "ToolshopLive")
+        dest = dest_dir / "__init__.py"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        state = "installed"
+        if dest.exists():
+            state = ("unchanged" if filecmp.cmp(src, dest, shallow=False)
+                     else "updated")
+        if state != "unchanged":
+            shutil.copyfile(src, dest)
+        print(f"{ver}: {state} -> {dest}")
+
+    print("\nManual step (cannot be automated):")
+    print("  1. (Re)start Ableton Live")
+    print("  2. Options -> Preferences -> Link/Tempo/MIDI")
+    print("  3. Control Surface -> select 'ToolshopLive' "
+          "(no Input/Output ports needed)")
+    print("  4. Verify: toolshop daw --port 9878 status")
+    return 0
 
 
 def _cmd_status(client: DAWClient) -> int:
