@@ -703,7 +703,7 @@ class TestStructural:
     def test_registry_json_committed_and_valid(self):
         doc = json.loads(registry.REGISTRY_PATH.read_text(encoding="utf-8"))
         assert doc["version"] == 1
-        assert len(doc["sources"]) == 19  # wave-A I3 merged sr/en wikisource -> wikisource_pd (19 frozen rows)
+        assert len(doc["sources"]) == 19  # I3 merged sr/en wikisource
 
     def test_named_adapters_resolve_or_defer(self):
         """Contract (SPEC §7.1): every non-null adapter name must map to an
