@@ -4,3 +4,6 @@ url = https://github.com/qaaph-zyld/mastering_tool.git
 [submodule "suno_prompter"]
 	path = suno_prompter
 	url = https://github.com/qaaph-zyld/suno_prompter.git
+[submodule "open_DAW"]
+	path = open_DAW
+	url = https://github.com/qaaph-zyld/open_DAW.git
