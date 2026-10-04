@@ -19,3 +19,9 @@ url = https://github.com/qaaph-zyld/mastering_tool.git
 [submodule "MAirina_Tucc"]
 	path = MAirina_Tucc
 	url = https://github.com/qaaph-zyld/MAirina_Tucc.git
+[submodule "studio"]
+	path = studio
+	url = https://github.com/qaaph-zyld/studio.git
+[submodule "Stemmeca_alatkka"]
+	path = Stemmeca_alatkka
+	url = https://github.com/qaaph-zyld/Stemecca_alatKKa.git
