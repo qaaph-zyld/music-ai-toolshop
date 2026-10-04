@@ -110,6 +110,17 @@ D:\Projects\Music-AI-Toolshop\.venv\Scripts\python.exe -m toolshop.cli stems <pa
 & D:\Projects\Music-AI-Toolshop\run_crhymetv_batch.ps1
 ```
 
+## Submodules (W2' segmentation, 2026-10-04)
+Seven children are their own repos (see `.gitmodules`): `mastering_tool`, `suno_prompter`, `open_DAW`,
+`track_reverse_engineering`, `suno_extractor`, `track_inventory`, `MAirina_Tucc`.
+- **Work happens in the child repo, on the child's own branches.** The parent only bumps the gitlink
+  pointer (`submodule: <name> -> <sha>` commits). Do not edit files inside a submodule from a parent lane.
+- Clone the parent with `git clone --recurse-submodules`; `MAirina_Tucc` and `track_inventory` are
+  **private** repos — GitHub auth required.
+- `suno_extractor` and `track_inventory` keep legacy absolute paths via junctions at
+  `D:\Projects\suno_extractor` / `D:\Projects\track_inventory`.
+- MAirina_Tucc still imports `toolshop.syllables`/`toolshop.rhyme_miner` — it only runs inside this repo.
+
 ## mastering_tool submodule
 Separate product (tray EXE + WSL bash pipeline). Do not refactor casually; it is in
 daily use. Shell scripts are LF-only (`.gitattributes` enforced). WSL path:
