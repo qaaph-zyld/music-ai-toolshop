@@ -43,3 +43,4 @@ ORCHESTRATION/prompts/wave2_hemija_reviewer.md	DELETE-untracked	hemija lyricist 
 nul	DELETE-untracked	accidental bash 2>nul redirect artifact (reserved name)	2026-10-04 02:34	move to_be_deleted/untracked/nul back to nul
 output.json	DELETE-untracked	pytest cwd leak from test_export_text_no_directory (root cause fixed in 6b93554)	2026-10-04 15:37	move to_be_deleted/untracked/output.json back to output.json
 output.txt	DELETE-untracked	pytest cwd leak from test_export_text_no_directory (root cause fixed in 6b93554)	2026-10-04 15:37	move to_be_deleted/untracked/output.txt back to output.txt
+projects/06-opendaw	MOVE-tracked-duplicate	stale tracked copy of open_DAW repo (1,513 files incl. ~590MB Rust build output); true repo = github.com/qaaph-zyld/open_DAW; W2 submodule conversion	2026-10-04 17:40	move .to_be_deleted/2026-10-04_music/toolshop-projects-06-opendaw/06-opendaw back to projects/06-opendaw then git add (history also preserves it)

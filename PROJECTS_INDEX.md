@@ -9,7 +9,7 @@
 | 03 | lyrics-writer | ⏳ Planned | AI lyrics generation tools |
 | 04 | stem-extractor | ✅ Active | Shipped in `toolshop` core (`toolshop stem extract`) |
 | 05 | track-reverse-engineering | ✅ Active | Integrated wav_reverse_engineer production analysis |
-| 06 | open-daw | 🟡 Long horizon | Rust/C++ DAW engine; AI modules stubbed |
+| 06 | open-daw | 🟡 Parked (submodule) | Rust/C++ DAW engine at `open_DAW/` (git submodule → own repo); stale tracked duplicate `projects/06-opendaw` quarantined 2026-10-04 |
 | 07 | genius-lyrics | ✅ Active | **1,425-song corpus** at `data/toolshop/lyrics/genius/` + lyrics.db (10,654 sections, 65,912 lines, 273,801 rhyme rows; cohorts drill_trap 808 / pop 524) |
 | 08 | sample-forge | ✅ Active | `toolshop remix` - tempo/key-matched remixes and sample packs (T7) |
 | 09 | daw-bridge | ✅ Active | `toolshop daw` - live FL Studio (:9876) + Ableton Live 12 Remote Script (:9878) TCP bridge (#025, #082) |
@@ -45,6 +45,6 @@ Each project follows dev_framework principles:
 - [01-suno-library](./projects/01-suno-library/) - Extracted Suno collection
 - [02-ace-step](./projects/02-ace-step/) - Music generation
 - [05-track-reverse-engineering](./projects/05-track-reverse-engineering/) - Track reverse engineering integration
-- [06-opendaw](./projects/06-opendaw/) - DAW engine (live copy at `open_DAW/`)
+- [open_DAW](./open_DAW/) - DAW engine (git submodule → own repo; `projects/06` duplicate quarantined 2026-10-04)
 - [docs/superpowers/specs](./docs/superpowers/specs/) - Design documents
 - [docs/superpowers/plans](./docs/superpowers/plans/) - Implementation plans
