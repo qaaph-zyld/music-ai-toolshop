@@ -1,0 +1,245 @@
+{
+  "task": "lyrics-sources P2 megaplan — full ingest + synced lyrics: scale every cleared source from pilot to full volume (~18k+ new cleared songs) and add an lrclib synced-lyrics lane seeded from genius-pro",
+  "project_root": "d:/Projects/Music-AI-Toolshop",
+  "worktree_root": "d:/Projects/Music-AI-Toolshop-wt-lyrics-p2",
+  "worktree_branch": "lyrics-p2",
+  "orchestration_dir": "ORCHESTRATION/lyrics_sources",
+  "plan": "d:/Projects/.workspace_archive/plans/lyrics-sources-p2-megaplan.md",
+  "ledger": "d:/Projects/Music-AI-Toolshop/handoffs/orchestration_ledger_lyrics_sources_p2_20261004.md",
+  "dispatch": "waves sequential; P2-A agents may run parallel; P2-B runs sequential (ordered list); gates are USER gates — do not cross without explicit approval",
+  "shared_env": {
+    "python": "D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe",
+    "TOOLSHOP_DATA_DIR": "D:/Projects/Music-AI-Toolshop/data/toolshop",
+    "note": "worktree data/ is empty (gitignored) — TOOLSHOP_DATA_DIR must be exported for EVERY catalog/fetch/ingest command or resume state is lost; the main-repo .venv is the interpreter (worktrees carry no .venv)"
+  },
+  "preflight": {
+    "actor": "orchestrator (no agent)",
+    "steps": [
+      "git worktree add ../Music-AI-Toolshop-wt-lyrics-p2 -b lyrics-p2 (from repo root, master)",
+      "commit the dangling tests/test_lyrics_sources_core.py comment change on master or cherry into the lane — it is ours",
+      "verify: $env:TOOLSHOP_DATA_DIR='D:/Projects/Music-AI-Toolshop/data/toolshop'; python fetch_lyrics_source.py --list resolves corpus dirs under the MAIN repo data dir",
+      "confirm no other lane is concurrently writing data/toolshop/lyrics/"
+    ]
+  },
+  "waves": [
+    {
+      "wave": "P2-A",
+      "name": "New tooling — wikisource dump ingestor + lrclib seed generator",
+      "parallel": true,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "D1",
+          "role": "implementer",
+          "name": "P2-A1: sources/wikisource_dump.py + wikisource_dump_ingest.py (two-pass category-graph XML dump ingestor)",
+          "task": "You are the implementer for wave P2-A (agent D1) of the lyrics-sources P2 megaplan. Worktree root: d:/Projects/Music-AI-Toolshop-wt-lyrics-p2 (branch lyrics-p2). Python: D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe. Export TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop for every data-touching command.\n\nRead in order: (1) AGENTS.md at the worktree root; (2) megaplan d:/Projects/.workspace_archive/plans/lyrics-sources-p2-megaplan.md (SPEC delta §1-2 is binding); (3) ORCHESTRATION/lyrics_sources/SPEC.md §9 wikisource notes; (4) Genious_lyrics_extractor/sources/wikisource_pd.py IN FULL — you reuse its pure functions (scan_license_templates, wikitext_to_verse, _stanzas_to_sections, _latin, detect_script, _branch_for_cat, SR_ENTRY_POINTS, EN_CATEGORIES, MIN_VERSE_LINES, PD_LICENSE_URL, CC_BY_SA_URL); (5) sources/_common.py write_song_json:715 + write_index:829 + CatalogEntry:515; (6) sources/catalog.py Catalog API; (7) fetch_lyrics_source.py for catalog/resume conventions.\n\nWHY: the API catalog walk was IP-rate-limited (429). Wikimedia publishes the sanctioned bulk channel — dumps.wikimedia.org/<wiki>/latest/<wiki>-latest-pages-articles.xml.bz2. This module ingests the dump instead of calling the API.\n\nBuild:\n1. sources/wikisource_dump.py — dump streaming library, no network:\n   a. iter_dump_pages(path) -> yields (ns:int, pageid:str, title:str, wikitext:str) via bz2 + xml.etree.ElementTree.iterparse, elem.clear() per page (constant memory).\n   b. build_member_cats(path, entry_roots:dict[wiki->(root_cat, forced_slug|None)], max_depth=8) -> dict[wiki, dict[member_cat_title -> branch_slug]]: PASS 1 over the dump collecting ns-14 category pages (Категорија:* / Category:*) and the parent-category links in their wikitext; BFS/DFS from the entry roots computes the descendant set; _branch_for_cat resolves slugs exactly as the API walk does.\n   c. iter_dump_candidates(path, wiki, member_cats) -> yields CatalogEntry for ns-0 pages whose wikitext contains [[<member cat>|...]]: foreign_identifier=f'{wiki}:{pageid}', meta={wiki,pageid,page_title,via:'dump',member_cat}.\n   Reason (adversarial finding): ns-0 pages in book SUBCATS do not link the root category — a naive 'Народне песме' substring match would miss them. Membership is graph-derived, not name-matched.\n2. wikisource_dump_ingest.py (folder root, next to fetch_lyrics_source.py) — CLI: --dump <path> --wiki sr|en [--limit N] [--offset N] [--resume]. For each candidate: reuse wikisource_pd's pipeline exactly — scan_license_templates (non-pd -> catalog 'dropped' with reason; conditional -> CC-BY-SA-4.0/cc-by-sa/conditional fields), wikitext_to_verse + MIN_VERSE_LINES + _link_heavy drops, _stanzas_to_sections(fold = wiki=='sr'), song dict in the SAME shape as wikisource_pd.fetch_lyrics output (corpus='wikisource_pd', source='wikisource_pd', script field, meta.via='dump' added). Write via _common.write_song_json into the corpus root (registry.corpus_root); mark catalog rows via Catalog.mark_entry; write_index at end. --resume skips pageids already in _catalog.json as fetched/dropped/skipped.\n3. Refactor (minimal diff): extract the song-dict construction from wikisource_pd.fetch_lyrics into a module-level builder (e.g. _song_from_wikitext(entry, wt, parsed_title=None)) so API and dump paths share verdict logic; fetch_lyrics calls it — all 18 existing wikisource tests must stay green unchanged.\n4. tests/test_lyrics_sources_dump.py + committed fixture tests/fixtures/lyrics_sources/wikisource_sample.xml (synthetic ~8 pages: 1 PD Cyrillic poem in a subcat of Народне песме, 1 page linking only a Vuk book cat, 1 non-PD license template, 1 TOC/link-heavy page, 1 too-short page, 1 en folk-song page, 2 ns-14 category pages forming root->subcat). Assert: emit/drop/conditional verdicts, Cyrillic->Latin fold, Strofa N sections, foreign_identifier format, resume skip on second run.\n5. Pilot: if a dump is available under data/toolshop/lyrics/wikisource_pd/_src/, run --limit 50 --resume and quote counts; if not (download deferred to B7), run fixture-driven validation and mark the live pilot as deferred-for-B7 in the handoff — do NOT fake output.\n\nCommit per lane rules (explicit pathspec; CHANGELOG ID allocated at merge — cite 'lyrics-p2' lane until then). Handoff: ORCHESTRATION/lyrics_sources/wave_p2_a1/D1_handoff.md with quoted exit codes, test counts, one verbatim emit/drop example.",
+          "scope": "Genious_lyrics_extractor/sources/wikisource_dump.py, Genious_lyrics_extractor/sources/wikisource_pd.py (shared-builder refactor only), Genious_lyrics_extractor/wikisource_dump_ingest.py, tests/test_lyrics_sources_dump.py, tests/fixtures/lyrics_sources/wikisource_sample.xml, ORCHESTRATION/lyrics_sources/wave_p2_a1/D1_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_a1/D1_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe — never global 3.13.",
+            "TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop for every data command.",
+            "No import toolshop anywhere (eager init ~70s); no pip installs — stdlib + cyrtranslit only.",
+            "UTF-8 on every file read/write; streaming parse must be constant-memory.",
+            "Committed fixtures are synthetic + PD text only — never commit corpus data, dump files, or non-cleared lyric text; fixture XML goes under tests/fixtures/lyrics_sources/ (Genious_lyrics_extractor/samples/ is gitignored).",
+            "Song JSON shape must be identical to the API path except meta.via='dump' — lyricsdb ingest must not need a code change.",
+            "Every claim in the handoff quotes the command's exit code and key output. Commit before you claim."
+          ],
+          "context_budget": "150k"
+        },
+        {
+          "id": "S1",
+          "role": "implementer",
+          "name": "P2-A2: make_lrclib_seed.py — genius-pro -> _seed.json generator",
+          "task": "You are the implementer for wave P2-A (agent S1) of the lyrics-sources P2 megaplan. Worktree root: d:/Projects/Music-AI-Toolshop-wt-lyrics-p2 (branch lyrics-p2). Python: D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe. Export TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop.\n\nRead: AGENTS.md; megaplan; sources/lrclib.py IN FULL (seed contract: _load_seed/_norm_seed_row/_seed_fid/seed_path — data/toolshop/lyrics/lrclib/_seed.json|_seed.csv or LRCLIB_SEED env); sources/_common.py slugify; toolshop/cli.py:1209 for the default db path convention (read-only reference — do NOT import toolshop).\n\nBuild:\n1. Genious_lyrics_extractor/make_lrclib_seed.py — reads lyrics.db via sqlite3 DIRECTLY (no import toolshop): db path resolution order = --db flag > TOOLSHOP_DATA_DIR env + '/lyrics/lyrics.db' > <repo>/data/toolshop/lyrics/lyrics.db. Query: SELECT title, primary_artist, foreign_identifier FROM songs WHERE corpus = ? (default 'genius-pro'; --corpus override for future use). Emits <lrclib corpus root>/_seed.json shaped {\"entries\": [{\"artist\": ..., \"title\": ...}, ...]} — no album/duration (genius lacks them) -> adapter routes to /api/search. Dedup on normalized (artist,title) — lowercase + strip + collapse whitespace; skip rows with empty title/artist. --dry-run prints count only. Idempotent: re-running rewrites the same file byte-identical (sort entries by (artist,title)).\n2. tests/test_lrclib_seed.py — fixture: a temp sqlite db seeded with 3 genius-pro rows + 1 non-genius row + 1 empty-title row -> assert seed emits exactly 3 entries, corpus filter works, dedup collapses a case-variant duplicate, idempotent rewrite.\n3. Generate the real seed: run against the canonical db (TOOLSHOP_DATA_DIR set) -> data/toolshop/lyrics/lrclib/_seed.json (uncommitted, data/ boundary). Quote the emitted row count.\n\nCommit per lane rules (CHANGELOG ID at merge; cite 'lyrics-p2' lane). Handoff: ORCHESTRATION/lyrics_sources/wave_p2_a2/S1_handoff.md — quoted exit codes, seed row count, 3 verbatim seed rows.",
+          "scope": "Genious_lyrics_extractor/make_lrclib_seed.py, tests/test_lrclib_seed.py, data/toolshop/lyrics/lrclib/_seed.json (uncommitted), ORCHESTRATION/lyrics_sources/wave_p2_a2/S1_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_a2/S1_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe.",
+            "No import toolshop — sqlite3 stdlib only; no pip installs.",
+            "Seed contains artist+title metadata only (facts, not lyric text) — still lands under data/ (uncommitted).",
+            "UTF-8; genius-pro only by default — a seed row from another corpus is a scope violation unless --corpus says so.",
+            "Handoff quotes exit codes + key output; commit before you claim."
+          ],
+          "context_budget": "80k"
+        }
+      ]
+    },
+    {
+      "wave": "P2-B",
+      "name": "Fetch execution — sequential resumable runs (order matters: cheap/local first)",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "B1",
+          "role": "implementer",
+          "name": "B1: mudcat-digitrad --resume (7,125 pending, all-local)",
+          "task": "You are the fetch executor for run B1 of lyrics-sources P2. Worktree: d:/Projects/Music-AI-Toolshop-wt-lyrics-p2. Python: D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe. Export TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop BEFORE every command — the catalog/db live in the main repo's data dir.\n\nRun: cd to the worktree's Genious_lyrics_extractor and execute:\n  python fetch_lyrics_source.py --source mudcat_digitrad --resume\nThe catalog is complete (8,980 rows; 7,125 pending; 1,830 dropped). Parse is fully local (zip cached in _src/) — no network expected. This is the largest cheap win.\n\nRecord: exit code, final stats line {fetched,failed,dropped,skipped}, catalog counts, a drop-reason histogram (top 5), 3 verbatim catalog rows (1 fetched, 1 dropped-with-reason, 1 failed-if-any). Retry rule: failed rows are retried on the next --resume pass — run a second --resume pass ONLY if failed>0, then stop and report.\n\nHandoff: ORCHESTRATION/lyrics_sources/wave_p2_b/F_mudcat_handoff.md — quoted commands + exit codes + counts verbatim. Commit nothing (data/ is ignored); handoff only.",
+          "scope": "read/write under data/toolshop/lyrics/mudcat-digitrad/ + wave_p2_b/F_mudcat_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_b/F_mudcat_handoff.md",
+          "constraints": [
+            "No code edits — executor role. If the run dies mid-way, --resume on the next attempt is the fix, not a code change.",
+            "Never commit corpus data; handoff + ledger only.",
+            "If parse errors exceed ~10% of pending, STOP and report — do not grind through a broken parser."
+          ],
+          "context_budget": "60k"
+        },
+        {
+          "id": "B2",
+          "role": "implementer",
+          "name": "B2: sacred-texts --resume (280 pending)",
+          "task": "You are the fetch executor for run B2 of lyrics-sources P2. Worktree: d:/Projects/Music-AI-Toolshop-wt-lyrics-p2. Python: D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe. Export TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop.\n\nRun:\n  python fetch_lyrics_source.py --source sacred_texts --resume\n280 pending Child-ballad pages @>=1.5s spacing (~8-10 min). Network required; polite serial only.\n\nRecord: exit code, stats, drop histogram, 3 verbatim rows. On 403/timeout storms (>20% failures) STOP and report the exact error — do not hammer.\n\nHandoff: ORCHESTRATION/lyrics_sources/wave_p2_b/F_sacred_handoff.md. Commit nothing.",
+          "scope": "data/toolshop/lyrics/sacred-texts/ + wave_p2_b/F_sacred_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_b/F_sacred_handoff.md",
+          "constraints": [
+            "No code edits — executor role. Failure storms -> stop + report, never retry-loop.",
+            "Never commit corpus data."
+          ],
+          "context_budget": "40k"
+        },
+        {
+          "id": "B3",
+          "role": "implementer",
+          "name": "B3: gutenberg_pd full catalog + --resume",
+          "task": "You are the fetch executor for run B3 of lyrics-sources P2. Worktree: d:/Projects/Music-AI-Toolshop-wt-lyrics-p2. Python: D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe. Export TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop.\n\nRun in order:\n  python fetch_lyrics_source.py --source gutenberg_pd --catalog-only\n  python fetch_lyrics_source.py --source gutenberg_pd --resume\nWHY two steps: the pilot catalog (243 rows) is a bounded list — fetch runs never re-list an existing catalog, so --catalog-only first lists ALL 10 WORKS (this pass performs the pg<n>.txt downloads onto _src/ via the robot-sanctioned aleph hosts — human-facing /ebooks/ pages are NEVER scraped). Then --resume emits the songs.\n\nRecord: exit codes for BOTH commands, catalog before/after totals, work-level breakdown (songs per ebook), drop histogram, 3 verbatim rows.\n\nHandoff: ORCHESTRATION/lyrics_sources/wave_p2_b/F_gutenberg_handoff.md. Commit nothing.",
+          "scope": "data/toolshop/lyrics/gutenberg_pd/ + wave_p2_b/F_gutenberg_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_b/F_gutenberg_handoff.md",
+          "constraints": [
+            "No code edits — executor role.",
+            "If aleph/mirror fetches fail with 4xx/5xx on >2 works, stop and report which works failed.",
+            "Never commit corpus data."
+          ],
+          "context_budget": "50k"
+        },
+        {
+          "id": "B4",
+          "role": "implementer",
+          "name": "B4: ccmixter full catalog + --resume (1,481 pending, all release-clearable)",
+          "task": "You are the fetch executor for run B4 of lyrics-sources P2. Worktree: d:/Projects/Music-AI-Toolshop-wt-lyrics-p2. Python: D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe. Export TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop.\n\nRun in order:\n  python fetch_lyrics_source.py --source ccmixter --catalog-only\n  python fetch_lyrics_source.py --source ccmixter --resume\nVerified: all 1,481 pending rows are release_ok=yes (1,469 cc-by + 12 pd) — the queue is release-safe; --catalog-only may add more (still the default by+pd lane). Expect ~45-60% lyric yield (R1) — the rest drop 'no-lyric-text'.\n\nRecord: exit codes both, catalog before/after, lyric-yield rate (fetched / (fetched+dropped no-lyric-text)), license-tier distribution of fetched rows, 3 verbatim rows incl. 1 TASL-complete CC-BY row.\n\nHandoff: ORCHESTRATION/lyrics_sources/wave_p2_b/F_ccmixter_handoff.md. Commit nothing.",
+          "scope": "data/toolshop/lyrics/ccmixter/ + wave_p2_b/F_ccmixter_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_b/F_ccmixter_handoff.md",
+          "constraints": [
+            "No code edits — executor role. >=1.5s spacing is baked into the adapter — never parallelize.",
+            "ccMixter 'sampling+' licenses map to study-only — if any sampled rows land fetched, report the count (expected ~0 in the by+pd lane).",
+            "Never commit corpus data."
+          ],
+          "context_budget": "50k"
+        },
+        {
+          "id": "B5",
+          "role": "implementer",
+          "name": "B5: lrclib catalog + --resume over the regenerated genius-pro seed",
+          "task": "You are the fetch executor for run B5 of lyrics-sources P2. Worktree: d:/Projects/Music-AI-Toolshop-wt-lyrics-p2. Python: D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe. Export TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop.\n\nPrerequisite: S1 must have emitted data/toolshop/lyrics/lrclib/_seed.json (~1,425 rows). Verify it exists and count rows first — if missing, STOP and report.\n\nRun in order:\n  python fetch_lyrics_source.py --source lrclib --catalog-only\n  python fetch_lyrics_source.py --source lrclib --resume\n~1,425 lookups @1.5s = ~36 min (search path = 1 call/row; album/duration absent). Resumable — interruption is safe.\n\nRecord — this run's real deliverable is the HIT-RATE REPORT: total seeds, matched (by matched_via: get-cached/get/search), misses (not-found/instrumental/no-lyrics breakdown), % with synced_lyrics non-null, % with lyricsfile non-null. 5 verbatim rows incl. 1 synced-lyrics sample (first 3 LRC lines only — never quote full lyric text in the handoff). Invariant check: every emitted row has release_ok='no' — a 'yes' is a blocker.\n\nHandoff: ORCHESTRATION/lyrics_sources/wave_p2_b/F_lrclib_handoff.md. Commit nothing.",
+          "scope": "data/toolshop/lyrics/lrclib/ + wave_p2_b/F_lrclib_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_b/F_lrclib_handoff.md",
+          "constraints": [
+            "No code edits — executor role.",
+            "Never quote more than 3 lines of any lyric text in the handoff (study-only corpus).",
+            "If 429/Retry-After storms appear, let the adapter's pacing absorb them; sustained 429s -> stop + report.",
+            "Never commit corpus data."
+          ],
+          "context_budget": "50k"
+        },
+        {
+          "id": "B6",
+          "role": "implementer",
+          "name": "B6: hymnary bounded retry — verify catalog, probe --resume --limit 25",
+          "task": "You are the fetch executor for run B6 of lyrics-sources P2. Worktree: d:/Projects/Music-AI-Toolshop-wt-lyrics-p2. Python: D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe. Export TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop.\n\nContext: the 527-row catalog IS the post-quarantine catalog (the rejected bad-query one lives in _quarantine_bad_query/). Text fetch 403'd during the pilot. SPEC §9 rule: CSV-primary + existing HTML fallback — if both are dead, defer-with-evidence; NEVER build a new scraper.\n\nSteps:\n1. Verify catalog: count rows, confirm statuses (522 pending expected), spot-check 3 rows' hymnalID-year fields parse to <=1930 targets.\n2. Probe: python fetch_lyrics_source.py --source hymnary --resume --limit 25\n3a. If fetches succeed: continue --resume unbounded (522 rows @1.5s = ~13 min), report final stats.\n3b. If 403s persist: record the verbatim error, mark the source deferred-with-evidence — a valid SPEC outcome, not a failure.\n\nHandoff: ORCHESTRATION/lyrics_sources/wave_p2_b/F_hymnary_handoff.md — probe output verbatim + verdict (resumed | deferred).",
+          "scope": "data/toolshop/lyrics/hymnary/ + wave_p2_b/F_hymnary_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_b/F_hymnary_handoff.md",
+          "constraints": [
+            "No code edits — executor role; no new fetch path may be improvised.",
+            "Pre-1931 enforcement is a correctness gate — a post-1930 item reaching fetched is a blocker; report it, don't fix it.",
+            "Never commit corpus data."
+          ],
+          "context_budget": "40k"
+        },
+        {
+          "id": "B7",
+          "role": "implementer",
+          "name": "B7: wikisource_pd via D1 dump ingestor — sr then en (the ~10k flagship)",
+          "task": "You are the fetch executor for run B7 of lyrics-sources P2. Worktree: d:/Projects/Music-AI-Toolshop-wt-lyrics-p2. Python: D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe. Export TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop.\n\nPrerequisite: D1 merged into the lane (sources/wikisource_dump.py + wikisource_dump_ingest.py exist and tests pass).\n\nSteps:\n1. Acquire dumps -> data/toolshop/lyrics/wikisource_pd/_src/:\n   srwikisource-latest-pages-articles.xml.bz2 and enwikisource-latest-pages-articles.xml.bz2 from dumps.wikimedia.org/<wiki>/latest/. Check the dumps index page first for actual sizes (est. sr ~200-400 MB, en larger). If the corp proxy blocks, emit a user-run command block for the downloads and mark this run blocked-for-user — do not fake results.\n2. sr pass: python wikisource_dump_ingest.py --dump <path> --wiki sr --resume — two-pass (category graph then emit). Expect ~10k candidate pages; run to completion (overnight-capable; catalog persists per pageid so interruption is safe). Quote pass-1 member-cat count (sanity: expect >=2k) and pass-2 emit/drop counts.\n3. en pass: same for --wiki en (~300-500 expected).\n4. Reconciliation: python verify_counts.py style check + catalog status histogram + drop-reason histogram (top 8). 3 verbatim emitted song headers (title/category/license fields only — never paste full lyrics into the handoff).\n\nHandoff: ORCHESTRATION/lyrics_sources/wave_p2_b/F_wikisource_handoff.md — commands, exit codes, member-cat counts, emit/drop stats, license-verdict distribution (ok/conditional/non-pd-dropped).",
+          "scope": "data/toolshop/lyrics/wikisource_pd/ + wave_p2_b/F_wikisource_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_b/F_wikisource_handoff.md",
+          "constraints": [
+            "No code edits — if the ingestor itself is buggy, report; fixes route back to a D1 follow-up agent.",
+            "Download via dumps.wikimedia.org ONLY — never scrape the wikis for bulk.",
+            "conditional (CC-BY-SA) items are expected — count and report them for the manifest pending_decisions.",
+            "Never commit corpus data or dump files."
+          ],
+          "context_budget": "80k"
+        },
+        {
+          "id": "B8",
+          "role": "implementer",
+          "name": "B8: jamendo — only if user supplies JAMENDO_CLIENT_ID",
+          "task": "You are the fetch executor for run B8 of lyrics-sources P2. Worktree: d:/Projects/Music-AI-Toolshop-wt-lyrics-p2. Python: D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe. Export TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop.\n\nGATE (stored-credential rule — ask each time): ask the user explicitly for JAMENDO_CLIENT_ID. If declined/unavailable, record 'inert — key not supplied' in the handoff and exit 0 doing nothing. Never hunt for the key in files/env beyond what the user provides in-thread.\n\nIf keyed (env var for the command only — never written to any file):\n  python fetch_lyrics_source.py --source jamendo --catalog-only\n  python fetch_lyrics_source.py --source jamendo --resume\nLyric fill-rate is unverified (GATE 0 Q2) — the handoff must report it (fetched / cataloged).\n\nRecord: key-provided yes/no (never the key itself), catalog size, lyric fill-rate, license distribution, 3 verbatim rows.\n\nHandoff: ORCHESTRATION/lyrics_sources/wave_p2_b/F_jamendo_handoff.md.",
+          "scope": "data/toolshop/lyrics/jamendo/ + wave_p2_b/F_jamendo_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_b/F_jamendo_handoff.md",
+          "constraints": [
+            "Ask the user for the key — stored-credential rule applies. No key = clean skip, not failure.",
+            "Never write the key to any file, catalog row, log line, or handoff.",
+            "Never commit corpus data."
+          ],
+          "context_budget": "40k"
+        }
+      ]
+    },
+    {
+      "wave": "P2-I",
+      "name": "Db ingest + metrics + release export v1",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "I9",
+          "role": "implementer",
+          "name": "P2-I: incremental build-db x corpora + genius invariant + rimer gate + _release_v1 export",
+          "task": "You are the implementer for wave P2-I of the lyrics-sources P2 megaplan. Worktree: d:/Projects/Music-AI-Toolshop-wt-lyrics-p2. Python: D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe. Export TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop.\n\nRead: AGENTS.md; megaplan; wave_5/I5_handoff.md (W5 contract: corpus-scoped rebuild + additive --incremental); toolshop/lyricsdb.py build_database + ensure_license_columns; toolshop/cli.py lyrics build-db block (~:915-955); corpus_inventory.py; export_release.py.\n\nSteps (quote every exit code + key output):\n1. BEFORE snapshot: python Genious_lyrics_extractor/corpus_inventory.py (all corpora + license matrix) -> paste verbatim.\n2. Ingest each populated corpus (only those B-wave actually produced): toolshop lyrics build-db --corpus <tag> --incremental for mudcat-digitrad, sacred-texts, gutenberg_pd, ccmixter, hymnary (if B6 produced), wikisource_pd, jamendo (if B8 produced), lrclib. Order: PD/CC cleared first, lrclib last.\n3. Idempotency proof: re-run --corpus lrclib --incremental -> must print 'Ingested: 0 songs'.\n4. GENIUS INVARIANT: corpus-scoped query or corpus_inventory --corpus genius-pro -> 1425/10654/65912/273801 byte-identical to wave_5. Mismatch = STOP, restore, report.\n5. populate_song_metrics coverage: verify new songs have metrics rows (query sample).\n6. RIMER GATE: run rhyme_miner --corpus <one new corpus> on a bounded slice (e.g. --limit or single-artist subset if supported) -> measure wall-clock min/song -> extrapolate for the full new-corpus volume -> if projected >8h, present the number to the user and let THEM gate the full mine; <=8h may proceed as an overnight batch.\n7. Release export v1: python export_release.py --release-cleared --out data/toolshop/lyrics/_release_v1 -> quote emitted count, per-corpus breakdown, pending_decisions count, skipped-missing-source count. CREDITS.md must carry TASL lines for every cc-by item; RELEASE_MANIFEST.json verified.\n\nAFTER snapshot: corpus_inventory again -> paste verbatim. Handoff: ORCHESTRATION/lyrics_sources/wave_p2_5/I9_handoff.md — before/after inventories, per-corpus ingested counts, invariant proof, rimer measurement + gate outcome, export stats.",
+          "scope": "data/toolshop/lyrics/ (db + corpora + _release_v1/), wave_p2_5/I9_handoff.md",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_5/I9_handoff.md",
+          "constraints": [
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe.",
+            "--incremental is additive-only — a diff that can drop/rebuild existing rows is a blocker; STOP.",
+            "genius-pro counts must be byte-identical — verify at the scope of the claim (all four numbers, DB-verbatim).",
+            "The full rimer run is a USER gate, not your call — measure, present, wait.",
+            "Never commit lyrics.db, corpus data, or export output. Handoff quotes exit codes; commit code before you claim."
+          ],
+          "context_budget": "120k"
+        }
+      ]
+    },
+    {
+      "wave": "P2-V",
+      "name": "Adversarial review + license audit + closeout",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "V2",
+          "role": "reviewer",
+          "name": "P2-V: adversarial review + scaled license audit + release smoke + closeout",
+          "task": "You are the reviewer for wave P2-V of the lyrics-sources P2 megaplan. Your mandate is refutation, not review — try to prove the work is wrong. Read: AGENTS.md; megaplan d:/Projects/.workspace_archive/plans/lyrics-sources-p2-megaplan.md; SPEC.md + P2 spec delta; ALL wave_p2_* handoffs.\n\nChecks (run them yourself; a finding without evidence is tagged UNVERIFIED):\n1. Megaplan completeness: every success criterion met or accounted-deferred? Any source silently skipped?\n2. Incremental idempotent: re-run build-db --corpus lrclib --incremental -> 0 ingested.\n3. Genius invariant: corpus_inventory --corpus genius-pro -> 1425/10654/65912/273801.\n4. License audit at scale: sample >=10 items per new corpus (>=20 for wikisource_pd and mudcat-digitrad). Compare stored license_tier/license_ref vs the song JSON's provenance fields AND, for dump-sourced items, the recorded meta.license_templates — the stored verdict must match the deterministic scan; live-page spot-checks only where the IP isn't 429'd (note which were live-verified vs stored-verified).\n5. Release smoke: export_release.py --release-cleared to a fresh temp dir -> assert zero rows with release_ok in {no,conditional}; a single study-only row = blocker. Verify no genius/lrclib dirs in output; CREDITS.md TASL coverage for cc-by items; RELEASE_MANIFEST counts reconcile to db counts.\n6. Policy invariants: grep sources/ for urlopen/requests usage in looperman.py (must be none fetching lyrics); voclr/a4u/paid packs have no adapter files; no import toolshop under Genious_lyrics_extractor/sources/; git ls-files | grep data/toolshop -> nothing new committed.\n7. lrclib invariant: every lrclib song JSON + db row has release_ok='no' — a 'yes' = blocker.\n8. Seed provenance: _seed.json rows all trace to genius-pro (spot-check 10 titles against lyrics.db genius corpus).\n9. Dump correctness: sample 20 wikisource_pd songs -> sections labeled Strofa N, clean_lyrics Latin-folded, raw_lyrics preserved script, foreign_identifier {wiki}:{pageid}, meta.via='dump'; member-cat count sanity vs assumption P2-A1.\n10. Closeout: STATUS.md row, CHANGELOG Answer-format entry (ID allocated at merge), `toolshop closeout` evidence block quoted, ledger updated.\n\nWrite review to d:/Projects/.workspace_archive/reviews/<stamp>_lyrics-sources-p2-impl.md with fenced YAML findings contract. Verdict required: approved | approved-with-fixes | blocked + findings lists. If blocked, findings route through the ledger — do not fix implementation yourself. Handoff: ORCHESTRATION/lyrics_sources/wave_p2_6/V2_handoff.md.",
+          "scope": "read-only + reviews dir + STATUS.md + CHANGELOG.md + ledger + wave_p2_6/V2_handoff.md; no implementation edits",
+          "output": "ORCHESTRATION/lyrics_sources/wave_p2_6/V2_handoff.md",
+          "constraints": [
+            "Reviewer role: refute, don't repair — findings go back through the ledger; only doc/record files may be written.",
+            "UNVERIFIED tag on any finding without run-evidence; run the check where possible.",
+            "Python: only D:/Projects/Music-AI-Toolshop/.venv/Scripts/python.exe.",
+            "Never quote more than 3 lines of any lyric text in reports.",
+            "toolshop closeout must exit 0 or the dirt must be itemized-declared; paste evidence into the handoff."
+          ],
+          "context_budget": "120k"
+        }
+      ]
+    }
+  ],
+  "invariants": [
+    "genius-pro db counts byte-identical (1425/10654/65912/273801) at every wave boundary",
+    "no corpus/lyric data committed (git ls-files under data/toolshop/lyrics/ stays empty)",
+    "no import toolshop inside Genious_lyrics_extractor/sources/ or folder scripts",
+    "no fetch path exists for catalog-only/manual/uncleared sources",
+    "lrclib rows are study-only forever — release_ok='no' is a blocker if violated",
+    "TOOLSHOP_DATA_DIR=D:/Projects/Music-AI-Toolshop/data/toolshop for every data command in the worktree"
+  ]
+}
