@@ -53,9 +53,9 @@ def _glue_count(words) -> int:
 
 
 def multis(index, phrase: str, lane: str = "all", max_results: int = 20, fresh: float = 0.5,
-           artists=(), boosts: dict | None = None) -> list[Scored]:
+           artists=(), boosts: dict | None = None, blocked: frozenset = frozenset()) -> list[Scored]:
     """Ranked multi-syllable rhyme combinations for an ending phrase."""
-    ctx = Ctx(index, lane, fresh, tuple(artists or ()), boosts)
+    ctx = Ctx(index, lane, fresh, tuple(artists or ()), boosts, blocked=blocked)
     target = keys.vowel_key(phrase)
     if not target:
         return []

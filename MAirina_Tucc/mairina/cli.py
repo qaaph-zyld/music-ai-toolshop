@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from mairina import DATA_DIR, LANES, RANKER_VERSION, anchors as anchors_mod, corpus, devices
-from mairina import atlas as atlas_mod, comparisons, fingerprint, hints
+from mairina import atlas as atlas_mod, bans, comparisons, dialect as dialect_mod, fingerprint, hints
 from mairina import flow as flow_mod, multis as multis_mod, rank, rules, targets
 from mairina import used as used_mod, votes
 
@@ -38,6 +38,8 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--lane", choices=LANES, default="all")
         sp.add_argument("--fresh", type=_fresh, default=0.5)
         sp.add_argument("--artist", default=None, help="comma-separated target_artist slugs")
+        sp.add_argument("--dialect", choices=("all", "ekavica"), default="all",
+                        help="ekavica drops ijekavian forms from suggestions")
         if rng:
             sp.add_argument("--rng-seed", type=int, default=None)
 
@@ -46,6 +48,8 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--lines", type=int, default=None)
     a.add_argument("--mode", choices=anchors_mod.MODES, default="rhyme")
     a.add_argument("--seed", default=None, help="word that fixes group A's rhyme class")
+    a.add_argument("--lock", action="append", default=[], metavar="G:WORD",
+                   help="fix group G's rhyme class with WORD (repeatable; falls back gracefully)")
     a.add_argument("--section", choices=targets.SECTION_TYPES, default="strofa",
                    help="section type for the syllable target range")
     common(a)
@@ -93,6 +97,11 @@ def build_parser() -> argparse.ArgumentParser:
     cp.add_argument("--max", type=int, default=20)
     cp.add_argument("--theme", default=None, help="only comparisons from lines about this word")
     common(cp)
+    bn = sub.add_parser("ban", help="never suggest this word again (undo: mt unban)")
+    bn.add_argument("word")
+    ub = sub.add_parser("unban", help="remove a word ban")
+    ub.add_argument("word")
+    bs = sub.add_parser("bans", help="list banned words")
     s = sub.add_parser("stats", help="week-1 numbers")
     s.add_argument("--ab", action="store_true", help="learned vs base ranking arms")
     sv = sub.add_parser("serve", help="run the local JSON API for rimer-ui on 127.0.0.1:8000")
@@ -121,10 +130,11 @@ def _open_app_db(data_dir, write: bool = False):
 
 
 def _create_app_db(data_dir):
-    """mairina.db with the v1 tables plus stars and hint_votes (all IF NOT EXISTS)."""
+    """mairina.db with the v1 tables plus stars, hint_votes and word_bans (all IF NOT EXISTS)."""
     con = votes.connect(Path(data_dir) / "mairina.db")
     fingerprint.ensure(con)
     hints.ensure(con)
+    bans.ensure(con)
     return con
 
 
@@ -150,16 +160,40 @@ def _pack(s: rank.Scored):
     return s.candidate, s.score, {"kind": s.kind, "features": s.features, "meta": s.meta}
 
 
+def _blocked(args, con, index) -> frozenset:
+    """User bans plus (dialect=ekavica) every ijekavian corpus form."""
+    out = bans.list_bans(con)
+    if getattr(args, "dialect", "all") == "ekavica":
+        out |= dialect_mod.ijekavian(index.forms).keys()
+    return frozenset(out)
+
+
 def _head(title: str, args, arm: str, list_id: int) -> str:
     return (f"{title}  lane={args.lane} fresh={args.fresh} arm={arm} ranker={RANKER_VERSION} "
             f"list=#{list_id}" + (f" artist={args.artist}" if args.artist else ""))
 
 
+def _locks(specs) -> dict:
+    """--lock G:WORD entries -> {group letter: word}."""
+    out = {}
+    for spec in specs:
+        if ":" not in spec:
+            raise votes.VoteError(f"--lock takes G:word (e.g. --lock B:grade), got '{spec}'.")
+        g, w = spec.split(":", 1)
+        if not g.strip() or not w.strip():
+            raise votes.VoteError(f"--lock takes G:word (e.g. --lock B:grade), got '{spec}'.")
+        out[g.strip().upper()[:1]] = w.strip()
+    return out
+
+
 def _cmd_anchors(args, lyrics_db, data_dir) -> int:
     index, con, rng, arm, boosts = _setup(args, lyrics_db, data_dir)
+    warns: list = []
     try:
         res = anchors_mod.anchors(index, args.scheme, args.lines, args.lane, args.mode, args.seed,
-                                  args.fresh, _artists(args), rng, boosts)
+                                  args.fresh, _artists(args), rng, boosts,
+                                  blocked=_blocked(args, con, index),
+                                  group_seeds=_locks(args.lock), warnings=warns)
     except anchors_mod.NoAnchors as exc:
         print(f"No anchors: {exc}\n{HINT}")
         return 0
@@ -170,6 +204,8 @@ def _cmd_anchors(args, lyrics_db, data_dir) -> int:
     trange = targets.target(args.lane, args.section, lyrics_db, cache_dir=data_dir)
     print(_head(f"Anchors {args.scheme.upper()} ({args.mode})", args, arm, lid))
     print("Write each line so that it ends on its anchor. The tool never writes lines.")
+    for w in warns:
+        print(f"Note: {w}")
     for a in res:
         print(f"{a.line:>3}. [{a.group}] {a.word:<16} {a.upos:<5} class -{a.key}  freq {a.freq}  "
               f"syl {targets.fmt_range(trange)}")
@@ -183,7 +219,7 @@ def _cmd_rhyme(args, lyrics_db, data_dir) -> int:
         return 1
     index, con, rng, arm, boosts = _setup(args, lyrics_db, data_dir)
     ctx = rank.Ctx(index, args.lane, args.fresh, _artists(args), boosts,
-                   args.line, args.target)
+                   args.line, args.target, _blocked(args, con, index))
     res = rank.rank(args.word, ctx.vocab(), ctx)[: args.max]
     if not res:
         print(f"No rhymes found for '{args.word}' in lane '{args.lane}'.\n{HINT}")
@@ -197,7 +233,8 @@ def _cmd_rhyme(args, lyrics_db, data_dir) -> int:
 
 def _cmd_multi(args, lyrics_db, data_dir) -> int:
     index, con, rng, arm, boosts = _setup(args, lyrics_db, data_dir)
-    res = multis_mod.multis(index, args.phrase, args.lane, args.max, args.fresh, _artists(args), boosts)
+    res = multis_mod.multis(index, args.phrase, args.lane, args.max, args.fresh, _artists(args), boosts,
+                            _blocked(args, con, index))
     if not res:
         print(f"No multi-syllable rhymes for '{args.phrase}' in lane '{args.lane}'.\n{HINT}")
         return 0
@@ -379,9 +416,10 @@ def _cmd_compare(args, lyrics_db, data_dir) -> int:
             raise votes.VoteError("--theme takes exactly one word.")
         theme = words[0]
     index, con, rng, arm, boosts = _setup(args, lyrics_db, data_dir)
-    counts = comparisons.collect(lyrics_db, args.lane, _artists(args), theme, index)
+    blocked = _blocked(args, con, index)
+    counts = comparisons.collect(lyrics_db, args.lane, _artists(args), theme, index, blocked)
     res = comparisons.rank_words(counts, index, args.lane, _artists(args), args.fresh,
-                                 boosts)[: args.max]
+                                 boosts, blocked)[: args.max]
     if not res:
         print(f"No comparison words found in lane '{args.lane}'"
               + (f" for theme '{theme}'" if theme else "") + f".\n{COMPARE_HINT}")
@@ -392,6 +430,46 @@ def _cmd_compare(args, lyrics_db, data_dir) -> int:
           + (f" theme={theme}" if theme else ""))
     for i, s in enumerate(res, 1):
         print(f"{i:>3}. {s.candidate:<16} {s.score:>6.2f}  {s.meta['count']:>3}x  {rank.explain(s)}")
+    return 0
+
+
+def _cmd_ban(args, data_dir) -> int:
+    con = _create_app_db(data_dir)
+    try:
+        w = bans.ban(con, args.word)
+    finally:
+        con.close()
+    print(f"Banned '{w}' — anchors, rhymes, multis and compare skip it. (undo: mt unban {w})")
+    return 0
+
+
+def _cmd_unban(args, data_dir) -> int:
+    con = _open_app_db(data_dir, write=True)
+    try:
+        removed = bool(con) and bans.unban(con, args.word)
+    finally:
+        if con:
+            con.close()
+    if not removed:
+        print(f"'{args.word}' is not banned. (list: mt bans)")
+        return 0
+    print(f"Unbanned '{args.word.strip().lower()}'.")
+    return 0
+
+
+def _cmd_bans(args, data_dir) -> int:
+    con = _open_app_db(data_dir)
+    try:
+        items = bans.list_with_ts(con) if con else []
+    finally:
+        if con:
+            con.close()
+    if not items:
+        print("No banned words. Ban one: mt ban <word>")
+        return 0
+    print(f"{len(items)} banned word(s):")
+    for it in items:
+        print(f"  - {it['word']}  ({it['ts'][:10]})")
     return 0
 
 
@@ -462,6 +540,12 @@ def main(argv=None, *, lyrics_db=None, data_dir=None) -> int:
             return _cmd_atlas(args, lyrics_db, data_dir)
         if args.cmd == "compare":
             return _cmd_compare(args, lyrics_db, data_dir)
+        if args.cmd == "ban":
+            return _cmd_ban(args, data_dir)
+        if args.cmd == "unban":
+            return _cmd_unban(args, data_dir)
+        if args.cmd == "bans":
+            return _cmd_bans(args, data_dir)
         if args.cmd == "serve":
             from mairina import api                  # lazy: Flask only loads for `serve`
             return api.run(lyrics_db, Path(args.data_dir) if args.data_dir else data_dir)

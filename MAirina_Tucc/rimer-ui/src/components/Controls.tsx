@@ -1,19 +1,22 @@
 import type { Settings } from '../api'
-import type { Lane, Mode, Scheme, Section } from '../types'
+import type { Dialect, Lane, Mode, Scheme, Section } from '../types'
 
 const SCHEMES: Scheme[] = ['AABB', 'ABAB', 'AAAA', 'ABBA']
 const LANES: Lane[] = ['drill', 'pop', 'all']
 const SECTIONS: Section[] = ['strofa', 'refren', 'prerefren', 'postrefren', 'hook', 'bridge']
 const MODES: Mode[] = ['rhyme', 'assonance', 'consonance']
+const DIALECTS: Dialect[] = ['ekavica', 'all']
 
 interface Props {
   settings: Settings
   busy: boolean
+  canMatch: boolean
   onChange: (patch: Partial<Settings>) => void
   onNewAnchors: () => void
+  onMatchAnchors: () => void
 }
 
-export function Controls({ settings, busy, onChange, onNewAnchors }: Props) {
+export function Controls({ settings, busy, canMatch, onChange, onNewAnchors, onMatchAnchors }: Props) {
   return (
     <header className="controls">
       <h1>
@@ -73,6 +76,14 @@ export function Controls({ settings, busy, onChange, onNewAnchors }: Props) {
         />
       </label>
       <label className="field">
+        Dialect
+        <select value={settings.dialect} onChange={(e) => onChange({ dialect: e.target.value as Dialect })}>
+          {DIALECTS.map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
         Artist
         <input
           type="text"
@@ -92,6 +103,15 @@ export function Controls({ settings, busy, onChange, onNewAnchors }: Props) {
       </label>
       <button type="button" className="btn primary" onClick={onNewAnchors} disabled={busy}>
         {busy ? 'Finding…' : 'New anchors'}
+      </button>
+      <button
+        type="button"
+        className="btn"
+        onClick={onMatchAnchors}
+        disabled={busy || !canMatch}
+        title="Keep your written end-words and re-roll the other anchors to match them"
+      >
+        Match my lines
       </button>
     </header>
   )

@@ -18,10 +18,11 @@ Spec: `docs/superpowers/specs/2026-09-29-mairina-anchors-design.md`.
 To stop, close the two windows titled "MAirina engine" and "MAirina screen".
 
 On the screen:
-- **Controls bar:** scheme, lines, lane, section, mode, fresh, artist and seed. **New anchors** gives one end-word per line.
+- **Controls bar:** scheme, lines, lane, section, mode, fresh, artist, seed and **dialect** (`ekavica` by default — the suggestion lists never offer ijekavian forms; `all` turns the filter off). **New anchors** gives one end-word per line. **Match my lines** (enabled once a row has text) re-rolls only the unwritten anchors: every written line keeps its own end-word as a locked chip and seeds its rhyme group's class with it. A thin class degrades `rhyme → assonance → consonance`, with a note under the card header when it does.
 - **Editor rows:** you write each line.
   - The syllable count turns green inside the lane/section target (for example 10–15 for drill strofa), amber when the line is short, red when it runs over.
-  - The anchor chip turns green when the line ends on it.
+  - The anchor chip turns green when the line ends on it; a locked (your own word) chip shows accent-colored.
+  - The chip's **⋯** menu offers **↻ swap** — another member of the same rhyme class — and **ban**, which removes the word from every future suggestion (persistent, see footer) and auto-swaps the chip.
   - The meter bar under the line (rhyme letter, consonance gauge, `allit ✓`, devices, hints, `vs★`) opens details on click. Hints can be voted 👍/👎, and 3 down-votes mute a rule.
   - **☆** stars the line with tags (metaphor, double-meaning, wordplay, punchline, or your own). Those tags are the only way metaphor and wordplay enter MAirina.
 - **Finder:**
@@ -30,7 +31,7 @@ On the screen:
   - **Compare** finds the words real artists put after `ko`/`kao`.
   - **Atlas** shows device rates in real songs. These are stats only.
   - Every list takes 👍/👎.
-- **Footer:** votes and 👍 rate, used, A/B status, muted hints, ★ count. **Save draft** records which suggestions you used.
+- **Footer:** votes and 👍 rate, used, A/B status, muted hints, ★ count, **bans** (click for the list; ✕ unbans a word). **Save draft** records which suggestions you used.
 - **Your draft** autosaves in the browser (localStorage, with a stable draft id).
 - **If the engine is down**, a banner says so and nothing fake is shown. The screen never generates lyric text.
 
@@ -54,7 +55,8 @@ Your votes and stars live in `MAirina_Tucc\data\mairina.db`. Use `mt serve --dat
 
 | Command | What it does |
 |---|---|
-| `anchors --scheme AABB --lines 4 --lane drill [--section strofa] [--mode rhyme\|assonance\|consonance] [--seed panamera] [--fresh 0.5] [--artist devito] [--rng-seed N]` | One end-word per line, grouped by rhyme scheme. You write each line to land on its anchor. Each row shows the lane's syllable target range (`syl p25–p75`) for `--section`. Without `--rng-seed`, every run differs. `--seed` fixes group A's rhyme class (the seed word itself is not offered). If `--lines` differs from the scheme length, the scheme cycles with new letters. |
+| `anchors --scheme AABB --lines 4 --lane drill [--section strofa] [--mode rhyme\|assonance\|consonance] [--seed panamera] [--lock A:spava]... [--fresh 0.5] [--artist devito] [--rng-seed N]` | One end-word per line, grouped by rhyme scheme. You write each line to land on its anchor. Each row shows the lane's syllable target range (`syl p25–p75`) for `--section`. Without `--rng-seed`, every run differs. `--seed` fixes group A's rhyme class (the seed word itself is not offered). `--lock G:word` seeds any group's class with a word you already wrote; a thin class degrades to assonance/consonance with a `Note:` (`--seed` alone stays strict and fails). If `--lines` differs from the scheme length, the scheme cycles with new letters. |
+| `ban <word>` / `unban <word>` / `bans` | Ban a word from every suggestion list (anchors, rhymes, multis, compare) — persistent in `mairina.db` (`word_bans`). `unban` removes it; `bans` lists active bans. |
 | `rhyme <word> [--lane] [--fresh] [--artist] [--max 20] [--line "<text>"] [--target N]` | Numbered, ranked rhyme list. Each item shows a score breakdown (match kind and length, log frequency, fresh penalty, vote and used boosts). With `--line`/`--target` the breakdown gains `gap` (candidate syllables vs. what the line still needs) and `dom-class` (shares the line's dominant consonant class). |
 | `multi "<ending phrase>" [--lane] [--max 20]` | 1-3-word combinations from the corpus vocabulary whose vowel skeleton ends with the phrase's (`da me imaš` -> `aeia`). Glue words (`da se me te je u na sa mi ti ne`) only in non-final slots and at most one per combination; the final word is a content word, never a proper noun or artist name. Every adjacent word pair must be an attested corpus bigram (the two words stood directly next to each other in one line, after token hygiene), so fewer than `--max` results is normal and there is no fallback. At most 2 results share a final word and 3 share a first word. Words only, never corpus lines. |
 | `vote 3+ 5- 7+` | Thumbs up/down on items of the **last list shown**. Re-voting an item replaces the earlier vote. |
@@ -71,7 +73,7 @@ Your votes and stars live in `MAirina_Tucc\data\mairina.db`. Use `mt serve --dat
 
 `xray` additionally appends `vs★ <largest deviation>` to every row once the lane has at least 3 stars, e.g. `fewer words than your ★ lines: 4 vs 5 (n=3)`. The sentence quotes the **raw** average of your starred lines, never the corpus-blended shrunk value. It adds `(n=…)` under 10 stars, and it appears only when the raw and shrunk values agree on which side the line falls ( alliteration is left out there because the row already shows `allit ✓` and a yes/no feature scores about +-1 sigma on every line, which would outrank the real deviations), and omits muted hint rules.
 
-Shared options: `--lane drill|pop|all` (default `all`, which includes the 93 songs with no cohort); `--artist a,b` (hard filter on `songs.target_artist`, intersected with `--lane`: words are counted only in that artist's songs of that lane); `--fresh 0.0-1.0` (default 0.5; higher penalises overused rhyme classes).
+Shared options: `--lane drill|pop|all` (default `all`, which includes the 93 songs with no cohort); `--artist a,b` (hard filter on `songs.target_artist`, intersected with `--lane`: words are counted only in that artist's songs of that lane); `--fresh 0.0-1.0` (default 0.5; higher penalises overused rhyme classes); `--dialect ekavica|all` (default `all` on the CLI — the writing screen defaults to `ekavica`; `ekavica` removes ijekavian forms detected by `mairina/dialect.py`: the `lexicons/dialect_pairs.csv` pair list, jat clusters and transforms verified against attested ekavian twins and lemmas). Bans apply on top of either setting.
 
 Exit codes: `0` ok (also for an empty result, which prints a reason and a hint), `1` bad vote input, missing text file, a `star` line number out of range, an unknown `unstar` id, a star on a line with no words, an unknown or malformed hint rule id or `--theme` with more than one word, or `rhyme --target` without `--line`, `2` `lyrics.db` missing/unreadable, or present but unannotated (`CorpusNotAnnotated` — run `toolshop lyrics annotate --resume`).
 
@@ -80,7 +82,7 @@ Exit codes: `0` ok (also for an empty result, which prints a reason and a hint),
 - `data\toolshop\lyrics\lyrics.db`, opened only as `file:...?mode=ro&immutable=1`. It is never written. The db holds several corpora; MAirina reads only `corpus='genius-pro'` (the Serbian rap corpus) — every query filters on it.
 - Token hygiene: `source_script='latin'` only; POS `PUNCT`, `X`, `SYM`, `NUM` dropped; keys lowercased; majority lemma and POS per form.
 - The word index (including the word-pair set, never lines) is cached in `MAirina_Tucc\data\index_*.pkl` and rebuilt when `lyrics.db`'s modified time or size changes (first run takes several seconds). A build refuses while a **non-empty** `-wal` or any `-journal` file exists (a 0-byte `-wal`/`-shm` left by a reader is not a writer), discards a result if the db changed mid-build, and raises `CorpusNotAnnotated` when token coverage is below 90% — a partial index is never built or cached.
-- Votes, shown lists, "used" hits, stars and hint votes live in `MAirina_Tucc\data\mairina.db` (created on first use by `vote`/`star`/`hint-vote`/`stats`/list commands; `xray`, `stars`, `me` only read it if it exists). Both files are git-ignored. `atlas` is cached in `data\atlas_*.pkl` (stats only). No song/line ids are ever stored in caches or mairina.db — caches re-key on db mtime+size, so id renumbering on rebuild is safe.
+- Votes, shown lists, "used" hits, stars, hint votes and word bans live in `MAirina_Tucc\data\mairina.db` (created on first use by `vote`/`star`/`hint-vote`/`ban`/`stats`/list commands; `xray`, `stars`, `me`, `bans` only read it if it exists). Both files are git-ignored. `atlas` is cached in `data\atlas_*.pkl` (stats only). No song/line ids are ever stored in caches or mairina.db — caches re-key on db mtime+size, so id renumbering on rebuild is safe.
 - `line_rhymes` and `rhyme_pairs` are deliberately not used (sparse, mostly chorus repeats).
 - The name-drop gazetteer (entities and artist names, ORG/PER/LOC only, so MISC entries such as `Panamera` are not in it) drops ad-lib and filler noise. It drops:
   - entries with fewer than 3 letters in total

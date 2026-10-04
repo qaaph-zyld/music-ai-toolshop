@@ -4,7 +4,9 @@ import type {
   AnchorsResponse,
   ApiErrorBody,
   AtlasResponse,
+  BansResponse,
   CompareResponse,
+  Dialect,
   HintVoteResponse,
   Lane,
   MeResponse,
@@ -16,6 +18,7 @@ import type {
   Star,
   StarsResponse,
   StatsResponse,
+  SwapResponse,
   UsedResponse,
   XrayResponse,
 } from './types'
@@ -84,20 +87,37 @@ export interface Settings {
   fresh: number
   artist: string
   seed: string
+  dialect: Dialect
 }
 
 export const api = {
-  anchors: (s: Settings) =>
+  anchors: (s: Settings, written?: string[]) =>
     post<AnchorsResponse>('/anchors', {
       scheme: s.scheme,
-      lines: s.lines,
+      lines: written ? written.length : s.lines,
       lane: s.lane,
       mode: s.mode,
       seed: s.seed || null,
       fresh: s.fresh,
       artist: s.artist || null,
       section: s.section,
+      dialect: s.dialect,
+      written: written ?? null,
     }),
+  swapAnchor: (cls: string, group: string, exclude: string[], s: Settings) =>
+    post<SwapResponse>('/anchors/swap', {
+      cls,
+      group,
+      mode: s.mode,
+      lane: s.lane,
+      fresh: s.fresh,
+      artist: s.artist || null,
+      dialect: s.dialect,
+      exclude,
+    }),
+  ban: (word: string) => post<{ ok: boolean; word: string }>('/ban', { word }),
+  unban: (word: string) => del<{ ok: boolean; word: string }>(`/ban/${encodeURIComponent(word)}`),
+  bans: () => get<BansResponse>('/bans'),
   rhyme: (word: string, s: Settings, line?: string, target?: number) =>
     post<RhymeResponse>('/rhyme', {
       word,
@@ -106,8 +126,10 @@ export const api = {
       lane: s.lane,
       fresh: s.fresh,
       artist: s.artist || null,
+      dialect: s.dialect,
     }),
-  multi: (phrase: string, s: Settings) => post<MultiResponse>('/multi', { phrase, lane: s.lane }),
+  multi: (phrase: string, s: Settings) =>
+    post<MultiResponse>('/multi', { phrase, lane: s.lane, dialect: s.dialect }),
   xray: (text: string, s: Settings) => post<XrayResponse>('/xray', { text, lane: s.lane, section: s.section }),
   vote: (listId: number, items: [number, 1 | -1][]) => post<{ ok: boolean }>('/vote', { list_id: listId, items }),
   star: (text: string, lineNo: number, tags: string[], lane: Lane, draftId: string) =>
@@ -116,8 +138,8 @@ export const api = {
   stars: () => get<StarsResponse>('/stars'),
   me: (lane: Lane) => get<MeResponse>('/me', { lane }),
   atlas: (lane: Lane, artist: string) => get<AtlasResponse>('/atlas', { lane, artist: artist || undefined }),
-  compare: (lane: Lane, artist: string, theme: string) =>
-    get<CompareResponse>('/compare', { lane, artist: artist || undefined, theme: theme || undefined }),
+  compare: (lane: Lane, artist: string, theme: string, dialect: Dialect) =>
+    get<CompareResponse>('/compare', { lane, artist: artist || undefined, theme: theme || undefined, dialect }),
   hintVote: (ruleId: string, vote: 1 | -1 | 0) => post<HintVoteResponse>('/hint-vote', { rule_id: ruleId, vote }),
   used: (text: string, draftId: string) => post<UsedResponse>('/used', { text, draft_id: draftId }),
   stats: () => get<StatsResponse>('/stats'),

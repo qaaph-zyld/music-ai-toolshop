@@ -65,13 +65,14 @@ def _query(lane: str, artists, lemma: str | None) -> tuple[str, list]:
     return sql, args
 
 
-def _comparison_word(tok: str, index, skip_lemma: str | None) -> str | None:
+def _comparison_word(tok: str, index, skip_lemma: str | None,
+                     blocked: frozenset = frozenset()) -> str | None:
     """The token if it can be a comparison word, else None. Fragments are out: fewer
     than 3 letters, or no vowel at all ('gt'; a syllabic r still counts as one, so
     'krv' and 'prst' stay)."""
     if len(tok) < MIN_WORD_LETTERS or not phonetics.syllables(tok):
         return None
-    if tok in phonetics.CLITICS or tok in index.artist_names:
+    if tok in blocked or tok in phonetics.CLITICS or tok in index.artist_names:
         return None
     entry = index.forms.get(tok)
     if not entry or entry["upos"] in STOP_UPOS or entry["upos"] not in CONTENT_UPOS:
@@ -83,7 +84,8 @@ def _comparison_word(tok: str, index, skip_lemma: str | None) -> str | None:
     return tok
 
 
-def collect(db_path, lane: str, artists, theme: str | None, index) -> Counter:
+def collect(db_path, lane: str, artists, theme: str | None, index,
+            blocked: frozenset = frozenset()) -> Counter:
     """``Counter({word: n})`` of comparison words, under ``corpus.build_guarded``."""
     path = Path(db_path or corpus.DEFAULT_LYRICS_DB)
     if not path.is_file():
@@ -107,7 +109,7 @@ def collect(db_path, lane: str, artists, theme: str | None, index) -> Counter:
                     if devices.simile_confidence(marker, nxt, i == 0) == "low":
                         continue
                     for tok in toks[j:j + LOOKAHEAD]:
-                        if word := _comparison_word(tok, index, lemma):
+                        if word := _comparison_word(tok, index, lemma, blocked):
                             counts[word] += 1
                             break
         finally:
@@ -118,10 +120,10 @@ def collect(db_path, lane: str, artists, theme: str | None, index) -> Counter:
 
 
 def rank_words(counts: Counter, index, lane: str = "all", artists=(), fresh: float = 0.5,
-               boosts: dict | None = None) -> list[rank.Scored]:
+               boosts: dict | None = None, blocked: frozenset = frozenset()) -> list[rank.Scored]:
     """Rank comparison words: simile use first, then lane frequency, the fresh slider
     and (arm learned) vote/used boosts, exactly like the other lists."""
-    ctx = rank.Ctx(index, lane, fresh, tuple(artists or ()), boosts)
+    ctx = rank.Ctx(index, lane, fresh, tuple(artists or ()), boosts, blocked=blocked)
     out = []
     for word, n in counts.items():
         info = index.forms[word]

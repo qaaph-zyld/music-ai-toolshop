@@ -29,7 +29,7 @@ from flask import Flask, current_app, jsonify, request
 from werkzeug.exceptions import HTTPException, SecurityError
 
 from mairina import DATA_DIR, DEFAULT_LYRICS_DB, LANES, anchors as anchors_mod, corpus, devices
-from mairina import atlas as atlas_mod, comparisons, fingerprint, hints
+from mairina import atlas as atlas_mod, bans, comparisons, dialect as dialect_mod, fingerprint, hints
 from mairina import multis as multis_mod, rank, rules, targets
 from mairina import used as used_mod, votes
 from mairina.cli import _create_app_db, _open_app_db, _pack
@@ -44,6 +44,8 @@ MAX_ARTIST_CHARS = 64
 MAX_TAGS = 20
 MAX_TAG_CHARS = 64
 MAX_VOTE_ITEMS = 256
+MAX_EXCLUDE = 64               # words a swap excludes (one anchor set, plus slack)
+DIALECTS = ("all", "ekavica")
 SQLITE_MAX_INT = 2**63 - 1
 TRUSTED_HOSTS = ("127.0.0.1", "localhost")      # Werkzeug ignores the port when matching
 ATLAS_WARMING = "Corpus atlas is warming up (first run ~20 s) - retry shortly"
@@ -170,6 +172,48 @@ def _mode(v) -> str:
     if v not in anchors_mod.MODES:
         raise ApiError(400, f"Unknown mode '{v}' (use {', '.join(anchors_mod.MODES)}).")
     return v
+
+
+def _dialect(v) -> str:
+    v = "all" if v in (None, "") else v
+    if v not in DIALECTS:
+        raise ApiError(400, f"Unknown dialect '{v}' (use {', '.join(DIALECTS)}).")
+    return v
+
+
+def _written(v):
+    """The editor's lyric lines (anchor seeding): a list of up to 64 strings,
+    each capped like a lyric line; null when the user asks for fresh anchors."""
+    if v is None:
+        return None
+    if not isinstance(v, list) or not all(isinstance(t, str) for t in v):
+        raise ApiError(400, "'written' must be a list of strings (the editor lines)")
+    if len(v) > 64:
+        raise ApiError(413, f"'written' has too many lines ({len(v)}, max 64)")
+    return [_capped(t, "written", MAX_LINE_CHARS) for t in v]
+
+
+def _exclude(v) -> frozenset:
+    """Words a swap must not return: a list of up to MAX_EXCLUDE strings."""
+    if v is None:
+        return frozenset()
+    if not isinstance(v, list) or len(v) > MAX_EXCLUDE:
+        raise ApiError(400, f"'exclude' must be a list of up to {MAX_EXCLUDE} words")
+    out = set()
+    for i, w in enumerate(v):
+        if not isinstance(w, str):
+            raise ApiError(400, f"exclude[{i}] must be a string")
+        if nw := _capped(w.strip().lower(), f"exclude[{i}]", MAX_WORD_CHARS):
+            out.add(nw)
+    return frozenset(out)
+
+
+def _blocked(con, dialect: str) -> frozenset:
+    """User bans plus (dialect=ekavica) every ijekavian corpus form."""
+    out = bans.list_bans(con)
+    if dialect == "ekavica":
+        out |= _state()["ijekavian"]
+    return frozenset(out)
 
 
 def _fresh(v) -> float:
@@ -347,7 +391,9 @@ def create_app(lyrics_db=None, data_dir=None) -> Flask:
                         enabled=index is not None)
     app.extensions["mairina"] = {"lyrics_db": db_path, "data_dir": ddir, "index": index,
                                  "gazetteer": gazetteer, "corpus_error": corpus_error,
-                                 "paths": paths, "atlas": warm}
+                                 "paths": paths, "atlas": warm,
+                                 "ijekavian": (frozenset(dialect_mod.ijekavian(index.forms))
+                                             if index is not None else frozenset())}
     if index is not None:
         warm.start()                                          # never inside a request
 
@@ -394,15 +440,32 @@ def create_app(lyrics_db=None, data_dir=None) -> Flask:
         lane, mode, section = _lane(d.get("lane")), _mode(d.get("mode")), _section(d.get("section"))
         fresh, artists = _fresh(d.get("fresh")), _artists(d.get("artist"))
         scheme, lines, seed = _scheme(d.get("scheme")), _int(d.get("lines"), "lines", 1, 64), _opt_str(d.get("seed"), "seed", MAX_WORD_CHARS)
+        dialect, written = _dialect(d.get("dialect")), _written(d.get("written"))
         index = _index()
         st = _state()
+        # Written lines keep their own end-word (locked) and seed their group's
+        # class: the first non-empty line of each group fixes its rhyme family.
+        n_lines = len(written) if written else lines
+        letters = anchors_mod.parse_scheme(scheme, n_lines)
+        group_seeds, locked = {}, {}
+        for i, txt in enumerate(written or [], 1):
+            toks = used_mod.tokenize(txt)
+            if not toks or i > len(letters):
+                continue
+            locked[i] = toks[-1]
+            group_seeds.setdefault(letters[i - 1], toks[-1])
+        warns: list = []
         con = _create_app_db(st["data_dir"])
         try:
+            blocked = _blocked(con, dialect)
             arm = votes.assign_arm(random.Random())
             boosts = votes.boosts(con) if arm == "learned" else None
             try:
-                res = anchors_mod.anchors(index, scheme, lines, lane, mode, seed, fresh,
-                                          artists, random.Random(), boosts)
+                res = anchors_mod.anchors(index, scheme, n_lines, lane, mode, seed, fresh,
+                                          artists, random.Random(), boosts, blocked=blocked,
+                                          exclude=frozenset(locked.values()),
+                                          group_seeds=group_seeds, warnings=warns,
+                                          locked_lines=frozenset(locked))
             except anchors_mod.NoAnchors:
                 res = []
             packed = [(a.word, a.score, {"kind": f"anchor-{a.mode}", "group": a.group,
@@ -419,7 +482,50 @@ def create_app(lyrics_db=None, data_dir=None) -> Flask:
                                                  f"anchor-{a.mode}",
                                                  {"freq": a.freq, "upos": a.upos, "lemma": a.lemma}))}
                  for a in res]
-        return jsonify(list_id=lid, arm=arm, target=_trange(trange), items=items)
+        for n, w in locked.items():
+            e = index.forms.get(w) or {}
+            items.append({"n": n, "group": letters[n - 1], "word": w,
+                          "upos": e.get("upos"), "cls": anchors_mod.class_key(w, mode),
+                          "freq": e.get("freq", 0), "why": "your word", "locked": True})
+        items.sort(key=lambda x: x["n"])
+        out = {"list_id": lid, "arm": arm, "target": _trange(trange), "items": items}
+        if warns:
+            out["warnings"] = warns
+        return jsonify(**out)
+
+    @app.post("/api/anchors/swap")
+    def api_anchor_swap():
+        d = _body()
+        cls = _req_str(d, "cls", MAX_WORD_CHARS)
+        mode, lane, fresh = _mode(d.get("mode")), _lane(d.get("lane")), _fresh(d.get("fresh"))
+        artists, dialect = _artists(d.get("artist")), _dialect(d.get("dialect"))
+        group = _opt_str(d.get("group"), "group", 8)
+        index = _index()
+        con = _create_app_db(_state()["data_dir"])
+        try:
+            blocked = _blocked(con, dialect)
+            arm = votes.assign_arm(random.Random())
+            boosts = votes.boosts(con) if arm == "learned" else None
+            a = anchors_mod.swap(index, cls, mode, lane, fresh, artists,
+                                 _exclude(d.get("exclude")), random.Random(), boosts, blocked)
+            lid = None
+            if a is not None:
+                lid = votes.log_shown(con, "anchor-swap", cls, arm,
+                                      [(a.word, a.score, {"kind": f"anchor-{a.mode}",
+                                                          "group": group or "", "key": a.key,
+                                                          "features": a.features,
+                                                          "meta": {"freq": a.freq, "upos": a.upos,
+                                                                   "lemma": a.lemma}})])
+        finally:
+            con.close()
+        item = None
+        if a is not None:
+            item = {"word": a.word, "upos": a.upos, "cls": a.key, "freq": a.freq,
+                    "group": group, "why": rank.explain(rank.Scored(a.word, a.score, a.features,
+                                                                    f"anchor-{a.mode}",
+                                                                    {"freq": a.freq, "upos": a.upos,
+                                                                     "lemma": a.lemma}))}
+        return jsonify(item=item, list_id=lid)
 
     @app.post("/api/rhyme")
     def api_rhyme():
@@ -430,12 +536,14 @@ def create_app(lyrics_db=None, data_dir=None) -> Flask:
         if target_syl is not None and not line:
             raise ApiError(400, "'target' needs 'line' (the target is for the line being written).")
         lane, fresh, artists = _lane(d.get("lane")), _fresh(d.get("fresh")), _artists(d.get("artist"))
+        dialect = _dialect(d.get("dialect"))
         index = _index()
         con = _create_app_db(_state()["data_dir"])
         try:
+            blocked = _blocked(con, dialect)
             arm = votes.assign_arm(random.Random())
             boosts = votes.boosts(con) if arm == "learned" else None
-            ctx = rank.Ctx(index, lane, fresh, artists, boosts, line, target_syl)
+            ctx = rank.Ctx(index, lane, fresh, artists, boosts, line, target_syl, blocked)
             res = rank.rank(word, ctx.vocab(), ctx)[:MAX_RESULTS]
             lid = votes.log_shown(con, "rhyme", word, arm, [_pack(s) for s in res])
         finally:
@@ -449,12 +557,14 @@ def create_app(lyrics_db=None, data_dir=None) -> Flask:
         d = _body()
         phrase = _req_str(d, "phrase", MAX_WORD_CHARS)
         lane = _lane(d.get("lane"))
+        dialect = _dialect(d.get("dialect"))
         index = _index()
         con = _create_app_db(_state()["data_dir"])
         try:
+            blocked = _blocked(con, dialect)
             arm = votes.assign_arm(random.Random())
             boosts = votes.boosts(con) if arm == "learned" else None
-            res = multis_mod.multis(index, phrase, lane, MAX_RESULTS, 0.5, (), boosts)
+            res = multis_mod.multis(index, phrase, lane, MAX_RESULTS, 0.5, (), boosts, blocked)
             lid = votes.log_shown(con, "multi", phrase, arm, [_pack(s) for s in res])
         finally:
             con.close()
@@ -686,12 +796,14 @@ def create_app(lyrics_db=None, data_dir=None) -> Flask:
             theme = words[0]
         index = _index()
         st = _state()
-        counts = comparisons.collect(st["lyrics_db"], lane, artists, theme, index)
+        dialect = _dialect(request.args.get("dialect"))
         con = _create_app_db(st["data_dir"])
         try:
+            blocked = _blocked(con, dialect)
+            counts = comparisons.collect(st["lyrics_db"], lane, artists, theme, index, blocked)
             arm = votes.assign_arm(random.Random())
             boosts = votes.boosts(con) if arm == "learned" else None
-            res = comparisons.rank_words(counts, index, lane, artists, 0.5, boosts)[:MAX_RESULTS]
+            res = comparisons.rank_words(counts, index, lane, artists, 0.5, boosts, blocked)[:MAX_RESULTS]
             lid = votes.log_shown(con, "compare", f"lane={lane},theme={theme or ''}", arm,
                                   [_pack(s) for s in res])
         finally:
@@ -699,6 +811,40 @@ def create_app(lyrics_db=None, data_dir=None) -> Flask:
         items = [{"n": i, "word": s.candidate, "count": s.meta["count"],
                   "score": s.score, "why": rank.explain(s)} for i, s in enumerate(res, 1)]
         return jsonify(list_id=lid, arm=arm, items=items)
+
+    # -- word bans ---------------------------------------------------------------
+
+    @app.post("/api/ban")
+    def api_ban():
+        word = _req_str(_body(), "word", bans.MAX_WORD_LEN)
+        con = _create_app_db(_state()["data_dir"])
+        try:
+            w = bans.ban(con, word)
+        finally:
+            con.close()
+        return jsonify(ok=True, word=w)
+
+    @app.delete("/api/ban/<word>")
+    def api_unban(word: str):
+        w = _capped(word.strip().lower(), "word", bans.MAX_WORD_LEN)
+        con = _create_app_db(_state()["data_dir"])
+        try:
+            removed = bans.unban(con, w)
+        finally:
+            con.close()
+        if not removed:
+            raise ApiError(404, f"'{w}' is not banned.")
+        return jsonify(ok=True, word=w)
+
+    @app.get("/api/bans")
+    def api_bans():
+        con = _open_app_db(_state()["data_dir"])
+        try:
+            items = bans.list_with_ts(con) if con else []
+        finally:
+            if con:
+                con.close()
+        return jsonify(items=items)
 
     @app.get("/api/stats")
     def api_stats():

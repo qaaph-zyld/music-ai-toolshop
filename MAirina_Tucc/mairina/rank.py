@@ -43,10 +43,15 @@ class Ctx:
     boosts: dict | None = None
     line: str | None = None
     target_syl: int | None = None
+    blocked: frozenset = frozenset()
     _classes: dict = field(default_factory=dict, repr=False)
 
     def vocab(self) -> dict[str, int]:
-        return self.index.vocab(self.lane, self.artists or None)
+        """Lane vocabulary minus user-blocked words (bans, dialect filter)."""
+        v = self.index.vocab(self.lane, self.artists or None)
+        if not self.blocked:
+            return v
+        return {w: f for w, f in v.items() if w not in self.blocked}
 
     def line_syllables(self) -> int:
         """Syllables of ``line`` (the line being written), counted once per request."""

@@ -71,9 +71,12 @@ ONLY = {1: {"snimaš": ("snimati", "VERB")}, 2: {"snimaš": ("snimati", "VERB")}
         5: {"thelion": ("thelion", "NOUN"), "wanders": ("wander", "VERB"),
             "farway": ("farway", "ADV")}}
 # (song id, form, lemma, upos, script): hygiene cases that must be filtered or merged
-EXTRA = [(1, "лава", "лава", "NOUN", "cyrillic"), (1, ",", ",", "PUNCT", "latin"),
+EXTRA = ([(1, "лава", "лава", "NOUN", "cyrillic"), (1, ",", ",", "PUNCT", "latin"),
          (1, "3", "3", "NUM", "latin"), (1, "hm", "hm", "X", "latin"), (1, "$", "$", "SYM", "latin"),
-         (1, "lava", "lav", "VERB", "latin"), (2, "Lava", "Lava", "NOUN", "latin")] +     [(1, "trava", "trava", "NOUN", "latin")] * 4        # freq 4: below the anchors floor of 5
+         (1, "lava", "lav", "VERB", "latin"), (2, "Lava", "Lava", "NOUN", "latin")] +
+        [(1, "trava", "trava", "NOUN", "latin")] * 4 +                  # freq 4: below the anchors floor of 5
+        [(3, "vreme", "vreme", "NOUN", "latin")] * 6 +                  # ekavian twin (freq 6)
+        [(3, "vrijeme", "vrijeme", "NOUN", "latin")] * 6)               # lexicon ijekavica: same 'eme' class
 
 
 # Multi-token lines (song 1). They define which word pairs are attested bigrams:

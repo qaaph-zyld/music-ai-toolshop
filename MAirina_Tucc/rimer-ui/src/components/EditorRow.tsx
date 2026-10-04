@@ -17,6 +17,8 @@ interface Props {
   onStar: (tags: string[]) => void
   onUnstar: (id: number) => void
   onHintVote: (ruleId: string, vote: 1 | -1) => void
+  onSwap: () => void
+  onBan: (word: string) => void
 }
 
 function sylClass(syl: number, xray: XrayLine | null): string {
@@ -30,6 +32,7 @@ function sylClass(syl: number, xray: XrayLine | null): string {
 export function EditorRow(props: Props) {
   const { index, text, anchor, xray, star, canStar } = props
   const [open, setOpen] = useState(false)
+  const [menu, setMenu] = useState(false)
   const [tagging, setTagging] = useState(false)
   const [tags, setTags] = useState<string[]>([])
   const [freeTag, setFreeTag] = useState('')
@@ -83,16 +86,56 @@ export function EditorRow(props: Props) {
           spellCheck={false}
         />
         {anchor ? (
-          <button
-            type="button"
-            className={hit ? 'anchor hit' : 'anchor'}
-            onClick={() => props.onRhymeQuery(anchor.word, text)}
-            title={`${anchor.why} — click for rhymes`}
-            aria-label={`Anchor ${anchor.group} ${anchor.word}${hit ? ', landed' : ''}. Show rhymes`}
-          >
-            <b>{anchor.group}</b>
-            {anchor.word}
-          </button>
+          <span className="anchor-wrap">
+            <button
+              type="button"
+              className={anchor.locked ? 'anchor locked' : hit ? 'anchor hit' : 'anchor'}
+              onClick={() => props.onRhymeQuery(anchor.word, text)}
+              title={`${anchor.why} — click for rhymes`}
+              aria-label={`Anchor ${anchor.group} ${anchor.word}${hit ? ', landed' : ''}. Show rhymes`}
+            >
+              <b>{anchor.group}</b>
+              {anchor.word}
+            </button>
+            {!anchor.locked && (
+              <button
+                type="button"
+                className="anchor-more"
+                onClick={() => setMenu((v) => !v)}
+                aria-expanded={menu}
+                aria-label={`More actions for ${anchor.word}`}
+                title="swap / ban"
+              >
+                ⋯
+              </button>
+            )}
+            {menu && !anchor.locked && (
+              <span className="anchor-menu" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(false)
+                    props.onSwap()
+                  }}
+                  title="Another word from the same rhyme class"
+                >
+                  ↻ swap
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(false)
+                    props.onBan(anchor.word)
+                  }}
+                  title="Never suggest this word again (undo in the footer)"
+                >
+                  🚫 ban
+                </button>
+              </span>
+            )}
+          </span>
         ) : (
           <span />
         )}

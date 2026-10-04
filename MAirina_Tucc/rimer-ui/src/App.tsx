@@ -9,6 +9,7 @@ import { isLyricLine } from './text'
 import type {
   AnchorsResponse,
   AtlasResponse,
+  BanItem,
   CompareResponse,
   MeResponse,
   MultiResponse,
@@ -28,6 +29,7 @@ const DEFAULT_SETTINGS: Settings = {
   fresh: 0.5,
   artist: '',
   seed: '',
+  dialect: 'ekavica',
 }
 
 interface Stored {
@@ -94,8 +96,10 @@ export default function App() {
 
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [stars, setStars] = useState<Star[]>([])
+  const [bans, setBans] = useState<BanItem[]>([])
   const [me, setMe] = useState<MeResponse | null>(null)
   const [saveStatus, setSaveStatus] = useState('')
+  const [anchorNotes, setAnchorNotes] = useState<string[]>([])
 
   const text = lines.join('\n')
 
@@ -124,10 +128,11 @@ export default function App() {
   // Stats and stars are fast; the fingerprint (`me`) can take ~20 s the first time (it builds the
   // corpus atlas), so it is fetched on its own and never delays the footer or the ★ markers.
   const refreshSide = useCallback(async () => {
-    const fast = Promise.all([api.stats(), api.stars()])
-      .then(([s, st]) => {
+    const fast = Promise.all([api.stats(), api.stars(), api.bans()])
+      .then(([s, st, b]) => {
         setStats(s)
         setStars(st.items)
+        setBans(b.items)
         setEngine({ state: 'ok' })
       })
       .catch((err: unknown) => handleError(err))
@@ -198,6 +203,7 @@ export default function App() {
     try {
       const res = await api.anchors(settings)
       setAnchors(res)
+      setAnchorNotes(res.warnings ?? [])
       setLines((cur) => resize(cur, Math.max(res.items.length, 1)))
       setSettings((cur) => ({ ...cur, lines: Math.max(res.items.length, 2) }))
       setEngine({ state: 'ok' })
@@ -206,6 +212,73 @@ export default function App() {
       handleError(err, true)
     } finally {
       setBusy(false)
+    }
+  }
+
+  // Re-roll only the unwritten anchors: every written line keeps its own end-word
+  // (locked) and seeds its rhyme group's class with it.
+  async function matchAnchors() {
+    setBusy(true)
+    try {
+      const written = lines.map((l) => (isLyricLine(l) ? l : ''))
+      const res = await api.anchors(settings, written)
+      setAnchors(res)
+      setAnchorNotes(res.warnings ?? [])
+      setEngine({ state: 'ok' })
+      void refreshSide()
+    } catch (err) {
+      handleError(err, true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Draw another member of the anchor's own rhyme class; null means it is exhausted.
+  async function swapAnchor(row: number) {
+    const anchor = anchors?.items[row]
+    if (!anchor || anchor.locked) return
+    try {
+      const res = await api.swapAnchor(
+        anchor.cls,
+        anchor.group,
+        (anchors?.items ?? []).map((a) => a.word),
+        settings,
+      )
+      if (!res.item) {
+        setAnchorNotes((cur) => [...cur, `${anchor.group}: class -${anchor.cls} exhausted — nothing left to swap in.`])
+        return
+      }
+      setAnchors((cur) =>
+        cur
+          ? {
+              ...cur,
+              items: cur.items.map((a, i) => (i === row ? { ...a, ...res.item } : a)),
+            }
+          : cur,
+      )
+      setEngine({ state: 'ok' })
+    } catch (err) {
+      handleError(err, true)
+    }
+  }
+
+  // Persist a ban, then swap the chip (the ban itself removes it from the class).
+  async function banWord(word: string, row: number) {
+    try {
+      await api.ban(word)
+      void refreshSide()
+      await swapAnchor(row)
+    } catch (err) {
+      handleError(err, true)
+    }
+  }
+
+  async function unbanWord(word: string) {
+    try {
+      await api.unban(word)
+      void refreshSide()
+    } catch (err) {
+      handleError(err, true)
     }
   }
 
@@ -306,7 +379,14 @@ export default function App() {
 
   return (
     <div className="app">
-      <Controls settings={settings} busy={busy} onChange={changeSettings} onNewAnchors={() => void newAnchors()} />
+      <Controls
+        settings={settings}
+        busy={busy}
+        canMatch={lines.some(isLyricLine)}
+        onChange={changeSettings}
+        onNewAnchors={() => void newAnchors()}
+        onMatchAnchors={() => void matchAnchors()}
+      />
 
       {engine.state === 'offline' && (
         <div className="banner" role="status">
@@ -336,6 +416,13 @@ export default function App() {
               </span>
             )}
           </div>
+          {anchorNotes.length > 0 && (
+            <div className="anchor-notes" role="status">
+              {anchorNotes.map((w, i) => (
+                <span key={i}>{w}</span>
+              ))}
+            </div>
+          )}
           {lines.map((line, i) => (
             <EditorRow
               key={i}
@@ -350,6 +437,8 @@ export default function App() {
               onStar={(tags) => void starRow(i, tags)}
               onUnstar={(id) => void unstar(id)}
               onHintVote={(ruleId, v) => void hintVote(ruleId, v)}
+              onSwap={() => void swapAnchor(i)}
+              onBan={(word) => void banWord(word, i)}
             />
           ))}
         </section>
@@ -368,13 +457,21 @@ export default function App() {
           onRhymeQuery={(word) => void rhymeQuery(word)}
           onMultiQuery={(phrase) => void finderCall('multi', () => api.multi(phrase, settings), setMulti)}
           onCompare={(theme) =>
-            void finderCall('compare', () => api.compare(settings.lane, settings.artist, theme), setCompare)
+            void finderCall('compare', () => api.compare(settings.lane, settings.artist, theme, settings.dialect), setCompare)
           }
           onAtlas={() => void finderCall('atlas', () => api.atlas(settings.lane, settings.artist), setAtlas)}
         />
       </main>
 
-      <StatsFooter stats={stats} me={me} starCount={stars.length} saveStatus={saveStatus} onSave={() => void saveDraft()} />
+      <StatsFooter
+        stats={stats}
+        me={me}
+        starCount={stars.length}
+        saveStatus={saveStatus}
+        bans={bans}
+        onSave={() => void saveDraft()}
+        onUnban={(word) => void unbanWord(word)}
+      />
     </div>
   )
 }

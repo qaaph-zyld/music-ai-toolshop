@@ -5,6 +5,7 @@ export type Lane = 'drill' | 'pop' | 'all'
 export type Scheme = 'AABB' | 'ABAB' | 'AAAA' | 'ABBA'
 export type Mode = 'rhyme' | 'assonance' | 'consonance'
 export type Section = 'strofa' | 'refren' | 'prerefren' | 'postrefren' | 'hook' | 'bridge'
+export type Dialect = 'ekavica' | 'all'
 export type Arm = 'learned' | 'base'
 
 export interface ListMeta {
@@ -20,10 +21,25 @@ export interface AnchorItem {
   cls: string // rhyme class, e.g. "-aka"
   freq: number
   why: string
+  locked?: boolean // the user's own written end-word — not a suggestion
 }
 export interface AnchorsResponse extends ListMeta {
   target: TargetRange | null
   items: AnchorItem[]
+  warnings?: string[] // seeded-group fallbacks, e.g. "A: 'seksi' has no rhyme partners — matched on assonance instead."
+}
+
+export interface SwapResponse {
+  item: Omit<AnchorItem, 'n'> | null // null when the class is exhausted
+  list_id: number | null
+}
+
+export interface BanItem {
+  word: string
+  ts: string
+}
+export interface BansResponse {
+  items: BanItem[]
 }
 
 export interface RhymeItem {
