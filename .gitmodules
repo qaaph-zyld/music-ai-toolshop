@@ -10,3 +10,6 @@ url = https://github.com/qaaph-zyld/mastering_tool.git
 [submodule "track_reverse_engineering"]
 	path = track_reverse_engineering
 	url = https://github.com/qaaph-zyld/track_reverse_engineering.git
+[submodule "suno_extractor"]
+	path = suno_extractor
+	url = https://github.com/qaaph-zyld/suno_extractor.git
