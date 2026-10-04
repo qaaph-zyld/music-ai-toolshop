@@ -8,7 +8,7 @@
 | 02 | ace-step | 🟡 Parked | AI music generation with ACE-Step (GPU-gated) |
 | 03 | lyrics-writer | ⏳ Planned | AI lyrics generation tools |
 | 04 | stem-extractor | ✅ Active | Shipped in `toolshop` core (`toolshop stem extract`) |
-| 05 | track-reverse-engineering | ✅ Active | Integrated wav_reverse_engineer production analysis |
+| 05 | track-reverse-engineering | ✅ Active (submodule) | wav_reverse_engineer at `track_reverse_engineering/` (git submodule → own repo); old `projects/05` copy quarantined 2026-10-04 |
 | 06 | open-daw | 🟡 Parked (submodule) | Rust/C++ DAW engine at `open_DAW/` (git submodule → own repo); stale tracked duplicate `projects/06-opendaw` quarantined 2026-10-04 |
 | 07 | genius-lyrics | ✅ Active | **1,425-song corpus** at `data/toolshop/lyrics/genius/` + lyrics.db (10,654 sections, 65,912 lines, 273,801 rhyme rows; cohorts drill_trap 808 / pop 524) |
 | 08 | sample-forge | ✅ Active | `toolshop remix` - tempo/key-matched remixes and sample packs (T7) |
@@ -44,7 +44,7 @@ Each project follows dev_framework principles:
 
 - [01-suno-library](./projects/01-suno-library/) - Extracted Suno collection
 - [02-ace-step](./projects/02-ace-step/) - Music generation
-- [05-track-reverse-engineering](./projects/05-track-reverse-engineering/) - Track reverse engineering integration
+- [track_reverse_engineering](./track_reverse_engineering/) - Track reverse engineering (git submodule → own repo)
 - [open_DAW](./open_DAW/) - DAW engine (git submodule → own repo; `projects/06` duplicate quarantined 2026-10-04)
 - [docs/superpowers/specs](./docs/superpowers/specs/) - Design documents
 - [docs/superpowers/plans](./docs/superpowers/plans/) - Implementation plans
