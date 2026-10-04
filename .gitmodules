@@ -13,3 +13,6 @@ url = https://github.com/qaaph-zyld/mastering_tool.git
 [submodule "suno_extractor"]
 	path = suno_extractor
 	url = https://github.com/qaaph-zyld/suno_extractor.git
+[submodule "track_inventory"]
+	path = track_inventory
+	url = https://github.com/qaaph-zyld/track_inventory.git
