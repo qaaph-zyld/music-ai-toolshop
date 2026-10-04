@@ -1,13 +1,6 @@
 """Music AI toolshop package."""
 
-from . import cleaning_stages
-from . import cleaning_pipeline_adapter
-from . import reverse_engineering_adapter
-from . import genius_adapter
-from . import genius_parser
-from . import lyrics_analyzer
-from . import remix_adapter
-from . import melody_carrier
+import importlib
 
 __all__ = [
     "cli",
@@ -21,3 +14,10 @@ __all__ = [
     "remix_adapter",
     "melody_carrier",
 ]
+
+
+def __getattr__(name):
+    # Lazy (PEP 562): `import toolshop.syllables` must not pull numpy/librosa.
+    if name in __all__:
+        return importlib.import_module(f".{name}", __name__)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
