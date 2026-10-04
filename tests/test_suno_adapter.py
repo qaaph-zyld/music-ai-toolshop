@@ -93,7 +93,7 @@ def test_list_library_missing_fields(tmp_path, capsys):
 
 def test_export_text_no_directory(tmp_path, capsys):
     """Test export_text when directory doesn't exist"""
-    export_text(tmp_path, Path("output.json"), Path("output.txt"))
+    export_text(tmp_path, tmp_path / "output.json", tmp_path / "output.txt")
 
     captured = capsys.readouterr()
     assert "Exported 0 liked tracks to" in captured.out

@@ -1,5 +1,9 @@
 # Changelog
 
+> **ID note (2026-10-04):** Answer IDs up to #084 are not unique (#060 ×4, #061 ×4, #083 ×2, #084 ×2 —
+> parallel lanes assigned them concurrently). Cite the commit hash when referring to those. From now on an
+> ID is allocated only when a lane merges to master, by whoever merges (AGENTS.md "Boundaries & lanes").
+
 ### Answer #084 - `audition_review`: commented listening pages for ear-test gates (`scripts/audition_review.py`)
 **Timestamp:** 2026-10-04
 **Action Type:** Implementation (plan `~/.devin/plans/plan-6afe7ffeb976d7b2.md`, adversarial-reviewed).

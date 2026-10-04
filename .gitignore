@@ -121,3 +121,10 @@ audio-inventory.txt
 # whisperX forced-alignment sidecar (Wave 3). Isolated so torch and
 # ctranslate2 in .venv stay untouched — see JOURNAL.md J-012.
 .venv-align/
+
+# Root scratch guard (2026-10-04 clean-up, rule R5: scratch goes to ignored .scratch/)
+/scratch_*
+/.scratch*/
+/.scratch_*
+/nul
+/wt_*probe*.txt

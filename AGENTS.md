@@ -11,6 +11,20 @@ core platform + stem tool + reverse-engineering (dossier) tool + remastering too
 creation bridge + sample forge. CLI-first (`toolshop` entrypoint), adapters stay pure,
 CLI/scripts orchestrate.
 
+## Boundaries & lanes (music workspace segmentation, 2026-10-04)
+Full diagnosis + rules R1–R7: `D:\Projects\.workspace_archive\reviews\2026-10-04_music_workspace_diagnosis.md`.
+- **This repo = TOOLS** (code that works for any song/artist) + the lyrics *corpus* (Genius/sources → `lyrics.db`).
+  Not here: per-artist mix/master sessions → Studio repo `music_toolshop_v2/artists/<name>/`; lyric-writing
+  aids → MAirina repo (MAirina_Tucc/ moves out in segmentation Window 2).
+- **One lane = one branch + one working tree + one active agent** (`git worktree add ../Music-AI-Toolshop-wt-<lane> -b <lane>`).
+  Master only receives merges. A lane is closed by merging it, or by tagging + archiving it — never by a "done" note.
+- **CHANGELOG IDs are allocated at merge time** by whoever merges to master. "Check the latest entry" failed
+  under concurrency (#060 ×4, #061 ×4, #083 ×2, #084 ×2). Lane commits cite the lane name until merged.
+- **No shared indexes mid-lane:** prompts/ledgers live in `ORCHESTRATION/<lane>/`; `ORCHESTRATION/prompts/`,
+  `PROJECTS_INDEX.md`, `README.md`, `STATUS.md` are edited only in the merge commit.
+- **Scratch → `.scratch/` (ignored)**, never the repo root. Commit by explicit pathspec, never `git add -A`.
+- **No absolute paths in code**; data via `TOOLSHOP_DATA_DIR`. Artist source folders (`D:\2026\*`) are read-only.
+
 ## Hard rules
 - **Python:** ALWAYS use `.venv` (Python 3.11.9): `D:\Projects\Music-AI-Toolshop\.venv\Scripts\python.exe`. Never the global 3.13.
 - **Compute is CPU-only** (locked decision 2026-07-15, roadmap §0). GT 640 GPU is unusable for ML. No feature merges without a measured min/track number on this machine. Heavy work (>15 min) must be a resumable overnight batch.
