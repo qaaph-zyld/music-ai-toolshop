@@ -9,7 +9,7 @@ $env:PYTHONIOENCODING = "utf-8"
 $ResultsDir = "d:\Projects\Music-AI-Toolshop\results\crhymetv_re"
 $InputDir = "d:\Projects\Tools\yt_extractor\downloads\CrhymeTV"
 $VenvPython = "d:\Projects\Music-AI-Toolshop\.venv\Scripts\python.exe"
-$AdvancedBackendPath = "d:\Projects\Music-AI-Toolshop\projects\05-track-reverse-engineering\track_reverse_engineering"
+$AdvancedBackendPath = "d:\Projects\Music-AI-Toolshop\track_reverse_engineering"
 
 # Belt-and-braces PYTHONPATH so wav_reverse_engineer is importable even if the .pth file is missing.
 $env:PYTHONPATH = "$AdvancedBackendPath;$env:PYTHONPATH"

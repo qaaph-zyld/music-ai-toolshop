@@ -7,3 +7,6 @@ url = https://github.com/qaaph-zyld/mastering_tool.git
 [submodule "open_DAW"]
 	path = open_DAW
 	url = https://github.com/qaaph-zyld/open_DAW.git
+[submodule "track_reverse_engineering"]
+	path = track_reverse_engineering
+	url = https://github.com/qaaph-zyld/track_reverse_engineering.git
