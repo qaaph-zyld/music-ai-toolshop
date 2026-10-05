@@ -8,6 +8,7 @@ widget injection, static passthrough, and input guards.
 from __future__ import annotations
 
 import json
+import re
 import threading
 import urllib.error
 import urllib.request
@@ -275,6 +276,52 @@ class TestRangeRequests:
         code, _, body = _get_range(base, "/sub/b.wav", "bytes=0-3")
         assert code == 206
         assert body == (pack_root / "sub" / "b.wav").read_bytes()[:4]
+
+
+def _widget_js(server) -> str:
+    base, _ = server
+    _, body = _get(base, "/__audition__/comments.js")
+    return body.decode("utf-8")
+
+
+def _handler_body(js: str, name: str) -> str:
+    m = re.search(r"function %s\(\)\s*\{(.*?)\n    \}" % name, js, re.S)
+    assert m, f"handler function {name}() not found in widget JS"
+    return m.group(1)
+
+
+class TestWidgetAutosave:
+    """2026-10-05: a 'pick' chosen in the dropdown was lost — only the save
+    button POSTed. A verdict change must persist itself."""
+
+    def test_verdict_change_posts_full_payload(self, server):
+        js = _widget_js(server)
+        m = re.search(r'sel\.addEventListener\("change",\s*(\w+)\)', js)
+        assert m, "verdict <select> has no change listener"
+        body = _handler_body(js, m.group(1))
+        assert '"/__audition__/comment"' in body and '"POST"' in body
+        assert "verdict: sel.value" in body and "comment: ta.value" in body
+
+    def test_change_reports_status(self, server):
+        js = _widget_js(server)
+        name = re.search(r'sel\.addEventListener\("change",\s*(\w+)\)', js)
+        body = _handler_body(js, name.group(1))
+        assert '"saved "' in body
+        assert "save FAILED" in js
+
+    def test_save_button_and_blur_share_the_handler(self, server):
+        js = _widget_js(server)
+        name = re.search(r'sel\.addEventListener\("change",\s*(\w+)\)',
+                         js).group(1)
+        assert f"btn.onclick = {name};" in js
+        blur = re.search(r'ta\.addEventListener\("blur",.*?\n    \}\);',
+                         js, re.S)
+        assert blur, "comment <textarea> has no blur listener"
+        assert f"{name}()" in blur.group(0)
+
+    def test_single_post_path(self, server):
+        """One save function — no second, divergent payload builder."""
+        assert _widget_js(server).count('"/__audition__/comment"') == 1
 
 
 class TestCommentsReader:

@@ -60,19 +60,30 @@ WIDGET_JS = r"""// audition_review widget — verdict + comment per <audio>, log
     ta.style.cssText = "flex:1;min-width:200px;background:#1c1c22;color:#eee;border:1px solid #444;padding:4px";
     var btn = mk("button"); btn.textContent = "save";
     var st = mk("span"); st.style.cssText = "color:#8c8;white-space:nowrap";
-    btn.onclick = function () {
+    var it = { k: key(audio), sel: sel, ta: ta, sent: "" };
+    function fail() { st.textContent = "save FAILED"; st.style.color = "#c66"; }
+    function save() {
+      it.sent = ta.value;
       fetch("/__audition__/comment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page: page, audio: key(audio), verdict: sel.value, comment: ta.value })
+        body: JSON.stringify({ page: page, audio: it.k, verdict: sel.value, comment: ta.value })
       }).then(function (r) {
-        st.textContent = r.ok ? "saved " + new Date().toTimeString().slice(0, 8) : "save FAILED";
-        if (!r.ok) st.style.color = "#c66";
-      }).catch(function () { st.textContent = "save FAILED"; st.style.color = "#c66"; });
-    };
+        if (!r.ok) return fail();
+        st.textContent = "saved " + new Date().toTimeString().slice(0, 8);
+        st.style.color = "#8c8";
+      }).catch(fail);
+    }
+    // picking a verdict IS the decision — persist it now, not on "save"
+    sel.addEventListener("change", save);
+    // comment persists when focus leaves the box (the button saves if clicked)
+    ta.addEventListener("blur", function (e) {
+      if (e.relatedTarget !== btn && ta.value !== it.sent) save();
+    });
+    btn.onclick = save;
     box.appendChild(sel); box.appendChild(ta); box.appendChild(btn); box.appendChild(st);
     audio.parentNode.insertBefore(box, audio.nextSibling);
-    return { k: key(audio), sel: sel, ta: ta };
+    return it;
   }
   window.addEventListener("DOMContentLoaded", function () {
     var items = Array.prototype.map.call(document.querySelectorAll("audio"), attach);
@@ -82,7 +93,7 @@ WIDGET_JS = r"""// audition_review widget — verdict + comment per <audio>, log
       .then(function (m) {
         items.forEach(function (it) {
           var c = m[it.k];
-          if (c) { it.sel.value = c.verdict || ""; it.ta.value = c.comment || ""; }
+          if (c) { it.sel.value = c.verdict || ""; it.ta.value = it.sent = c.comment || ""; }
         });
       }).catch(function () {});
   });
