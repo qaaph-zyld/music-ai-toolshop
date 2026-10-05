@@ -158,9 +158,50 @@ class AuditionHandler(SimpleHTTPRequestHandler):
                 cand = fs_path / name
                 if cand.is_file():
                     return self._serve_html_transformed(cand)
-        elif fs_path.is_file() and fs_path.suffix.lower() == ".html":
-            return self._serve_html_transformed(fs_path)
+        elif fs_path.is_file():
+            if fs_path.suffix.lower() == ".html":
+                return self._serve_html_transformed(fs_path)
+            return self._serve_file(fs_path)
         return super().send_head()
+
+    # ---- Range-aware static files ------------------------------------- #
+    # stdlib send_head ignores Range, which leaves <audio> with no seek bar.
+    RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")
+
+    def _serve_file(self, fs_path: Path):
+        """Serve a static file, honoring a single 'Range: bytes=...' request."""
+        try:
+            size = fs_path.stat().st_size
+        except OSError:
+            return super().send_head()
+        start, end = 0, size - 1
+        code = 200
+        rng = self.headers.get("Range")
+        if rng:
+            m = self.RANGE_RE.fullmatch(rng.strip())
+            if not m or (not m.group(1) and not m.group(2)):
+                return self.send_error(416, "invalid range")
+            if m.group(1):
+                start = int(m.group(1))
+                end = int(m.group(2)) if m.group(2) else size - 1
+            else:  # suffix range: last N bytes
+                start = max(0, size - int(m.group(2)))
+            if start >= size or start > end:
+                return self.send_error(416, "unsatisfiable range")
+            end = min(end, size - 1)
+            code = 206
+        with fs_path.open("rb") as fh:
+            fh.seek(start)
+            data = fh.read(end - start + 1)
+        self.send_response(code)
+        self.send_header("Content-Type", self.guess_type(str(fs_path)))
+        self.send_header("Accept-Ranges", "bytes")
+        if code == 206:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Content-Length", str(len(data)))
+        self._cors()
+        self.end_headers()
+        return io.BytesIO(data)
 
     def _serve_html_transformed(self, fs_path: Path):
         try:

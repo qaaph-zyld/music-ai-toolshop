@@ -223,6 +223,60 @@ class TestPageGenerator:
         assert "note.txt" not in html
 
 
+def _get_range(url: str, path: str, rng: str):
+    req = urllib.request.Request(f"{url}{path}", headers={"Range": rng})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.status, dict(r.headers), r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers), e.read()
+
+
+class TestRangeRequests:
+    """<audio> seeking needs Range support — stdlib http.server has none."""
+
+    def test_prefix_range(self, server, pack_root):
+        base, _ = server
+        code, hdrs, body = _get_range(base, "/a.wav", "bytes=0-7")
+        assert code == 206
+        assert hdrs["Content-Range"] == "bytes 0-7/16"
+        assert hdrs["Accept-Ranges"] == "bytes"
+        assert body == (pack_root / "a.wav").read_bytes()[:8]
+
+    def test_open_ended_range(self, server, pack_root):
+        base, _ = server
+        code, hdrs, body = _get_range(base, "/a.wav", "bytes=8-")
+        assert code == 206
+        assert hdrs["Content-Range"] == "bytes 8-15/16"
+        assert body == (pack_root / "a.wav").read_bytes()[8:]
+
+    def test_suffix_range(self, server, pack_root):
+        base, _ = server
+        code, hdrs, body = _get_range(base, "/a.wav", "bytes=-4")
+        assert code == 206
+        assert hdrs["Content-Range"] == "bytes 12-15/16"
+        assert body == (pack_root / "a.wav").read_bytes()[-4:]
+
+    def test_full_get_advertises_ranges(self, server, pack_root):
+        base, _ = server
+        req = urllib.request.Request(f"{base}/a.wav")
+        with urllib.request.urlopen(req, timeout=5) as r:
+            assert r.status == 200
+            assert r.headers["Accept-Ranges"] == "bytes"
+            assert r.read() == (pack_root / "a.wav").read_bytes()
+
+    def test_unsatisfiable_range_416(self, server):
+        base, _ = server
+        code, _, _ = _get_range(base, "/a.wav", "bytes=999-")
+        assert code == 416
+
+    def test_range_on_nested_file(self, server, pack_root):
+        base, _ = server
+        code, _, body = _get_range(base, "/sub/b.wav", "bytes=0-3")
+        assert code == 206
+        assert body == (pack_root / "sub" / "b.wav").read_bytes()[:4]
+
+
 class TestCommentsReader:
     def test_prints_entries(self, pack_root, capsys):
         log = pack_root / COMMENTS_DIR / "pack.jsonl"
