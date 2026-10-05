@@ -1,0 +1,116 @@
+<!doctype html>
+<!-- Music Hub - Home mockup (static). Visual provenance for 04_VISUAL_CONTRACT.md.
+     Tokens copied from MAirina_Tucc/rimer-ui/src/index.css:2-48 (light + dark). Sample data only. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Music Hub</title>
+<style>
+:root{--bg:#f6f5f2;--panel:#ffffff;--ink:#1d1b18;--muted:#6f6a62;--line:#e3dfd8;--accent:#c2410c;--accent-ink:#ffffff;
+--ok:#15803d;--warn:#b45309;--bad:#b91c1c;--chip:#f1ede6;--focus:#2563eb;--radius:10px;
+--sans:system-ui,'Segoe UI',Roboto,sans-serif;--mono:ui-monospace,Consolas,monospace;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme='light']){--bg:#121110;--panel:#1b1a18;--ink:#eeeae3;--muted:#9a948a;
+--line:#2d2b27;--accent:#fb923c;--accent-ink:#1b1a18;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--chip:#26241f;--focus:#60a5fa;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--sans)}
+a{color:inherit}
+.hdr{position:sticky;top:0;z-index:5;height:56px;display:flex;align-items:center;gap:16px;padding:0 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+.hdr h1{font-size:18px;font-weight:600;margin:0}
+.hdr nav{display:flex;gap:4px}
+.hdr nav a{text-decoration:none;padding:6px 10px;border-radius:8px;color:var(--muted);font-weight:500}
+.hdr nav a[aria-current=page]{background:var(--chip);color:var(--ink)}
+.health{margin-left:auto;display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:var(--chip);font-size:12px;font-weight:500;white-space:nowrap}
+.pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)} .pill.ok{color:var(--ok)}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:5px 12px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.degraded{margin:12px 20px 0;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--warn);color:var(--warn);background:var(--panel);font-size:13px}
+main{display:grid;grid-template-columns:minmax(320px,38fr) 62fr;gap:20px;padding:20px;max-width:1480px;margin:0 auto}
+@media (max-width:760px){main{grid-template-columns:1fr;padding:12px;gap:12px}.hdr nav{display:none}}
+section.col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;min-width:0}
+section.col>h2{font-size:15px;font-weight:600;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.count{font-size:12px;font-weight:600;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:1px 8px}
+.card{border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin-bottom:10px;background:var(--bg)}
+.card .top{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.card h3{font-size:14px;font-weight:600;margin:0 0 4px}
+.card .meta{color:var(--muted);font-size:12px}
+.card .links a{font-size:13px;margin-right:10px}
+.card .actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.card.blocking{border-left:4px solid var(--accent)}
+.kind{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filters select,.filters input{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+.day{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.lastvisit{font-size:12px;color:var(--accent);text-align:center;margin:10px 0;border-top:1px dashed var(--accent);padding-top:4px}
+.row{display:grid;grid-template-columns:48px auto 1fr auto;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row time{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.row .title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.muted .title{color:var(--muted)}
+.rcpt{font-size:12px;white-space:nowrap}
+.rcpt.pushed{color:var(--ok)} .rcpt.local{color:var(--warn)} .rcpt.missing{color:var(--bad);font-weight:600} .rcpt.none{color:var(--muted)}
+@media (max-width:760px){.row{grid-template-columns:44px 1fr}.row .chips,.row .rcpt{grid-column:2}}
+</style>
+</head>
+<body>
+<header class="hdr" data-section="s0_header">
+  <h1>Music Hub</h1>
+  <nav aria-label="Views"><a href="/" aria-current="page">Home</a><a href="/journal">Journal</a><a href="/lanes">Lanes</a><a href="/artists">Artists</a></nav>
+  <div class="health" data-section="s0a_health">
+    <span class="pill warn" title="repos with uncommitted changes">3 dirty</span>
+    <span class="pill bad" title="commits not on the remote">2 unpushed</span>
+    <span class="pill warn" title="ACTIVE marker has override lines">guard overridden</span>
+    <span>Indexed 4 min ago · 6/6 sources</span>
+    <button class="primary" type="button">Refresh</button>
+  </div>
+</header>
+<div class="degraded" role="status" data-section="s0b_degraded" hidden>1 source degraded: sessions — path not found: ai_dev_meta_layer/memory/episodic/sessions</div>
+<main>
+  <section class="col" data-section="s1_inbox" aria-labelledby="inbox-h">
+    <h2 id="inbox-h">Waiting on you <span class="count">6</span></h2>
+    <article class="card blocking" data-section="s1a_item" data-kind="ear_test">
+      <div class="top"><span class="pill kind">ear test</span><span class="pill">ogcj</span><span class="pill">blocks 1 lane</span></div>
+      <h3>OGCJ G4: pick the blind Suno-flip master</h3>
+      <div class="links"><a href="http://127.0.0.1:8778/beats/ogcj_suno/">Blind pack</a></div>
+      <div class="meta">opened 2 days ago by orchestrator</div>
+      <div class="actions"><button class="primary" type="button">Resolve…</button><button type="button">Snooze</button></div>
+    </article>
+    <article class="card" data-section="s1a_item" data-kind="provide_input">
+      <div class="top"><span class="pill kind">provide input</span><span class="pill">pe3</span></div>
+      <h3>PE3: is there a raw vocal take for Bazooka?</h3>
+      <div class="meta">opened today · current source SNR 0.89 dB, profile low-confidence</div>
+      <div class="actions"><button class="primary" type="button">Resolve…</button><button type="button">Snooze</button></div>
+    </article>
+    <article class="card" data-section="s1a_item" data-kind="sign_off">
+      <div class="top"><span class="pill kind">sign off</span><span class="pill">oss-scout</span></div>
+      <h3>W1b MoSQITo metrics: adopt or park?</h3>
+      <div class="meta">opened 2 days ago</div>
+      <div class="actions"><button class="primary" type="button">Resolve…</button><button type="button">Snooze</button></div>
+    </article>
+    <p class="meta" data-section="s1b_more"><a href="/inbox">3 more · resolved history</a></p>
+  </section>
+
+  <section class="col" data-section="s2_journal" aria-labelledby="journal-h">
+    <h2 id="journal-h">Journal</h2>
+    <div class="filters" data-section="s2a_filters">
+      <select aria-label="Lane"><option>All lanes</option><option>tale</option><option>zeldi</option><option>mairina</option><option>ogcj</option></select>
+      <select aria-label="Repo"><option>All repos</option><option>parent</option><option>studio</option></select>
+      <select aria-label="Kind"><option>All kinds</option><option>commit</option><option>session</option><option>handoff</option></select>
+      <input type="search" placeholder="Search titles" aria-label="Search">
+    </div>
+    <div class="day" data-section="s2b_day">Today · Tue 6 Oct</div>
+    <div class="row" data-section="s2c_row" data-kind="session"><time>09:12</time><span class="chips"><span class="pill kind">session</span> <span class="pill">studio-engine</span></span><a class="title" href="#">Studio engine F15: sibilance on fricative events</a><span class="rcpt pushed" data-section="s2d_receipt">receipts ✓ 2 pushed</span></div>
+    <div class="lastvisit" data-section="s2e_lastvisit">since your last visit</div>
+    <div class="day" data-section="s2b_day">Yesterday · Mon 5 Oct</div>
+    <div class="row" data-section="s2c_row" data-kind="handoff"><time>23:58</time><span class="chips"><span class="pill kind">handoff</span> <span class="pill">studio-engine</span></span><a class="title" href="#">Fix 3 done (reported)</a><span class="rcpt none" data-section="s2d_receipt">no receipts</span></div>
+    <div class="row" data-section="s2c_row" data-kind="commit"><time>21:25</time><span class="chips"><span class="pill kind">commit</span> <span class="pill">studio-engine</span></span><a class="title" href="#">fix(engine): activity-gate voice-profile stats + drop pyin-bound saturation</a><span></span></div>
+    <div class="row muted" data-section="s2c_row" data-kind="pointer_bump"><time>19:02</time><span class="chips"><span class="pill kind">pointer</span> <span class="pill">studio</span></span><a class="title" href="#">submodule: studio -&gt; 999bf94</a><span></span></div>
+    <div class="row" data-section="s2c_row" data-kind="listen_verdict"><time>18:02</time><span class="chips"><span class="pill kind">listen</span> <span class="pill">mojgrad</span></span><a class="title" href="#">3 verdicts on mojgrad_khansovac_122 (2 pick, 1 ok)</a><span></span></div>
+    <div class="row" data-section="s2c_row" data-kind="session"><time>00:11</time><span class="chips"><span class="pill kind">session</span> <span class="pill">hub</span></span><a class="title" href="#">Example: report citing a hash that does not exist</a><span class="rcpt missing" data-section="s2d_receipt">receipts ✗ 1 of 1 not found</span></div>
+    <p class="meta"><a href="/journal">Full journal</a></p>
+  </section>
+</main>
+</body>
+</html>
