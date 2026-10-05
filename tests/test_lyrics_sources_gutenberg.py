@@ -221,6 +221,456 @@ class TestSplitting:
 
 
 # ---------------------------------------------------------------------------
+# wave p2_b G-fix: splitters for the six previously-empty works
+# (child vols II–V, songs-of-the-west, bundle-of-ballads).
+# All fixtures are hand-crafted — no real corpus text is committed.
+# ---------------------------------------------------------------------------
+
+
+def _pg(body: str) -> str:
+    return ("*** START OF THE PROJECT GUTENBERG EBOOK 1 ***\n"
+            + body
+            + "\n*** END OF THE PROJECT GUTENBERG EBOOK 1 ***\n")
+
+
+_CHILD = {"kind": "child", "category": "child-ballads"}
+_SOTW = {"kind": "sotw", "category": "songs-of-the-west"}
+_CAPS_PL = {"kind": "caps", "category": "misc",
+            "flush_left_heads": True, "caps_paren": True}
+
+
+class TestChildVolsCoverage:
+    """Child vols II–V: first ballad >40, unlettered texts, =X.=/#X.#
+    variant marks, APPENDIX/ADDITIONS-AND-CORRECTIONS supplements."""
+
+    def test_first_ballad_may_exceed_last_plus_40(self):
+        """Vol. II opens at ballad 54 — the +40 lookahead window must only
+        apply to *subsequent* ballads (PG47692 layout)."""
+        body = """
+54
+
+THE SYNTHETIC BALLAD TITLE
+
+        #A.# 'Fake Source,' Imaginary Book, p. 1.
+
+Prose commentary about the synthetic ballad and its history.
+
+* * *
+
+A
+
+        Source line for variant A.
+
+    1
+
+    First synthetic verse line,
+      second synthetic verse line,
+    third line of the verse,
+      fourth line of the verse.
+
+    2
+
+    More synthetic verse here,
+      continuing the stanza,
+    and a third line now,
+      finishing the verse.
+"""
+        songs = gb.split_songs(_pg(body), _CHILD)
+        titles = [t for t, _ in songs]
+        assert titles == ["The Synthetic Ballad Title [A]"]
+        assert len(songs[0][1]) == 2
+
+    def test_unlettered_text_after_star_rule(self):
+        """'HOBIE NOBLE' style: single text, no variant letter, text begins
+        right after the '* * *' commentary rule (PG63116)."""
+        body = """
+190
+
+JAMIE-LIKE BALLAD
+
+  Citation source, Imaginary Book, p. 3.
+
+Commentary paragraph about this ballad.
+
+* * *
+
+  1
+
+  Verse line one here,
+    indented second line,
+  verse line three here,
+    indented fourth line.
+
+  2
+
+  Second stanza begins,
+    with more verse,
+  third line follows now,
+    fourth line ends it.
+"""
+        songs = gb.split_songs(_pg(body), _CHILD)
+        assert [t for t, _ in songs] == ["Jamie-Like Ballad"]
+        assert len(songs[0][1]) == 2
+
+    def test_unlettered_text_without_star_rule(self):
+        """'CAPTAIN WARD' style (vol. V): unlettered main text not preceded
+        by a '* * *' rule — accepted because no variant head follows."""
+        body = """
+287
+
+WARD-LIKE BALLAD
+
+Long commentary paragraph that runs for a while without any rule line
+or variant letter and then gives the whole text immediately below.
+
+    1
+
+    Strike-like verse the first,
+      with a second line,
+    third line of the stanza,
+      fourth line closes it.
+
+    2
+
+    Second stanza opens here,
+      with another line,
+    third line of the stanza,
+      fourth line closes it.
+"""
+        songs = gb.split_songs(_pg(body), _CHILD)
+        assert [t for t, _ in songs] == ["Ward-Like Ballad"]
+
+    def test_quoted_stanza_in_commentary_rejected(self):
+        """'BONNY BEE HOM' style: a stanza quoted inside the commentary is
+        followed soon by the real 'A' head — must not open an unlettered
+        text (PG47692)."""
+        body = """
+92
+
+BALLAD WITH QUOTE
+
+Citation paragraph mentioning a related piece which runs thus:
+
+    1
+
+    Quoted stanza line one,
+      quoted stanza line two,
+    quoted stanza line three,
+      quoted stanza line four.
+
+A
+
+        Source of variant A.
+
+    1
+
+    Real variant verse here,
+      second line of verse,
+    third line of the verse,
+      fourth line ends stanza.
+"""
+        songs = gb.split_songs(_pg(body), _CHILD)
+        assert [t for t, _ in songs] == ["Ballad With Quote [A]"]
+
+    def test_decorated_variant_marks_guarded(self):
+        """Vol. V '=C.=' variant heads; '=A.=' before variant-reading notes
+        is a notes-section head and must not open a variant (PG71104)."""
+        body = """
+267
+
+HEIR-LIKE BALLAD
+
+* * *
+
+A
+
+  1
+
+  Variant a verse line,
+    second line now,
+  third line of verse,
+    fourth line ends.
+
+B
+
+  1
+
+  Variant b verse line,
+    second line now,
+  third line of verse,
+    fourth line ends.
+
+=A.=
+
+ 5^1. variant reading note.
+ 7^1. another note here.
+
+=C.=
+
+ The editor comment about the source goes here.
+
+    1
+
+    Variant c verse line,
+      second line now,
+    third line of verse,
+      fourth line ends.
+"""
+        songs = gb.split_songs(_pg(body), _CHILD)
+        titles = [t for t, _ in songs]
+        assert "Heir-Like Ballad [A]" in titles
+        assert "Heir-Like Ballad [B]" in titles
+        assert "Heir-Like Ballad [C]" in titles
+        # the '=A.=' notes head did not open a second '[A]' variant
+        assert titles.count("Heir-Like Ballad [A]") == 1
+
+    def test_appendix_pieces_then_next_ballad(self):
+        """Per-ballad APPENDIX (PG47692 ballad 61): CAPS piece heads inside
+        are songs of their own; the next numbered heading resumes ballads."""
+        body = """
+61
+
+SIR-LIKE BALLAD
+
+* * *
+
+A
+
+  1
+
+  Main text verse line,
+    second line now,
+  third line of verse,
+    fourth line ends.
+
+APPENDIX
+
+Commentary on the appendix piece that follows below.
+
+SIR TESTLING
+
+        Imaginary MS., fol. 5b.
+
+    1
+
+    Appendix verse line one,
+      line two now,
+    line three of it,
+      line four ends.
+
+62
+
+NEXT BALLAD
+
+* * *
+
+A
+
+  1
+
+  Next ballad verse,
+    second line now,
+  third line of it,
+      fourth line ends.
+"""
+        songs = gb.split_songs(_pg(body), _CHILD)
+        titles = [t for t, _ in songs]
+        assert "Sir-Like Ballad [A]" in titles
+        assert "Sir Testling" in titles
+        assert "Next Ballad [A]" in titles
+
+    def test_additions_corrections_embeds_versions(self):
+        """ADDITIONS AND CORRECTIONS (PG62474): full versions printed in
+        the correction section are captured; citation heads are not."""
+        body = """
+85
+
+LADY-LIKE BALLAD
+
+* * *
+
+A
+
+  1
+
+  Main text verse line,
+    second line now,
+  third line of verse,
+    fourth line ends.
+
+ADDITIONS AND CORRECTIONS
+
+VOL. I.
+
+P. 276. In an imaginary journal there is a copy taken from singing.
+
+GILES-LIKE COLLINS AND LADY-LIKE
+
+  1
+
+  Version verse line one,
+    second line now,
+  third line of verse,
+    fourth line ends.
+
+II, 28.
+
+G. L. K.
+"""
+        songs = gb.split_songs(_pg(body), _CHILD)
+        titles = [t for t, _ in songs]
+        assert "Lady-Like Ballad [A]" in titles
+        assert "Giles-Like Collins And Lady-Like" in titles
+        assert not any(t.startswith(("Vol", "Ii", "G. L", "P."))
+                       for t in titles)
+
+
+class TestSotwCoverage:
+    def test_toc_end_head_row_does_not_truncate(self):
+        """PG56625's CONTENTS lists 'NOTES ON THE SONGS.' verbatim before
+        the first 'No. N' heading — must not end the lyric region."""
+        body = """
+CONTENTS
+
+    1. FIRST SONG TITLE.
+    NOTES ON THE SONGS.
+
+PREFACE--INTRODUCTION.
+
+No. 1 BY SYNTHETIC CHANCE
+
+  1
+
+  By chance it was a line,
+    second line now,
+  third line of the song,
+    fourth line ends.
+
+  2
+
+  Second stanza opens,
+    second line now,
+  third line of the song,
+    fourth line ends.
+
+No. 2 SECOND SONG TITLE
+
+  1
+
+  Another song begins,
+    second line now,
+  third line of the song,
+    fourth line ends.
+
+NOTES ON THE SONGS
+
+  Back-matter notes go here and they must stop the region.
+"""
+        songs = gb.split_songs(_pg(body), _SOTW)
+        assert [t for t, _ in songs] == \
+            ["By Synthetic Chance", "Second Song Title"]
+
+
+class TestCapsFlagsCoverage:
+    """PG2831 bundle-of-ballads: TOC 'GLOSSARY' row, flush-left headings,
+    parenthesised qualifier, indented refrain lines."""
+
+    def test_toc_glossary_row_and_real_glossary(self):
+        body = """
+CONTENTS.
+
+     GLOSSARY
+
+INTRODUCTION BY THE EDITOR.
+
+FIRST TEST BALLAD.
+
+     Verse line one here,
+       second line indented,
+     third line of the verse,
+       fourth line ends it.
+
+GLOSSARY.
+
+     Back-matter glossary line that must not be a song.
+"""
+        songs = gb.split_songs(_pg(body), _CAPS_PL)
+        assert [t for t, _ in songs] == ["First Test Ballad"]
+
+    def test_paren_qualifier_heading(self):
+        body = """
+CHEVY-LIKE CHASE (the later version.)
+
+     God prosper long the line,
+       our lives and safeties all!
+     A woeful hunting once did,
+       in chase-like hills befall.
+
+     To drive the deer with hounds,
+       the earl-like took the way;
+     the child may rue that is,
+       the hunting of that day!
+"""
+        songs = gb.split_songs(_pg(body), _CAPS_PL)
+        assert [t for t, _ in songs] == \
+            ["Chevy-Like Chase (The Later Version)"]
+
+    def test_indented_caps_refrain_stays_verse(self):
+        """'UNWORTHY BARBARA ALLEN.' style: an indented all-caps refrain is
+        verse, not a heading — the song is not split apart."""
+        body = """
+BARBARA-LIKE BALLAD.
+
+     As she was walking on,
+       she heard the bell a ring;
+     and every stroke did seem,
+       REFRAIN-LIKE CAPS THING.
+
+     She turned her body round,
+       and spied the corpse a late;
+     whilst all her friends cried,
+       REFRAIN-LIKE CAPS THING.
+"""
+        songs = gb.split_songs(_pg(body), _CAPS_PL)
+        assert [t for t, _ in songs] == ["Barbara-Like Ballad"]
+        flat = "\n".join(l for b in songs[0][1] for l in b)
+        assert "REFRAIN-LIKE CAPS THING" in flat
+
+    def test_part_heads_continue_parent_song(self):
+        """'SECOND FYTTE.'/'PART THE SECOND.' divide one long ballad —
+        they continue the parent song rather than opening anonymous
+        fragments (pg2831 ADAM BELL; pg7535 THE HEIR OF LINNE)."""
+        body = """
+ADAM-LIKE BALLAD.
+
+     Verse line one of part,
+       second line goes here,
+     third line of the verse,
+       fourth line closes it.
+
+SECOND FYTTE.
+
+     Second fytte opens now,
+       second line goes here,
+     third line of the verse,
+       fourth line closes it.
+
+     FIRST PART.
+
+     A part-head may be indented;
+       it still is no verse line,
+     third line of the verse,
+       fourth line closes it.
+"""
+        songs = gb.split_songs(_pg(body), _CAPS_PL)
+        assert [t for t, _ in songs] == ["Adam-Like Ballad"]
+        flat = "\n".join(l for b in songs[0][1] for l in b)
+        assert "SECOND FYTTE" not in flat
+        assert "FIRST PART" not in flat
+        assert "Second fytte opens now" in flat
+
+
+# ---------------------------------------------------------------------------
 # iter_catalog + fetch_lyrics over a seeded _src cache
 # ---------------------------------------------------------------------------
 

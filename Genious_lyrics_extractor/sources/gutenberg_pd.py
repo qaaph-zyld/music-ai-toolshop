@@ -28,14 +28,31 @@ Per-work ``kind`` selects the splitter:
 * ``child`` — Child ballad volumes: bare arabic ballad number then CAPS
               title then lettered variants (``A``, ``B``...); each variant
               becomes its own song ``Title [A]``; stanza numbers printed.
+              Vols II–V start numbering at 54/114/189/266, so the first
+              ballad may be any number <=305 (subsequent ones must stay
+              within +40 of the last — the CAPS-title lookahead is the real
+              guard). ``=X.=``/``#X.#`` markers open a variant only when a
+              bare stanza ``1`` follows (otherwise they are notes-section
+              heads). Mid-volume ``APPENDIX`` and
+              ``ADDITIONS AND CORRECTIONS`` heads switch to a supplement
+              mode where CAPS headings are pieces in their own right
+              (Child prints full extra versions there) instead of ending
+              the lyric region.
 * ``caps``  — generic CAPS-heading collections (Elizabethan, Yorkshire,
               misc): a >=5-char all-caps heading followed by >=2 indented
               verse lines opens a song; stanzas split on blank lines.
+              Optional per-work flags: ``flush_left_heads`` requires
+              headings at column 0 (indented CAPS refrain lines stay verse)
+              and ``caps_paren`` also accepts a trailing parenthetical
+              qualifier like ``(the later version.)``.
 
 Body boundaries: text is cut to ``*** START/END OF ... GUTENBERG EBOOK ***``
 then per-work END_HEADS (``NOTES ON THE SONGS``, ``GLOSSARY``, ``APPENDIX``,
 ``LIST OF SONG-BOOKS``, ``TRANSCRIBER'S NOTE``) stop the lyric region before
-back-matter contaminates stanzas.
+back-matter contaminates stanzas. END_HEADS only cut once the song region
+has actually begun — tables of contents list the same headings verbatim
+(e.g. a ``GLOSSARY`` or ``NOTES ON THE SONGS`` row before song 1), which
+must not truncate the work.
 
 ``license_tier`` is frozen ``pd``/``release_ok=yes`` (all listed works are
 pre-1930 PD); ``license_of`` returns the registry default.
@@ -113,7 +130,10 @@ WORKS: Tuple[Dict[str, Any], ...] = (
      "category": "misc", "kind": "caps"},
     {"ebook": 2831, "key": "bundle-of-ballads",
      "title": "A Bundle of Ballads",
-     "category": "misc", "kind": "caps"},
+     "category": "misc", "kind": "caps",
+     # headings sit at column 0 (indented CAPS lines are verse refrains);
+     # 'CHEVY CHASE (the later version.)' carries a lowercase qualifier
+     "flush_left_heads": True, "caps_paren": True},
 )
 
 _WORK_BY_EBOOK = {w["ebook"]: w for w in WORKS}
@@ -130,10 +150,52 @@ _SECTION_HEADS = {
     "TO ", "CHRONOLOGICAL TABLE",
 }
 _CAPS_RE = re.compile(r"^\s*([A-Z][A-Z0-9 ,.'\-:&;\(\)\"!?]{4,})\s*$")
+#: CAPS heading with an optional trailing '(any case)' qualifier —
+#: 'CHEVY CHASE (the later version.)' in pg2831 (work flag caps_paren)
+_CAPS_PAREN_RE = re.compile(
+    r"^\s*([A-Z][A-Z0-9 ,.'\-:&;\(\)\"!?]{4,}?)\s*(\([^)]*\))?\s*$")
 _BARE_NUM = re.compile(r"^\s*(\d{1,3})\s*\.?\s*$")
 _BARE_LETTER = re.compile(r"^\s*([A-HJ-Z])\s*\.?\s*$")
+#: decorated variant markers used by Child vols III–V: '=A.=', '#A.#', '#B#'
+_VARIANT_MARK = re.compile(r"^\s*[#=]\s*([A-HJ-Z])\s*\.?\s*[#=]?\s*$")
 _PAGE_NUM = re.compile(r"^\s*\[?\d{1,4}\s*[a-z]?\.?\]?\s*$")
 _DIVIDER_RE = re.compile(r"^\*+(?:\s+\*+)*\s*$")
+#: sentinel kept in the line stream for the child splitter — Child prints
+#: a '* * *' rule between commentary and the ballad text(s); it is the
+#: signal that a bare stanza '1' opens an unlettered text rather than a
+#: quotation inside the apparatus
+_DIVIDER = "\x00"
+
+#: Child supplement heads that do NOT end the lyric region — each volume
+#: interleaves 'APPENDIX' sections (extra full versions) after ballads and
+#: closes with 'ADDITIONS AND CORRECTIONS' (which also prints complete
+#: texts, e.g. the two 'Giles Collins' versions in vol. III).
+_CHILD_SUPPLEMENT_HEADS = {"APPENDIX", "ADDITIONS AND CORRECTIONS"}
+_END_HEADS_CLEAN = {h.rstrip(".") for h in _END_HEADS}
+#: inside supplements, CAPS lines that are bibliographic citations,
+#: initials signatures, or volume/page refs are NOT piece titles:
+#: 'II, 28.', 'VOL. II.', 'P. 174.', 'I, 691.', 'G. L. K.', 'IX, 437.'
+_SUPP_HEAD_BAD_RES = (
+    re.compile(r"^(?:P|VOL|VOLS|NO|NOS)\.?\s"),
+    re.compile(r"^[IVXLC]+[,\).]"),
+    re.compile(r"^(?:[A-Z]\.\s*)+[A-Z]?\.?$"),
+)
+#: division heads inside a supplement piece ('FYTT II', 'SECOND FYTTE.',
+#: 'PART THE SECOND.') do not open a new piece — they continue the current
+#: one, keeping the following stanzas under the same title
+_SUPP_PART_RE = re.compile(
+    r"^(?:THE\s+)?(?:FIRST|SECOND|SECONDE|THIRD|THYRDE|THIRDE|FOURTH|"
+    r"FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|PART|PARTE|BOOK|"
+    r"FYTT?E?S?|FITT?E?S?|FYFTE?|FIT)\b")
+
+
+def _supplement_head_ok(head: str) -> bool:
+    """A supplement CAPS line is a real piece title only if it is not a
+    citation head: no digits, not 'P. <n>'/'VOL. <n>', not a roman-numeral
+    ref 'II, 28.', not initials 'G. L. K.'."""
+    if re.search(r"\d", head):
+        return False
+    return not any(r.match(head) for r in _SUPP_HEAD_BAD_RES)
 
 
 def _squeeze_interline_blanks(lines: List[str]) -> List[str]:
@@ -321,7 +383,10 @@ def _split_sotw(lines: List[str]) -> List[Tuple[str, List[List[str]]]]:
     i = 0
     while i < len(lines):
         l = lines[i]
-        if _cut_at_end_head(lines, i):
+        # END_HEADS cut only after the song region has begun — the
+        # CONTENTS page lists 'NOTES ON THE SONGS.' verbatim (pg56625)
+        # and must not truncate the work before song 1.
+        if _cut_at_end_head(lines, i) and cur_title is not None:
             break
         m = re.match(r"^\s*No\.?\s*(\d+)\s*[.,]?\s+(.+)$", l)
         if m:
@@ -334,7 +399,11 @@ def _split_sotw(lines: List[str]) -> List[Tuple[str, List[List[str]]]]:
             continue
         s = l.strip()
         if not s:
-            if cur:
+            # a lone stanza number survives the blank that separates it
+            # from its verse (the squeeze maps '1' + 2+ blanks + verse to
+            # '1', '', verse — flushing here would orphan the number and
+            # drop the verse as apparatus, leaving every song empty)
+            if cur and not (len(cur) == 1 and _BARE_NUM.match(cur[0])):
                 blocks.append(cur)
                 cur = None
             i += 1
@@ -361,17 +430,66 @@ def _split_sotw(lines: List[str]) -> List[Tuple[str, List[List[str]]]]:
     return songs
 
 
+def _unlettered_opens(lines: List[str], i: int) -> bool:
+    """A bare stanza ``1`` opens an unlettered ballad text. Quotations of a
+    single stanza inside the commentary are always followed soon by the
+    real variant head (``A``, ``=A.=``, ``#A.#``) or a CAPS/supplement
+    heading or a ``* * *`` rule — if any appears within the next 40 lines,
+    this ``1`` is a quote, not a text start."""
+    for j in range(i + 1, min(i + 40, len(lines))):
+        l2 = lines[j]
+        if l2 == _DIVIDER:
+            return False
+        s2 = l2.strip()
+        if not s2:
+            continue
+        if (_BARE_LETTER.match(s2) or _VARIANT_MARK.match(s2)
+                or _CAPS_RE.match(l2)):
+            return False
+    return True
+
+
+def _mark_is_variant(lines: List[str], i: int) -> bool:
+    """A ``=X.=``/``#X.#`` line is a *variant start* only when the next bare
+    stanza number is ``1``. Child vols III–V also use these marks for
+    notes-section heads listing variant readings (``5^1.``, ``8^1,`` … —
+    never bare), where a False verdict keeps the notes out of stanza
+    blocks. Scan stops at any other variant/letter/CAPS mark."""
+    for j in range(i + 1, min(i + 60, len(lines))):
+        s2 = lines[j].strip()
+        if not s2:
+            continue
+        m = _BARE_NUM.match(s2)
+        if m:
+            return m.group(1) == "1"
+        if (_CAPS_RE.match(lines[j]) or _VARIANT_MARK.match(lines[j])
+                or _BARE_LETTER.match(s2)):
+            return False
+    return False
+
+
 def _split_child(lines: List[str]) -> List[Tuple[str, List[List[str]]]]:
     """Child ballad volumes: ballad = bare number + CAPS title line;
     lettered variants (A/B/...) become separate songs; apparatus prose
     between the letter and stanza 1 is dropped; `#...#` citation lines and
-    `[x]` footnote lines dropped."""
+    `[x]` footnote lines dropped.
+
+    Vols II–V continue the numbering (54…305), so the first detected
+    ballad may be any number <=305; later ones must stay within +40 of the
+    previous ballad. ``=X.=``/``#X.#`` marks count as variant heads only
+    when stanza 1 follows (``_mark_is_variant``) — elsewhere they head
+    notes sections. ``APPENDIX``/``ADDITIONS AND CORRECTIONS`` heads do not
+    end the work: they open a supplement mode in which CAPS headings are
+    pieces of their own (Child prints full extra versions there); the next
+    numbered ballad heading leaves supplement mode."""
     songs: List[Tuple[str, List[List[str]]]] = []
     ballad_title: Optional[str] = None
-    variant: Optional[str] = None
+    variant: Optional[str] = None  # '' marks a supplement piece
     cur: Optional[List[str]] = None
     blocks: List[List[str]] = []
     last_ballad_no = 0
+    supplement = False
+    seen_star = False  # '* * *' rule since the current ballad heading
 
     def flush_variant():
         nonlocal blocks, cur
@@ -379,45 +497,109 @@ def _split_child(lines: List[str]) -> List[Tuple[str, List[List[str]]]]:
             blocks.append(cur)
             cur = None
         if ballad_title and variant is not None and blocks:
-            songs.append((f"{ballad_title} [{variant}]", blocks))
+            label = (f"{ballad_title} [{variant}]" if variant
+                     else ballad_title)
+            songs.append((label, blocks))
         blocks = []
 
     i = 0
     while i < len(lines):
         l = lines[i]
-        if _cut_at_end_head(lines, i):
-            break
+        if l == _DIVIDER:
+            seen_star = True
+            if cur:
+                blocks.append(cur)
+                cur = None
+            i += 1
+            continue
         s = l.strip()
+        caps = _CAPS_RE.match(l)
+        if caps:
+            head = caps.group(1).strip().rstrip(".")
+            if head in _CHILD_SUPPLEMENT_HEADS:
+                # only meaningful after the ballad region has begun —
+                # a TOC 'APPENDIX' row is skipped like any other line
+                if ballad_title is not None or supplement:
+                    flush_variant()
+                    ballad_title = None
+                    variant = None
+                    supplement = True
+                i += 1
+                continue
+            if head in _END_HEADS_CLEAN:
+                if ballad_title is not None or supplement:
+                    break
+                i += 1
+                continue
+            if supplement:
+                if _SUPP_PART_RE.match(head):
+                    i += 1  # 'SECOND FYTTE'/'PART ...' continue a piece
+                    continue
+                # CAPS heading inside a supplement: either a piece of its
+                # own or a bibliographic citation head — in both cases the
+                # previous piece is over
+                ok = _supplement_head_ok(head)
+                flush_variant()
+                ballad_title = _title_clean(head) if ok else None
+                variant = "" if ok else None
+                i += 1
+                continue
         # ballad heading: bare ballad number + CAPS title on the next
-        # non-blank line (PG 44969 prints "1." then the title)
+        # non-blank line (PG 44969 prints "1." then the title). The first
+        # ballad of a volume may be any Child number <=305 (vol. II starts
+        # at 54, III at 114, IV at 189, V at 266).
         nm = _BARE_NUM.match(s)
         if (nm and int(nm.group(1)) > last_ballad_no
-                and int(nm.group(1)) <= last_ballad_no + 40):
+                and int(nm.group(1))
+                <= (last_ballad_no + 40 if last_ballad_no else 305)):
             j = i + 1
             while j < len(lines) and j <= i + 3 and not lines[j].strip():
                 j += 1
-            caps = _CAPS_RE.match(lines[j]) if j < len(lines) else None
-            if caps and caps.group(1).strip().rstrip(".") not in {
-                    h.rstrip(".") for h in _END_HEADS}:
-                flush_variant()
-                last_ballad_no = int(nm.group(1))
-                ballad_title = _title_clean(caps.group(1))
-                variant = None
-                i = j + 1
-                continue
+            ncaps = _CAPS_RE.match(lines[j]) if j < len(lines) else None
+            if ncaps:
+                nhead = ncaps.group(1).strip().rstrip(".")
+                if (nhead not in _END_HEADS_CLEAN
+                        and nhead not in _CHILD_SUPPLEMENT_HEADS):
+                    flush_variant()
+                    last_ballad_no = int(nm.group(1))
+                    ballad_title = _title_clean(nhead)
+                    variant = None
+                    supplement = False
+                    seen_star = False
+                    i = j + 1
+                    continue
         if ballad_title is None:
             i += 1
             continue
-        if _BARE_LETTER.match(s):
+        bl = _BARE_LETTER.match(s)
+        if bl:
             flush_variant()
-            variant = s[0]
+            variant = bl.group(1)
+            i += 1
+            continue
+        vm = _VARIANT_MARK.match(s)
+        if vm and _mark_is_variant(lines, i):
+            flush_variant()
+            variant = vm.group(1)
             i += 1
             continue
         if variant is None:
+            # unlettered single-text ballad: no variant letter is printed
+            # (e.g. 'HOBIE NOBLE', 'JAMIE TELFER' in vol. IV, 'CAPTAIN
+            # WARD' in vol. V). The text proper begins after the '* * *'
+            # rule that closes the commentary; where no rule is printed,
+            # the lookahead distinguishes a real stanza '1' from a quoted
+            # stanza inside the apparatus
+            if (_BARE_NUM.match(s) and s.rstrip(".") == "1"
+                    and (seen_star or _unlettered_opens(lines, i))):
+                variant = ""
+                cur = ["1"]
             i += 1
             continue
         if not s:
-            if cur:
+            # same lone-stanza-number rule as _split_sotw: a number
+            # separated from its verse by 2+ blanks must not orphan
+            if cur and not (len(cur) == 1 and _BARE_NUM.match(cur[0])):
                 blocks.append(cur)
                 cur = None
             i += 1
@@ -428,7 +610,8 @@ def _split_child(lines: List[str]) -> List[Tuple[str, List[List[str]]]]:
             cur = [s]
             i += 1
             continue
-        if ("#" in s and re.search(r"#\s*\d|\d\s*#|[a-z]\d", s)) \
+        if ("#" in s
+                and re.search(r"#\s*\d|\d\s*#|[a-z]\d|#[A-Za-z]", s)) \
                 or _PAGE_NUM.match(s):
             i += 1
             continue
@@ -444,12 +627,36 @@ def _split_child(lines: List[str]) -> List[Tuple[str, List[List[str]]]]:
     return songs
 
 
-def _split_caps(lines: List[str]) -> List[Tuple[str, List[List[str]]]]:
+def _caps_head_title(m: "re.Match[str]") -> str:
+    """Title for a CAPS heading match. With the ``caps_paren`` pattern a
+    trailing '(qualifier)' is kept so e.g. the two Chevy Chase versions do
+    not collapse to one title."""
+    base = _title_clean(m.group(1))
+    if m.re is _CAPS_PAREN_RE and m.lastindex and m.lastindex >= 2 \
+            and m.group(2):
+        inner = m.group(2).strip().lstrip("(").rstrip(")").strip() \
+            .rstrip(".")
+        if inner:
+            base = f"{base} ({inner.title()})"
+    return base
+
+
+def _split_caps(lines: List[str], work: Optional[Dict[str, Any]] = None
+                ) -> List[Tuple[str, List[List[str]]]]:
     """Generic CAPS-heading collection. A heading opens a song only when at
     least 2 indented verse lines (>=2 leading spaces) appear within the next
     8 lines — CONTENTS/back-matter lists fail that probe and are skipped.
     Section heads (PREFACE, INTRODUCTION...) are passed through; END_HEADS
-    terminate."""
+    terminate once the song region has begun (a TOC row for the same
+    heading must not cut early — pg2831 lists 'GLOSSARY').
+
+    Work flags: ``flush_left_heads`` accepts only column-0 headings
+    (indented CAPS lines are refrain verse, e.g. pg2831's 'UNWORTHY
+    BARBARA ALLEN.'); ``caps_paren`` also accepts a trailing lowercase
+    parenthetical qualifier ('CHEVY CHASE (the later version.)')."""
+    work = work or {}
+    flush_left = bool(work.get("flush_left_heads"))
+    head_re = _CAPS_PAREN_RE if work.get("caps_paren") else _CAPS_RE
     songs: List[Tuple[str, List[List[str]]]] = []
     cur_title: Optional[str] = None
     cur: List[str] = []
@@ -479,18 +686,28 @@ def _split_caps(lines: List[str]) -> List[Tuple[str, List[List[str]]]]:
     i = 0
     while i < len(lines):
         l = lines[i]
-        if _cut_at_end_head(lines, i):
+        if _cut_at_end_head(lines, i) and cur_title is not None:
             break
-        caps = _CAPS_RE.match(l)
-        if caps:
+        caps = head_re.match(l)
+        if caps and (not flush_left or l[:1] not in (" ", "\t")):
             head = caps.group(1).strip().rstrip(".")
+            if cur_title is not None and _SUPP_PART_RE.match(head):
+                # 'SECOND FYTTE.'/'PART THE SECOND.' divide one long
+                # ballad (Adam Bell, The Nut-Brown Maid, The Heir of
+                # Linne) — keep its verse under the parent title instead
+                # of cataloguing an anonymous fragment
+                if cur:
+                    blocks.append(cur)
+                    cur = []
+                i += 1
+                continue
             if any(head.startswith(s.rstrip(".")) for s in _SECTION_HEADS):
                 if cur_title is None:
                     i += 1
                     continue
             if verse_probe(i + 1):
                 flush()
-                cur_title = _title_clean(head)
+                cur_title = _caps_head_title(caps)
                 i += 1
                 continue
         if cur_title is None:
@@ -514,6 +731,15 @@ def _split_caps(lines: List[str]) -> List[Tuple[str, List[List[str]]]]:
         if _PAGE_NUM.match(s):
             i += 1
             continue
+        # an *indented* part-head ('  FIRST PART.', pg2831 AULD ROBIN
+        # GRAY) passes the flush-left check as verse — it is a division
+        # label like its flush-left siblings, not a lyric line
+        if _CAPS_RE.match(l) and _SUPP_PART_RE.match(s.rstrip(".")):
+            if cur:
+                blocks.append(cur)
+                cur = []
+            i += 1
+            continue
         if (l[:1] == " " or l[:1] == "\t") and len(s) <= 95 and \
                 not s.startswith("["):
             cur.append(s)
@@ -525,13 +751,19 @@ def _split_caps(lines: List[str]) -> List[Tuple[str, List[List[str]]]]:
 def split_songs(text: str, work: Dict[str, Any]) -> List[Tuple[str, List[List[str]]]]:
     body = _slice_region(text)
     lines = _squeeze_interline_blanks(body.split("\n"))
-    lines = [l for l in lines if not _DIVIDER_RE.match(l.strip())]
     kind = work.get("kind", "caps")
+    if kind == "child":
+        # keep '* * *' rules as sentinels: they mark the commentary/text
+        # boundary the child splitter needs for unlettered texts
+        lines = [_DIVIDER if _DIVIDER_RE.match(l.strip()) else l
+                 for l in lines]
+    else:
+        lines = [l for l in lines if not _DIVIDER_RE.match(l.strip())]
     if kind == "sotw":
         return _split_sotw(lines)
     if kind == "child":
         return _split_child(lines)
-    return _split_caps(lines)
+    return _split_caps(lines, work)
 
 
 # ---------------------------------------------------------------------------
