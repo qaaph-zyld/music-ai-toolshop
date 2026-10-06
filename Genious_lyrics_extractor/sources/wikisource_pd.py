@@ -537,15 +537,21 @@ def license_of(entry: CatalogEntry) -> LicenseInfo:
     )
 
 
-def fetch_lyrics(entry: CatalogEntry, session=None, limiter=None) -> Dict[str, Any]:
+def _song_from_wikitext(entry: CatalogEntry, wt: str,
+                        parsed_title: Optional[str] = None) -> Dict[str, Any]:
+    """Shared wikitext -> song-dict pipeline (license gate, verse cleaning,
+    normalization, schema). Both ``fetch_lyrics`` (API ``action=parse`` path)
+    and the P2 XML-dump ingestor land here so the verdict logic can never
+    drift between the two — dump passes ``parsed_title=None`` (the page title
+    already rides ``entry.meta['page_title']``).
+
+    Raises ``DropItem`` for empty wikitext, non-PD license templates,
+    too-short pages, TOC/index pages, and empty-after-normalization.
+    """
     meta = dict(entry.meta or {})
     wiki = str(meta.get("wiki") or WIKI_SR)
     pid = str(meta.get("pageid")
                 or str(entry.foreign_identifier).rsplit(":", 1)[-1])
-    data = _api_get(wiki, {"action": "parse", "prop": "wikitext",
-                           "pageid": pid}, session=session, limiter=limiter)
-    parsed = data.get("parse") or {}
-    wt = parsed.get("wikitext") or ""
     if not wt.strip():
         raise DropItem("empty-wikitext")
 
@@ -612,7 +618,7 @@ def fetch_lyrics(entry: CatalogEntry, session=None, limiter=None) -> Dict[str, A
         "meta": {
             "wiki": wiki,
             "pageid": pid,
-            "page_title": parsed.get("title") or meta.get("page_title"),
+            "page_title": parsed_title or meta.get("page_title"),
             "license_templates": lic_templates,
             "license_verdict": verdict,
             "wikitext_bytes": len(wt),
@@ -623,3 +629,16 @@ def fetch_lyrics(entry: CatalogEntry, session=None, limiter=None) -> Dict[str, A
         },
     }
     return song
+
+
+def fetch_lyrics(entry: CatalogEntry, session=None, limiter=None) -> Dict[str, Any]:
+    meta = dict(entry.meta or {})
+    wiki = str(meta.get("wiki") or WIKI_SR)
+    pid = str(meta.get("pageid")
+                or str(entry.foreign_identifier).rsplit(":", 1)[-1])
+    data = _api_get(wiki, {"action": "parse", "prop": "wikitext",
+                           "pageid": pid}, session=session, limiter=limiter)
+    parsed = data.get("parse") or {}
+    return _song_from_wikitext(
+        entry, parsed.get("wikitext") or "",
+        parsed_title=parsed.get("title"))

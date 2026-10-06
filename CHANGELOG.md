@@ -4,6 +4,33 @@
 > parallel lanes assigned them concurrently). Cite the commit hash when referring to those. From now on an
 > ID is allocated only when a lane merges to master, by whoever merges (AGENTS.md "Boundaries & lanes").
 
+### Answer (lyrics-p2 lane — ID allocated at merge) - lyrics-sources P2: full-catalog ingest + `_release_v1` (24,088 songs / 8 corpora, 21,776 release-cleared)
+**Timestamp:** 2026-10-06
+**Action Type:** Implementation + adversarial review (megaplan `.workspace_archive/plans/lyrics-sources-p2-megaplan.md`; review `.workspace_archive/reviews/2026-10-06_0146_lyrics-sources-p2-impl.md` — verdict approved-with-fixes).
+
+**Previous state:** lyrics.db carried genius-pro only (1,425 songs); 7 further source adapters existed with ≤25-item pilots each; wikisource was API-429-blocked; no synced-lyrics source.
+
+**Current state:** lyrics.db holds **24,088 songs across 8 corpora** — genius-pro invariant byte-identical (1425/10654/65912/273801) plus wikisource_pd 12,538 (two-pass ns-14 XML-dump ingestor; sr 12,220 + en 430), mudcat-digitrad 7,105 (local zip parse; 1,649 ©-drops), gutenberg_pd 1,306 (splitter coverage fixed mid-wave), ccmixter 547, sacred-texts 277, hymnary 3 (rest deferred-with-evidence, Bunny 403), lrclib 887 study-only (60.6% seed hit-rate; `synced_lyrics` on 610 tracks). `line_rhymes` = 4,225,010 rows; metrics coverage complete. `_release_v1` exports **21,776 release-cleared songs** (PD 21,242 + CC-BY 534) with TASL `CREDITS.md`; genius-pro + lrclib correctly held (`release_ok=no`); blocker audit refuses non-yes rows. jamendo inert (no key). Deferred: `build-rimer` aggregate (merge checklist); synced_lyrics DB columns (artifact-level only); sacred-texts mojibake cleanup.
+
+#### Files Affected:
+- **NEW:** `Genious_lyrics_extractor/wikisource_dump_ingest.py` + `sources/wikisource_dump.py` — dump ingestor (bypasses rate-limited API).
+- **NEW:** `scripts/make_lrclib_seed.py` + `data/toolshop/lyrics/lrclib/_seed.json` — 1,425-row seed from genius corpus.
+- **NEW:** `ORCHESTRATION/lyrics_sources/wave_p2_*/` — per-wave handoffs incl. `wave_p2_6/V2_handoff.md` (this closeout).
+- **MODIFIED:** `Genious_lyrics_extractor/sources/gutenberg_pd.py` — splitter coverage for 6 silent works + orphan/PART-FYTTE fixes.
+- **MODIFIED:** `docs/superpowers/STATUS.md` — T5 row state.
+- **MODIFIED:** `CHANGELOG.md` — this entry.
+- Corpus data + `lyrics.db` + `_release_v1` live under `data/toolshop/` (gitignored, canonical main-repo dir via `TOOLSHOP_DATA_DIR`).
+
+#### Technical Decisions:
+- Dump ingest reuses the adapter's pure pipeline + `meta.via='dump'` provenance; license verdict = negative template screen + corpus-level pd tier (live parity verified on sr:42408 during V2).
+- Incremental `build-db` is additive-only; metrics/rhymes computed per inserted song; LRCLIB re-run proved idempotent (Ingested: 0).
+- Rimer cost gated on a measured sacred-texts pilot (10.3 s/song → 36-64 h projection → user approved; actual big-corpus rate ~0.11-0.23 s/song, ~98 min total).
+- CHANGELOG ID deferred to merge per ID-note — cite `lyrics-p2` lane until then.
+
+#### Next Actions Required:
+- Merge `lyrics-p2 → master` in a user-gated session (ledger union-resolve per window-3 note; allocate the Answer ID then).
+- Run `toolshop lyrics build-rimer` after merge to rebuild the `rhyme_pairs` aggregate over the new `line_rhymes` corpus.
+
 ### Answer #084 - `audition_review`: commented listening pages for ear-test gates (`scripts/audition_review.py`)
 **Timestamp:** 2026-10-04
 **Action Type:** Implementation (plan `~/.devin/plans/plan-6afe7ffeb976d7b2.md`, adversarial-reviewed).

@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic mini pages-articles dump for tests/test_lyrics_sources_dump.py.
+     All text is synthetic or public-domain folk verse (pre-1850 Vuk corpus
+     style). Covers: PD Cyrillic poem reachable only via a SUBCAT of the
+     Народне песме root (graph membership, not name match), a Vuk book-cat
+     member, a non-PD license drop, a TOC/link-heavy drop, a too-short drop,
+     a CC-BY-SA conditional emit, an en folk-song emit, a non-member page,
+     and ns-14 category pages forming root->subcat edges. -->
+<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           version="0.11" xml:lang="sr">
+  <siteinfo>
+    <sitename>Викизворник</sitename>
+    <dbname>srwikisource</dbname>
+    <base>https://sr.wikisource.org/wiki/%D0%9F%D0%BE%D1%87%D0%B5%D1%82%D0%BD%D0%B0_%D1%81%D1%82%D1%80%D0%B0%D0%BD%D0%B0</base>
+    <generator>MediaWiki 1.43.0</generator>
+    <case>first-letter</case>
+    <namespaces>
+      <namespace key="0" case="first-letter" />
+      <namespace key="14" case="first-letter">Категорија</namespace>
+    </namespaces>
+  </siteinfo>
+
+  <page>
+    <title>Категорија:Народне песме</title>
+    <ns>14</ns>
+    <id>5001</id>
+    <revision>
+      <id>6001</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve" bytes="60">Српске народне песме.
+[[Категорија:Усмена књижевност]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Категорија:Женске народне песме</title>
+    <ns>14</ns>
+    <id>5002</id>
+    <revision>
+      <id>6002</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve" bytes="30">[[Категорија:Народне песме]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Категорија:Збирке Вука Стефановића Караџића</title>
+    <ns>14</ns>
+    <id>5003</id>
+    <revision>
+      <id>6003</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve" bytes="40">[[Категорија:Вук Стефановић Караџић]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Категорија:Збирка народних песама Вук књига прва</title>
+    <ns>14</ns>
+    <id>5004</id>
+    <revision>
+      <id>6004</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve" bytes="55">[[Категорија:Збирке Вука Стефановића Караџића]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Category:Folk songs</title>
+    <ns>14</ns>
+    <id>5005</id>
+    <revision>
+      <id>6005</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve" bytes="18">[[Category:Songs]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Категорија:Усмена књижевност</title>
+    <ns>14</ns>
+    <id>5006</id>
+    <revision>
+      <id>6006</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve" bytes="0"></text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Два бора и јела</title>
+    <ns>0</ns>
+    <id>902</id>
+    <revision>
+      <id>7002</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve">{{Поезија|
+&lt;center&gt;{{ font color | red | '''&lt;big&gt;Два бора и јела&lt;/big&gt;''' }}&lt;/center&gt;
+Два су бора напоредо расла,
+Међу њима танковрха јела;
+То не била два бора зелена,
+Ни међ’ њима танковрха јела,
+{{стих|5}}
+Већ то била два брата рођена:
+Једно Павле, а друго Радуле,
+Међу њима сестрица Јелица
+Браћа сеју врло миловала,
+Сваку су јој милост доносила,
+}}
+
+===Извор===
+* [[Сабрана дела Вука Караџића]]
+
+[[Категорија:Женске народне песме]]
+[[sl:Dva borja in jelka]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Ага Асан-ага</title>
+    <ns>0</ns>
+    <id>903</id>
+    <revision>
+      <id>7003</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve">{{Поезија|
+Ага Асан-ага, ратник од уранка,
+Који га је видљо у боју и ранку?
+Вид’о га је поган пуки Солумага,
+Па га је провалио под бело платно,
+Ту га је погодио у бело грудо,
+}}
+
+[[Категорија:Збирка народних песама Вук књига прва]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Злоћудна песма</title>
+    <ns>0</ns>
+    <id>9901</id>
+    <revision>
+      <id>7004</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve">{{CC-BY-NC-4.0}}
+Синтетска песма, први стих,
+други стих за тестирање,
+трећи стих је у наставку,
+четврти стих га завршава.
+
+[[Категорија:Женске народне песме]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Списак песама</title>
+    <ns>0</ns>
+    <id>9902</id>
+    <revision>
+      <id>7005</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve">Списак песама у збирци:
+
+* [[Два бора и јела]]
+* [[Ага Асан-ага]]
+* [[Злоћудна песма]]
+* [[Кратка песма]]
+* [[Пример песме]]
+
+[[Категорија:Женске народне песме]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Кратка песма</title>
+    <ns>0</ns>
+    <id>9903</id>
+    <revision>
+      <id>7006</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve">Кратка песма, два стиха,
+ништа више од тога.
+
+[[Категорија:Женске народне песме]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Пример песме</title>
+    <ns>0</ns>
+    <id>9904</id>
+    <revision>
+      <id>7007</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve">{{CC-BY-SA-4.0}}
+Синтетска песма, први стих,
+други стих за тестирање,
+трећи стих је у наставку,
+четврти стих га завршава,
+пети стих на крају стоји.
+
+[[Категорија:Женске народне песме]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>The Riddles Wisely Expounded</title>
+    <ns>0</ns>
+    <id>7701</id>
+    <revision>
+      <id>7008</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve">{{header
+ | title    = The Riddles Wisely Expounded
+ | section  =
+ | author   = Traditional
+ | notes    = English folk ballad; Child #1 variant B.
+}}
+{{PD-US}}
+&lt;poem&gt;
+There were three sisters fair and bright,
+Fair and bright, fair and bright,
+And they loved a knight, they loved so bright,
+It's down by the bonny broom.
+&lt;/poem&gt;
+{{reflist}}
+[[Category:Folk songs]]
+[[Category:Ballads]]</text>
+    </revision>
+  </page>
+
+  <page>
+    <title>Непозната страница</title>
+    <ns>0</ns>
+    <id>9999</id>
+    <revision>
+      <id>7009</id>
+      <timestamp>2024-01-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikitext</model>
+      <format>text/x-wiki</format>
+      <text xml:space="preserve">Непозната страница, четири стиха,
+други стих је наставља,
+трећи стих се исписује,
+четврти стих је завршетак.
+
+[[Категорија:Усмена књижевност]]</text>
+    </revision>
+  </page>
+
+</mediawiki>
