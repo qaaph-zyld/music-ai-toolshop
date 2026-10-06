@@ -18,3 +18,11 @@ GATE P3: approved 2026-10-06 — all roster artists with researched cohort tags.
 See megaplan Roster table. 16 artists; all `genius_artist_id` pinned after
 song-probe verification. `Bulevar` = YU new-wave band (id 369563, ~2 songs,
 cohort provisional `pop`).
+
+## /claude:orchestrate-waves dispatch wiring (commit 3c52e2f)
+
+- Command already registered: `.claude/commands/orchestrate-waves.md` exists at workspace root; `.devin/config.json` has `read_config_from.claude=true` — resolves as `/claude:orchestrate-waves`. Mirrors: `.devin/workflows/orchestrate-waves.md`, `.windsurf/workflows/orchestrate-waves.md` (generated from `.windsurf/skills/orchestrate-waves/SKILL.md`).
+- Missing link was lane-side: no `waves.json` existed. Created `ORCHESTRATION/lyrics_g3/waves.json` — 3 sequential waves (G3-fetch-audit gate, G3-db-ingest gate, G3-verify).
+- Generated `prompts/subagent_dispatch.json` via `gen_orchestration_prompts.py --mode subagent`. Profiles resolved: wave-1 -> wave-explorer, wave-2 -> wave-implementer, wave-3 -> reviewer (explicit subagent_profile).
+- Dispatched wave 1 (agent_id=63b0b646, background): fetch audit. Expected verdict FETCH INCOMPLETE since fetch still running (4/16 artists done in status, Crni Cerak resolving).
+- Dispatch-failure fallback per command doc: orchestrator self-execution needs scoped `override:` in ACTIVE (marker currently absent); else paste mode.
