@@ -4,7 +4,7 @@
 > parallel lanes assigned them concurrently). Cite the commit hash when referring to those. From now on an
 > ID is allocated only when a lane merges to master, by whoever merges (AGENTS.md "Boundaries & lanes").
 
-### Answer (lyrics-p2 lane — ID allocated at merge) - lyrics-sources P2: full-catalog ingest + `_release_v1` (24,088 songs / 8 corpora, 21,776 release-cleared)
+### Answer #085 - lyrics-sources P2: full-catalog ingest + `_release_v1` (24,088 songs / 8 corpora, 21,776 release-cleared)
 **Timestamp:** 2026-10-06
 **Action Type:** Implementation + adversarial review (megaplan `.workspace_archive/plans/lyrics-sources-p2-megaplan.md`; review `.workspace_archive/reviews/2026-10-06_0146_lyrics-sources-p2-impl.md` — verdict approved-with-fixes).
 
