@@ -26,3 +26,10 @@ cohort provisional `pop`).
 - Generated `prompts/subagent_dispatch.json` via `gen_orchestration_prompts.py --mode subagent`. Profiles resolved: wave-1 -> wave-explorer, wave-2 -> wave-implementer, wave-3 -> reviewer (explicit subagent_profile).
 - Dispatched wave 1 (agent_id=63b0b646, background): fetch audit. Expected verdict FETCH INCOMPLETE since fetch still running (4/16 artists done in status, Crni Cerak resolving).
 - Dispatch-failure fallback per command doc: orchestrator self-execution needs scoped `override:` in ACTIVE (marker currently absent); else paste mode.
+
+## Wave-1 audit result (agent 63b0b646) + remediation
+
+- Verdict FETCH INCOMPLETE + fetcher found DEAD (no extract_roster.py process; log stalled 82+ min at Crni Cerak banner).
+- Reconciled: zera 21 / mimi 112 / surreal 88 / fox 174 = 391 files across 12 new G3 dirs; all clean (ids, primary_artist, sections).
+- Flag: zera files have genius_song_id=null (pre-8a82573 artifact) — flipped zera status to pending so --resume refetches + overwrites with populated ids.
+- Fetcher relaunched background (shell 4e9bf8) with --resume; re-audit (wave-1 rerun) when it completes, then wave-2 gate.
