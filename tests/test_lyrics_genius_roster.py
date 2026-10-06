@@ -33,8 +33,10 @@ ROSTER = [
 
 
 class FakeSong:
+    """Mimics lyricsgenius 3.x Song: no .id attr; id lives in _body."""
+
     def __init__(self, id, title, primary, featured=None, lyrics="la\nla", url="u"):
-        self.id = id
+        self._body = {"id": id}
         self.title = title
         self.primary_artist = {"name": primary}
         self.featured_artists = [{"name": f} for f in (featured or [])]
@@ -45,7 +47,7 @@ class FakeSong:
 class FakeArtist:
     def __init__(self, name, id, songs):
         self.name = name
-        self.id = id
+        self._body = {"id": id}
         self.songs = songs
 
 
@@ -62,7 +64,7 @@ class FakeGenius:
         return self._artist
 
     def search_artists(self, name, per_page=5):
-        return {"sections": [{"hits": [{"result": {"id": self._artist.id, "name": self._artist.name}}]}]}
+        return {"sections": [{"hits": [{"result": {"id": self._artist._body["id"], "name": self._artist.name}}]}]}
 
 
 def _fake_lyricsgenius(monkeypatch, artist):
@@ -200,7 +202,8 @@ def test_main_writes_songs_and_status(monkeypatch, tmp_path):
     ])
 
     assert (outdir / "fox-solo").is_dir()
-    assert (outdir / "fox-solo" / "fox-trep-bog.json").exists()
+    saved = json.loads((outdir / "fox-solo" / "fox-trep-bog.json").read_text(encoding="utf-8"))
+    assert saved["genius_song_id"] == 1  # populated from _body, not .id attr
     assert (outdir / "fox-surreal-duo" / "fox-ja-sam-u-gasu.json").exists()
     assert (outdir / "fox-featured").is_dir()
     # no-lyrics song -> index entry only, no files

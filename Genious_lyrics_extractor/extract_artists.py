@@ -263,6 +263,9 @@ def save_song(
     Returns metadata dict for the index, or None if skipped (dup / no lyrics).
     """
     song_id = getattr(song, "id", None)
+    if song_id is None:
+        # lyricsgenius 3.x Song keeps the id in the response body, not an attr
+        song_id = (getattr(song, "_body", None) or {}).get("id")
     if song_id is not None and song_id in seen_ids:
         return None
     if song_id is not None:

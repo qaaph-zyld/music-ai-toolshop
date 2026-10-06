@@ -106,6 +106,15 @@ def categorize_song(
     return "other-collab"
 
 
+def song_id_of(song: Any) -> Any:
+    """Genius song id — lyricsgenius 3.x Song has no .id attr; it lives in _body."""
+    sid = getattr(song, "id", None)
+    if sid is None:
+        body = getattr(song, "_body", None) or {}
+        sid = body.get("id")
+    return sid
+
+
 # ---------------------------------------------------------------------------
 # Status / resume
 # ---------------------------------------------------------------------------
@@ -189,7 +198,10 @@ def fetch_artist_songs_resolving(
     if artist is None:
         raise RuntimeError(f"no artist found for '{cfg['name']}'")
     resolved = getattr(artist, "name", "") or ""
-    artist_id = getattr(artist, "id", None)
+    # Artist likewise has no .id attr; pinned cfg id wins, else read _body
+    artist_id = cfg.get("genius_artist_id") or (
+        getattr(artist, "_body", None) or {}
+    ).get("id")
     if not resolved_name_matches(resolved, cfg):
         raise _ResolveMismatch(resolved, artist_id)
     songs = artist.songs if hasattr(artist, "songs") else []
@@ -319,7 +331,7 @@ def main() -> None:
             window = window[:args.limit]
 
         for i, song in enumerate(window, 1):
-            song_id = getattr(song, "id", None)
+            song_id = song_id_of(song)
             title = getattr(song, "title", "Unknown")
             primary_artist = get_primary_artist_name(song)
             featured = extract_featured_artists(song)
