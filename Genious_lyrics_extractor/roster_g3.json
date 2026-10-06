@@ -1,0 +1,182 @@
+{
+  "_comment": "P3 genius-pro roster expansion (GATE P3 approved 2026-10-06). Cohort tags researched; Bulevar provisional pending first-resolve. genius_artist_id pinned at first fetch for disambiguation.",
+  "artists": [
+    {
+      "name": "Zera",
+      "folder": "zera",
+      "cohort": "drill_trap",
+      "variants": [
+        "zera",
+        "marina pezerović",
+        "marina pezerovic"
+      ],
+      "note": "Generacija Zed pop-trap. HIGH misattribution risk: 'Žera' is a different artist — pin id.",
+      "genius_artist_id": 2625064
+    },
+    {
+      "name": "Mimi Mercedez",
+      "folder": "mimi-mercedez",
+      "cohort": "drill_trap",
+      "variants": [
+        "mimi mercedez",
+        "mimi mercedes",
+        "мими мерцедез",
+        "milena janković",
+        "milena jankovic"
+      ],
+      "genius_artist_id": 220572
+    },
+    {
+      "name": "Surreal",
+      "folder": "surreal",
+      "cohort": "drill_trap",
+      "variants": [
+        "surreal",
+        "filip arsenijević",
+        "filip arsenijevic"
+      ],
+      "note": "Generic name — pin id.",
+      "genius_artist_id": 4181
+    },
+    {
+      "name": "Fox",
+      "folder": "fox",
+      "cohort": "drill_trap",
+      "variants": [
+        "fox",
+        "branko kljaić",
+        "branko kljaic"
+      ],
+      "note": "Generic name — pin id.",
+      "genius_artist_id": 13438
+    },
+    {
+      "name": "Crni Cerak",
+      "folder": "crni-cerak",
+      "cohort": "drill_trap",
+      "variants": [
+        "crni cerak",
+        "cerak"
+      ],
+      "note": "Belgrade drill crew (Seksi, Biba, Bandra, Armani).",
+      "genius_artist_id": 2448528
+    },
+    {
+      "name": "Lacku",
+      "folder": "lacku",
+      "cohort": "drill_trap",
+      "variants": [
+        "lacku",
+        "dimitrije lacku spirovski",
+        "lacko"
+      ],
+      "genius_artist_id": 991333
+    },
+    {
+      "name": "2Bona",
+      "folder": "2bona",
+      "cohort": "drill_trap",
+      "variants": [
+        "2bona",
+        "2 bona"
+      ],
+      "note": "Macedonian trap/RnB duo.",
+      "genius_artist_id": 1588704
+    },
+    {
+      "name": "Marlon Brutal",
+      "folder": "marlon-brutal",
+      "cohort": "drill_trap",
+      "variants": [
+        "marlon brutal"
+      ],
+      "genius_artist_id": 182579
+    },
+    {
+      "name": "Bulevar",
+      "folder": "bulevar",
+      "cohort": "pop",
+      "variants": [
+        "bulevar"
+      ],
+      "note": "PROVISIONAL cohort — ambiguous name; first-resolve report confirms identity/genre.",
+      "genius_artist_id": 369563
+    },
+    {
+      "name": "Teodora",
+      "folder": "teodora",
+      "cohort": "pop",
+      "variants": [
+        "teodora",
+        "teodora džehverović",
+        "teodora dzehverovic"
+      ],
+      "note": "Common name — pin id.",
+      "genius_artist_id": 1093106
+    },
+    {
+      "name": "Jelena Karleuša",
+      "folder": "jelena-karleusa",
+      "cohort": "pop",
+      "variants": [
+        "jelena karleuša",
+        "jelena karleusa",
+        "jk"
+      ],
+      "genius_artist_id": 377401
+    },
+    {
+      "name": "Aleksandra Prijović",
+      "folder": "aleksandra-prijovic",
+      "cohort": "pop",
+      "variants": [
+        "aleksandra prijović",
+        "aleksandra prijovic"
+      ],
+      "genius_artist_id": 623022
+    },
+    {
+      "name": "Dara Bubamara",
+      "folder": "dara-bubamara",
+      "cohort": "pop",
+      "variants": [
+        "dara bubamara"
+      ],
+      "genius_artist_id": 453327
+    },
+    {
+      "name": "Zoi",
+      "folder": "zoi",
+      "cohort": "pop",
+      "variants": [
+        "zoi",
+        "sara šekularac",
+        "sara sekularac"
+      ],
+      "note": "Short name — pin id.",
+      "genius_artist_id": 1584694
+    },
+    {
+      "name": "Pajak",
+      "folder": "pajak",
+      "cohort": "drill_trap",
+      "variants": [
+        "pajak"
+      ],
+      "note": "Macedonian trap.",
+      "genius_artist_id": 2220922
+    },
+    {
+      "name": "Arafat",
+      "folder": "arafat",
+      "cohort": "drill_trap",
+      "variants": [
+        "arafat",
+        "vojislav dragović",
+        "vojislav dragovic"
+      ],
+      "note": "Belgrade rapper, Bassivity.",
+      "genius_artist_id": 182228
+    }
+  ]
+}
