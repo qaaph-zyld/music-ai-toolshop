@@ -424,6 +424,44 @@ class TestConfigPage:
         generate_index(cfg_pack)
         assert generate_index(cfg_pack).is_file()
 
+    def test_no_section_no_banner(self, cfg_pack):
+        html = generate_index(cfg_pack).read_text(encoding="utf-8")
+        assert 'class="g-section"' not in html
+
+    def test_section_banner_once_per_segment(self, tmp_path):
+        cfg = {"title": "t", "groups": [
+            {"prefix": "_A_", "state": "listen", "label": "vox",
+             "section": "2 · hook"},
+            {"prefix": "_B_", "state": "listen", "label": "bed",
+             "section": "2 · hook"},
+            {"prefix": "_C_", "state": "listen", "label": "vox",
+             "section": "3 · verse"},
+            {"prefix": "_D_", "state": "ref", "label": "ref"},
+        ]}
+        (tmp_path / "audition.json").write_text(
+            json.dumps(cfg), encoding="utf-8")
+        for n in ("_A_1.mp3", "_B_1.mp3", "_C_1.mp3", "_D_1.mp3"):
+            (tmp_path / n).write_bytes(b"RIFF")
+        html = generate_index(tmp_path).read_text(encoding="utf-8")
+        heads = re.findall(
+            r'<tr class="g-section"><td colspan="2">([^<]+)</td></tr>', html)
+        assert heads == ["2 · hook", "3 · verse"]  # shared banner emitted once
+        # banner sits before its first candidate row
+        assert html.index("2 · hook") < html.index("_A_1.mp3")
+        assert html.index("_B_1.mp3") < html.index("3 · verse") \
+            < html.index("_C_1.mp3")
+
+    def test_section_escaped(self, tmp_path):
+        cfg = {"title": "t", "groups": [
+            {"prefix": "_A_", "state": "listen", "label": "x",
+             "section": "a<b>&\""},
+        ]}
+        (tmp_path / "audition.json").write_text(
+            json.dumps(cfg), encoding="utf-8")
+        (tmp_path / "_A_1.mp3").write_bytes(b"RIFF")
+        html = generate_index(tmp_path).read_text(encoding="utf-8")
+        assert "a&lt;b&gt;&amp;&quot;" in html
+
 
 class TestNoConfigUnchanged:
     def test_legacy_output_byte_identical(self, tmp_path):
@@ -489,6 +527,18 @@ class TestRound:
     def test_missing_config_refused(self, tmp_path):
         (tmp_path / "_A_1.mp3").write_bytes(b"RIFF")
         assert round_pack(tmp_path, "_A_", "x", "y") != 0
+
+    def test_section_arg_lands_on_new_group(self, cfg_pack):
+        (cfg_pack / "_R4_1.mp3").write_bytes(b"RIFF-r4")
+        assert round_pack(cfg_pack, "_R4_", "LISTEN NOW - r4", "",
+                          section="4 · bridge") == 0
+        cfg = json.loads(
+            (cfg_pack / "audition.json").read_text(encoding="utf-8"))
+        assert cfg["groups"][0] == {"prefix": "_R4_", "state": "listen",
+                                    "label": "LISTEN NOW - r4",
+                                    "section": "4 · bridge"}
+        html = (cfg_pack / "index.html").read_text(encoding="utf-8")
+        assert 'class="g-section"' in html and "4 · bridge" in html
 
 
 @pytest.fixture()

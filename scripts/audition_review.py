@@ -119,9 +119,13 @@ WIDGET_JS = r"""// audition_review widget — verdict + comment per <audio>, log
 
 
 # ---- per-pack config (audition.json) ------------------------------------ #
-# {"title","artist","song","todo","groups":[{"prefix","state","label"}]}
+# {"title","artist","song","todo",
+#  "groups":[{"prefix","state","label","section"?}]}
 # state: listen | heard | rej | ref — colours/labels exactly as the interim
-# .scratch/mojgrad_sync/build_page.py produced for Moj Grad.
+# .scratch/mojgrad_sync/build_page.py produced for Moj Grad. "section" is an
+# optional banner string shared by the groups of one ballot segment — when it
+# changes between consecutive groups the page emits a g-section header row, so
+# candidates competing for the same segment sit under one banner.
 
 CONFIG_NAME = "audition.json"
 CATCH_ALL = {"prefix": "", "state": "ref", "label": "source / reference"}
@@ -136,6 +140,8 @@ tr.g-listen td:first-child::before { color: #3ccf5a } tr.g-heard td:first-child:
 tr.g-rej td:first-child::before { color: #e04848 } tr.g-ref td:first-child::before { color: #888 }
 .legend span { display: inline-block; padding: .25em .7em; margin: 0 .5em .4em 0; border-radius: 3px; font-weight: 600 }
 .todo { border: 2px solid #3ccf5a; padding: .6em 1em; border-radius: 4px; background: #10301a; max-width: 60em }
+tr.g-section td { background: #20202a; color: #cfd2e0; font-weight: 700; letter-spacing: .08em; border-top: 3px solid #666; padding: .45em .7em }
+tr.g-section td:first-child::before { content: none }
 """
 
 PAGE_LEGEND = (
@@ -388,7 +394,12 @@ def _media_files(pack_dir: Path) -> list[Path]:
 
 
 def _ordered_rows(pack_dir: Path, cfg: dict) -> str:
-    """<tr> rows: group order (config order), alphabetical inside a group."""
+    """<tr> rows: group order (config order), alphabetical inside a group.
+
+    A group's optional "section" string is a banner shared by the groups of
+    one ballot segment — on a change between consecutive groups a g-section
+    header row is emitted. Groups without "section" emit no header.
+    """
     files = _media_files(pack_dir)
     rows, claimed = [], set()
     for g in cfg["groups"]:
@@ -402,13 +413,22 @@ def _ordered_rows(pack_dir: Path, cfg: dict) -> str:
         rel = p.relative_to(pack_dir).as_posix()
         if rel not in claimed:
             rows.append((CATCH_ALL, rel))
-    return "".join(
-        f'<tr class="g-{g["state"]}"><td data-tag="'
-        f'{escape(g.get("label", ""), quote=True)}">{escape(rel)}</td>'
-        f'<td><audio controls preload="none" '
-        f'src="{escape(rel, quote=True)}"></audio></td></tr>\n'
-        for g, rel in rows
-    )
+    out, cur_section, prev_g = [], None, None
+    for g, rel in rows:
+        if g is not prev_g:
+            sec = g.get("section") or None
+            if sec != cur_section:
+                if sec:
+                    out.append(f'<tr class="g-section"><td colspan="2">'
+                               f'{escape(sec)}</td></tr>\n')
+                cur_section = sec
+            prev_g = g
+        out.append(
+            f'<tr class="g-{g["state"]}"><td data-tag="'
+            f'{escape(g.get("label", ""), quote=True)}">{escape(rel)}</td>'
+            f'<td><audio controls preload="none" '
+            f'src="{escape(rel, quote=True)}"></audio></td></tr>\n')
+    return "".join(out)
 
 
 def _render_config_page(pack_dir: Path, cfg: dict, title: str) -> str:
@@ -526,7 +546,8 @@ def _song_list(root: Path) -> list[dict]:
 
 # ---- round / check ------------------------------------------------------- #
 
-def round_pack(pack_dir: Path, prefix: str, label: str, todo: str) -> int:
+def round_pack(pack_dir: Path, prefix: str, label: str, todo: str,
+               section: str | None = None) -> int:
     """Open a new listen round. Non-zero exit on any refusal."""
     cfg_path = pack_dir / CONFIG_NAME
     if not cfg_path.is_file():
@@ -558,7 +579,10 @@ def round_pack(pack_dir: Path, prefix: str, label: str, todo: str) -> int:
             g["state"] = "heard"
             g["label"] = "listened - " + re.sub(
                 r"(?i)^\s*LISTEN NOW\s*-\s*", "", g.get("label", ""))
-    groups.insert(0, {"prefix": prefix, "state": "listen", "label": label})
+    new_group = {"prefix": prefix, "state": "listen", "label": label}
+    if section:
+        new_group["section"] = section
+    groups.insert(0, new_group)
     if not any(g.get("prefix") == "" for g in groups):
         groups.append(dict(CATCH_ALL))
     cfg["groups"] = groups
@@ -658,6 +682,8 @@ def main() -> int:
                    help="filename prefix of this round's files, never reused")
     r.add_argument("--label", required=True)
     r.add_argument("--todo", default="", help="html shown in the LISTEN NOW box")
+    r.add_argument("--section", default=None,
+                   help="segment banner shared with sibling groups")
 
     k = sub.add_parser("check", help="page 200 + range-206 probe per listen file")
     k.add_argument("--page", required=True,
@@ -691,7 +717,7 @@ def main() -> int:
         return 0
     if args.cmd == "round":
         return round_pack(args.dir.resolve(), args.prefix, args.label,
-                          args.todo)
+                          args.todo, section=args.section)
     if args.cmd == "check":
         return check_page(args.root.resolve(), args.page, args.port,
                           args.timeout)
