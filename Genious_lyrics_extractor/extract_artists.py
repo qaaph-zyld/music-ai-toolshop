@@ -327,6 +327,22 @@ def save_song(
 
     base = f"{slugify(primary_artist)}-{slugify(title)}"
     json_path = cat_dir / f"{base}.json"
+
+    # Slug-collision guard (G3 incident): two distinct songs can share one
+    # artist-title slug. If a file exists for a *different* genius id, add an
+    # id suffix instead of silently overwriting it. Same id → overwrite
+    # (resume refetch); no id on the new song → current behavior.
+    if json_path.exists() and song_id is not None:
+        try:
+            existing_id = json.loads(
+                json_path.read_text(encoding="utf-8")
+            ).get("genius_song_id")
+        except (json.JSONDecodeError, OSError):
+            existing_id = None
+        if existing_id != song_id:
+            base = f"{base}-{song_id}"
+            json_path = cat_dir / f"{base}.json"
+
     txt_path = cat_dir / f"{base}.txt"
 
     lyrics_data = {

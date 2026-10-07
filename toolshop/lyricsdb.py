@@ -446,6 +446,80 @@ def _dedup_key(title: str, primary_artist: str) -> Tuple[str, str]:
     return (norm_title, norm_artist)
 
 
+def _resolve_fid(
+    song_data: Dict[str, Any],
+    index_entry: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
+    """Foreign identifier for dedup: index ``foreign_identifier`` → song
+    ``foreign_identifier`` → ``genius_song_id``.
+
+    Genius files carry ``genius_song_id`` — the only source-unique key the
+    genius-pro corpus has; mapping it to fid lets dedup distinguish two
+    different songs that share one (title, artist) key.
+    """
+    fid = (index_entry or {}).get("foreign_identifier")
+    if fid is None:
+        fid = song_data.get("foreign_identifier")
+    if fid is None:
+        fid = song_data.get("genius_song_id")
+    return str(fid) if fid is not None else None
+
+
+def _dedup_claim(
+    parsed: List[Tuple[str, Path, Dict[str, Any]]],
+) -> Tuple[List[Tuple[str, Path, Dict[str, Any]]], List[Dict[str, str]]]:
+    """Partition parsed corpus files into (kept, dedup_log).
+
+    Groups on the normalized ``(title, primary_artist)`` key. Inside a group
+    one file per distinct foreign identifier wins; fid-less files drop when
+    the group has any fid-bearing member (the identified copy is the better
+    record); fid-less groups keep first-in-scan. Scan order is preserved.
+    """
+    groups: Dict[Tuple[str, str], List[Tuple[str, Path, Dict[str, Any], Optional[str]]]] = {}
+    for category, json_file, song_data in parsed:
+        key = _dedup_key(
+            song_data.get("title", ""),
+            song_data.get("primary_artist") or song_data.get("artist", ""),
+        )
+        groups.setdefault(key, []).append(
+            (category, json_file, song_data, _resolve_fid(song_data))
+        )
+
+    kept: List[Tuple[str, Path, Dict[str, Any]]] = []
+    dedup_log: List[Dict[str, str]] = []
+    for members in groups.values():
+        first = members[0][2]
+        title = first.get("title", "")
+        primary_artist = first.get("primary_artist") or first.get("artist", "")
+        has_fid = any(m[3] is not None for m in members)
+        preferred = next(
+            (str(m[1]) for m in members if m[3] is not None), str(members[0][1])
+        )
+        winner_by_fid: Dict[str, str] = {}
+        null_claimed = False
+        for category, json_file, song_data, fid in members:
+            dup_of: Optional[str] = None
+            if fid is not None:
+                if fid in winner_by_fid:
+                    dup_of = winner_by_fid[fid]
+                else:
+                    winner_by_fid[fid] = str(json_file)
+            elif has_fid or null_claimed:
+                dup_of = preferred
+            else:
+                null_claimed = True
+            if dup_of is None:
+                kept.append((category, json_file, song_data))
+            else:
+                dedup_log.append({
+                    "title": title,
+                    "primary_artist": primary_artist,
+                    "source_path": str(json_file),
+                    "duplicate_of": dup_of,
+                })
+    return kept, dedup_log
+
+
 # ── Schema ────────────────────────────────────────────────────────────
 
 _SCHEMA_SQL = """
@@ -781,11 +855,7 @@ def build_unified_index(root: Path) -> Dict[str, Any]:
     """
     song_files = _scan_song_files(root)
 
-    seen_keys: Dict[Tuple[str, str], str] = {}
-    seen_fids: set = set()
-    dedup_log: List[Dict[str, str]] = []
-    index: List[Dict[str, Any]] = []
-    duplicates_dropped = 0
+    parsed: List[Tuple[str, Path, Dict[str, Any]]] = []
     songs_skipped = 0
 
     for category, json_file in song_files:
@@ -796,30 +866,21 @@ def build_unified_index(root: Path) -> Dict[str, Any]:
             print(f"  SKIP (parse error): {json_file} — {exc}")
             songs_skipped += 1
             continue
+        parsed.append((category, json_file, song_data))
 
+    kept, dedup_log = _dedup_claim(parsed)
+    duplicates_dropped = len(dedup_log)
+
+    index: List[Dict[str, Any]] = []
+    for category, json_file, song_data in kept:
         title = song_data.get("title", "")
         primary_artist = song_data.get("primary_artist", song_data.get("artist", ""))
         featured_artists = song_data.get("featured_artists", [])
         url = song_data.get("url", "")
         genius_song_id = song_data.get("genius_song_id")
-        fid = song_data.get("foreign_identifier")
-
-        key = _dedup_key(title, primary_artist)
-        fid_seen = fid is not None and str(fid) in seen_fids
-        if key in seen_keys or fid_seen:
-            duplicates_dropped += 1
-            dedup_log.append({
-                "title": title,
-                "primary_artist": primary_artist,
-                "source_path": str(json_file),
-                "duplicate_of": seen_keys.get(key, f"<fid:{fid}>"),
-            })
-            continue
+        fid = _resolve_fid(song_data)
 
         rel_path = json_file.relative_to(root).as_posix()
-        seen_keys[key] = rel_path
-        if fid is not None:
-            seen_fids.add(str(fid))
 
         entry = {
             "genius_song_id": genius_song_id,
@@ -835,6 +896,9 @@ def build_unified_index(root: Path) -> Dict[str, Any]:
         # these fields from the index entry with song-JSON fallback.
         for lic_field in _INDEX_LICENSE_FIELDS:
             entry[lic_field] = song_data.get(lic_field)
+        # fid comes last — genius_song_id is the fallback when the song JSON
+        # carries no explicit foreign_identifier (genius-pro files).
+        entry["foreign_identifier"] = fid
         index.append(entry)
 
     # Write unified index
@@ -940,9 +1004,7 @@ def _insert_song(
     source_url = _lic("source_url")
     copyright_notice = _lic("copyright_notice")
     modified_note = _lic("modified_note")
-    foreign_identifier = _lic("foreign_identifier")
-    if foreign_identifier is not None:
-        foreign_identifier = str(foreign_identifier)
+    foreign_identifier = _resolve_fid(song_data, index_entry)
     script = _lic("script")
     derived_from = _lic("derived_from")
 
@@ -1083,9 +1145,7 @@ def build_database(
     # Scan song files
     song_files = _scan_song_files(root)
 
-    # Dedup tracking
-    seen_keys: Dict[Tuple[str, str], str] = {}  # key → source_path (first seen)
-    seen_fids: set = set()                      # foreign_identifiers seen in scan
+    # Dedup tracking — claim pass runs per scan; see _dedup_claim.
     dedup_log: List[Dict[str, str]] = []
     duplicates_dropped = 0
     songs_skipped = 0
@@ -1124,6 +1184,7 @@ def build_database(
 
     new_song_ids: List[int] = []
 
+    parsed: List[Tuple[str, Path, Dict[str, Any]]] = []
     for category, json_file in song_files:
         try:
             with json_file.open("r", encoding="utf-8") as f:
@@ -1132,7 +1193,12 @@ def build_database(
             print(f"  SKIP (parse error): {json_file} — {exc}")
             songs_skipped += 1
             continue
+        parsed.append((category, json_file, song_data))
 
+    kept, dedup_log = _dedup_claim(parsed)
+    duplicates_dropped = len(dedup_log)
+
+    for category, json_file, song_data in kept:
         title = song_data.get("title", "")
         index_entry = index.get(json_file.name)
         primary_artist = ""
@@ -1141,30 +1207,12 @@ def build_database(
         if not primary_artist:
             primary_artist = song_data.get("artist", "")
 
-        fid = index_entry.get("foreign_identifier") if index_entry else None
-        if fid is None:
-            fid = song_data.get("foreign_identifier")
-        fid = str(fid) if fid is not None else None
-
+        fid = _resolve_fid(song_data, index_entry)
         key = _dedup_key(title, primary_artist)
 
         if incremental and (key in db_keys or (fid is not None and fid in db_fids)):
             already_present += 1
             continue
-
-        if key in seen_keys or (fid is not None and fid in seen_fids):
-            duplicates_dropped += 1
-            dedup_log.append({
-                "title": title,
-                "primary_artist": primary_artist,
-                "source_path": str(json_file),
-                "duplicate_of": seen_keys.get(key, f"<fid:{fid}>"),
-            })
-            continue
-
-        seen_keys[key] = str(json_file)
-        if fid is not None:
-            seen_fids.add(fid)
 
         song_id = _insert_song(
             conn, category, song_data, str(json_file), index_entry, ingested_at,
