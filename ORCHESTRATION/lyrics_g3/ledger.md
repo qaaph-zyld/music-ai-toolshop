@@ -35,3 +35,21 @@ cohort provisional `pop`).
 - Reconciled: zera 21 / mimi 112 / surreal 88 / fox 174 = 391 files across 12 new G3 dirs; all clean (ids, primary_artist, sections).
 - Flag: zera files have genius_song_id=null (pre-8a82573 artifact) — flipped zera status to pending so --resume refetches + overwrites with populated ids.
 - Fetcher relaunched background (shell 4e9bf8) with --resume; re-audit (wave-1 rerun) when it completes, then wave-2 gate.
+
+## Follow-up lane: lyrics-fid-dedup (Answer #087, 2026-10-08)
+
+Post-merge recovery lane for the two documented G3 losses. Merged `9f894ea` → `c0e07dd`; lane retired.
+
+| Item | Status | Evidence |
+|---|---|---|
+| fid-aware dedup in `toolshop/lyricsdb.py` | DONE | Layered identity: distinct non-null fids survive same (title, artist); same fid collapses; identified file beats ID-less twin; ID-less-only stays first-wins. `foreign_identifier` populated from `genius_song_id` into `_index.json` + db |
+| `save_song` slug-collision guard | DONE | `Genious_lyrics_extractor/extract_artists.py` — same-id overwrites canonical name; different-id / id-less conflict gets `-<id>` suffix; no silent clobber |
+| `fetch_song.py` targeted refetch | DONE | NEW script + uncommitted-then-committed lyricsgenius 3.x fix (`Genius.song()` returns `{"song": body}`; construct `Song(lyrics, body)`) |
+| Tenzija 5446636 refetch | DONE | `lacku-solo/lacku-tenzija-5446636.json` saved alongside intact `lacku-tenzija.json` (7117386) |
+| Full genius-pro rebuild | DONE | corpus-scoped `--rebuild`: 2,532 songs / 18,523 sections / 116,658 lines / 490,035 rhyme rows / 78 dedup drops |
+| Rimer rebuild | DONE | 370,144 pairs (+28), 16,665 skeletons, 17,856 drill / 4,119 pop |
+| Verification | DONE | db 25,195 total; genius-pro 2,532; both Tenzija fids + Južni Vetar 11679713 present; 0 dup fids; fid coverage 1,135/2,532; integrity ok; 0 fk violations; other 7 corpora unchanged; 62 targeted tests green |
+| Cohort deltas vs baseline | DONE | 8 predicted re-cohorts (7 NULL→cohort + '101 Zmija' drill→pop id 2220) + **9th**: 'Ronin' Destro drill_trap→NULL — fid-identified `fox-featured` file displaced ID-less `jala-solo` twin by design (dedup-logged) |
+
+Both G3 losses recovered. Open follow-ups from #086 still standing: word-boundary
+match for short roster keys (Fox/Zoi/Zera), Bulevar cohort flag resolution.

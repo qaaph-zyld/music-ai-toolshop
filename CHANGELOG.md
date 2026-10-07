@@ -4,6 +4,30 @@
 > parallel lanes assigned them concurrently). Cite the commit hash when referring to those. From now on an
 > ID is allocated only when a lane merges to master, by whoever merges (AGENTS.md "Boundaries & lanes").
 
+### Answer #087 - genius-pro fid-aware dedup: both G3 lost songs recovered (corpus 2,532 / db 25,195)
+**Timestamp:** 2026-10-08
+**Action Type:** Bugfix lane (`lyrics-fid-dedup`) + targeted refetch + corpus-scoped rebuild.
+
+**Previous state:** genius-pro = 2,531 songs, db 25,194. Two documented G3 losses: Lacku "Tenzija" id 5446636 (silent slug-collision overwrite in `save_song` — two same-title songs raced to `lacku-tenzija.json`) and Lacku "Južni Vetar*" id 11679713 (file on disk but collapsed at ingest — dedup keyed on normalized `(title, primary_artist)` only, `foreign_identifier` NULL corpus-wide). Eight baseline rows held stale cohort assignments under the incremental contract.
+
+**Current state:** genius-pro = **2,532 songs** (db **25,195**). Both lost ids recovered and indexed: Tenzija **5446636** (`lacku-tenzija-5446636.json`, coexists with 7117386) + Južni Vetar* **11679713**. `foreign_identifier` populated for **1,135/2,532** rows (all G3-fetched files; 1,397 legacy P1/P2 files remain ID-less by design). Zero duplicate fids; all rows still `study-only`/`release_ok='no'`; other 7 corpora byte-identical counts; `PRAGMA integrity_check` ok, 0 fk violations. Rimer: 370,144 pairs (+28) / 16,665 skeletons / 17,856 drill / 4,119 pop.
+
+**Cohort reconciliation (full `--rebuild` applied):** the 8 predicted stale assignments corrected — 7 featured-NULL→cohort (Cinema/Namera/Nepogrešivo→pop; Južni Vetar*/OFF ROAD/Sve je u redu/Viva La Geng→drill_trap) + '101 Zmija' (id 2220) drill→pop. **9th delta**: 'Ronin' (Destro) drill_trap→NULL — the fid-identified `fox-featured` file displaced the ID-less `jala-solo` twin under the new precedence rule; NULL is correct for the featured-external-primary convention (dedup-logged). Net cohorts: drill_trap 1,353 / pop 924 / featured-NULL 255.
+
+#### Files Affected:
+- **MODIFIED:** `toolshop/lyricsdb.py` — layered identity dedup: distinct non-null fids survive same normalized `(title, primary_artist)`; same fid collapses across dirs; identified file displaces ID-less twin; ID-less-only groups stay first-wins. `_index.json` entries carry `foreign_identifier`.
+- **MODIFIED:** `Genious_lyrics_extractor/extract_artists.py` — `save_song()` collision guard: same-id refetch overwrites canonical filename; different-id or id-less conflict gets `-<id>` suffix; existing ID-less files never silently clobbered.
+- **NEW:** `Genious_lyrics_extractor/fetch_song.py` — targeted single-song fetch by Genius id (lyricsgenius 3.x: `Genius.song()` → `{"song": body}` dict, `Song(lyrics, body)` construction).
+- **NEW:** `tests/test_lyricsdb_fid_dedup.py` (6 tests) + `tests/test_genius_save_song.py` (3 tests); 62 targeted tests green post-rebuild.
+
+#### Technical Decisions:
+- Dedup identity is layered, not single-key: fid > same-key twin collapse > first-wins — mirrors between `save_song` filename selection and `build_unified_index` claim pass so file persistence and ingestion can't disagree again.
+- Corpus-scoped `--rebuild` only (`DELETE WHERE corpus='genius-pro'`); the other 7 corpora are never touched.
+- Refetch via dedicated `fetch_song.py` rather than roster re-run — one song, explicit category, dry-run support.
+
+#### Next Actions Required:
+- Standing follow-ups (from #086): word-boundary match for short COHORT_MAP keys (Fox/Zoi/Zera) before adding short-named artists; Bulevar cohort flag resolution.
+
 ### Answer #086 - genius-pro P3: ex-YU roster expansion — 16 artists, +1,106 songs (corpus 2,531 / db 25,194)
 **Timestamp:** 2026-10-07
 **Action Type:** Implementation + 3-wave orchestrated verification + adversarial review (megaplan `.workspace_archive/plans/lyrics-genius-expansion-megaplan.md`; orchestration `ORCHESTRATION/lyrics_g3/`).

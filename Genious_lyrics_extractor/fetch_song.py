@@ -57,10 +57,20 @@ def main() -> None:
         timeout=30,
     )
 
-    song = genius.song(args.song_id)
-    if song is None:
-        print(f"ERROR: genius.song({args.song_id}) returned None")
+    from lyricsgenius.types import Song
+
+    data = genius.song(args.song_id)
+    body = (data or {}).get("song") if isinstance(data, dict) else None
+    if not body:
+        print(f"ERROR: genius.song({args.song_id}) returned no song body")
         sys.exit(1)
+
+    lyrics = genius.lyrics(song_id=args.song_id, remove_section_headers=False)
+    if not lyrics:
+        print(f"ERROR: no lyrics scraped for song {args.song_id}")
+        sys.exit(1)
+
+    song = Song(lyrics, body)
 
     sid = getattr(song, "id", None) or (getattr(song, "_body", None) or {}).get("id")
     title = getattr(song, "title", "?")
