@@ -4,6 +4,33 @@
 > parallel lanes assigned them concurrently). Cite the commit hash when referring to those. From now on an
 > ID is allocated only when a lane merges to master, by whoever merges (AGENTS.md "Boundaries & lanes").
 
+### Answer #086 - genius-pro P3: ex-YU roster expansion — 16 artists, +1,106 songs (corpus 2,531 / db 25,194)
+**Timestamp:** 2026-10-07
+**Action Type:** Implementation + 3-wave orchestrated verification + adversarial review (megaplan `.workspace_archive/plans/lyrics-genius-expansion-megaplan.md`; orchestration `ORCHESTRATION/lyrics_g3/`).
+
+**Previous state:** genius-pro corpus = 1,425 songs (P1/P2 baseline); generic per-artist extractor; `lyricsgenius` 3.x id regression latent (`.id` → `_body['id']`); db 24,088 songs / 8 corpora; `rhyme_pairs` 358,862.
+
+**Current state:** genius-pro = **2,531 songs** (+1,106 inserted; drill_trap 1,350, pop 920, featured-NULL 261 — same featured-external-primary pattern as baseline's 93) across **38 new artist/collab dirs**; db **25,194 songs**. All new rows `license_tier='study-only'` / `release_ok='no'` (release path untouched, `export_release.py` self-heal test green). `rhyme_pairs` **370,116** (+11,254), skeletons 16,665 (+517); `line_rhymes` 4,441,081 (+216,071). New roster (all `genius_artist_id` pinned after song-probe verification — name-search alone resolves Fox→Foxy Brown, Zoi→Zoink Gang): Zera, Mimi Mercedez, Surreal, Fox, Crni Cerak, Lacku, 2Bona, Marlon Brutal (drill_trap); Bulevar (YU new-wave, provisional pop), Teodora, Jelena Karleuša, Aleksandra Prijović, Dara Bubamara, Zoi, Pajak, Arafat (pop). Fetch 16/16 done after one silent-death relaunch (detached `Start-Process` survived exec-shell teardown). Wave gates: W1 INGEST READY (1,139 files / 1,134 distinct ids / 0 nulls / 0 empty sections) → W2 INGEST CLEAN (incremental `build-db`; baseline diff **0/1,425** rows changed; other 7 corpora untouched) → W3 VERIFIED (18/18 roster tests, 561p/2s/0f `-k lyrics` subset, 12/12 export_release) → adversarial review MERGE-READY-conditional.
+
+**Known losses/deltas (recorded, no blocker):** 2 songs lost of ~1,135 fetched — Lacku "Tenzija" (silent slug-collision overwrite, id 5446636) + Lacku "Južni Vetar" (normalized title+artist dedup vs baseline row, id 11679713). Full `--rebuild` would re-cohort 8 baseline rows (new roster keys now resolve featured primaries + one drill→pop flip) — incremental contract leaves baseline stale by design; index/DB source_path drift on 11 baseline songs (cosmetic). Follow-ups: `save_song` id-suffix collision guard, word-boundary match for short roster keys, resolve Bulevar cohort flag.
+
+#### Files Affected:
+- **NEW:** `Genious_lyrics_extractor/extract_roster.py` (+386) — roster-JSON-driven extractor: `--resume`, `--artist`, `--limit/--offset`, `--dry-run`; categories solo/duo/trio/featured/other-collab; per-artist status JSON + completed-ids skip.
+- **NEW:** `Genious_lyrics_extractor/roster_g3.json` — 16 artists, pinned `genius_artist_id`, cohort tags, variant names.
+- **NEW:** `tests/test_lyrics_genius_roster.py` — 18 tests (roster integrity, pinned ids, slug dedup, cohort maps).
+- **MODIFIED:** `Genious_lyrics_extractor/extract_artists.py` (+3) — read ids from `song._body['id']` (lyricsgenius 3.x fix).
+- **MODIFIED:** `toolshop/lyricsdb.py` (+38) — `COHORT_MAP` + `_FOLDER_COHORT_MAP` G3 entries.
+- **NEW:** `ORCHESTRATION/lyrics_g3/` — waves.json, dispatch manifest, ledger, wave1-r2/wave2/wave3 handoffs.
+- Corpus JSONs + `lyrics.db` live under `data/toolshop/lyrics/` (gitignored, canonical main-repo dir).
+
+#### Technical Decisions:
+- Ingest ran from the **lane worktree** (new cohort maps resolve there) with `PYTHONPATH=main-repo` so uninitialized worktree submodules still import; explicit `--root`/`--db` keep data canonical. Incremental-only — never `--rebuild`.
+- `foreign_identifier` is NULL corpus-wide; dedup key = normalized (title, artist) — 5 cross-dir duplicate ids dropped correctly, ~0.1% same-key-different-song risk now documented.
+- Fetch resilience: process-existence liveness triad + detached launch after exec-shell teardown killed run #1.
+
+#### Next Actions Required:
+- Optional follow-up lane: slug-collision guard (id suffix) in `save_song`; word-boundary matching for short COHORT_MAP keys; targeted refetch of Lacku 5446636/11679713 or accept as declared gap; Bulevar cohort flag resolution.
+
 ### Answer #085 - lyrics-sources P2: full-catalog ingest + `_release_v1` (24,088 songs / 8 corpora, 21,776 release-cleared)
 **Timestamp:** 2026-10-06
 **Action Type:** Implementation + adversarial review (megaplan `.workspace_archive/plans/lyrics-sources-p2-megaplan.md`; review `.workspace_archive/reviews/2026-10-06_0146_lyrics-sources-p2-impl.md` — verdict approved-with-fixes).
