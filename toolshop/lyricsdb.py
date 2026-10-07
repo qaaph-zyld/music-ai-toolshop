@@ -57,6 +57,25 @@ COHORT_MAP: Dict[str, str] = {
     "Ana Nikolić": "pop",
     "Breskvica": "pop",
     "Henny": "pop",
+    # Batch G3 (2026-10-06):
+    "Zera": "drill_trap",
+    "Mimi Mercedez": "drill_trap",
+    "Surreal": "drill_trap",
+    "Fox": "drill_trap",
+    "Crni Cerak": "drill_trap",
+    "Lacku": "drill_trap",
+    "2Bona": "drill_trap",
+    "Marlon Brutal": "drill_trap",
+    "Pajak": "drill_trap",
+    "Arafat": "drill_trap",
+    "Teodora": "pop",
+    "Jelena Karleuša": "pop",
+    "Jelena Karleusa": "pop",
+    "Aleksandra Prijović": "pop",
+    "Aleksandra Prijovic": "pop",
+    "Dara Bubamara": "pop",
+    "Zoi": "pop",
+    "Bulevar": "pop",  # provisional — pending first-resolve confirmation
 }
 
 # Fallback: folder-name (target_artist) → cohort.
@@ -82,6 +101,25 @@ _FOLDER_COHORT_MAP: Dict[str, str] = {
     "ana nikolic": "pop",
     "breskvica": "pop",
     "henny": "pop",
+    # Batch G3 (2026-10-06):
+    "zera": "drill_trap",
+    "mimi-mercedez": "drill_trap",
+    "surreal": "drill_trap",
+    "fox": "drill_trap",
+    "crni-cerak": "drill_trap",
+    "lacku": "drill_trap",
+    "2bona": "drill_trap",
+    "marlon-brutal": "drill_trap",
+    "pajak": "drill_trap",
+    "arafat": "drill_trap",
+    "crni-cerak-lacku": "drill_trap",
+    "fox-surreal": "drill_trap",
+    "teodora": "pop",
+    "jelena-karleusa": "pop",
+    "aleksandra-prijovic": "pop",
+    "dara-bubamara": "pop",
+    "zoi": "pop",
+    "bulevar": "pop",  # provisional — pending first-resolve confirmation
 }
 
 

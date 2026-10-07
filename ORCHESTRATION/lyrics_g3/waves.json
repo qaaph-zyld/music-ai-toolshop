@@ -1,0 +1,97 @@
+{
+  "task": "Lyrics G3 — Genius roster expansion: post-fetch ingest + verification waves",
+  "project_root": "D:\\Projects\\Music-AI-Toolshop-wt-lyrics-g3",
+  "orchestration_dir": "ORCHESTRATION/lyrics_g3",
+  "waves": [
+    {
+      "wave": 1,
+      "name": "G3-fetch-audit",
+      "parallel": false,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "1a",
+          "role": "explorer",
+          "name": "G3 Fetch Auditor",
+          "task": "Audit the completed Genius roster fetch for the lyrics_g3 lane and report whether ingest may proceed.",
+          "instructions": [
+            "Read ORCHESTRATION/lyrics_g3/ledger.md and Genious_lyrics_extractor/roster_g3.json for the expected 16-artist roster and pinned ids.",
+            "Read every Genious_lyrics_extractor/status/*.json status file (one per artist) — verify status=done for all 16 and record songs count per artist.",
+            "Walk the corpus tree at D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\genius\\ — list all new category dirs (<artist>-solo/-featured/-duo/-trio, other-collab) and count *.json per dir (exclude _index.json/_dedup_log.json).",
+            "Spot-check 3 random new song JSONs per cohort for: genius_song_id populated (non-null), correct primary_artist, sectioned lyrics array non-empty.",
+            "Flag: any artist not done, any genius_song_id=null, any folder whose name does not match a roster folder, any cross-cohort collab folder.",
+            "Report per-artist totals + grand total of new songs. Verdict line: INGEST READY or FETCH INCOMPLETE (with the blocking list)."
+          ],
+          "scope": "D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\genius\\ and Genious_lyrics_extractor/status/ in the lyrics-g3 worktree",
+          "output": "wave1/g3_fetch_audit_handoff.md",
+          "constraints": [
+            "Read-only. Do NOT modify any files.",
+            "Do NOT run the fetcher, index builder, or build_database.",
+            "Corpus root is the SHARED canonical path (data/toolshop under the main repo), not the worktree's data dir."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "name": "G3-db-ingest",
+      "parallel": false,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "2a",
+          "role": "implementer",
+          "name": "G3 DB Ingester",
+          "task": "Rebuild the unified Genius index and incrementally ingest the newly fetched artists into the genius-pro corpus of the canonical lyrics.db.",
+          "instructions": [
+            "Precondition: wave-1 handoff verdict must be INGEST READY; if not, stop and write that in your handoff.",
+            "Record pre-ingest baseline first: open D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\lyrics.db read-only and capture songs total, genius-pro count (baseline 1,425), and count per genre_cohort.",
+            "Rebuild the unified index: run the index builder from toolshop.lyricsdb (build_unified_index) over the genius corpus root, or the equivalent toolshop CLI lyrics subcommand — check toolshop/cli.py for the exact entry point. Write _index.json + _dedup_log.json at the corpus root.",
+            "Ingest incrementally: toolshop.lyricsdb.build_database(root=<genius corpus>, db_path=<canonical db>, corpus='genius-pro', incremental=True). Prefer the toolshop CLI equivalent if it exists.",
+            "Use the venv interpreter: D:\\Projects\\Music-AI-Toolshop\\.venv\\Scripts\\python.exe. Use python -u for long runs; absolute paths only.",
+            "Post-ingest verify: songs total increased by exactly the wave-1 audited new-song count; genius-pro = 1,425 + new; cohort counts for drill_trap and pop both grew; zero NEW rows with NULL cohort beyond pre-existing baseline.",
+            "Record all counts (before/after) in the handoff."
+          ],
+          "scope": "Genious_lyrics_extractor/, toolshop/ in the lyrics-g3 worktree; canonical db at D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\lyrics.db",
+          "output": "wave2/g3_db_ingest_handoff.md",
+          "constraints": [
+            "Modify only: corpus _index.json/_dedup_log.json, lyrics.db (via build_database), ORCHESTRATION artifacts.",
+            "incremental=True only — never a non-incremental build (it deletes the corpus).",
+            "Do NOT commit; the orchestrator owns commits."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "name": "G3-verify",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "3a",
+          "role": "reviewer",
+          "subagent_profile": "reviewer",
+          "name": "G3 Verifier",
+          "task": "Verify the G3 roster expansion landed cleanly: cohort tagging, no misattribution, release-safety, and test suite green.",
+          "instructions": [
+            "Read wave-1 and wave-2 handoffs plus ORCHESTRATION/lyrics_g3/ledger.md for claimed counts.",
+            "NULL-cohort audit: query lyrics.db for genius-pro rows whose folder matches a new G3 roster artist but genre_cohort IS NULL — expected zero except deliberate unmapped folders; list any found.",
+            "Misattribution spot-check: for each new artist folder, sample 5 titles and confirm primary_artist plausibly matches (artist name or known variant in roster_g3.json).",
+            "Cohort correctness: confirm each new artist's solo rows carry the cohort assigned in roster_g3.json (drill_trap or pop).",
+            "Release-safety smoke: verify any release/export tooling excludes corpus='genius-pro' (release_ok=no) — check toolshop release/export code paths rather than producing an export.",
+            "Test rerun: D:\\Projects\\Music-AI-Toolshop\\.venv\\Scripts\\python.exe -m pytest D:\\Projects\\Music-AI-Toolshop-wt-lyrics-g3\\tests\\test_lyrics_genius_roster.py -v — must be green; also run the pre-existing lyrics test subset touched by lyricsdb.py changes.",
+            "Handoff: VERDICT pass/fail per check + any follow-up items."
+          ],
+          "scope": "lyrics.db (read-only queries), roster_g3.json, tests/ in the lyrics-g3 worktree",
+          "output": "wave3/g3_verify_handoff.md",
+          "constraints": [
+            "Read-only against lyrics.db and corpus files. Test runs allowed (they write only .pytest_cache/fixtures).",
+            "Do NOT modify production code to make checks pass — report findings instead.",
+            "Do NOT export or print copyrighted lyric text — counts and metadata only."
+          ]
+        }
+      ]
+    }
+  ]
+}
