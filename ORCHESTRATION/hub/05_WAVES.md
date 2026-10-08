@@ -10,7 +10,7 @@ How each wave runs:
 - **Checks:** `06_EXPECTED_OUTCOMES.md` lists the outcome ids per wave, and the wave's gate requires all of them
   to pass. Builders run the checks and paste the raw output. They never edit `checks/contract_checks.py`.
 - **Paths:** all commands use absolute paths. While building, the repo root is the worktree
-  `D:\Projects\Music-AI-Toolshop-wt-hub`; after merge it is `D:\Projects\Music-AI-Toolshop`.
+  `D:\Projects\Music-AI-Toolshop\.worktrees\hub`; after merge it is `D:\Projects\Music-AI-Toolshop`.
 
 ## W0 — Lane setup + skeleton (≈40k tokens)
 
@@ -19,15 +19,15 @@ How each wave runs:
     ledger.
   - `git -C D:\Projects\Music-AI-Toolshop log -1` is noted as the base.
 - [ ] **Create the lane.** Run
-  `git -C D:\Projects\Music-AI-Toolshop worktree add D:\Projects\Music-AI-Toolshop-wt-hub -b lane/hub master`.
+  `git -C D:\Projects\Music-AI-Toolshop worktree add .worktrees/hub -b lane/hub master`.
   - All work from here on happens in that folder.
   - Use the parent's `.venv` python. It is installed editable, so `toolshop` resolves to the **parent**
     checkout, not the worktree. To test the worktree code, run pytest with `cwd` = the worktree and
-    `PYTHONPATH=D:\Projects\Music-AI-Toolshop-wt-hub`.
+    `PYTHONPATH=D:\Projects\Music-AI-Toolshop\.worktrees\hub`.
   - Verify with `python -c "import toolshop.hub,sys;print(toolshop.hub.__file__)"` and paste the output.
   - **Don't init submodules in the worktree.** The hub reads its data from the main checkout
     (`hub_config.json` → `parent_repo`), so the worktree only carries code.
-  - The ledger you write is the **worktree copy** `D:\Projects\Music-AI-Toolshop-wt-hub\ORCHESTRATION\hub\LEDGER.md`,
+  - The ledger you write is the **worktree copy** `D:\Projects\Music-AI-Toolshop\.worktrees\hub\ORCHESTRATION\hub\LEDGER.md`,
     committed on `lane/hub`. It reaches master with the merge.
   - Run checks with the worktree's copy of `checks/contract_checks.py`. It tests the code beside it and the data in
     the main checkout.
@@ -92,6 +92,10 @@ Initial `toolshop/hub/hub_config.json`. Paths are relative to the workspace root
 ```
 
 ## W1 — Data spine (≈120k tokens)
+
+- [ ] **v1.1 W0 fix (first task).** Make `toolshop/hub/config.py` `workspace_root()` resolve the main checkout via
+  `git rev-parse --path-format=absolute --git-common-dir` (01 runtime contract). W0's `REPO_ROOT.parent` is
+  `.worktrees` inside a nested worktree. Add a test using a nested fixture worktree; `HUB_WORKSPACE_ROOT` still wins.
 
 - [ ] **`models.py`.** Write the dataclasses from `03`.
 - [ ] **`collectors/__init__.py`.** Registry plus `CollectorResult(status, records, error, duration_ms)`.

@@ -26,7 +26,7 @@ verification verdict under each entry.
 ### W<N> — <date> — builder: <session name>
 Commits on lane/hub: <hash> <subject>, ...
 Check output (06, this wave): <paste raw output + exit codes>
-Worktree status: <paste `git -C D:\Projects\Music-AI-Toolshop-wt-hub status --porcelain` (must be empty)>
+Worktree status: <paste `git -C D:\Projects\Music-AI-Toolshop\.worktrees\hub status --porcelain` (must be empty)>
 Deviations: <each with reason, or "none">
 Not verified: <list, or "none">
 Plan issues: <list, or "none">

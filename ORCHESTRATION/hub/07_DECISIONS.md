@@ -16,7 +16,7 @@ README version. A decision is never edited in place.
 | D9 | **Receipts** badge on session and handoff journal rows, computed from git | The 2026-10-05 "fix 3 done" report had no commit; a badge makes that visible without a manual audit | `03` § Receipts |
 | D10 | Journal horizon 90 days (config); Home shows the last 7 days, ≤100 rows | Keeps Home fast and readable; the full journal pages through the rest | `04` |
 | D11 | CLI is `python -m toolshop.hub …`; **no edit to `toolshop/cli.py`** | Avoids a shared-file edit by the lane (R3) | Lane rules |
-| D12 | Build in worktree `D:\Projects\Music-AI-Toolshop-wt-hub` on branch `lane/hub`. Each wave merges to master only after orchestrator verification | R2 (one lane = one branch + one working tree + one agent); the 2026-10-05 Studio collision | Diagnosis doc |
+| D12 | Build in worktree `D:\Projects\Music-AI-Toolshop\.worktrees\hub` on branch `lane/hub`. Each wave merges to master only after orchestrator verification | R2 (one lane = one branch + one working tree + one agent); the 2026-10-05 Studio collision | Diagnosis doc |
 | D13 | The CHANGELOG ID is allocated at merge time, by whoever merges | R3 and the CHANGELOG ID note (IDs ≤ #084 are not unique) | `CHANGELOG.md` top note |
 | D14 | Contract checks live in `ORCHESTRATION/hub/checks/contract_checks.py`. They are written by the orchestrator and **never edited by the builder** | Proposer ≠ approver; a builder grading its own work is how "done" reports drifted from reality | `define_visual` adversarial pass |
 | D15 | De-esser values are shown as **linear**, never as dB | The schema stores a linear 0–1 envelope despite the `_db` field name (`voice_profiles/schema.json:41`) | Fix 2 / F14 |
@@ -35,3 +35,4 @@ README version. A decision is never edited in place.
 | Version | Date | Change | By |
 |---|---|---|---|
 | v1 | 2026-10-06 | Initial lock | orchestrator (Claude), approved by Nikola ("lock it in") |
+| v1.1 | 2026-10-08 | D12: the build worktree moved from `D:\Projects\Music-AI-Toolshop-wt-hub` to `D:\Projects\Music-AI-Toolshop\.worktrees\hub` (new Toolshop convention `c4b64b1`: lane worktrees live under the ignored `.worktrees/`). The workspace root is now resolved via `git rev-parse --git-common-dir` (01 runtime contract), because the parent of a nested worktree is `.worktrees`, not `D:\Projects`. Checker updated the same way. **Required W0 fix before W1:** `toolshop/hub/config.py` `workspace_root()` (W0 returns `REPO_ROOT.parent`), plus a test that resolves `D:\Projects` from a nested worktree. | orchestrator (Claude), approved by Nikola ("do it all now") |

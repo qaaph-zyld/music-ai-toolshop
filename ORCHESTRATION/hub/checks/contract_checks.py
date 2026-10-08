@@ -24,7 +24,19 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve()
 REPO = HERE.parents[3]                      # code under test: master checkout OR the lane worktree
-WS = Path(os.environ.get("HUB_WORKSPACE_ROOT", REPO.parent))
+def _workspace_default():
+    """Parent of the MAIN checkout, also when this file sits in a lane worktree (.worktrees/<lane>)."""
+    try:
+        out = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                             capture_output=True, text=True, timeout=30).stdout.strip()
+        if out:
+            return Path(out).resolve().parent.parent
+    except Exception:
+        pass
+    return REPO.parent
+
+
+WS = Path(os.environ.get("HUB_WORKSPACE_ROOT") or _workspace_default())
 PARENT = WS / "Music-AI-Toolshop"           # the data the hub indexes always comes from the main checkout
 URL = os.environ.get("HUB_URL", "http://127.0.0.1:8790").rstrip("/")
 _VENV = [REPO / ".venv" / "Scripts" / "python.exe", PARENT / ".venv" / "Scripts" / "python.exe"]

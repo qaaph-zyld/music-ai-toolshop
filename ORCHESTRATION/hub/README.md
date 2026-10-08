@@ -1,6 +1,6 @@
 # Music Hub — master plan
 
-**Status: LOCKED v1 (2026-10-06).**
+**Status: LOCKED v1.1 (2026-10-08).** v1.1 moves the build worktree inside the repo; see `07` change log.
 - Builders follow these documents as written.
 - A change needs a new entry in `07_DECISIONS.md` § Change log, plus a version bump here (v1.1 …).
 - Never edit a locked rule silently.
@@ -42,7 +42,7 @@ chain-map SVGs and listening packs.
 ## How to build
 
 1. Start each wave in a **fresh Devin session** by pasting `prompts/W<N>.md`.
-2. The builder works **only** in the worktree `D:\Projects\Music-AI-Toolshop-wt-hub` on branch `lane/hub`
+2. The builder works **only** in the worktree `D:\Projects\Music-AI-Toolshop\.worktrees\hub` on branch `lane/hub`
    (created in W0). Never in the main checkout.
 3. At the end of each wave the builder writes its handoff into the **worktree copy** of `LEDGER.md`, committed on
    `lane/hub`. The handoff must include commit hashes and the `06` check output, and the builder must **stop**.

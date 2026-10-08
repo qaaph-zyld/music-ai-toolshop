@@ -87,7 +87,7 @@ All POSTs: Origin guard (Security below); JSON body; 400 on validation error wit
 | External tools | `git` on PATH (read-only subcommands only, see allow-list below) |
 | Network | none (bind `127.0.0.1`; no CDN, no external fetch) |
 | Data dir | `toolshop.paths.subdir("hub", create=True)`, i.e. `TOOLSHOP_DATA_DIR/hub/` |
-| Workspace root | parent of the Toolshop repo root (`D:\Projects`), overridable with env `HUB_WORKSPACE_ROOT` |
+| Workspace root | parent of the **main checkout**: resolve `git -C <repo root> rev-parse --path-format=absolute --git-common-dir` (the main checkout's `.git`), take its parent (the main checkout) and that folder's parent (`D:\Projects`). This works from master and from any lane worktree under `.worktrees/<lane>/`. Overridable with env `HUB_WORKSPACE_ROOT` (v1.1) |
 | Timezone | `zoneinfo.ZoneInfo("Europe/Belgrade")` (needs `tzdata`, which is present in the venv on 2026-10-06; selfcheck must load it) |
 | Port | 8790 (free on 2026-10-06; the ports in use are 8777/8778 audition, 5174 MAirina, 5040). Use `--port` to override |
 

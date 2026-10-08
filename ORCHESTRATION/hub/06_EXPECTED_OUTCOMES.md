@@ -268,7 +268,7 @@ check; only the orchestrator changes a check, through the `07` change log.
     {
       "id": "O5.5",
       "description": "the hub lane worktree is clean before merge",
-      "check_command": "\"D:\\Projects\\Music-AI-Toolshop\\.venv\\Scripts\\python.exe\" -c \"import subprocess,sys;o=subprocess.run(['git','-C',r'D:\\Projects\\Music-AI-Toolshop-wt-hub','status','--porcelain'],capture_output=True,text=True).stdout;sys.exit(1 if o.strip() else 0)\"",
+      "check_command": "\"D:\\Projects\\Music-AI-Toolshop\\.venv\\Scripts\\python.exe\" -c \"import subprocess,sys;o=subprocess.run(['git','-C',r'D:\\Projects\\Music-AI-Toolshop\\.worktrees\\hub','status','--porcelain'],capture_output=True,text=True).stdout;sys.exit(1 if o.strip() else 0)\"",
       "check_timeout": 60,
       "constraint_text": ""
     }
@@ -278,7 +278,7 @@ check; only the orchestrator changes a check, through the `07` change log.
     "The builder never edits ORCHESTRATION/hub/checks/contract_checks.py.",
     "Live OGCJ/OGCM lane files and Stemmeca_alatkka/stems/** are never written.",
     "No new third-party dependency beyond the hub extra (flask>=3.1); no CDN; no npm build.",
-    "All work happens in the lane worktree D:\\Projects\\Music-AI-Toolshop-wt-hub on branch lane/hub."
+    "All work happens in the lane worktree D:\\Projects\\Music-AI-Toolshop\\.worktrees\\hub on branch lane/hub."
   ],
   "baseline": {
     "test_count": 1965,

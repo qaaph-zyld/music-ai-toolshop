@@ -5,7 +5,7 @@ September–October 2026.
 
 ## Isolation
 
-1. **Work only in `D:\Projects\Music-AI-Toolshop-wt-hub` on branch `lane/hub`.**
+1. **Work only in `D:\Projects\Music-AI-Toolshop\.worktrees\hub` on branch `lane/hub`.**
    - Never edit files in the main checkout `D:\Projects\Music-AI-Toolshop`. The exceptions are the
      merge step (W-end, after verification) and the W5 AGENTS.md rule edits listed in `05`.
    - Never edit any submodule except where `05` W4/W5 says so explicitly.
@@ -14,8 +14,8 @@ September–October 2026.
 3. **Never touch live-lane files.**
    - Studio: `ORCHESTRATION/ogcj_flip/`, `Only_God_Can_Judge_Me_Flip/` and `data/ogcj_flip/`.
    - Toolshop: `ORCHESTRATION/ogcm_flip/` and `Stemmeca_alatkka/stems/**`.
-   - The worktrees `Music-AI-Toolshop-wt-flip`, `-wt-lyrics-p2` and `-wt-audition`, plus any other `-wt-*` not
-     named `-wt-hub`.
+   - Every other lane worktree: `D:\Projects\Music-AI-Toolshop\.worktrees\*` except `.worktrees\hub`, and
+     `D:\Projects\Music-AI-Toolshop-wt-kkasper`.
    - Reading `Stemmeca_alatkka/stems/_audition_comments/` is allowed. Writing is not.
 4. **The hub never writes into a repo.** It runs only the git commands on the allow-list in `01`; `fetch` is
    not on it.
@@ -37,7 +37,7 @@ September–October 2026.
 9. **Every wave ends with a `LEDGER.md` entry** containing:
    - the commit hashes (full 7+ chars) on `lane/hub`;
    - the raw output of every `06` check for that wave, with exit codes;
-   - `git -C D:\Projects\Music-AI-Toolshop-wt-hub status --porcelain`, which must be empty;
+   - `git -C D:\Projects\Music-AI-Toolshop\.worktrees\hub status --porcelain`, which must be empty;
    - deviations from the plan, each with its reason;
    - plan issues found.
 10. **Don't claim what you haven't checked.**
