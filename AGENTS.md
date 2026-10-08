@@ -16,7 +16,10 @@ Full diagnosis + rules R1–R7: `D:\Projects\.workspace_archive\reviews\2026-10-
 - **This repo = TOOLS** (code that works for any song/artist) + the lyrics *corpus* (Genius/sources → `lyrics.db`).
   Not here: per-artist mix/master sessions → Studio repo `music_toolshop_v2/artists/<name>/`; lyric-writing
   aids → MAirina repo (MAirina_Tucc/ moves out in segmentation Window 2).
-- **One lane = one branch + one working tree + one active agent** (`git worktree add ../Music-AI-Toolshop-wt-<lane> -b <lane>`).
+- **One lane = one branch + one working tree + one active agent** (`git -C D:\Projects\Music-AI-Toolshop worktree add .worktrees/<lane> -b <lane>`).
+  Lane folders live **inside** the repo under the git-ignored `.worktrees/`, never as siblings in `D:\Projects`.
+  When a lane is merged, remove its folder with `git worktree remove .worktrees/<lane>` (the branch stays), after
+  saving anything in its ignored `data/` or `.scratch/`.
   Master only receives merges. A lane is closed by merging it, or by tagging + archiving it — never by a "done" note.
 - **CHANGELOG IDs are allocated at merge time** by whoever merges to master. "Check the latest entry" failed
   under concurrency (#060 ×4, #061 ×4, #083 ×2, #084 ×2). Lane commits cite the lane name until merged.

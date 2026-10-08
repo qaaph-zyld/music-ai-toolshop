@@ -128,3 +128,6 @@ audio-inventory.txt
 /.scratch_*
 /nul
 /wt_*probe*.txt
+
+# Lane worktrees live inside the repo (2026-10-08): git worktree add .worktrees/<lane> -b <branch>
+/.worktrees/
