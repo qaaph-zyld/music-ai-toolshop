@@ -17,7 +17,7 @@
           "task": "Audit the completed Genius roster fetch for the lyrics_g4 lane and report whether ingest may proceed.",
           "instructions": [
             "Read ORCHESTRATION/lyrics_g4/ledger.md and Genious_lyrics_extractor/roster_g4.json for the expected 8-artist German roster and pinned ids.",
-            "Read every Genious_lyrics_extractor/status/*.json status file — verify status=done for all 8 artists and record songs count per artist.",
+            "Read the fetch status file D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\genius-de\\_fetch_status_g4.json — verify status=done for all 8 artists and record total_songs/done_song_ids count per artist.",
             "Walk the corpus tree at D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\genius-de\\ — list all category dirs (<artist>-solo/-featured/-duo/-trio, other-collab) and count *.json per dir (exclude _index.json/_dedup_log.json).",
             "Spot-check 3 random song JSONs per artist for: genius_song_id populated (non-null), language='de', correct primary_artist, non-empty sections.",
             "Flag: any artist not done, any genius_song_id=null, any language != 'de', any folder not matching a roster folder, suspicious misattribution (e.g. English-language titles under Maxwell/LX/Sa4).",
