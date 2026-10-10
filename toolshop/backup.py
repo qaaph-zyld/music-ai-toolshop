@@ -79,9 +79,9 @@ def _discover_assets(source_root: Path, include_audio: bool = False) -> List[Pat
     """Discover asset files under source_root.
 
     Tier-1 (always):
-    - lyrics/genius/**/*.json (corpus)
-    - lyrics/genius/**/*.txt (corpus)
-    - lyrics/genius/_*.json (indices)
+    - lyrics/genius/**/*.json + lyrics/genius-de/**/*.json (corpora)
+    - lyrics/genius/**/*.txt + lyrics/genius-de/**/*.txt (corpora)
+    - lyrics/genius*/_*.json (indices)
     - lyrics/lyrics.db (fingerprint DB)
     - espeak-ng/** (phonemizer install)
     - suno/*.json (track metadata + the only index of what exists)
@@ -94,10 +94,11 @@ def _discover_assets(source_root: Path, include_audio: bool = False) -> List[Pat
     assets: List[Path] = []
 
     lyrics_dir = source_root / "lyrics"
-    genius_dir = lyrics_dir / "genius"
-    if genius_dir.exists():
-        for pattern in ("*.json", "*.txt"):
-            assets.extend(genius_dir.rglob(pattern))
+    # G4: genius-de is a second Genius corpus — both are Tier-1.
+    for genius_dir in (lyrics_dir / "genius", lyrics_dir / "genius-de"):
+        if genius_dir.exists():
+            for pattern in ("*.json", "*.txt"):
+                assets.extend(genius_dir.rglob(pattern))
 
     db_path = lyrics_dir / "lyrics.db"
     if db_path.exists():

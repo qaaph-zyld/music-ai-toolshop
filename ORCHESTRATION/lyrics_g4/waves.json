@@ -1,0 +1,98 @@
+{
+  "task": "Lyrics G4 — German corpus (genius-de): Tier-1 CrhymeTV roster fetch, audit, ingest, verify",
+  "project_root": "D:\\Projects\\Music-AI-Toolshop\\.worktrees\\lyrics-g4",
+  "orchestration_dir": "ORCHESTRATION/lyrics_g4",
+  "waves": [
+    {
+      "wave": 1,
+      "name": "G4-fetch-audit",
+      "parallel": false,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "1a",
+          "role": "explorer",
+          "subagent_profile": "wave-explorer",
+          "name": "G4 Fetch Auditor",
+          "task": "Audit the completed Genius roster fetch for the lyrics_g4 lane and report whether ingest may proceed.",
+          "instructions": [
+            "Read ORCHESTRATION/lyrics_g4/ledger.md and Genious_lyrics_extractor/roster_g4.json for the expected 8-artist German roster and pinned ids.",
+            "Read every Genious_lyrics_extractor/status/*.json status file — verify status=done for all 8 artists and record songs count per artist.",
+            "Walk the corpus tree at D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\genius-de\\ — list all category dirs (<artist>-solo/-featured/-duo/-trio, other-collab) and count *.json per dir (exclude _index.json/_dedup_log.json).",
+            "Spot-check 3 random song JSONs per artist for: genius_song_id populated (non-null), language='de', correct primary_artist, non-empty sections.",
+            "Flag: any artist not done, any genius_song_id=null, any language != 'de', any folder not matching a roster folder, suspicious misattribution (e.g. English-language titles under Maxwell/LX/Sa4).",
+            "Report per-artist totals + grand total. Verdict line: INGEST READY or FETCH INCOMPLETE (with the blocking list)."
+          ],
+          "scope": "D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\genius-de\\ and Genious_lyrics_extractor/status/ in the lyrics-g4 worktree",
+          "output": "wave1/g4_fetch_audit_handoff.md",
+          "constraints": [
+            "Read-only. Do NOT modify any files.",
+            "Do NOT run the fetcher, index builder, or build_database.",
+            "Corpus root is the SHARED canonical path (data/toolshop under the main repo), not the worktree's data dir."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "name": "G4-db-ingest",
+      "parallel": false,
+      "gate_after": true,
+      "agents": [
+        {
+          "id": "2a",
+          "role": "implementer",
+          "subagent_profile": "wave-implementer",
+          "name": "G4 DB Ingester",
+          "task": "Ingest the fetched German corpus into lyrics.db as corpus='genius-de' (fresh corpus build).",
+          "instructions": [
+            "Precondition: wave-1 handoff verdict must be INGEST READY; if not, stop and write that in your handoff.",
+            "Record pre-ingest baseline read-only: songs total, per-corpus counts (expect 8 corpora), rhyme_pairs count.",
+            "Run: D:\\Projects\\Music-AI-Toolshop\\.venv\\Scripts\\toolshop.exe lyrics build-db --corpus genius-de with PYTHONPATH including the lyrics-g4 worktree so lane code is used. Fresh corpus — first build.",
+            "Post-ingest verify: genius-de row count = audited file count minus dedup drops (quote _dedup_log.json); all rows language='de', license_tier='study-only', release_ok='no'; solo roster folders non-NULL genre_cohort='german_drill'; ZERO line_rhymes rows for genius-de (populate_rhymes skipped by design); all other corpora counts unchanged; PRAGMA integrity_check=ok; PRAGMA foreign_key_check empty.",
+            "Record all counts (before/after) in the handoff."
+          ],
+          "scope": "Genious_lyrics_extractor/, toolshop/ in the lyrics-g4 worktree; canonical db at D:\\Projects\\Music-AI-Toolshop\\data\\toolshop\\lyrics\\lyrics.db",
+          "output": "wave2/g4_db_ingest_handoff.md",
+          "constraints": [
+            "Modify only: genius-de corpus _index.json/_dedup_log.json, lyrics.db (via build_database), ORCHESTRATION artifacts.",
+            "Corpus-scoped build only — never touch other corpora.",
+            "Do NOT commit; the orchestrator owns commits."
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "name": "G4-verify",
+      "parallel": false,
+      "gate_after": false,
+      "agents": [
+        {
+          "id": "3a",
+          "role": "reviewer",
+          "subagent_profile": "reviewer",
+          "name": "G4 Verifier",
+          "task": "Verify the genius-de corpus landed cleanly: cohort tagging, language stamping, rhyme-skip, misattribution, release-safety, tests green.",
+          "instructions": [
+            "Read wave-1 and wave-2 handoffs plus ORCHESTRATION/lyrics_g4/ledger.md for claimed counts.",
+            "NULL-cohort audit: genius-de solo-folder rows with genre_cohort IS NULL — expected zero; list any found.",
+            "Misattribution spot-check: per artist folder, sample 5 titles and confirm primary_artist matches roster_g4.json variants (Maxwell/LX/Sa4 extra care — US R&B singer false-positive check).",
+            "Language audit: all genius-de rows language='de'; spot-check clean_lyrics contains German text.",
+            "Rhyme-skip audit: COUNT line_rhymes for genius-de must be 0; rhyme_pairs must still equal pre-ingest count.",
+            "Release-safety smoke: confirm corpus='genius-de' rows all release_ok='no' and no export path includes them.",
+            "Test rerun: pytest lane tests (test_lyricsdb_g4_de, test_syllables_de, roster_g4 tests, test_lyrics_sources_core) + the 62-test #087 gate set — must be green.",
+            "Handoff: VERDICT pass/fail per check + follow-ups."
+          ],
+          "scope": "lyrics.db (read-only queries), roster_g4.json, tests/ in the lyrics-g4 worktree",
+          "output": "wave3/g4_verify_handoff.md",
+          "constraints": [
+            "Read-only against lyrics.db and corpus files. Test runs allowed.",
+            "Do NOT modify production code to make checks pass — report findings instead.",
+            "Do NOT export or print copyrighted lyric text — counts and metadata only."
+          ]
+        }
+      ]
+    }
+  ]
+}

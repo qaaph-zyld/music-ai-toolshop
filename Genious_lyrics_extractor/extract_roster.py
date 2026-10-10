@@ -236,6 +236,9 @@ def main() -> None:
                         help="Resume status JSON (default: <outdir>/_fetch_status_g3.json)")
     parser.add_argument("--delay", type=float, default=1.5,
                         help="Delay between requests in seconds (default: 1.5)")
+    parser.add_argument("--language", type=str, default=None,
+                        help="Language tag stamped on saved song JSONs "
+                             "(e.g. 'de' for the G4 German corpus; default None)")
     parser.add_argument("--artist", action="append", default=None,
                         help="Limit to roster artist(s) by name or folder (repeatable)")
     parser.add_argument("--resume", action="store_true",
@@ -343,7 +346,8 @@ def main() -> None:
             category = categorize_song(primary_artist, featured, roster, cfg)
 
             try:
-                se = save_song(song, category, outdir, seen_ids)
+                se = save_song(song, category, outdir, seen_ids,
+                               language=args.language)
                 if se is None:
                     continue
                 run_index.append(se)

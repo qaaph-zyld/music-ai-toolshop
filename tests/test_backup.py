@@ -42,6 +42,26 @@ def test_run_backup_copies_files(tmp_path):
     assert (target / "lyrics" / "genius" / "artist-solo" / "song1.json").exists()
 
 
+def test_run_backup_includes_genius_de_corpus(tmp_path):
+    """G4: lyrics/genius-de/** is a second Tier-1 Genius corpus."""
+    source = tmp_path / "source"
+    target = tmp_path / "backup"
+
+    de_dir = source / "lyrics" / "genius-de" / "gzuz-solo"
+    de_dir.mkdir(parents=True)
+    (de_dir / "gzuz-lied.json").write_text('{"title": "Lied"}', encoding="utf-8")
+    (de_dir / "gzuz-lied.txt").write_text("zeilen", encoding="utf-8")
+
+    db_path = source / "lyrics" / "lyrics.db"
+    _make_fake_lyrics_db(db_path)
+
+    manifest = backup.run_backup(target=target, source_root=source, repo_root=tmp_path)
+
+    assert manifest.verified is True
+    assert (target / "lyrics" / "genius-de" / "gzuz-solo" / "gzuz-lied.json").exists()
+    assert (target / "lyrics" / "genius-de" / "gzuz-solo" / "gzuz-lied.txt").exists()
+
+
 def test_check_backup_no_manifest(tmp_path):
     result = backup.check_backup(target=tmp_path)
     assert result["ok"] is False

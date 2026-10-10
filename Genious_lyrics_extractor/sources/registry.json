@@ -16,6 +16,20 @@
       "notes": "Existing corpus (~1,425 songs). corpus_dir 'genius' is the ONE legacy exception to corpus_dir==corpus_tag (lyricsdb.py:30 CORPUS_TAG='genius-pro'). Fetched via `toolshop lyrics fetch/search` + extractor batch scripts — sources/ adapters never touch it."
     },
     {
+      "id": "genius-de",
+      "name": "Genius (German corpus — 187 circle, G4)",
+      "base_url": "https://genius.com",
+      "license_tier": "study-only",
+      "fetch_policy": "auto",
+      "adapter": null,
+      "corpus_tag": "genius-de",
+      "corpus_dir": "genius-de",
+      "license_ref_default": "proprietary",
+      "env_gate": null,
+      "categories": [],
+      "notes": "German rap/drill corpus (lane lyrics-g4): 8-artist Tier-1 roster centered on the 187 Strassenbande circle. corpus_dir==corpus_tag='genius-de' (hyphen; the 'genius' row keeps the ONE legacy dir!=tag exception). Fetched via extract_roster.py --roster roster_g4.json --language de — song JSONs carry language='de'; populate_rhymes is skipped for de rows (Serbian pipeline; German phonemizer is a later lane). All rows study-only / release_ok='no'."
+    },
+    {
       "id": "wikisource_pd",
       "name": "Wikisource PD folk corpora (sr + en)",
       "base_url": "https://sr.wikisource.org",

@@ -1,0 +1,64 @@
+{
+  "lane": "lyrics-g4",
+  "corpus": "genius-de",
+  "language": "de",
+  "note": "German Tier-1 roster (187 circle) — 8 acts, all german_drill. genius_artist_id is pinned by GATE G4-ROSTER dry-run resolution before any fetch; null until approved.",
+  "artists": [
+    {
+      "name": "Bonez MC",
+      "folder": "bonez-mc",
+      "cohort": "german_drill",
+      "variants": ["bonez mc", "bonez"],
+      "genius_artist_id": null
+    },
+    {
+      "name": "RAF Camora",
+      "folder": "raf-camora",
+      "cohort": "german_drill",
+      "variants": ["raf camora", "raf 3.0"],
+      "genius_artist_id": null
+    },
+    {
+      "name": "GZUZ",
+      "folder": "gzuz",
+      "cohort": "german_drill",
+      "variants": ["gzuz"],
+      "genius_artist_id": null
+    },
+    {
+      "name": "LX",
+      "folder": "lx",
+      "cohort": "german_drill",
+      "variants": ["lx"],
+      "genius_artist_id": null
+    },
+    {
+      "name": "Sa4",
+      "folder": "sa4",
+      "cohort": "german_drill",
+      "variants": ["sa4"],
+      "genius_artist_id": null
+    },
+    {
+      "name": "Maxwell",
+      "folder": "maxwell",
+      "cohort": "german_drill",
+      "variants": ["maxwell"],
+      "genius_artist_id": null
+    },
+    {
+      "name": "187 Strassenbande",
+      "folder": "187-strassenbande",
+      "cohort": "german_drill",
+      "variants": ["187 strassenbande", "187"],
+      "genius_artist_id": null
+    },
+    {
+      "name": "Capuz",
+      "folder": "capuz",
+      "cohort": "german_drill",
+      "variants": ["capuz"],
+      "genius_artist_id": null
+    }
+  ]
+}
