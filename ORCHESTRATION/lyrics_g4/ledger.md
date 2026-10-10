@@ -7,8 +7,8 @@ Adversarial plan review: `.workspace_archive/reviews/2026-10-09_lyrics_g4_plan.m
 | Wave | Status | Commit | Evidence |
 |---|---|---|---|
 | G4-pre | DONE | — | worktree at `63779ff`; ledger + waves.json seeded |
-| G4-I | in progress | — | code + tests (registry row, fold, cohorts, TYPE_MAP, count_line_de, rhymes-skip, language plumbing, backup glob, word-boundary, roster_g4.json) |
-| GATE G4-ROSTER | pending | — | dry-run resolve → pinned ids → user eyeball (Maxwell/LX/Sa4 mandatory) |
+| G4-I | DONE | `fb46382` | registry row, fold, cohorts, TYPE_MAP, count_line_de, rhymes-skip, language plumbing, backup glob, word-boundary, roster_g4.json — 30 new + 253 existing tests green |
+| GATE G4-ROSTER | AWAITING USER | — | all 8 resolved + pinned (probe-verified 187-circle songs; Maxwell→`Maxwell 187` id=1040924 not US R&B) |
 | G4-B fetch | pending | — | detached `--language de --outdir …/genius-de` |
 | G4-A audit | pending | — | INGEST READY verdict required |
 | G4-DB ingest | pending | — | fresh-corpus build, corpus-scoped |
