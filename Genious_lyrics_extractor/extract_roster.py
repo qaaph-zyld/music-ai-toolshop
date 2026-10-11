@@ -183,9 +183,30 @@ def dry_run_resolve(genius: Any, roster: list[dict[str, Any]]) -> None:
 
 
 def fetch_artist_songs_resolving(
+    genius: Any, cfg: dict[str, Any], retries: int = 1
+) -> tuple[list, dict[str, Any]]:
+    """search_artist + variant check. Returns (songs, info) or raises.
+
+    ``retries``: transient network faults (read timeouts, RemoteDisconnected)
+    kill the whole ~45-min resolution otherwise; retry once after 30s before
+    surfacing the error (G4: LX/RaF lost a full pass to one hiccup each).
+    """
+    for attempt in range(retries + 1):
+        try:
+            return _search_artist_once(genius, cfg)
+        except _ResolveMismatch:
+            raise  # deterministic mismatch — retrying can't help
+        except Exception:
+            if attempt >= retries:
+                raise
+            print("  transient fetch error — retrying in 30s")
+            time.sleep(30)
+    raise RuntimeError("unreachable")
+
+
+def _search_artist_once(
     genius: Any, cfg: dict[str, Any]
 ) -> tuple[list, dict[str, Any]]:
-    """search_artist + variant check. Returns (songs, info) or raises."""
     artist = genius.search_artist(
         cfg["name"],
         max_songs=1000,
