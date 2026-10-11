@@ -257,8 +257,12 @@ def save_song(
     category: str,
     outdir: Path,
     seen_ids: set[int],
+    language: str | None = None,
 ) -> dict[str, Any] | None:
     """Save a single song's lyrics as JSON + TXT in the category subfolder.
+
+    ``language`` is stamped verbatim into the saved JSON (the G4 German
+    fetch passes ``'de'``; genius-pro callers leave it None).
 
     Returns metadata dict for the index, or None if skipped (dup / no lyrics).
     """
@@ -349,7 +353,7 @@ def save_song(
         "title": title,
         "artist": primary_artist,
         "url": url,
-        "language": None,
+        "language": language,
         "raw_lyrics": lyrics_text,
         "clean_lyrics": clean_lyrics,
         "sections": sections,

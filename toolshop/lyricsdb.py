@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from toolshop.syllables import count_line, count_syllables
+from toolshop.syllables import count_line, count_line_de, count_syllables
 
 # ── Constants ─────────────────────────────────────────────────────────
 
@@ -76,6 +76,15 @@ COHORT_MAP: Dict[str, str] = {
     "Dara Bubamara": "pop",
     "Zoi": "pop",
     "Bulevar": "pop",  # provisional — pending first-resolve confirmation
+    # Batch G4 — German drill/rap, 187 circle (2026-10-10, lane lyrics-g4):
+    "Bonez MC": "german_drill",
+    "RAF Camora": "german_drill",
+    "GZUZ": "german_drill",
+    "LX": "german_drill",
+    "Sa4": "german_drill",
+    "Maxwell": "german_drill",
+    "187 Strassenbande": "german_drill",
+    "Capuz": "german_drill",
 }
 
 # Fallback: folder-name (target_artist) → cohort.
@@ -120,6 +129,19 @@ _FOLDER_COHORT_MAP: Dict[str, str] = {
     "dara-bubamara": "pop",
     "zoi": "pop",
     "bulevar": "pop",  # provisional — pending first-resolve confirmation
+    # Batch G4 — German (2026-10-10, lane lyrics-g4):
+    "bonez-mc": "german_drill",
+    "raf-camora": "german_drill",
+    "gzuz": "german_drill",
+    "lx": "german_drill",
+    "sa4": "german_drill",
+    "maxwell": "german_drill",
+    "187-strassenbande": "german_drill",
+    "capuz": "german_drill",
+    # frequent G4 duo folder slugs (folders sort alphabetically):
+    "bonez-mc-gzuz": "german_drill",
+    "bonez-mc-raf-camora": "german_drill",
+    "gzuz-maxwell": "german_drill",
 }
 
 
@@ -198,6 +220,11 @@ _TYPE_MAP: Dict[str, str] = {
     "pripev": "refren",
     # French variants
     "pre-refrain": "prerefren",
+    # German variants (G4)
+    "strophe": "strofa",
+    "zwischenspiel": "interlude",
+    "post-refrain": "postrefren",
+    "nachrefrain": "postrefren",
     # English interlude
     "interlude": "interlude",
     # Serbian variants
@@ -399,6 +426,12 @@ _ASCII_FOLD_MAP = str.maketrans({
     "š": "s", "Š": "s",
     "ž": "z", "Ž": "z",
     "đ": "dj", "Đ": "dj",
+    # German (G4): digraph expansion — keeps umlaut vowels distinct from
+    # their base letters in dedup keys and folded labels.
+    "ä": "ae", "Ä": "ae",
+    "ö": "oe", "Ö": "oe",
+    "ü": "ue", "Ü": "ue",
+    "ß": "ss", "ẞ": "ss",
 })
 
 
@@ -977,9 +1010,17 @@ def _insert_song(
     genre_cohort = COHORT_MAP.get(primary_artist)
     if genre_cohort is None and role == "solo":
         # Fallback 1: check if any known artist name appears in primary_artist
-        # (handles duo/trio categories like "Jala Brat & Buba Corelli")
+        # (handles duo/trio categories like "Jala Brat & Buba Corelli").
+        # Keys of <=4 chars (LX, Sa4, Fox, Zoi, Zera) require a word
+        # boundary — a bare substring would tag 'Fleet Foxes' as 'Fox'.
+        pa = primary_artist.lower()
         for known_artist, cohort in COHORT_MAP.items():
-            if known_artist.lower() in primary_artist.lower():
+            ka = known_artist.lower()
+            if len(ka) <= 4:
+                if re.search(rf"(?<!\w){re.escape(ka)}(?!\w)", pa):
+                    genre_cohort = cohort
+                    break
+            elif ka in pa:
                 genre_cohort = cohort
                 break
     if genre_cohort is None and role == "solo":
@@ -1051,8 +1092,12 @@ def _insert_sections(
     conn: sqlite3.Connection,
     song_id: int,
     sections: List[Dict[str, Any]],
+    language: Optional[str] = None,
 ) -> int:
     """Insert all sections and lines for a song. Returns section count."""
+    # Exact 'de' dispatch — language None/''/missing stays on the Serbian
+    # counter (all existing genius-pro rows carry language=None).
+    count = count_line_de if language == "de" else count_line
     for ordinal, section in enumerate(sections, start=1):
         label_raw = section.get("label") or ""
         content = section.get("content", "")
@@ -1078,7 +1123,7 @@ def _insert_sections(
         for line_ordinal, line_text in enumerate(lines, start=1):
             text_norm = normalize_text(line_text)
             word_count = len(re.findall(r"\b\w+\b", text_norm))
-            syl_count = count_line(line_text)
+            syl_count = count(line_text)
             conn.execute(
                 """INSERT INTO lines (section_id, ordinal, text_raw, text_norm, word_count, syllable_count)
                    VALUES (?, ?, ?, ?, ?, ?)""",
@@ -1219,7 +1264,9 @@ def build_database(
             corpus=corpus, license_defaults=license_defaults,
         )
         sections = song_data.get("sections", [])
-        sec_count = _insert_sections(conn, song_id, sections)
+        sec_count = _insert_sections(
+            conn, song_id, sections, language=song_data.get("language")
+        )
         new_song_ids.append(song_id)
         songs_ingested += 1
         sections_ingested += sec_count
@@ -1248,10 +1295,25 @@ def build_database(
     metrics_count = populate_song_metrics(conn, song_ids=metric_ids)
     create_artist_views(conn)
 
-    # Populate line_rhymes table (per-song, same id scope as metrics)
+    # Populate line_rhymes table (per-song, same id scope as metrics).
+    # language='de' rows are skipped — the Serbian pipeline would emit junk
+    # skeletons. A German phonemizer (phonemizer-de) is a separate lane.
+    # Exact 'de' match only: NULL/'' language rows are unaffected.
     from toolshop.rhyme_miner import populate_rhymes
+    if metric_ids:
+        _ph = ",".join("?" for _ in metric_ids)
+        de_ids = {
+            r[0] for r in conn.execute(
+                f"SELECT id FROM songs WHERE language = 'de' AND id IN ({_ph})",
+                metric_ids,
+            )
+        }
+    else:
+        de_ids = set()
     rhyme_count = 0
     for song_id in metric_ids:
+        if song_id in de_ids:
+            continue
         rhyme_count += populate_rhymes(conn, song_id)
     print(f"  Rhymes computed: {rhyme_count} rhyme rows across {len(metric_ids)} songs")
 

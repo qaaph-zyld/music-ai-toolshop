@@ -183,9 +183,30 @@ def dry_run_resolve(genius: Any, roster: list[dict[str, Any]]) -> None:
 
 
 def fetch_artist_songs_resolving(
+    genius: Any, cfg: dict[str, Any], retries: int = 1
+) -> tuple[list, dict[str, Any]]:
+    """search_artist + variant check. Returns (songs, info) or raises.
+
+    ``retries``: transient network faults (read timeouts, RemoteDisconnected)
+    kill the whole ~45-min resolution otherwise; retry once after 30s before
+    surfacing the error (G4: LX/RaF lost a full pass to one hiccup each).
+    """
+    for attempt in range(retries + 1):
+        try:
+            return _search_artist_once(genius, cfg)
+        except _ResolveMismatch:
+            raise  # deterministic mismatch — retrying can't help
+        except Exception:
+            if attempt >= retries:
+                raise
+            print("  transient fetch error — retrying in 30s")
+            time.sleep(30)
+    raise RuntimeError("unreachable")
+
+
+def _search_artist_once(
     genius: Any, cfg: dict[str, Any]
 ) -> tuple[list, dict[str, Any]]:
-    """search_artist + variant check. Returns (songs, info) or raises."""
     artist = genius.search_artist(
         cfg["name"],
         max_songs=1000,
@@ -220,6 +241,13 @@ class _ResolveMismatch(RuntimeError):
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    # UTF-8 console (AGENTS.md): song titles carry emoji/umlauts — a cp1252
+    # stdout would crash the run mid-loop on UnicodeEncodeError.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
     parser = argparse.ArgumentParser(
         description="Roster-driven Genius lyrics extraction (P3 batch)"
     )
@@ -233,9 +261,12 @@ def main() -> None:
     parser.add_argument("--outdir", type=Path, default=_default_outdir,
                         help=f"Output directory (default: {_default_outdir})")
     parser.add_argument("--status-file", type=Path, default=None,
-                        help="Resume status JSON (default: <outdir>/_fetch_status_g3.json)")
+                        help="Resume status JSON (default: <outdir>/_fetch_status_<roster-tag>.json)")
     parser.add_argument("--delay", type=float, default=1.5,
                         help="Delay between requests in seconds (default: 1.5)")
+    parser.add_argument("--language", type=str, default=None,
+                        help="Language tag stamped on saved song JSONs "
+                             "(e.g. 'de' for the G4 German corpus; default None)")
     parser.add_argument("--artist", action="append", default=None,
                         help="Limit to roster artist(s) by name or folder (repeatable)")
     parser.add_argument("--resume", action="store_true",
@@ -269,7 +300,10 @@ def main() -> None:
         skip_non_songs=True,
         excluded_terms=["(Remix)", "(Instrumental)"],
         remove_section_headers=False,
-        timeout=30,
+        # 60s: search_artist is one long request chain — a single 30s
+        # read timeout during a Genius-slow window otherwise marks the
+        # whole artist 'error' after ~45 min of resolution work.
+        timeout=60,
     )
 
     if args.dry_run:
@@ -279,7 +313,8 @@ def main() -> None:
 
     outdir = args.outdir
     outdir.mkdir(parents=True, exist_ok=True)
-    status_path = args.status_file or (outdir / "_fetch_status_g3.json")
+    roster_tag = args.roster.stem.removeprefix("roster_")
+    status_path = args.status_file or (outdir / f"_fetch_status_{roster_tag}.json")
     status = load_status(status_path)
     ast = status.setdefault("artists", {})
 
@@ -343,7 +378,8 @@ def main() -> None:
             category = categorize_song(primary_artist, featured, roster, cfg)
 
             try:
-                se = save_song(song, category, outdir, seen_ids)
+                se = save_song(song, category, outdir, seen_ids,
+                               language=args.language)
                 if se is None:
                     continue
                 run_index.append(se)
@@ -366,9 +402,9 @@ def main() -> None:
         save_status(status_path, status)
 
     # Run summary (underscored — not scanned by build_unified_index)
-    summary_path = outdir / "_summary_g3.md"
+    summary_path = outdir / f"_summary_{roster_tag}.md"
     with summary_path.open("w", encoding="utf-8") as f:
-        f.write("# G3 Roster Extraction Summary\n\n")
+        f.write(f"# {roster_tag.upper()} Roster Extraction Summary\n\n")
         f.write(f"**Date:** {time.strftime('%Y-%m-%d %H:%M')}\n\n")
         f.write("| Artist | Status | Resolved | Songs |\n|---|---|---|---|\n")
         for cfg in fetch_roster:
