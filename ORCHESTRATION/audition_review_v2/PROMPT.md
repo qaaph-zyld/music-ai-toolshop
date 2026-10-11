@@ -1,3 +1,8 @@
+> **STATUS (eargap W3): MERGED to master** — merge commit `2bb0223`. The lane worktree
+> `.worktrees/audition-v2` was retired at close-out; v2 code lives on master at
+> `scripts/audition_review.py` + `tests/test_audition_review.py`. Worktree paths below are
+> historical record only.
+
 FRAMEWORK BOOTSTRAP — Execute in order:
 1. Read `D:\Projects\ai_dev_meta_layer\framework_loader.md`; load `D:\Projects\Music-AI-Toolshop\AGENTS.md` (lane rules, close-out discipline).
 2. Draft a short plan (checklist below is the scope). Do not start coding until the plan is written into the lane folder.
@@ -12,13 +17,13 @@ implementation of the page decoration: `D:\Projects\Music-AI-Toolshop\.scratch\m
 ## Where to work (lane rules: one lane = one branch + one worktree)
 
 - Base branch: `audition-autosave` (2 commits NOT on master: 21f3336 Range support, 26dd87c autosave on change/blur).
-- Create: `git -C D:\Projects\Music-AI-Toolshop worktree add D:\Projects\Music-AI-Toolshop-wt-audition-v2 -b lane/audition-review-v2 audition-autosave`
+- Create: `git -C D:\Projects\Music-AI-Toolshop worktree add .worktrees\audition-v2 -b lane/audition-review-v2 audition-autosave`
 - Do NOT touch: master's working tree (its `scripts/audition_review.py` + tests carry old uncommitted dirt that
-  21f3336 supersedes), `D:\Projects\Music-AI-Toolshop-wt-audition`, `toolshop/hub/`, `ORCHESTRATION/hub/`.
+  21f3336 supersedes), `.worktrees\audition`, `toolshop/hub/`, `ORCHESTRATION/hub/`.
 - Do NOT stop or restart the user's server on :8778. Test your build on **port 8781**.
 - Python: `D:\Projects\Music-AI-Toolshop\.venv\Scripts\python.exe`. Run everything with cwd = the worktree root;
   first prove the import resolves to the worktree:
-  `python -c "import scripts.audition_review as m; print(m.__file__)"` must print a `...wt-audition-v2...` path.
+  `python -c "import scripts.audition_review as m; print(m.__file__)"` must print a `...\.worktrees\audition-v2...` path.
 
 ## Hard constraints
 
@@ -102,7 +107,7 @@ Keep the existing rules: 127.0.0.1 only; serve-time injection never rewrites fil
 
 ## Acceptance (paste every output into the handoff)
 
-- A1 `pytest D:\Projects\Music-AI-Toolshop-wt-audition-v2\tests\test_audition_review.py -q` → all pass, count
+- A1 `pytest D:\Projects\Music-AI-Toolshop\.worktrees\audition-v2\tests\test_audition_review.py -q` → all pass, count
   > 32. New tests at least cover: config ordering + states in HTML, no-config output unchanged, `round` flips
   listen→heard and refuses a reused prefix, `/__audition__/songs` lists only packs with config, `check` exits
   non-zero on a missing file, WIDGET_JS dispatches `audition:saved`, JSONL schema unchanged.
