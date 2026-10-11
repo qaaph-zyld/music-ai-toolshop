@@ -80,7 +80,7 @@ def _fake_lyricsgenius(monkeypatch, artist):
 
 
 def _roster_file(tmp_path, roster=ROSTER):
-    p = tmp_path / "roster.json"
+    p = tmp_path / "roster_g3.json"
     p.write_text(json.dumps({"artists": roster}), encoding="utf-8")
     return p
 

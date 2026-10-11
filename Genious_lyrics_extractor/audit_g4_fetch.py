@@ -27,6 +27,24 @@ _DATA_DIR = os.environ.get(
 DEFAULT_CORPUS = Path(_DATA_DIR) / "lyrics" / "genius-de"
 
 
+def _belongs(folder: str, dirname: str) -> bool:
+    """True if roster folder participates in a corpus dir name.
+
+    Multi-token folders (bonez-mc, 187-strassenbande) inside duo/trio dirs
+    are matched as a contiguous token subsequence — 'bonez-mc' matches
+    '187-strassenbande-bonez-mc-duo' because ['bonez','mc'] is a slice of
+    ['187','strassenbande','bonez','mc']."""
+    if dirname in (f"{folder}-solo", f"{folder}-featured"):
+        return True
+    parts = dirname.rsplit("-", 1)
+    if len(parts) == 2 and parts[1] in ("duo", "trio"):
+        base = parts[0].split("-")
+        ft = folder.split("-")
+        return any(base[i:i + len(ft)] == ft
+                   for i in range(len(base) - len(ft) + 1))
+    return False
+
+
 def audit(corpus: Path, roster_path: Path, sample: int = 3) -> int:
     roster = json.loads(roster_path.read_text(encoding="utf-8"))["artists"]
     problems: list[str] = []
@@ -54,11 +72,7 @@ def audit(corpus: Path, roster_path: Path, sample: int = 3) -> int:
         # on-disk count across this artist's possible dirs
         dirs = sorted(
             d for d in corpus.iterdir()
-            if d.is_dir() and (d.name == f"{folder}-solo"
-                               or d.name == f"{folder}-featured"
-                               or folder in d.name.split("-duo")[0].split("-")
-                               or d.name.endswith("-duo") and folder in d.name.split("-")[:-1]
-                               or d.name.endswith("-trio") and folder in d.name.split("-")[:-1])
+            if d.is_dir() and _belongs(folder, d.name)
         ) if corpus.exists() else []
         on_disk = sum(len(list(d.glob("*.json"))) for d in dirs)
         grand += on_disk
@@ -75,20 +89,14 @@ def audit(corpus: Path, roster_path: Path, sample: int = 3) -> int:
     # corpus-level checks
     unknown_dirs = []
     if corpus.exists():
+        folders = [cfg["folder"] for cfg in roster]
         known = set()
-        for cfg in roster:
-            f = cfg["folder"]
-            for d in corpus.iterdir():
-                if d.is_dir():
-                    parts = d.name.rsplit("-", 1)
-                    if len(parts) == 2 and parts[1] in ("solo", "featured"):
-                        if parts[0] == f:
-                            known.add(d.name)
-                    elif parts[-1] in ("duo", "trio"):
-                        if f in parts[0].split("-"):
-                            known.add(d.name)
-                    elif d.name == "other-collab":
-                        known.add(d.name)
+        for d in corpus.iterdir():
+            if d.is_dir():
+                if d.name == "other-collab" or d.name.startswith("_"):
+                    known.add(d.name)
+                elif any(_belongs(f, d.name) for f in folders):
+                    known.add(d.name)
         unknown_dirs = [d.name for d in corpus.iterdir()
                         if d.is_dir() and d.name not in known]
         if unknown_dirs:
@@ -96,7 +104,10 @@ def audit(corpus: Path, roster_path: Path, sample: int = 3) -> int:
 
     # song-JSON spot checks
     song_jsons = [p for p in corpus.rglob("*.json")
-                  if not p.name.startswith("_")] if corpus.exists() else []
+                  if not p.name.startswith("_")
+                  and not any(part.startswith("_")
+                              for part in p.relative_to(corpus).parts[:-1])
+                  ] if corpus.exists() else []
     rng.shuffle(song_jsons)
     checked = sampled = 0
     null_ids = bad_lang = empty_sections = 0

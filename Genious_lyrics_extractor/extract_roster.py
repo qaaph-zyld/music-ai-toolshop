@@ -261,7 +261,7 @@ def main() -> None:
     parser.add_argument("--outdir", type=Path, default=_default_outdir,
                         help=f"Output directory (default: {_default_outdir})")
     parser.add_argument("--status-file", type=Path, default=None,
-                        help="Resume status JSON (default: <outdir>/_fetch_status_g3.json)")
+                        help="Resume status JSON (default: <outdir>/_fetch_status_<roster-tag>.json)")
     parser.add_argument("--delay", type=float, default=1.5,
                         help="Delay between requests in seconds (default: 1.5)")
     parser.add_argument("--language", type=str, default=None,
@@ -313,7 +313,8 @@ def main() -> None:
 
     outdir = args.outdir
     outdir.mkdir(parents=True, exist_ok=True)
-    status_path = args.status_file or (outdir / "_fetch_status_g3.json")
+    roster_tag = args.roster.stem.removeprefix("roster_")
+    status_path = args.status_file or (outdir / f"_fetch_status_{roster_tag}.json")
     status = load_status(status_path)
     ast = status.setdefault("artists", {})
 
@@ -401,9 +402,9 @@ def main() -> None:
         save_status(status_path, status)
 
     # Run summary (underscored — not scanned by build_unified_index)
-    summary_path = outdir / "_summary_g3.md"
+    summary_path = outdir / f"_summary_{roster_tag}.md"
     with summary_path.open("w", encoding="utf-8") as f:
-        f.write("# G3 Roster Extraction Summary\n\n")
+        f.write(f"# {roster_tag.upper()} Roster Extraction Summary\n\n")
         f.write(f"**Date:** {time.strftime('%Y-%m-%d %H:%M')}\n\n")
         f.write("| Artist | Status | Resolved | Songs |\n|---|---|---|---|\n")
         for cfg in fetch_roster:
