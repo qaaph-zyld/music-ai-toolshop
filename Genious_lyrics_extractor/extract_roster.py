@@ -279,7 +279,10 @@ def main() -> None:
         skip_non_songs=True,
         excluded_terms=["(Remix)", "(Instrumental)"],
         remove_section_headers=False,
-        timeout=30,
+        # 60s: search_artist is one long request chain — a single 30s
+        # read timeout during a Genius-slow window otherwise marks the
+        # whole artist 'error' after ~45 min of resolution work.
+        timeout=60,
     )
 
     if args.dry_run:
