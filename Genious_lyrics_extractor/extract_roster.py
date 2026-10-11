@@ -220,6 +220,13 @@ class _ResolveMismatch(RuntimeError):
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    # UTF-8 console (AGENTS.md): song titles carry emoji/umlauts — a cp1252
+    # stdout would crash the run mid-loop on UnicodeEncodeError.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
     parser = argparse.ArgumentParser(
         description="Roster-driven Genius lyrics extraction (P3 batch)"
     )

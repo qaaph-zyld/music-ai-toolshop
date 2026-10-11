@@ -8,8 +8,8 @@ Adversarial plan review: `.workspace_archive/reviews/2026-10-09_lyrics_g4_plan.m
 |---|---|---|---|
 | G4-pre | DONE | — | worktree at `63779ff`; ledger + waves.json seeded |
 | G4-I | DONE | `fb46382` | registry row, fold, cohorts, TYPE_MAP, count_line_de, rhymes-skip, language plumbing, backup glob, word-boundary, roster_g4.json — 30 new + 253 existing tests green |
-| GATE G4-ROSTER | AWAITING USER | — | all 8 resolved + pinned (probe-verified 187-circle songs; Maxwell→`Maxwell 187` id=1040924 not US R&B) |
-| G4-B fetch | pending | — | detached `--language de --outdir …/genius-de` |
+| GATE G4-ROSTER | APPROVED | `3db6242` | all 8 resolved + pinned (probe-verified 187-circle songs; Maxwell→`Maxwell 187` id=1040924 not US R&B) — user approved 2026-10-10 |
+| G4-B fetch | IN PROGRESS | — | bonez-mc DONE 449/449. Incidents: (1) UnicodeEncodeError crash printing emoji title to cp1252 stdout → fixed `sys.stdout.reconfigure(utf-8)` in extract_roster.main + `-X utf8` relaunch; (2) bash-launched bg process died at session boundary → relaunched via `Start-Process` detached (pid survives session resets). Now resolving RAF Camora with `--resume`. search_artist does ~2 req/song inside resolution — large catalogs run ~45-60 min/artist. |
 | G4-A audit | pending | — | INGEST READY verdict required |
 | G4-DB ingest | pending | — | fresh-corpus build, corpus-scoped |
 | G4-V verify | pending | — | reviewer + adversarial pass |
