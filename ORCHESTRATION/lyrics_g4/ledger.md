@@ -14,7 +14,7 @@ Execution note: fetch/audit/ingest/verify ran inline by the orchestrator (single
 | G4-A audit | DONE | `72a36ac` | VERDICT: INGEST READY — 1,478 files, 0 null ids, 0 bad_lang, 0 empty_sections (200-sample). 4 empty-body stub pages (Genius page, no transcription) quarantined to `_quarantine_no_lyrics/`. Audit-script fix: multi-token folders now match inside duo/trio dirs (`_belongs` contiguous-token-subsequence). |
 | G4-DB ingest | DONE | — | corpus-scoped rebuild via worktree `build_database` (main-repo paths): **1,455 songs · 10,161 sections · 81,837 lines**; 21 intra-corpus fid collisions dropped (`_dedup_log.json`); 0 rhymes computed (de-skip active). |
 | G4-V verify | DONE | — | genius-de 1,455 rows, all `language='de'`, fid 100% populated, 0 dup fids; cohort german_drill 1,215 / NULL 238 (featured+other-collab) / drill_trap 2 (Jala Brat primary — correct); metrics 100% on 81,837 lines (avg 11.1 syl vs pro 10.8); **0 de line_rhymes**; licensing 100% study-only/release_ok=no; integrity ok, 0 fk violations; other corpora byte-identical (25,195→26,650 = +1,455). 95 tests green. |
-| MERGE | pending | — | Answer ID at merge; push user-gated |
+| MERGE | DONE | `299dc2e` | merged to master 2026-10-11; Answer #088; push user-gated |
 
 ## Roster (PROPOSED → frozen at GATE G4-ROSTER)
 

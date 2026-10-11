@@ -4,6 +4,30 @@
 > parallel lanes assigned them concurrently). Cite the commit hash when referring to those. From now on an
 > ID is allocated only when a lane merges to master, by whoever merges (AGENTS.md "Boundaries & lanes").
 
+### Answer #088 - genius-de German corpus: 1,455 songs ingested (corpus 1,455 / db 26,650)
+**Timestamp:** 2026-10-11
+**Action Type:** Corpus-expansion lane (`lyrics-g4`) — Tier-1 CrhymeTV/187-circle roster fetch, audit, corpus-scoped ingest, verify (megaplan `.workspace_archive/plans/lyrics-g4-genius-de-megaplan.md`; orchestration `ORCHESTRATION/lyrics_g4/`).
+
+**Previous state:** db 25,195 songs / 8 corpora. No German corpus; `count_line` was Serbian-rule only; no `language` plumbing in extractor; `_ASCII_FOLD_MAP` lacked umlauts/ß; backup globbed only `lyrics/genius/**`.
+
+**Current state:** new corpus **`genius-de`** = **1,455 songs** ingested (db **26,650** / **9 corpora**) — 10,161 sections, 81,837 lines. Roster (8 acts, all id-pinned after probe verification — Maxwell resolved to `Maxwell 187` id=1040924, NOT US R&B id=3056): Bonez MC 18537, RAF Camora 12767, Gzuz 18534, LX 21141, Sa4 35296, Maxwell 187 1040924, 187 Strassenbande 19650, Capuz 184455. Fetch processed 1,705 catalog ids → 1,480 saved (rest = FAIL/no-lyrics) → **1,455 rows** after 21 intra-corpus fid collisions dropped by `_dedup_log.json` precedence. All rows `language='de'`, `license_tier='study-only'`/`release_ok='no'`, `foreign_identifier` 100% populated, 0 dup fids. Cohorts: `german_drill` 1,215 / featured-NULL 238 / drill_trap 2 (Jala Brat primary collabs — cohort follows the artist). Metrics on all lines (approx `count_line_de`, avg 11.1 syl/line vs pro 10.8). **Zero `line_rhymes` for genius-de** — `populate_rhymes` skipped by design (Serbian-oriented miner unfit for German; phonemizer-de is the deferred lane). `integrity_check` ok, 0 fk violations; all 8 prior corpora byte-identical.
+
+**Fetch incidents (all resolved in-lane):** cp1252 emoji crash at song ~91 → `sys.stdout.reconfigure` UTF-8 + `-X utf8` relaunch; bash-launched process died at session boundary → detached `Start-Process`; transient read-timeout/RemoteDisconnected wave (4 artists) → timeout 30→60 s + one retry on `fetch_artist_songs_resolving` + resumable `--resume` passes. 4 empty-body Genius stub pages quarantined to `genius-de/_quarantine_no_lyrics/`.
+
+#### Files Affected:
+- **NEW:** `Genious_lyrics_extractor/roster_g4.json` (8 artists, variants, pinned `genius_artist_id`s); `Genious_lyrics_extractor/audit_g4_fetch.py` (read-only fetch audit → INGEST READY verdict); `tests/test_lyricsdb_g4_de.py`, `tests/test_syllables_de.py`, `tests/test_lyrics_genius_roster_g4.py`.
+- **MODIFIED:** `toolshop/lyricsdb.py` — `_ASCII_FOLD_MAP` +ä/ö/ü/ß digraph fold; German cohort/section-label maps (`Strophe`→strofa, `Zwischenspiel`→interlude, `Post-/Nachrefrain`); word-boundary match for ≤4-char COHORT_MAP keys (absorbs the standing G3 short-key follow-up); exact `language=='de'` dispatch; `populate_rhymes` skipped for de rows. `toolshop/syllables.py` — `count_line_de` approx vowel-group counter. `toolshop/backup.py` — `lyrics/genius-de/**` in Tier-1. `Genious_lyrics_extractor/sources/registry.json` — `genius-de` row (id=tag=dir; `genius` legacy exception unchanged). `extract_roster.py` — `--language` flag, UTF-8 stdout/stderr reconfigure, 60 s timeout, transient retry, roster-stem-derived status/summary filenames.
+- Tests: 95 green (30 new G4 + regressions on touched files).
+
+#### Technical Decisions:
+- Separate corpus + separate dir (`genius-de`), not folded into genius-pro — language-specific metrics/rhyme deferred per-corpus.
+- Approximate German syllable counter shipped now; real phonemizer is a later lane — German `line_rhymes` would be garbage under the Serbian miner, so they're skipped rather than computed wrong.
+- Word-boundary matching prevents `LX`/`Sa4`/`Fox`-class short keys from substring-matching ("Alex", "Fleet Foxes").
+
+#### Next Actions Required:
+- phonemizer-de lane → enable `populate_rhymes` for `language='de'`.
+- Downstream consumers (fingerprint/collab/flow/corpus_inventory) filter `corpus='genius-pro'` — genius-de is invisible to them until a later lane wires it (clean containment, by design).
+
 ### Answer #087 - genius-pro fid-aware dedup: both G3 lost songs recovered (corpus 2,532 / db 25,195)
 **Timestamp:** 2026-10-08
 **Action Type:** Bugfix lane (`lyrics-fid-dedup`) + targeted refetch + corpus-scoped rebuild.
