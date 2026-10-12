@@ -24,8 +24,8 @@ Origin: `lyrics-g4` handoff (2026-10-11) carried-forward → user directed: cons
 | SR-0 pre | DONE | — | worktree at d896c82; classla 2.2.1; pilot 500 lines/180s ≈ 2.78 l/s |
 | SR-2 annotate scope | DONE (code+tests) | — | `--corpus` + `--language` flags (repeatable), `--status` JSON per-500-line flush, per-corpus coverage block; 19 tests green |
 | SR-1 audit+tag | DONE | — | 3,390 language tags (gp 2465sr/41en/26NULL, lrclib 853sr/31en/3NULL); cohort fold-fix +73 lrclib; dedup report below |
-| SR-3 overnight batch | IN PROGRESS | — | 152,588 pending sr lines (gp 113,390 + lrclib 39,198) ≈ 15h at pilot rate; no multi-doc API in classla 2.2.1 → line-by-line, resumable |
-| SR-4 rimer rebuild | PENDING | — | — |
+| SR-3 overnight batch | RUNNING | f6fc759 | PID 19096 detached 00:02:48 via `.scratch/run_annotate_sr.py` (cli.py unusable from worktree: module-level `mastering_tool` import) — 152,588 sr lines; observed ~5.7 l/s → ETA ~7.5h; status `_annotate_status_sr.json`, logs `.scratch/annotate_sr.{log,err.log}` |
+| SR-4 rimer rebuild | DONE | d4e06c1 | `build_rimer_db(corpora, languages)` + busy_timeout; rebuilt languages=['sr'] → **252,518 pairs** (13,891 skeletons; drill 17,577/pop 4,211/NULL 230,823 folk-dominated); `populate_rhymes` now skips en+de; slang_terms lineage safe (NULL-cohort + non-sr never reach tokens) |
 | SR-5 MAirina wire | PENDING | — | child-repo branch; NOTE lrclib unique value now only ~45-80 songs (808 cross-corpus dupes) |
 | SR-V verify | PENDING | — | — |
 | MERGE | PENDING | — | CHANGELOG id at merge |
