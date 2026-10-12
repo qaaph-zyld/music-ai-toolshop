@@ -1447,6 +1447,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--db", type=Path, default=None,
         help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
     )
+    lyrics_build_rimer_parser.add_argument(
+        "--corpus", action="append", default=None,
+        help="Restrict pairs to this corpus tag; repeatable (default: all corpora)",
+    )
+    lyrics_build_rimer_parser.add_argument(
+        "--language", action="append", default=None,
+        help="Restrict pairs to this songs.language tag; repeatable (default: any language)",
+    )
 
     # lyrics rime --word WORD [--cohort drill_trap|pop] [--top-k INT] [--db PATH] [--json]
     lyrics_rime_parser = lyrics_subparsers.add_parser(
@@ -2883,7 +2891,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             from toolshop.lyricsdb import DEFAULT_DB_PATH
             from toolshop.rimer_db import build_rimer_db
             db_path = args.db or DEFAULT_DB_PATH
-            stats = build_rimer_db(db_path)
+            stats = build_rimer_db(db_path, corpora=args.corpus, languages=args.language)
             print(f"Rimer DB built: {stats['total_pairs']} pairs, "
                   f"{stats['unique_skeletons']} unique skeletons, "
                   f"{stats['drill_pairs']} drill, {stats['pop_pairs']} pop")

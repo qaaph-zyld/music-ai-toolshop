@@ -1345,23 +1345,23 @@ def build_database(
     create_artist_views(conn)
 
     # Populate line_rhymes table (per-song, same id scope as metrics).
-    # language='de' rows are skipped — the Serbian pipeline would emit junk
-    # skeletons. A German phonemizer (phonemizer-de) is a separate lane.
-    # Exact 'de' match only: NULL/'' language rows are unaffected.
+    # language='de'/'en' rows are skipped — the Serbian vowel-skeleton
+    # pipeline would emit junk skeletons on non-Serbian text. NULL/''
+    # language rows are unaffected (legacy genius-pro path).
     from toolshop.rhyme_miner import populate_rhymes
     if metric_ids:
         _ph = ",".join("?" for _ in metric_ids)
-        de_ids = {
+        non_sr_ids = {
             r[0] for r in conn.execute(
-                f"SELECT id FROM songs WHERE language = 'de' AND id IN ({_ph})",
+                f"SELECT id FROM songs WHERE language IN ('de', 'en') AND id IN ({_ph})",
                 metric_ids,
             )
         }
     else:
-        de_ids = set()
+        non_sr_ids = set()
     rhyme_count = 0
     for song_id in metric_ids:
-        if song_id in de_ids:
+        if song_id in non_sr_ids:
             continue
         rhyme_count += populate_rhymes(conn, song_id)
     print(f"  Rhymes computed: {rhyme_count} rhyme rows across {len(metric_ids)} songs")

@@ -270,3 +270,64 @@ def test_build_rimer_db_empty(tmp_path):
     stats = build_rimer_db(db_path)
     assert stats["total_pairs"] == 0
     assert stats["unique_skeletons"] == 0
+
+
+# ── Corpus / language scope (lyrics-sr) ───────────────────────────────
+
+
+def _seeded_db(tmp_path) -> Path:
+    db_path = tmp_path / "scoped.db"
+    build_database(root=FIXTURE_ROOT, db_path=db_path)
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA foreign_keys=ON")
+    _seed_rhyme_data(conn)
+    conn.close()
+    return db_path
+
+
+def test_build_rimer_db_language_scope(tmp_path):
+    """languages=['sr'] keeps only sr-tagged songs; 'en'/NULL are out."""
+    db_path = _seeded_db(tmp_path)
+    conn = sqlite3.connect(db_path)
+    ids = [r[0] for r in conn.execute("SELECT id FROM songs ORDER BY id")]
+    conn.execute(
+        f"UPDATE songs SET language='sr' WHERE id IN ({','.join('?'*len(ids[:2]))})",
+        ids[:2],
+    )
+    conn.execute("UPDATE songs SET language='en' WHERE id=?", (ids[2],))
+    if len(ids) > 3:
+        conn.execute(
+            f"UPDATE songs SET language=NULL WHERE id IN ({','.join('?'*len(ids[3:]))})",
+            ids[3:],
+        )
+    conn.commit()
+    conn.close()
+
+    stats_all = build_rimer_db(db_path)
+    stats_sr = build_rimer_db(db_path, languages=["sr"])
+    stats_en = build_rimer_db(db_path, languages=["en"])
+
+    assert stats_sr["languages"] == ["sr"]
+    assert stats_sr["total_pairs"] < stats_all["total_pairs"]
+    # The sr build must not contain the en song's pairs; en-only build
+    # isolates exactly that contribution.
+    assert stats_sr["total_pairs"] + stats_en["total_pairs"] <= stats_all["total_pairs"]
+    assert stats_en["total_pairs"] > 0
+
+
+def test_build_rimer_db_corpus_scope(tmp_path):
+    """corpora=[...] restricts pair extraction to that corpus."""
+    db_path = _seeded_db(tmp_path)
+    conn = sqlite3.connect(db_path)
+    song_ids = [r[0] for r in conn.execute("SELECT id FROM songs ORDER BY id")]
+    corpus = conn.execute(
+        "SELECT corpus FROM songs WHERE id=?", (song_ids[0],)
+    ).fetchone()[0]
+    conn.execute("UPDATE songs SET corpus='other' WHERE id=?", (song_ids[-1],))
+    conn.commit()
+    conn.close()
+
+    stats_scoped = build_rimer_db(db_path, corpora=[corpus])
+    stats_all = build_rimer_db(db_path)
+    assert stats_scoped["total_pairs"] <= stats_all["total_pairs"]
+    assert stats_scoped["corpora"] == [corpus]
