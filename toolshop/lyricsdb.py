@@ -163,6 +163,72 @@ def _derive_role_and_target(category: str) -> Tuple[str, str]:
         return ("solo", category[:-len("-trio")])
     return ("solo", category)
 
+
+def derive_genre_cohort(
+    primary_artist: str,
+    role: str,
+    target_artist: str,
+) -> Optional[str]:
+    """Resolve genre_cohort for a song (COHORT_MAP → folder fallback).
+
+    Comparisons are ASCII-folded so diacritic/stylised spellings match
+    ('Maya Berovic' ≙ 'Maya Berović', 'CØBY' ≙ 'Coby').  Solo rows only:
+    featured rows keep NULL unless the primary artist is an exact
+    COHORT_MAP key (a featured-NULL song by a mapped artist still takes
+    that artist's cohort — that is what the exact get does).
+    """
+    genre_cohort = COHORT_MAP.get(primary_artist)
+    if genre_cohort is None and role == "solo":
+        # Fallback 1: check if any known artist name appears in primary_artist
+        # (handles duo/trio categories like "Jala Brat & Buba Corelli").
+        # Keys of <=4 chars (LX, Sa4, Fox, Zoi, Zera) require a word
+        # boundary — a bare substring would tag 'Fleet Foxes' as 'Fox'.
+        pa = _ascii_fold(primary_artist).lower()
+        for known_artist, cohort in COHORT_MAP.items():
+            ka = _ascii_fold(known_artist).lower()
+            if len(ka) <= 4:
+                if re.search(rf"(?<!\w){re.escape(ka)}(?!\w)", pa):
+                    genre_cohort = cohort
+                    break
+            elif ka in pa:
+                genre_cohort = cohort
+                break
+    if genre_cohort is None and role == "solo":
+        # Fallback 2: check target_artist (folder name) against folder cohort map
+        # (handles Genius listing a different primary_artist, e.g. "THCF" in jala-solo)
+        genre_cohort = _FOLDER_COHORT_MAP.get(target_artist.lower())
+    return genre_cohort
+
+
+def backfill_genre_cohort(
+    conn: sqlite3.Connection,
+    corpus: Optional[str] = None,
+) -> int:
+    """Re-derive genre_cohort for songs where it is NULL. Returns updated rows.
+
+    Only NULL rows are touched — existing assignments are deliberate
+    (several were ear-confirmed) and are never overwritten here.
+    """
+    sql = (
+        "SELECT id, primary_artist, role, target_artist FROM songs "
+        "WHERE genre_cohort IS NULL"
+    )
+    params: Tuple = ()
+    if corpus:
+        sql += " AND corpus = ?"
+        params = (corpus,)
+    rows = conn.execute(sql, params).fetchall()
+    updated = 0
+    for song_id, primary_artist, role, target_artist in rows:
+        cohort = derive_genre_cohort(primary_artist or "", role or "solo", target_artist or "")
+        if cohort:
+            conn.execute(
+                "UPDATE songs SET genre_cohort = ? WHERE id = ?",
+                (cohort, song_id),
+            )
+            updated += 1
+    return updated
+
 # Section type mapping (English → Serbian canonical, plus Serbian canonicals).
 # All keys are ASCII-folded (no diacritics) so both diacritic and non-diacritic
 # source labels match.  _normalize_type_word() folds before lookup.
@@ -432,6 +498,8 @@ _ASCII_FOLD_MAP = str.maketrans({
     "ö": "oe", "Ö": "oe",
     "ü": "ue", "Ü": "ue",
     "ß": "ss", "ẞ": "ss",
+    # stylised Latin (lyrics-sr): CØBY-style ø used by ex-YU artists
+    "ø": "o", "Ø": "o",
 })
 
 
@@ -1007,26 +1075,7 @@ def _insert_song(
     language = song_data.get("language", "")
 
     role, target_artist = _derive_role_and_target(category)
-    genre_cohort = COHORT_MAP.get(primary_artist)
-    if genre_cohort is None and role == "solo":
-        # Fallback 1: check if any known artist name appears in primary_artist
-        # (handles duo/trio categories like "Jala Brat & Buba Corelli").
-        # Keys of <=4 chars (LX, Sa4, Fox, Zoi, Zera) require a word
-        # boundary — a bare substring would tag 'Fleet Foxes' as 'Fox'.
-        pa = primary_artist.lower()
-        for known_artist, cohort in COHORT_MAP.items():
-            ka = known_artist.lower()
-            if len(ka) <= 4:
-                if re.search(rf"(?<!\w){re.escape(ka)}(?!\w)", pa):
-                    genre_cohort = cohort
-                    break
-            elif ka in pa:
-                genre_cohort = cohort
-                break
-    if genre_cohort is None and role == "solo":
-        # Fallback 2: check target_artist (folder name) against folder cohort map
-        # (handles Genius listing a different primary_artist, e.g. "THCF" in jala-solo)
-        genre_cohort = _FOLDER_COHORT_MAP.get(target_artist.lower())
+    genre_cohort = derive_genre_cohort(primary_artist, role, target_artist)
 
     # ── License block (SPEC §3.3): index entry → song JSON → corpus defaults ──
     defaults = license_defaults or {}

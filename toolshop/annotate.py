@@ -10,10 +10,13 @@ Resumable: skips lines already present in ``tokens``.
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import sqlite3
 import sys
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from toolshop.lyricsdb import DEFAULT_DB_PATH
@@ -152,19 +155,40 @@ def _get_annotated_line_ids(conn: sqlite3.Connection) -> set[int]:
     return {r[0] for r in rows}
 
 
+def _write_status(path: Optional[Path], payload: Dict[str, Any]) -> None:
+    """Flush progress JSON (best-effort — status is an aid, not the contract)."""
+    if not path:
+        return
+    try:
+        Path(path).write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+    except OSError:
+        pass
+
+
 def annotate_lines(
     conn: sqlite3.Connection,
     db_path: Optional[Any] = None,
     resume: bool = True,
     limit: Optional[int] = None,
+    corpora: Optional[List[str]] = None,
+    languages: Optional[List[str]] = None,
+    status_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """Run CLASSLA annotation over all lines, populating tokens + entities.
+    """Run CLASSLA annotation over lines, populating tokens + entities.
 
     Args:
         conn: SQLite connection to lyrics.db.
         db_path: Unused (kept for API compat). Conn is used directly.
         resume: If True, skip lines already annotated.
         limit: If set, only annotate this many new lines.
+        corpora: If set, only annotate lines whose song belongs to one of
+            these corpus tags (e.g. ``["genius-pro", "lrclib"]``).
+        languages: If set, only annotate lines whose song carries one of
+            these ``songs.language`` tags (e.g. ``["sr"]`` — NULL-language
+            rows never match and are excluded).
+        status_path: If set, flush progress JSON here at each commit batch.
 
     Returns:
         Summary dict with counts.
@@ -179,14 +203,25 @@ def annotate_lines(
     if resume:
         already_done = _get_annotated_line_ids(conn)
 
-    # Fetch all lines with their section/song context
-    rows = conn.execute(
-        """SELECT l.id, l.text_raw, l.section_id, s.song_id
-           FROM lines l
-           JOIN sections s ON l.section_id = s.id
-           WHERE l.text_raw IS NOT NULL AND l.text_raw != ''
-           ORDER BY l.id"""
-    ).fetchall()
+    # Fetch lines with their section/song context (optionally corpus-scoped)
+    sql = (
+        "SELECT l.id, l.text_raw, l.section_id, s.song_id "
+        "FROM lines l "
+        "JOIN sections s ON l.section_id = s.id "
+        "JOIN songs sg ON sg.id = s.song_id "
+        "WHERE l.text_raw IS NOT NULL AND l.text_raw != ''"
+    )
+    params: List[Any] = []
+    if corpora:
+        ph = ",".join("?" for _ in corpora)
+        sql += f" AND sg.corpus IN ({ph})"
+        params.extend(corpora)
+    if languages:
+        ph = ",".join("?" for _ in languages)
+        sql += f" AND sg.language IN ({ph})"
+        params.extend(languages)
+    sql += " ORDER BY l.id"
+    rows = conn.execute(sql, params).fetchall()
 
     to_annotate = [
         (r[0], r[1], r[2], r[3]) for r in rows if r[0] not in already_done
@@ -242,9 +277,29 @@ def annotate_lines(
         if lines_done % 500 == 0:
             conn.commit()
             print(f"  Progress: {lines_done}/{total} lines ({tokens_inserted} tokens, {entities_inserted} entities)")
+            _write_status(status_path, {
+                "finished": False,
+                "updated": datetime.now().isoformat(),
+                "corpora": corpora,
+                "languages": languages,
+                "lines_done": lines_done,
+                "lines_total": total,
+                "tokens_inserted": tokens_inserted,
+                "entities_inserted": entities_inserted,
+            })
 
     conn.commit()
     print(f"  Done: {lines_done} lines, {tokens_inserted} tokens, {entities_inserted} entities")
+    _write_status(status_path, {
+        "finished": True,
+        "updated": datetime.now().isoformat(),
+        "corpora": corpora,
+        "languages": languages,
+        "lines_done": lines_done,
+        "lines_total": total,
+        "tokens_inserted": tokens_inserted,
+        "entities_inserted": entities_inserted,
+    })
     return {
         "lines_annotated": lines_done,
         "tokens_inserted": tokens_inserted,
@@ -292,11 +347,32 @@ def coverage_summary(conn: sqlite3.Connection) -> Dict[str, Any]:
     for etype, ecount in ent_type_rows:
         print(f"    {etype}: {ecount}")
 
+    # Per-corpus coverage (line-level; the MAirina gate reads this)
+    corpus_rows = conn.execute(
+        """SELECT sg.corpus,
+                  count(DISTINCT l.id)  AS total,
+                  count(DISTINCT CASE WHEN t.line_id IS NOT NULL THEN l.id END) AS annotated
+           FROM lines l
+           JOIN sections s ON l.section_id = s.id
+           JOIN songs sg ON sg.id = s.song_id
+           LEFT JOIN tokens t ON t.line_id = l.id
+           WHERE l.text_raw IS NOT NULL AND l.text_raw != ''
+           GROUP BY sg.corpus ORDER BY sg.corpus"""
+    ).fetchall()
+    per_corpus = {}
+    if corpus_rows:
+        print("  Per-corpus coverage:")
+        for corpus, total_c, annotated_c in corpus_rows:
+            pct_c = (annotated_c / total_c * 100) if total_c else 0
+            per_corpus[corpus] = {"total": total_c, "annotated": annotated_c, "pct": round(pct_c, 1)}
+            print(f"    {corpus:<20} {annotated_c:>8}/{total_c:<8} ({pct_c:.1f}%)")
+
     return {
         "total_lines": total_lines,
         "annotated_lines": annotated_lines,
         "coverage_pct": pct,
         "by_script": script_stats,
+        "by_corpus": per_corpus,
         "oov_count": oov_count,
         "oov_pct": oov_pct,
         "entity_count": ent_count,
@@ -315,6 +391,9 @@ def run_annotation(
     resume: bool = True,
     limit: Optional[int] = None,
     fresh: bool = False,
+    corpora: Optional[List[str]] = None,
+    languages: Optional[List[str]] = None,
+    status_path: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """CLI entry point: run CLASSLA annotation on lyrics.db."""
     from pathlib import Path
@@ -328,6 +407,11 @@ def run_annotation(
         print("Run 'toolshop lyrics build-db' first.")
         return {}
 
+    if status_path is None:
+        status_path = db_path.parent / "_annotate_status.json"
+    else:
+        status_path = Path(status_path)
+
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
@@ -337,7 +421,15 @@ def run_annotation(
         _wipe_l3_tables(conn)
 
     print(f"  Database: {db_path}")
-    summary = annotate_lines(conn, db_path, resume=resume, limit=limit)
+    if corpora:
+        print(f"  Corpus scope: {', '.join(corpora)}")
+    if languages:
+        print(f"  Language scope: {', '.join(languages)}")
+    print(f"  Status file: {status_path}")
+    summary = annotate_lines(
+        conn, db_path, resume=resume, limit=limit,
+        corpora=corpora, languages=languages, status_path=status_path,
+    )
     coverage = coverage_summary(conn)
 
     conn.close()

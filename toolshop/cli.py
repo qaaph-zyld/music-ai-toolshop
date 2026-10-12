@@ -1063,6 +1063,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Wipe existing annotation tables before starting",
     )
+    lyrics_annotate_parser.add_argument(
+        "--corpus",
+        action="append",
+        default=None,
+        help="Restrict annotation to this corpus tag; repeatable (default: all corpora)",
+    )
+    lyrics_annotate_parser.add_argument(
+        "--language",
+        action="append",
+        default=None,
+        help="Restrict annotation to this songs.language tag; repeatable (default: any language, incl. NULL)",
+    )
+    lyrics_annotate_parser.add_argument(
+        "--status",
+        type=Path,
+        default=None,
+        help="Progress JSON path (default: <db-dir>/_annotate_status.json)",
+    )
 
     # lyrics lexicon [--cohort drill_trap|pop] [--top N] [--json] [--db PATH]
     lyrics_lexicon_parser = lyrics_subparsers.add_parser(
@@ -2481,6 +2499,9 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 resume=args.resume,
                 limit=args.limit,
                 fresh=args.fresh,
+                corpora=args.corpus,
+                languages=args.language,
+                status_path=args.status,
             )
 
         elif args.lyrics_command == "lexicon":
