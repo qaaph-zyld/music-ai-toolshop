@@ -18,6 +18,7 @@ PRECONDITIONS (STOP and tell Nikola if any fails):
 - ledger.md: the "A1.3 coverage gate" row shows Claude's PASS, with genius-pro and lrclib (language sr) >= 90% each and the post-batch lyrics.db size/mtime recorded.
 - `D:\Projects\Music-AI-Toolshop\data\toolshop\lyrics\_annotate_status_sr.json` has `finished: true`, no `error`, and `mairina_gate.pass: true`.
 - No annotate/build-db/rimer process is alive, and no `lyrics.db-journal` exists.
+- `lyrics.db-wal` is absent or 0 bytes. lyrics.db is in WAL mode since A1a, and MAirina (`corpus.build_guarded`) refuses to build while the `-wal` is non-empty. A non-empty `-wal` with no writer alive needs a checkpoint, which only Nikola may approve.
 - `git -C D:\Projects\Music-AI-Toolshop\.worktrees\lyrics-sr status --porcelain` is empty.
 
 STEPS:
@@ -39,7 +40,9 @@ STEPS:
    - Check each command's flags against `--help` first, and adjust argv (not the code) if a flag differs.
 4. Commit SR-5 in three calls with explicit pathspecs: `git -C D:\Projects\Music-AI-Toolshop\.worktrees\lyrics-sr-mairina add <paths>`, then `diff --cached --name-only`, then `commit`. Subject: `feat(lyrics-sr): MAirina reads genius-pro+lrclib, language sr (CACHE_VERSION 5)`. That worktree's status must then be empty.
 5. SR-V in the parent lane:
-   - `git -C D:\Projects\Music-AI-Toolshop\.worktrees\lyrics-sr merge master`. Resolve conflicts if any; only unrelated files are expected. Then rerun the A1a test set (the annotate/lyricsdb importers + test_annotate_locking.py). No new failures.
+   - `git -C D:\Projects\Music-AI-Toolshop\.worktrees\lyrics-sr merge master`. Resolve conflicts if any; only unrelated files are expected.
+   - A1a nit (Claude's verdict): `toolshop/lyricsdb.py` `annotate_reminder` hardcodes the venv path (AGENTS: no absolute paths in code). Build the command from `sys.executable` instead. Add a test that monkeypatches `sys.executable` to a fake path (e.g. `X:\\fake\\python.exe`) and asserts the note contains that fake path and does not contain `Music-AI-Toolshop`. Test first, then the fix; commit it separately by explicit pathspec (`fix(lyrics-sr): annotate_reminder uses sys.executable`).
+   - Then rerun the A1a test set (the annotate/lyricsdb importers + test_annotate_locking.py). No new failures.
    - Update the ledger rows:
      - SR-3: DONE, citing Claude's A1.3 numbers;
      - SR-5: DONE, with the MAirina commit hash;
