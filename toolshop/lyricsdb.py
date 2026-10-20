@@ -1390,3 +1390,16 @@ def build_database(
     print(f"  Skipped: {songs_skipped}")
 
     return summary
+
+
+def annotate_reminder(db_path: Any) -> str:
+    """Reminder printed after a (re)build: a rebuilt lyrics.db drops the
+    CLASSLA token layer MAirina reads, so its finder stays offline until the
+    scoped annotate re-covers it (MAirina's gate: 90% of scoped lines)."""
+    return (
+        "NOTE: MAirina's finder stays OFFLINE until the scoped annotate "
+        "finishes. Re-cover it with:\n"
+        "  D:\\Projects\\Music-AI-Toolshop\\.venv\\Scripts\\python.exe -m toolshop.cli "
+        f'lyrics annotate --db "{db_path}" --resume '
+        "--corpus genius-pro --corpus lrclib --language sr"
+    )

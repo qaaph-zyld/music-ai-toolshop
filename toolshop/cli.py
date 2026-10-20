@@ -2287,7 +2287,9 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 print(f"\n  Report saved to: {args.report}")
 
         elif args.lyrics_command == "build-db":
-            from toolshop.lyricsdb import build_database, corpus_dir_for, DEFAULT_DB_PATH
+            from toolshop.lyricsdb import (
+                build_database, corpus_dir_for, DEFAULT_DB_PATH, annotate_reminder,
+            )
             corpus = args.corpus or "genius-pro"
             lyrics_root = Path(__file__).resolve().parent.parent / "data" / "toolshop" / "lyrics"
             if args.root:
@@ -2324,6 +2326,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                   f"Lines: {summary['lines_ingested']}, "
                   f"Duplicates dropped: {summary['duplicates_dropped']}, "
                   f"Already present: {summary['already_present']}")
+            print(annotate_reminder(db_path))
 
         elif args.lyrics_command == "stats":
             import json as json_mod
