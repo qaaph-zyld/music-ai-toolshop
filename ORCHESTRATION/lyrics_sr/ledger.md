@@ -101,3 +101,23 @@ Deviations:
 - Added the initial `lines_done:0` status write at run start — otherwise `updated` stays at the crash timestamp until the first 500-line flush (~2–3 min) and the +3 min liveness check would read a stale file as failure.
 
 Not verified: none against spec — preflight/wait/retry/gate all covered by the new tests and confirmed live on the first two flushes of the real run.
+
+### A1a - orchestrator verdict - Claude - 2026-10-20 22:05: PASS
+
+- Commits present on lyrics-sr: b3ff8a0 (fix) and d3a25d9 (ledger). `git status --porcelain` empty.
+- Code reviewed (b3ff8a0):
+  - busy_timeout is set right after connect.
+  - The `-journal` and `BEGIN IMMEDIATE` preflight runs before CLASSLA loads.
+  - Bounded commit retry, with rollback, an honest status and a re-raise on final failure.
+  - The `mairina_gate` block reproduces `check_annotated` semantics plus the SR-5 language scope.
+- **Deviations accepted:** no `-wal` refusal (a non-empty WAL is normal under WAL mode; the probe covers real
+  writers), and the start-of-run status write.
+- **Nit, not blocking:** `annotate_reminder` hardcodes the venv path (AGENTS "no absolute paths in code"). Prefer `sys.executable`; fold into A1b.
+- **Tests (Claude's own run):** `tests/test_annotate_locking.py` + `test_annotate.py` + `test_annotate_corpus_scope.py`
+  → `24 passed in 184.47s`, exit 0. Not re-run by Claude: the other 9 of Devin's 12-file set (Devin reports 249 → 254 passed, 2 skipped).
+- **Batch liveness (Claude):** PID 10620 alive (python.exe, created 21:32:09, command = `.scratch/run_annotate_sr.py`).
+  - Status: `lines_done` 8,500 @ 21:58:24, then 10,000 @ 22:03:05, no `error`.
+  - lyrics.db-wal is growing (normal under WAL).
+  - Rate since Devin's 21:41:59 reading: 8,000 lines / 1,266 s ≈ 6.3 l/s (5.3 l/s while Claude's pytest shared the CPU).
+  - Remaining 140,588 → **revised ETA ≈ 2026-10-21 04:30-05:30**. Devin's 08:20 came from the warm-up window.
+- **Next:** A1.3 coverage gate (Claude) once `finished: true`. A1b waits for it.
