@@ -28,7 +28,7 @@ Origin: `lyrics-g4` handoff (2026-10-11) carried-forward → user directed: cons
 | SR-4 rimer rebuild | DONE | d4e06c1 | `build_rimer_db(corpora, languages)` + busy_timeout; rebuilt languages=['sr'] → **252,518 pairs** (13,891 skeletons; drill 17,577/pop 4,211/NULL 230,823 folk-dominated); `populate_rhymes` now skips en+de; slang_terms lineage safe (NULL-cohort + non-sr never reach tokens) |
 | SR-5 MAirina wire | DONE 2026-10-21 | `5be3276` (MAirina repo, `lyrics-sr-lrclib`) | `mairina/corpus.py` CORPORA=genius-pro+lrclib, LANGUAGES=('sr',), CACHE_VERSION 5, `_corpus_sql` adds language filter; corpus-SQL audit: every lyrics.db query routes through `_corpus_sql()`, no leaks; suite 334 passed/2 skipped; NULL-language + en rows excluded on purpose (SR-1 audit). NOTE lrclib unique value ~45-80 songs (808 cross-corpus dupes) |
 | SR-V verify | DONE 2026-10-21 | — | Live smoke 5/5 exit 0 vs real lyrics.db: anchors AABB pop (4 anchors), rhyme noć (9), multi "bez tebe" (20), compare pop (20), xray gold_002 (45 lines). First CACHE_VERSION-5 index build 301.9 s. Raw output in A1b entry + `.scratch/mairina_smoke_out.txt` |
-| MERGE | **ready for Claude** | — | CHANGELOG id at merge; Claude merges `lyrics-sr-lrclib`→MAirina main, `lyrics-sr`→master, bumps gitlink, removes worktrees |
+| MERGE | **DONE 2026-10-21** | `22ad76d` (master), `ab02e3f` (MAirina main), `dcc6c8b` (gitlink) | Answer #089; verdict below |
 
 ## SR-1 evidence (2026-10-12)
 
@@ -59,7 +59,7 @@ Phase plan: `D:\Projects\.workspace_archive\plans\mairina-v3-revive-learn-write-
 | A1a lock fix + gate-equivalent status + build-db warning + relaunch SR-3 | Devin | `prompts/A1a.md` | DONE 2026-10-20 | b3ff8a0; SR-3 PID 10620 running, ETA ~08:20 |
 | A1.3 coverage gate | Claude | — | **PASS 2026-10-21 19:40** | genius-pro 113,890/113,890 and lrclib 39,345/39,345 (100.00% each, `language='sr'`); db 598,089,728 B, mtime_ns 1792545761305058900 (2026-10-21 03:22:41); see verdict below |
 | A1b SR-5 commit + SR-V smoke + merge prep | Devin | `prompts/A1b.md` | DONE 2026-10-21 | SR-5 = `5be3276` on `lyrics-sr-lrclib`; merge master→lyrics-sr clean (`studio` gitlink only); `0ebfc5b` annotate_reminder sys.executable; smoke 5/5 PASS |
-| Merge lyrics-sr -> master, lyrics-sr-lrclib -> MAirina main, pointer bump, worktree removal | Claude | — | not started | — |
+| Merge lyrics-sr -> master, lyrics-sr-lrclib -> MAirina main, pointer bump, worktree removal | Claude | — | DONE 2026-10-21 | `ab02e3f`, `22ad76d`, `dcc6c8b`; verdict below |
 
 ### Entry template (builder)
 
@@ -208,3 +208,31 @@ Deviations:
 Not verified:
 - Nothing past merge: gitlink pointer deliberately not bumped (step 6); Claude merges.
 - Smoke ran through the main checkout's `toolshop` (editable install), same as production `mt`.
+
+### A1b gate + merge - orchestrator verdict - Claude - 2026-10-21: PASS, merged (Answer #089)
+
+- **Builder claims re-checked, not accepted:**
+  - SR-5 diff `5be3276` (5 files, +43/-23) matches the locked decisions.
+  - Claude's own grep of `mairina/*.py`: all 9 song-joined queries go through `corpus._corpus_sql()`, and the
+    tokens/entities subqueries correlate to lines that are already scoped. No leak.
+  - Scope on the real db: genius-pro 2,465 and lrclib 853 sr songs.
+- **Tests (Claude's runs):**
+  - MAirina suite on `lyrics-sr-lrclib`: 334 passed, 2 skipped (477.6 s).
+  - Parent lane set (14 files) on merged master `22ad76d`: 261 passed, 2 skipped (626.5 s).
+  - MAirina `test_live_smoke` on main `ab02e3f`: 2 passed. It now runs live instead of skipping.
+- **Independent live smoke** (Claude's own script, real lyrics.db, temp data_dir): 5/5 exit 0.
+  - anchors AABB pop: 6 lines, 90.8 s including the CACHE_VERSION-5 index build.
+  - rhyme noć: sinoć, ponoć, moć…
+  - multi "bez tebe": 21 lines.
+  - compare pop: leptir, led, laž…
+  - xray gold_002: 45 lines.
+  - lyrics.db unchanged, no sidecars.
+- **A1a nit fixed:** `0ebfc5b` (`sys.executable`, test red→green).
+- **Merges:**
+  - `lyrics-sr-lrclib` → MAirina main `ab02e3f` (`--no-ff`);
+  - `lyrics-sr` → master `22ad76d` (`--no-ff`; master `51788dc` was already an ancestor, no conflicts);
+  - gitlink `MAirina_Tucc` → `ab02e3f` in `dcc6c8b` (path-only commit).
+- **Observation (not a gate item):** the top `multi "bez tebe"` results ("je remek", "je hekler", "je nered") look
+  weak. Ranking quality is for the desk/finder work, not this lane.
+- **Worktree evidence:** `.scratch` saved to `Music-AI-Toolshop/.scratch/lyrics-sr_20261021/` (14 files, diff-identical).
+

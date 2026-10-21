@@ -4,6 +4,71 @@
 > parallel lanes assigned them concurrently). Cite the commit hash when referring to those. From now on an
 > ID is allocated only when a lane merges to master, by whoever merges (AGENTS.md "Boundaries & lanes").
 
+### Answer #089 - lyrics-sr: Serbian corpus consolidated + CLASSLA re-annotated (genius-pro + lrclib sr 100%); MAirina finder live again
+**Timestamp:** 2026-10-21
+**Action Type:** Corpus-activation lane `lyrics-sr`.
+- Devin plan: `~/.devin/plans/plan-26ca8ded2d2b9ff3.md`.
+- Resumed as MAirina v3 track A1: `D:\Projects\.workspace_archive\plans\mairina-v3-revive-learn-write-5be0a1.md`.
+- Orchestration: `ORCHESTRATION/lyrics_sr/`.
+
+**Previous state:**
+- **MAirina's finder was offline from the 2026-10-07 db rebuild.** CLASSLA coverage was genius-pro 0.4% and lrclib
+  7.8%, against MAirina's 90% `check_annotated` gate.
+- **genius-pro and lrclib songs had `language` NULL.**
+- **`rhyme_pairs` held 370,144 rows built from every corpus**, and the top pair was English.
+- **`annotate` had no corpus scope and no `busy_timeout`.** The SR-3 overnight batch died on 2026-10-13 at 2,000 lines
+  with `database is locked`, while the ledger still read RUNNING.
+
+**Current state:**
+- **SR-1, audit and tagging:** 3,390 language tags.
+  - genius-pro: sr 2,465, en 41, NULL 26. lrclib: sr 853, en 31, NULL 3.
+  - The cohort ASCII-fold fix adds 73 lrclib cohorts.
+  - Dedup is report-only: 808 cross-corpus duplicate keys, nothing quarantined.
+- **SR-2:** `annotate --corpus/--language` (repeatable), a status JSON flushed every 500 lines, and per-corpus coverage.
+- **SR-4:** `build_rimer_db(corpora, languages)` with `busy_timeout`. Rebuilt sr-only, it gives **252,518 pairs**
+  (13,891 skeletons). `populate_rhymes` skips en and de.
+- **A1a:**
+  - `run_annotation` sets `busy_timeout` to 60 s.
+  - A write preflight (`-journal` check, then a `BEGIN IMMEDIATE` probe) runs before CLASSLA loads.
+  - Commits retry with rollback. The status is honest (`error`, `finished_at`, and a `mairina_gate` block that uses
+    `check_annotated` semantics).
+  - build-db prints the offline reminder, built from `sys.executable`.
+- **SR-3 batch:**
+  - 150,588 lines, plus 2,000 from the earlier run; **1,125,682 tokens, 25,809 entities**; finished 2026-10-21 03:22.
+  - Claude's independent A1.3 probe (`language='sr'`): **genius-pro 113,890 / 113,890 and lrclib 39,345 / 39,345
+    (100%)**.
+  - `quick_check` ok.
+  - lyrics.db is now 598,089,728 B and stays in **WAL mode**: the preflight sets it, and it persists in the file.
+- **SR-5 (MAirina child repo, merged there):** `CORPORA = ("genius-pro", "lrclib")`, `LANGUAGES = ("sr",)`,
+  `CACHE_VERSION = 5`. The finder is alive again; the live smoke of anchors, rhyme, multi, compare and xray passes 5/5.
+
+#### Files Affected:
+- **NEW:**
+  - `toolshop/sr_language_audit.py`;
+  - tests `test_annotate_corpus_scope.py`, `test_annotate_locking.py`, `test_lyricsdb_sr_cohort.py`,
+    `test_rimer_db.py`, `test_sr_language_audit.py`;
+  - `ORCHESTRATION/lyrics_sr/` (ledger, prompts A1a and A1b).
+- **MODIFIED:**
+  - `toolshop/annotate.py` (scope, locking, honest status, MAirina gate block);
+  - `toolshop/lyricsdb.py` (cohort fold, `annotate_reminder`);
+  - `toolshop/cli.py` (annotate flags, build-db reminder);
+  - `toolshop/rimer_db.py` (scoped rebuild, busy_timeout);
+  - `tests/test_annotate.py`, `tests/test_lyricsdb_g4_de.py`.
+- **Tests:** Claude's run at merge 2026-10-21. Parent lane set (14 files that import annotate/lyricsdb/rimer_db/sr_language_audit) on merged master `22ad76d`: **261 passed, 2 skipped**. MAirina suite on SR-5: **334 passed, 2 skipped**. MAirina `test_live_smoke` on MAirina main `ab02e3f`: **2 passed** (it was skipped while the corpus was offline). Independent live smoke: 5/5.
+
+#### Technical Decisions:
+- **wikisource folk is a separate register.** It is tagged sr, so it is in `rhyme_pairs` (cohort NULL), but it stays
+  out of MAirina and the pro baselines.
+- **NULL and en songs are excluded** through `language IN ('sr')` (SR-1 audit).
+- **One writer at a time on lyrics.db during long batches.** The A1a preflight refuses rather than crashing mid-batch.
+  Because WAL mode persists, MAirina's `build_guarded` refuses while a `-wal` is non-empty.
+
+#### Next Actions Required:
+- **MAirina harden A2** (`MAirina_Tucc/ORCHESTRATION/harden/`): a last-known-good cache with a stale flag, plus
+  `mt doctor`, so a rebuild can't silence the finder again.
+- **Then gold_kb W0** (v1.2 waits for A1 + A2).
+- **306 unmapped sr-verdict artists still need a cohort ear-verdict** (ledger SR-1).
+
 ### Answer #088 - genius-de German corpus: 1,455 songs ingested (corpus 1,455 / db 26,650)
 **Timestamp:** 2026-10-11
 **Action Type:** Corpus-expansion lane (`lyrics-g4`) — Tier-1 CrhymeTV/187-circle roster fetch, audit, corpus-scoped ingest, verify (megaplan `.workspace_archive/plans/lyrics-g4-genius-de-megaplan.md`; orchestration `ORCHESTRATION/lyrics_g4/`).
