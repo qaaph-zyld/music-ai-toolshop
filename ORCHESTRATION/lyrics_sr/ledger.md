@@ -24,11 +24,11 @@ Origin: `lyrics-g4` handoff (2026-10-11) carried-forward → user directed: cons
 | SR-0 pre | DONE | — | worktree at d896c82; classla 2.2.1; pilot 500 lines/180s ≈ 2.78 l/s |
 | SR-2 annotate scope | DONE (code+tests) | — | `--corpus` + `--language` flags (repeatable), `--status` JSON per-500-line flush, per-corpus coverage block; 19 tests green |
 | SR-1 audit+tag | DONE | — | 3,390 language tags (gp 2465sr/41en/26NULL, lrclib 853sr/31en/3NULL); cohort fold-fix +73 lrclib; dedup report below |
-| SR-3 overnight batch | **FAILED 2026-10-13 00:08** → **RELAUNCHED 2026-10-20 21:32:24 PID 10620, ETA 2026-10-21 ~08:20** | f6fc759, b3ff8a0 | Launched PID 19096 at 00:02:48 via `.scratch/run_annotate_sr.py` (cli.py unusable from worktree: module-level `mastering_tool` import), 152,588 sr lines. **Died at 2,000/152,588** with `sqlite3.OperationalError: database is locked` (`annotate.py:256`, `.scratch/annotate_sr.err.log`). Status JSON still says `finished: false` and has no error field, which is why this row read RUNNING. Root cause: `run_annotation` sets no `busy_timeout`, and SR-4's rimer rebuild wrote lyrics.db at the same time (db mtime 00:11). Relaunch: `.scratch/launch_sr3.ps1`, resume skipped 8,338 done lines → 150,588 to go; old logs preserved as `.scratch/*_20261013.*` |
+| SR-3 overnight batch | DONE 2026-10-21 | f6fc759, b3ff8a0 | Finished 03:22:06: 150,588/150,588 lines, 1,125,682 tokens, 25,809 entities, no error, `mairina_gate.pass: true`. Claude's A1.3 gate PASS 19:40: genius-pro 113,890/113,890 + lrclib 39,345/39,345 = **100.00% each** (`language='sr'`); db 598,089,728 B, mtime_ns 1792545761305058900; `PRAGMA quick_check` ok. History: died 2026-10-13 00:08 at 2,000/152,588 (`database is locked`, no busy_timeout + SR-4 writer), relaunched 2026-10-20 21:32 PID 10620 via `.scratch/launch_sr3.ps1`, resume skipped 8,338 done lines |
 | SR-4 rimer rebuild | DONE | d4e06c1 | `build_rimer_db(corpora, languages)` + busy_timeout; rebuilt languages=['sr'] → **252,518 pairs** (13,891 skeletons; drill 17,577/pop 4,211/NULL 230,823 folk-dominated); `populate_rhymes` now skips en+de; slang_terms lineage safe (NULL-cohort + non-sr never reach tokens) |
-| SR-5 MAirina wire | PENDING (uncommitted WIP) | — | child-repo branch; NOTE lrclib unique value now only ~45-80 songs (808 cross-corpus dupes). WIP sits uncommitted in the MAirina worktree `.worktrees/lyrics-sr-mairina` (branch `lyrics-sr-lrclib`, base a329774; 5 files: `mairina/corpus.py` CORPORA+LANGUAGES+CACHE_VERSION 5, `tests/conftest.py`, `test_atlas_compare`, `test_keys_corpus`, `test_targets`; mtime 2026-10-13 00:14) |
-| SR-V verify | PENDING | — | — |
-| MERGE | PENDING | — | CHANGELOG id at merge |
+| SR-5 MAirina wire | DONE 2026-10-21 | `5be3276` (MAirina repo, `lyrics-sr-lrclib`) | `mairina/corpus.py` CORPORA=genius-pro+lrclib, LANGUAGES=('sr',), CACHE_VERSION 5, `_corpus_sql` adds language filter; corpus-SQL audit: every lyrics.db query routes through `_corpus_sql()`, no leaks; suite 334 passed/2 skipped; NULL-language + en rows excluded on purpose (SR-1 audit). NOTE lrclib unique value ~45-80 songs (808 cross-corpus dupes) |
+| SR-V verify | DONE 2026-10-21 | — | Live smoke 5/5 exit 0 vs real lyrics.db: anchors AABB pop (4 anchors), rhyme noć (9), multi "bez tebe" (20), compare pop (20), xray gold_002 (45 lines). First CACHE_VERSION-5 index build 301.9 s. Raw output in A1b entry + `.scratch/mairina_smoke_out.txt` |
+| MERGE | **ready for Claude** | — | CHANGELOG id at merge; Claude merges `lyrics-sr-lrclib`→MAirina main, `lyrics-sr`→master, bumps gitlink, removes worktrees |
 
 ## SR-1 evidence (2026-10-12)
 
@@ -58,7 +58,7 @@ Phase plan: `D:\Projects\.workspace_archive\plans\mairina-v3-revive-learn-write-
 | A1.0 ledger truth | Claude | — | DONE 2026-10-20 | SR-3 and SR-5 rows corrected above |
 | A1a lock fix + gate-equivalent status + build-db warning + relaunch SR-3 | Devin | `prompts/A1a.md` | DONE 2026-10-20 | b3ff8a0; SR-3 PID 10620 running, ETA ~08:20 |
 | A1.3 coverage gate | Claude | — | **PASS 2026-10-21 19:40** | genius-pro 113,890/113,890 and lrclib 39,345/39,345 (100.00% each, `language='sr'`); db 598,089,728 B, mtime_ns 1792545761305058900 (2026-10-21 03:22:41); see verdict below |
-| A1b SR-5 commit + SR-V smoke + merge prep | Devin | `prompts/A1b.md` | not started | — |
+| A1b SR-5 commit + SR-V smoke + merge prep | Devin | `prompts/A1b.md` | DONE 2026-10-21 | SR-5 = `5be3276` on `lyrics-sr-lrclib`; merge master→lyrics-sr clean (`studio` gitlink only); `0ebfc5b` annotate_reminder sys.executable; smoke 5/5 PASS |
 | Merge lyrics-sr -> master, lyrics-sr-lrclib -> MAirina main, pointer bump, worktree removal | Claude | — | not started | — |
 
 ### Entry template (builder)
@@ -154,3 +154,57 @@ Not verified: none against spec — preflight/wait/retry/gate all covered by the
 - **For the record (not a gate input):** the batch's own unscoped print shows genius-pro 113,890 / 116,658
   (97.6%) and lrclib 40,417 / 41,060 (98.4%). The remainder is the NULL/en lines that SR-1 excluded on purpose.
 - **Next:** A1b is unblocked (Devin, `prompts/A1b.md`). No other lyrics.db writer runs until the lane merges.
+
+### A1b - 2026-10-21 - builder: Devin
+
+Commits on `lyrics-sr-lrclib` (MAirina repo): `5be3276` feat(lyrics-sr): MAirina reads genius-pro+lrclib, language sr (CACHE_VERSION 5)
+Commits on `lyrics-sr` (parent): merge `master`→`lyrics-sr` (clean, `studio` gitlink only), `0ebfc5b` fix(lyrics-sr): annotate_reminder uses sys.executable
+
+What changed:
+- SR-5 review + commit: `mairina/corpus.py` `CORPORA = ("genius-pro", "lrclib")`, `LANGUAGES = ("sr",)`,
+  `CACHE_VERSION 5`, `_corpus_sql()` gains `language IN (...)`. Fixtures/tests updated
+  (`conftest.py` language column + song 6 = genius-pro/`en` guard case, `test_atlas_compare`,
+  `test_keys_corpus` CACHE_VERSION 5 + `test_en_language_rows_excluded`, `test_targets`).
+- Corpus-SQL leak audit (`corpus IN` / `FROM|JOIN songs` / `CORPORA` / `execut*` sweep of `mairina/`):
+  every lyrics.db query (corpus, targets, flow, devices, comparisons, atlas) routes through
+  `corpus._corpus_sql()`; `votes/used/hints/fingerprint/bans` queries hit mairina.db app tables only.
+  No leaks — nothing to fix.
+- `toolshop/lyricsdb.py` `annotate_reminder` builds the resume command from `sys.executable`
+  (was a hardcoded venv path; A1a nit, Claude's verdict). Test `test_annotate_reminder_uses_sys_executable`
+  monkeypatches `sys.executable` to `X:\fake\python.exe`, asserts the note contains it and not
+  `Music-AI-Toolshop`. Red → fix → green.
+- `git merge master` into `lyrics-sr`: clean (ort), only `studio` gitlink changed.
+
+Commands + raw output (exit codes):
+- MAirina suite (worktree, `PYTHONPATH=.worktrees/lyrics-sr-mairina`):
+  `334 passed, 2 skipped in 371.53s` (exit 0; skips incl. `test_live_smoke` — DEFAULT_LYRICS_DB
+  resolves under `.worktrees`)
+- Live smoke `.scratch/mairina_smoke.py` (venv python `-X utf8 -u`, temp data_dir, real lyrics.db
+  read-only). Output `.scratch/mairina_smoke_out.txt`:
+  ```
+  First index build (CACHE_VERSION 5): 301.9 s
+  mt anchors --scheme AABB --lane pop   exit=0 wall=17.9s result_lines=4  OK   ([A] najgorim, [A] otvorim, [B] bolujem …)
+  mt rhyme noć --lane pop               exit=0 wall=0.9s  result_lines=9  OK   (sinoć 3.34, ponoć 3.33, moć 3.27 …)
+  mt multi "bez tebe" --lane pop        exit=0 wall=1.2s  result_lines=20 OK   (je remek, je hekler, je nered …)
+  mt compare --lane pop                 exit=0 wall=2.1s  result_lines=20 OK   (leptir 16x, led 13x, laž 7x …)
+  mt xray <gold_002 fenced, tags out>   exit=0 wall=14.2s result_lines=45 OK   (X-ray 45 lines, advisory)
+  SMOKE PASS — 5 commands run
+  ```
+- SR-5 commit: `[lyrics-sr-lrclib 5be3276] 5 files changed, 43 insertions(+), 23 deletions(-)` (exit 0)
+- `git merge master`: `Merge made by the 'ort' strategy. studio | 2 +-` (exit 0)
+- reminder tests `-k reminder`: `2 passed` (exit 0); new test was red before the fix.
+- A1a rerun (annotate/lyricsdb importers + test_annotate_locking.py, 13 files):
+  `255 passed, 2 skipped in 445.18s` (exit 0; 254 → 255 = the new reminder test)
+
+Tests: MAirina suite 334 passed/2 skipped; parent A1a set 255 passed/2 skipped. No new failures.
+
+Worktree status: clean — `git -C .worktrees/lyrics-sr-mairina status --porcelain` empty;
+`git -C .worktrees/lyrics-sr status --porcelain` empty (after ledger commit below; `.scratch/` ignored).
+
+Deviations:
+- `multi` phrase chosen as `bez tebe` (93 occurrences at line-end in pop cohort, sr — measured).
+- Smoke xray argv kept the prompt's exact form (no `--lane`; default `all`/`strofa`).
+
+Not verified:
+- Nothing past merge: gitlink pointer deliberately not bumped (step 6); Claude merges.
+- Smoke ran through the main checkout's `toolshop` (editable install), same as production `mt`.
