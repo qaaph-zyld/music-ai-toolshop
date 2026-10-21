@@ -57,7 +57,7 @@ Phase plan: `D:\Projects\.workspace_archive\plans\mairina-v3-revive-learn-write-
 |---|---|---|---|---|
 | A1.0 ledger truth | Claude | — | DONE 2026-10-20 | SR-3 and SR-5 rows corrected above |
 | A1a lock fix + gate-equivalent status + build-db warning + relaunch SR-3 | Devin | `prompts/A1a.md` | DONE 2026-10-20 | b3ff8a0; SR-3 PID 10620 running, ETA ~08:20 |
-| A1.3 coverage gate | Claude | — | waits for `finished: true` | — |
+| A1.3 coverage gate | Claude | — | **PASS 2026-10-21 19:40** | genius-pro 113,890/113,890 and lrclib 39,345/39,345 (100.00% each, `language='sr'`); db 598,089,728 B, mtime_ns 1792545761305058900 (2026-10-21 03:22:41); see verdict below |
 | A1b SR-5 commit + SR-V smoke + merge prep | Devin | `prompts/A1b.md` | not started | — |
 | Merge lyrics-sr -> master, lyrics-sr-lrclib -> MAirina main, pointer bump, worktree removal | Claude | — | not started | — |
 
@@ -121,3 +121,36 @@ Not verified: none against spec — preflight/wait/retry/gate all covered by the
   - Rate since Devin's 21:41:59 reading: 8,000 lines / 1,266 s ≈ 6.3 l/s (5.3 l/s while Claude's pytest shared the CPU).
   - Remaining 140,588 → **revised ETA ≈ 2026-10-21 04:30-05:30**. Devin's 08:20 came from the warm-up window.
 - **Next:** A1.3 coverage gate (Claude) once `finished: true`. A1b waits for it.
+
+### A1.3 - orchestrator gate - Claude - 2026-10-21 19:40: PASS
+
+- **Batch finished cleanly.**
+  - Status: `finished: true` at 03:22:06, 150,588 / 150,588 lines, 1,125,682 tokens, 25,809 entities, no `error`.
+  - `mairina_gate.pass: true`.
+- **Processes:** no annotate, build-db or rimer process is alive (19:32). The live python processes are
+  audition_review servers and the ai_insta_saved sync loop, and none of them writes lyrics.db.
+- **Logs:** `.scratch/annotate_sr.err.log` has 0 lines matching traceback/error (CLASSLA INFO only).
+  `annotate_sr.log` ends with `Done: 150588 lines`.
+- **Sidecars:** `-wal`, `-shm` and `-journal` are all absent. The connection closed cleanly and the WAL was
+  checkpointed, so step K was not needed.
+  - The db header bytes 18/19 are 2/2, so **lyrics.db stays in WAL mode** (persistent, set by the A1a preflight).
+- **Independent probe** (Claude; read-only `mode=ro&immutable=1`; the same SQL as `check_annotated`, per corpus, `language='sr'`):
+
+  | corpus | annotated / non-empty | coverage |
+  |---|---|---|
+  | genius-pro | 113,890 / 113,890 | 100.00% |
+  | lrclib | 39,345 / 39,345 | 100.00% |
+  | aggregate | 153,235 / 153,235 | 100.00% |
+
+  - These numbers equal the status `mairina_gate` block.
+  - The coverage queries took 16.1 s on a cold cache.
+- **The real gate:** SR-5's `mairina.corpus.check_annotated` (worktree `lyrics-sr-mairina`, CORPORA genius-pro +
+  lrclib, LANGUAGES sr, CACHE_VERSION 5) passed in 1.5 s warm.
+- **Integrity:** `PRAGMA quick_check` = `ok` (113 s).
+- **Post-batch baseline** (also the gold_kb W0 baseline):
+  - size **598,089,728 B**;
+  - `st_mtime_ns` **1792545761305058900** (2026-10-21 03:22:41 +02:00).
+  - The probe left the size, mtime and sidecars unchanged.
+- **For the record (not a gate input):** the batch's own unscoped print shows genius-pro 113,890 / 116,658
+  (97.6%) and lrclib 40,417 / 41,060 (98.4%). The remainder is the NULL/en lines that SR-1 excluded on purpose.
+- **Next:** A1b is unblocked (Devin, `prompts/A1b.md`). No other lyrics.db writer runs until the lane merges.
