@@ -242,3 +242,12 @@ def test_annotate_reminder_mentions_gate_and_command():
     assert "--language sr" in note
     assert "--resume" in note
     assert 'D:\\data\\lyrics.db' in note
+
+
+def test_annotate_reminder_uses_sys_executable(monkeypatch):
+    from toolshop.lyricsdb import annotate_reminder
+
+    monkeypatch.setattr(sys, "executable", "X:\\fake\\python.exe")
+    note = annotate_reminder("D:\\data\\lyrics.db")
+    assert "X:\\fake\\python.exe" in note
+    assert "Music-AI-Toolshop" not in note

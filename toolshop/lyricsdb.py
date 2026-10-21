@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -1399,7 +1400,7 @@ def annotate_reminder(db_path: Any) -> str:
     return (
         "NOTE: MAirina's finder stays OFFLINE until the scoped annotate "
         "finishes. Re-cover it with:\n"
-        "  D:\\Projects\\Music-AI-Toolshop\\.venv\\Scripts\\python.exe -m toolshop.cli "
+        f'  "{sys.executable}" -m toolshop.cli '
         f'lyrics annotate --db "{db_path}" --resume '
         "--corpus genius-pro --corpus lrclib --language sr"
     )
