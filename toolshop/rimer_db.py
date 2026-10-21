@@ -101,10 +101,20 @@ def _extract_word_pairs(
 # ── Build ─────────────────────────────────────────────────────────────
 
 
-def build_rimer_db(db_path: Optional[Path] = None) -> Dict[str, Any]:
+def build_rimer_db(
+    db_path: Optional[Path] = None,
+    corpora: Optional[List[str]] = None,
+    languages: Optional[List[str]] = None,
+) -> Dict[str, Any]:
     """Build the rhyme_pairs table from line_rhymes + lines + songs.
 
     Idempotent: drops and recreates ``rhyme_pairs`` on each call.
+
+    Args:
+        db_path: Path to lyrics.db.
+        corpora: If set, only pairs from songs in these corpus tags.
+        languages: If set, only pairs from songs with these
+            ``songs.language`` tags (NULL-language rows never match).
 
     Returns:
         Dict with 'total_pairs', 'unique_skeletons', 'drill_pairs', 'pop_pairs'.
@@ -113,6 +123,7 @@ def build_rimer_db(db_path: Optional[Path] = None) -> Dict[str, Any]:
         db_path = DEFAULT_DB_PATH
 
     conn = sqlite3.connect(str(db_path))
+    conn.execute("PRAGMA busy_timeout=60000")
     conn.execute("PRAGMA foreign_keys=ON")
 
     # Create schema
@@ -123,15 +134,25 @@ def build_rimer_db(db_path: Optional[Path] = None) -> Dict[str, Any]:
 
     # Fetch all end-rhyme groups with their lines
     # Group by (song_id, rhyme_group) to get lines that rhyme together
-    rows = conn.execute(
+    sql = (
         """SELECT lr.song_id, lr.rhyme_group, lr.vowel_skeleton,
                   lr.match_length, l.text_norm, s.genre_cohort
            FROM line_rhymes lr
            JOIN lines l ON lr.line_id = l.id
            JOIN songs s ON lr.song_id = s.id
-           WHERE lr.rhyme_type = 'end'
-           ORDER BY lr.song_id, lr.rhyme_group, l.ordinal""",
-    ).fetchall()
+           WHERE lr.rhyme_type = 'end'"""
+    )
+    params: List[Any] = []
+    if corpora:
+        ph = ",".join("?" for _ in corpora)
+        sql += f" AND s.corpus IN ({ph})"
+        params.extend(corpora)
+    if languages:
+        ph = ",".join("?" for _ in languages)
+        sql += f" AND s.language IN ({ph})"
+        params.extend(languages)
+    sql += " ORDER BY lr.song_id, lr.rhyme_group, l.ordinal"
+    rows = conn.execute(sql, params).fetchall()
 
     # Group lines by (song_id, rhyme_group)
     groups: Dict[Tuple[int, int], List[Tuple[str, str, str]]] = defaultdict(list)
@@ -210,6 +231,8 @@ def build_rimer_db(db_path: Optional[Path] = None) -> Dict[str, Any]:
 
     # Stats
     stats = {
+        "corpora": corpora,
+        "languages": languages,
         "total_pairs": inserted,
         "unique_skeletons": conn.execute(
             "SELECT COUNT(DISTINCT vowel_skeleton) FROM rhyme_pairs"

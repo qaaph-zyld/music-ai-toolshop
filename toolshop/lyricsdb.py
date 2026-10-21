@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -162,6 +163,72 @@ def _derive_role_and_target(category: str) -> Tuple[str, str]:
     if category.endswith("-trio"):
         return ("solo", category[:-len("-trio")])
     return ("solo", category)
+
+
+def derive_genre_cohort(
+    primary_artist: str,
+    role: str,
+    target_artist: str,
+) -> Optional[str]:
+    """Resolve genre_cohort for a song (COHORT_MAP → folder fallback).
+
+    Comparisons are ASCII-folded so diacritic/stylised spellings match
+    ('Maya Berovic' ≙ 'Maya Berović', 'CØBY' ≙ 'Coby').  Solo rows only:
+    featured rows keep NULL unless the primary artist is an exact
+    COHORT_MAP key (a featured-NULL song by a mapped artist still takes
+    that artist's cohort — that is what the exact get does).
+    """
+    genre_cohort = COHORT_MAP.get(primary_artist)
+    if genre_cohort is None and role == "solo":
+        # Fallback 1: check if any known artist name appears in primary_artist
+        # (handles duo/trio categories like "Jala Brat & Buba Corelli").
+        # Keys of <=4 chars (LX, Sa4, Fox, Zoi, Zera) require a word
+        # boundary — a bare substring would tag 'Fleet Foxes' as 'Fox'.
+        pa = _ascii_fold(primary_artist).lower()
+        for known_artist, cohort in COHORT_MAP.items():
+            ka = _ascii_fold(known_artist).lower()
+            if len(ka) <= 4:
+                if re.search(rf"(?<!\w){re.escape(ka)}(?!\w)", pa):
+                    genre_cohort = cohort
+                    break
+            elif ka in pa:
+                genre_cohort = cohort
+                break
+    if genre_cohort is None and role == "solo":
+        # Fallback 2: check target_artist (folder name) against folder cohort map
+        # (handles Genius listing a different primary_artist, e.g. "THCF" in jala-solo)
+        genre_cohort = _FOLDER_COHORT_MAP.get(target_artist.lower())
+    return genre_cohort
+
+
+def backfill_genre_cohort(
+    conn: sqlite3.Connection,
+    corpus: Optional[str] = None,
+) -> int:
+    """Re-derive genre_cohort for songs where it is NULL. Returns updated rows.
+
+    Only NULL rows are touched — existing assignments are deliberate
+    (several were ear-confirmed) and are never overwritten here.
+    """
+    sql = (
+        "SELECT id, primary_artist, role, target_artist FROM songs "
+        "WHERE genre_cohort IS NULL"
+    )
+    params: Tuple = ()
+    if corpus:
+        sql += " AND corpus = ?"
+        params = (corpus,)
+    rows = conn.execute(sql, params).fetchall()
+    updated = 0
+    for song_id, primary_artist, role, target_artist in rows:
+        cohort = derive_genre_cohort(primary_artist or "", role or "solo", target_artist or "")
+        if cohort:
+            conn.execute(
+                "UPDATE songs SET genre_cohort = ? WHERE id = ?",
+                (cohort, song_id),
+            )
+            updated += 1
+    return updated
 
 # Section type mapping (English → Serbian canonical, plus Serbian canonicals).
 # All keys are ASCII-folded (no diacritics) so both diacritic and non-diacritic
@@ -432,6 +499,8 @@ _ASCII_FOLD_MAP = str.maketrans({
     "ö": "oe", "Ö": "oe",
     "ü": "ue", "Ü": "ue",
     "ß": "ss", "ẞ": "ss",
+    # stylised Latin (lyrics-sr): CØBY-style ø used by ex-YU artists
+    "ø": "o", "Ø": "o",
 })
 
 
@@ -1007,26 +1076,7 @@ def _insert_song(
     language = song_data.get("language", "")
 
     role, target_artist = _derive_role_and_target(category)
-    genre_cohort = COHORT_MAP.get(primary_artist)
-    if genre_cohort is None and role == "solo":
-        # Fallback 1: check if any known artist name appears in primary_artist
-        # (handles duo/trio categories like "Jala Brat & Buba Corelli").
-        # Keys of <=4 chars (LX, Sa4, Fox, Zoi, Zera) require a word
-        # boundary — a bare substring would tag 'Fleet Foxes' as 'Fox'.
-        pa = primary_artist.lower()
-        for known_artist, cohort in COHORT_MAP.items():
-            ka = known_artist.lower()
-            if len(ka) <= 4:
-                if re.search(rf"(?<!\w){re.escape(ka)}(?!\w)", pa):
-                    genre_cohort = cohort
-                    break
-            elif ka in pa:
-                genre_cohort = cohort
-                break
-    if genre_cohort is None and role == "solo":
-        # Fallback 2: check target_artist (folder name) against folder cohort map
-        # (handles Genius listing a different primary_artist, e.g. "THCF" in jala-solo)
-        genre_cohort = _FOLDER_COHORT_MAP.get(target_artist.lower())
+    genre_cohort = derive_genre_cohort(primary_artist, role, target_artist)
 
     # ── License block (SPEC §3.3): index entry → song JSON → corpus defaults ──
     defaults = license_defaults or {}
@@ -1296,23 +1346,23 @@ def build_database(
     create_artist_views(conn)
 
     # Populate line_rhymes table (per-song, same id scope as metrics).
-    # language='de' rows are skipped — the Serbian pipeline would emit junk
-    # skeletons. A German phonemizer (phonemizer-de) is a separate lane.
-    # Exact 'de' match only: NULL/'' language rows are unaffected.
+    # language='de'/'en' rows are skipped — the Serbian vowel-skeleton
+    # pipeline would emit junk skeletons on non-Serbian text. NULL/''
+    # language rows are unaffected (legacy genius-pro path).
     from toolshop.rhyme_miner import populate_rhymes
     if metric_ids:
         _ph = ",".join("?" for _ in metric_ids)
-        de_ids = {
+        non_sr_ids = {
             r[0] for r in conn.execute(
-                f"SELECT id FROM songs WHERE language = 'de' AND id IN ({_ph})",
+                f"SELECT id FROM songs WHERE language IN ('de', 'en') AND id IN ({_ph})",
                 metric_ids,
             )
         }
     else:
-        de_ids = set()
+        non_sr_ids = set()
     rhyme_count = 0
     for song_id in metric_ids:
-        if song_id in de_ids:
+        if song_id in non_sr_ids:
             continue
         rhyme_count += populate_rhymes(conn, song_id)
     print(f"  Rhymes computed: {rhyme_count} rhyme rows across {len(metric_ids)} songs")
@@ -1341,3 +1391,16 @@ def build_database(
     print(f"  Skipped: {songs_skipped}")
 
     return summary
+
+
+def annotate_reminder(db_path: Any) -> str:
+    """Reminder printed after a (re)build: a rebuilt lyrics.db drops the
+    CLASSLA token layer MAirina reads, so its finder stays offline until the
+    scoped annotate re-covers it (MAirina's gate: 90% of scoped lines)."""
+    return (
+        "NOTE: MAirina's finder stays OFFLINE until the scoped annotate "
+        "finishes. Re-cover it with:\n"
+        f'  "{sys.executable}" -m toolshop.cli '
+        f'lyrics annotate --db "{db_path}" --resume '
+        "--corpus genius-pro --corpus lrclib --language sr"
+    )

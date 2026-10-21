@@ -10,11 +10,15 @@ Resumable: skips lines already present in ``tokens``.
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import sqlite3
 import sys
-from typing import Any, Dict, List, Optional
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, NoReturn, Optional
 
 from toolshop.lyricsdb import DEFAULT_DB_PATH
 
@@ -152,19 +156,122 @@ def _get_annotated_line_ids(conn: sqlite3.Connection) -> set[int]:
     return {r[0] for r in rows}
 
 
+def _write_status(path: Optional[Path], payload: Dict[str, Any]) -> None:
+    """Flush progress JSON (best-effort — status is an aid, not the contract)."""
+    if not path:
+        return
+    try:
+        Path(path).write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+    except OSError:
+        pass
+
+
+# Bounded commit retry against transient writer contention — a concurrent
+# rimer rebuild killed SR-3 on 2026-10-13 with "database is locked" at
+# annotate_lines' per-batch commit (and the status kept saying "running").
+_COMMIT_RETRY_BACKOFF_S = (5, 15, 45)
+
+
+def _commit_with_retry(conn: sqlite3.Connection) -> None:
+    """``conn.commit()`` with bounded retries on 'database is locked'.
+
+    One immediate attempt plus three delayed retries.  A non-lock
+    ``OperationalError``, or a lock that survives the last retry, propagates.
+    """
+    for attempt, delay in enumerate((0, *_COMMIT_RETRY_BACKOFF_S)):
+        if delay:
+            time.sleep(delay)
+        try:
+            conn.commit()
+            return
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc).lower() or attempt == len(_COMMIT_RETRY_BACKOFF_S):
+                raise
+
+
+def _mairina_gate(
+    conn: sqlite3.Connection,
+    corpora: Optional[List[str]],
+    languages: Optional[List[str]],
+) -> Optional[Dict[str, Any]]:
+    """MAirina's coverage gate, per scoped corpus (``mairina/corpus.py
+    check_annotated`` semantics).
+
+    Denominator: lines with ``length(trim(coalesce(text_norm,''))) > 0`` on
+    songs whose ``corpus`` and ``language`` are in scope (NULL-language rows
+    never match).  Numerator: those lines with ``EXISTS`` a token row.
+    ``pass`` = every scoped corpus at >= 90%.  ``None`` when unscoped.
+    """
+    if not corpora or not languages:
+        return None
+    lang_ph = ",".join("?" for _ in languages)
+    base = (
+        "FROM lines l JOIN sections sec ON sec.id = l.section_id "
+        "JOIN songs s ON s.id = sec.song_id "
+        "WHERE length(trim(coalesce(l.text_norm, ''))) > 0 "
+        "AND s.corpus = ? AND s.language IN (" + lang_ph + ")"
+    )
+    gate: Dict[str, Any] = {}
+    passed = True
+    for corpus in corpora:
+        params: List[Any] = [corpus, *languages]
+        non_empty = conn.execute(f"SELECT COUNT(*) {base}", params).fetchone()[0]
+        covered = conn.execute(
+            f"SELECT COUNT(*) {base} "
+            "AND EXISTS (SELECT 1 FROM tokens t WHERE t.line_id = l.id)",
+            params,
+        ).fetchone()[0]
+        pct = round(covered / non_empty * 100, 1) if non_empty else 0.0
+        gate[corpus] = {"non_empty": non_empty, "annotated": covered, "pct": pct}
+        if pct < 90.0:
+            passed = False
+    gate["pass"] = passed
+    return gate
+
+
+def _refuse(
+    status_path: Optional[Path],
+    corpora: Optional[List[str]],
+    languages: Optional[List[str]],
+    err_type: str,
+    msg: str,
+) -> NoReturn:
+    """Record an honest refused-to-start status and exit non-zero."""
+    _write_status(status_path, {
+        "finished": False,
+        "updated": datetime.now().isoformat(),
+        "corpora": corpora,
+        "languages": languages,
+        "error": f"{err_type}: {msg}",
+    })
+    print(f"  Annotate refused: {err_type}: {msg}")
+    raise SystemExit(1)
+
+
 def annotate_lines(
     conn: sqlite3.Connection,
     db_path: Optional[Any] = None,
     resume: bool = True,
     limit: Optional[int] = None,
+    corpora: Optional[List[str]] = None,
+    languages: Optional[List[str]] = None,
+    status_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """Run CLASSLA annotation over all lines, populating tokens + entities.
+    """Run CLASSLA annotation over lines, populating tokens + entities.
 
     Args:
         conn: SQLite connection to lyrics.db.
         db_path: Unused (kept for API compat). Conn is used directly.
         resume: If True, skip lines already annotated.
         limit: If set, only annotate this many new lines.
+        corpora: If set, only annotate lines whose song belongs to one of
+            these corpus tags (e.g. ``["genius-pro", "lrclib"]``).
+        languages: If set, only annotate lines whose song carries one of
+            these ``songs.language`` tags (e.g. ``["sr"]`` — NULL-language
+            rows never match and are excluded).
+        status_path: If set, flush progress JSON here at each commit batch.
 
     Returns:
         Summary dict with counts.
@@ -179,14 +286,25 @@ def annotate_lines(
     if resume:
         already_done = _get_annotated_line_ids(conn)
 
-    # Fetch all lines with their section/song context
-    rows = conn.execute(
-        """SELECT l.id, l.text_raw, l.section_id, s.song_id
-           FROM lines l
-           JOIN sections s ON l.section_id = s.id
-           WHERE l.text_raw IS NOT NULL AND l.text_raw != ''
-           ORDER BY l.id"""
-    ).fetchall()
+    # Fetch lines with their section/song context (optionally corpus-scoped)
+    sql = (
+        "SELECT l.id, l.text_raw, l.section_id, s.song_id "
+        "FROM lines l "
+        "JOIN sections s ON l.section_id = s.id "
+        "JOIN songs sg ON sg.id = s.song_id "
+        "WHERE l.text_raw IS NOT NULL AND l.text_raw != ''"
+    )
+    params: List[Any] = []
+    if corpora:
+        ph = ",".join("?" for _ in corpora)
+        sql += f" AND sg.corpus IN ({ph})"
+        params.extend(corpora)
+    if languages:
+        ph = ",".join("?" for _ in languages)
+        sql += f" AND sg.language IN ({ph})"
+        params.extend(languages)
+    sql += " ORDER BY l.id"
+    rows = conn.execute(sql, params).fetchall()
 
     to_annotate = [
         (r[0], r[1], r[2], r[3]) for r in rows if r[0] not in already_done
@@ -205,6 +323,42 @@ def annotate_lines(
     tokens_inserted = 0
     entities_inserted = 0
     lines_done = 0
+    lines_committed = 0
+
+    def _commit_or_fail() -> None:
+        """Bounded-retry commit; on final failure roll the pending batch back,
+        flush an honest ``finished: false`` status (``lines_done`` = lines
+        actually committed, so ``--resume`` truthfully continues), re-raise."""
+        nonlocal lines_committed
+        try:
+            _commit_with_retry(conn)
+        except sqlite3.OperationalError as exc:
+            conn.rollback()
+            _write_status(status_path, {
+                "finished": False,
+                "updated": datetime.now().isoformat(),
+                "failed_at": datetime.now().isoformat(),
+                "corpora": corpora,
+                "languages": languages,
+                "error": f"{type(exc).__name__}: {exc}",
+                "lines_done": lines_committed,
+                "lines_total": total,
+                "tokens_inserted": tokens_inserted,
+                "entities_inserted": entities_inserted,
+            })
+            raise
+        lines_committed = lines_done
+
+    _write_status(status_path, {
+        "finished": False,
+        "updated": datetime.now().isoformat(),
+        "corpora": corpora,
+        "languages": languages,
+        "lines_done": 0,
+        "lines_total": total,
+        "tokens_inserted": 0,
+        "entities_inserted": 0,
+    })
 
     for line_id, text_raw, section_id, song_id in to_annotate:
         source_script = _classify_source_script(text_raw)
@@ -240,11 +394,34 @@ def annotate_lines(
 
         lines_done += 1
         if lines_done % 500 == 0:
-            conn.commit()
+            _commit_or_fail()
             print(f"  Progress: {lines_done}/{total} lines ({tokens_inserted} tokens, {entities_inserted} entities)")
+            _write_status(status_path, {
+                "finished": False,
+                "updated": datetime.now().isoformat(),
+                "corpora": corpora,
+                "languages": languages,
+                "lines_done": lines_done,
+                "lines_total": total,
+                "tokens_inserted": tokens_inserted,
+                "entities_inserted": entities_inserted,
+            })
 
-    conn.commit()
+    _commit_or_fail()
+    now = datetime.now().isoformat()
     print(f"  Done: {lines_done} lines, {tokens_inserted} tokens, {entities_inserted} entities")
+    _write_status(status_path, {
+        "finished": True,
+        "updated": now,
+        "finished_at": now,
+        "corpora": corpora,
+        "languages": languages,
+        "lines_done": lines_done,
+        "lines_total": total,
+        "tokens_inserted": tokens_inserted,
+        "entities_inserted": entities_inserted,
+        "mairina_gate": _mairina_gate(conn, corpora, languages),
+    })
     return {
         "lines_annotated": lines_done,
         "tokens_inserted": tokens_inserted,
@@ -292,11 +469,32 @@ def coverage_summary(conn: sqlite3.Connection) -> Dict[str, Any]:
     for etype, ecount in ent_type_rows:
         print(f"    {etype}: {ecount}")
 
+    # Per-corpus coverage (line-level; the MAirina gate reads this)
+    corpus_rows = conn.execute(
+        """SELECT sg.corpus,
+                  count(DISTINCT l.id)  AS total,
+                  count(DISTINCT CASE WHEN t.line_id IS NOT NULL THEN l.id END) AS annotated
+           FROM lines l
+           JOIN sections s ON l.section_id = s.id
+           JOIN songs sg ON sg.id = s.song_id
+           LEFT JOIN tokens t ON t.line_id = l.id
+           WHERE l.text_raw IS NOT NULL AND l.text_raw != ''
+           GROUP BY sg.corpus ORDER BY sg.corpus"""
+    ).fetchall()
+    per_corpus = {}
+    if corpus_rows:
+        print("  Per-corpus coverage:")
+        for corpus, total_c, annotated_c in corpus_rows:
+            pct_c = (annotated_c / total_c * 100) if total_c else 0
+            per_corpus[corpus] = {"total": total_c, "annotated": annotated_c, "pct": round(pct_c, 1)}
+            print(f"    {corpus:<20} {annotated_c:>8}/{total_c:<8} ({pct_c:.1f}%)")
+
     return {
         "total_lines": total_lines,
         "annotated_lines": annotated_lines,
         "coverage_pct": pct,
         "by_script": script_stats,
+        "by_corpus": per_corpus,
         "oov_count": oov_count,
         "oov_pct": oov_pct,
         "entity_count": ent_count,
@@ -315,6 +513,10 @@ def run_annotation(
     resume: bool = True,
     limit: Optional[int] = None,
     fresh: bool = False,
+    corpora: Optional[List[str]] = None,
+    languages: Optional[List[str]] = None,
+    status_path: Optional[Any] = None,
+    busy_timeout_ms: int = 60000,
 ) -> Dict[str, Any]:
     """CLI entry point: run CLASSLA annotation on lyrics.db."""
     from pathlib import Path
@@ -328,8 +530,34 @@ def run_annotation(
         print("Run 'toolshop lyrics build-db' first.")
         return {}
 
+    if status_path is None:
+        status_path = db_path.parent / "_annotate_status.json"
+    else:
+        status_path = Path(status_path)
+
     conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute(f"PRAGMA busy_timeout={int(busy_timeout_ms)}")
+
+    # Write preflight — BEFORE loading CLASSLA, which costs ~25 s and would
+    # hide a lock failure behind the model load (SR-3, 2026-10-13).  A
+    # leftover -journal means a rollback-mode writer is mid-flight or died;
+    # the BEGIN IMMEDIATE probe then proves we can actually take the write
+    # lock within busy_timeout (covers WAL writers; a lingering -wal file is
+    # not itself a writer signal).  On refusal the status JSON carries the
+    # error so a dead run can never read as "still running" again.
+    if Path(str(db_path) + "-journal").exists():
+        conn.close()
+        _refuse(status_path, corpora, languages, "DatabaseBusy",
+                f"{db_path.name}-journal exists — a writer is mid-transaction "
+                "or crashed; retry when it clears")
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("BEGIN IMMEDIATE")
+    except sqlite3.Error as exc:
+        conn.rollback()
+        conn.close()
+        _refuse(status_path, corpora, languages, type(exc).__name__, str(exc))
+    conn.rollback()
     conn.execute("PRAGMA foreign_keys=ON")
 
     if fresh:
@@ -337,7 +565,15 @@ def run_annotation(
         _wipe_l3_tables(conn)
 
     print(f"  Database: {db_path}")
-    summary = annotate_lines(conn, db_path, resume=resume, limit=limit)
+    if corpora:
+        print(f"  Corpus scope: {', '.join(corpora)}")
+    if languages:
+        print(f"  Language scope: {', '.join(languages)}")
+    print(f"  Status file: {status_path}")
+    summary = annotate_lines(
+        conn, db_path, resume=resume, limit=limit,
+        corpora=corpora, languages=languages, status_path=status_path,
+    )
     coverage = coverage_summary(conn)
 
     conn.close()

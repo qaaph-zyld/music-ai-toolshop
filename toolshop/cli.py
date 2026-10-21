@@ -1063,6 +1063,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Wipe existing annotation tables before starting",
     )
+    lyrics_annotate_parser.add_argument(
+        "--corpus",
+        action="append",
+        default=None,
+        help="Restrict annotation to this corpus tag; repeatable (default: all corpora)",
+    )
+    lyrics_annotate_parser.add_argument(
+        "--language",
+        action="append",
+        default=None,
+        help="Restrict annotation to this songs.language tag; repeatable (default: any language, incl. NULL)",
+    )
+    lyrics_annotate_parser.add_argument(
+        "--status",
+        type=Path,
+        default=None,
+        help="Progress JSON path (default: <db-dir>/_annotate_status.json)",
+    )
 
     # lyrics lexicon [--cohort drill_trap|pop] [--top N] [--json] [--db PATH]
     lyrics_lexicon_parser = lyrics_subparsers.add_parser(
@@ -1428,6 +1446,14 @@ def build_parser() -> argparse.ArgumentParser:
     lyrics_build_rimer_parser.add_argument(
         "--db", type=Path, default=None,
         help="Database path (default: <repo>/data/toolshop/lyrics/lyrics.db)",
+    )
+    lyrics_build_rimer_parser.add_argument(
+        "--corpus", action="append", default=None,
+        help="Restrict pairs to this corpus tag; repeatable (default: all corpora)",
+    )
+    lyrics_build_rimer_parser.add_argument(
+        "--language", action="append", default=None,
+        help="Restrict pairs to this songs.language tag; repeatable (default: any language)",
     )
 
     # lyrics rime --word WORD [--cohort drill_trap|pop] [--top-k INT] [--db PATH] [--json]
@@ -2261,7 +2287,9 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 print(f"\n  Report saved to: {args.report}")
 
         elif args.lyrics_command == "build-db":
-            from toolshop.lyricsdb import build_database, corpus_dir_for, DEFAULT_DB_PATH
+            from toolshop.lyricsdb import (
+                build_database, corpus_dir_for, DEFAULT_DB_PATH, annotate_reminder,
+            )
             corpus = args.corpus or "genius-pro"
             lyrics_root = Path(__file__).resolve().parent.parent / "data" / "toolshop" / "lyrics"
             if args.root:
@@ -2298,6 +2326,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                   f"Lines: {summary['lines_ingested']}, "
                   f"Duplicates dropped: {summary['duplicates_dropped']}, "
                   f"Already present: {summary['already_present']}")
+            print(annotate_reminder(db_path))
 
         elif args.lyrics_command == "stats":
             import json as json_mod
@@ -2481,6 +2510,9 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 resume=args.resume,
                 limit=args.limit,
                 fresh=args.fresh,
+                corpora=args.corpus,
+                languages=args.language,
+                status_path=args.status,
             )
 
         elif args.lyrics_command == "lexicon":
@@ -2862,7 +2894,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             from toolshop.lyricsdb import DEFAULT_DB_PATH
             from toolshop.rimer_db import build_rimer_db
             db_path = args.db or DEFAULT_DB_PATH
-            stats = build_rimer_db(db_path)
+            stats = build_rimer_db(db_path, corpora=args.corpus, languages=args.language)
             print(f"Rimer DB built: {stats['total_pairs']} pairs, "
                   f"{stats['unique_skeletons']} unique skeletons, "
                   f"{stats['drill_pairs']} drill, {stats['pop_pairs']} pop")

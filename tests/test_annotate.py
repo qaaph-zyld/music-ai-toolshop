@@ -117,7 +117,7 @@ def test_coverage_summary(tmp_path):
     conn.executescript("""
         CREATE TABLE lines (id INTEGER PRIMARY KEY, text_raw TEXT, text_norm TEXT, section_id INTEGER, word_count INTEGER, syllable_count INTEGER);
         CREATE TABLE sections (id INTEGER PRIMARY KEY, song_id INTEGER, type TEXT, ordinal INTEGER);
-        CREATE TABLE songs (id INTEGER PRIMARY KEY, title TEXT, primary_artist TEXT);
+        CREATE TABLE songs (id INTEGER PRIMARY KEY, title TEXT, primary_artist TEXT, corpus TEXT);
         CREATE TABLE tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, line_id INTEGER, ordinal INTEGER, form TEXT, lemma TEXT, upos TEXT, feats TEXT, is_oov INTEGER DEFAULT 0, source_script TEXT);
         CREATE TABLE entities (id INTEGER PRIMARY KEY AUTOINCREMENT, song_id INTEGER, section_id INTEGER, line_id INTEGER, text TEXT, ner_type TEXT);
         INSERT INTO lines VALUES (1, 'test', 'test', 1, 1, 1);

@@ -189,6 +189,18 @@ def test_de_rows_produce_no_line_rhymes(tmp_path):
     assert rows[0][0] == 1
 
 
+def test_en_rows_produce_no_line_rhymes(tmp_path):
+    """lyrics-sr: 'en'-tagged songs skip the Serbian rhyme miner too."""
+    root = tmp_path / "lrclib"
+    _write(root, "x-solo", "x.json",
+           _song("Song EN", "Some Intl", ["go away today",
+                                          "the night away"],
+                 language="en"))
+    db = tmp_path / "t.db"
+    build_database(root=root, db_path=db, corpus="lrclib")
+    assert _rhyme_rows_for_corpus(db, "lrclib") == 0
+
+
 def test_serbian_rows_still_get_line_rhymes(tmp_path):
     """Control: identical lyric content with language=None does get rhymes."""
     root = tmp_path / "genius"
